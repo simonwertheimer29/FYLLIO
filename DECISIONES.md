@@ -3522,3 +3522,22 @@ toda la agenda (lib/agenda/fechas, qa). Acabado tipo Google Calendar: rejilla de
 (estructura), bloques con borde izquierdo de estado y hora visible sin ir al eje, cabeceras de
 Semana con número de día y hoy en círculo de acento, rayado fuera-de-horario más sutil, Lista con
 el dato libre en COLOR DE ACENTO y aire. E2E 9/9 con capturas A MITAD de cada gesto como evidencia.
+
+## 2026-08-31 — Agenda G2.7: la causa de las «tres veces» tenía dos capas, y el editor se siente calendario
+La primera capa era de ENTORNO: un `next start -p 3100` llevaba 31 días corriendo mientras cada
+build le reescribía `.next` debajo — Next no soporta eso; servía 500s y chunks de julio. Todo lo
+revisado «en pantalla» pasaba por ahí. Reiniciado con el build actual (y `CRON_SECRET` añadido a
+.env.local: el chequeo de entorno de agosto impedía arrancarlo — por eso nunca se reinició solo).
+La segunda capa era MÍA y explica el «funciona en el E2E y no en pantalla»: los handlers de
+pointermove se enganchaban en el re-render posterior al pointerdown — un arrastre RÁPIDO (un golpe
+de ratón real, o un mouse.move único) terminaba antes del re-render y no veía nada; mis E2E movían
+el ratón despacio y por eso mentían. Arreglo de raíz: gestos IMPERATIVOS (listeners de window
+registrados en el pointerdown, estado en ref, React solo pinta) y el E2E pasa a arrastrar con UN
+move brusco — si vuelve la carrera, revienta. Con esa maquinaria: estirar bordes (duración
+explícita, PATCH duracionMin), dibujar-para-crear con el tamaño arrastrado (clic suelto = 30 min),
+y el EDITOR FLOTANTE que reemplaza entero al modal: sin oscurecer, lo ya elegido con el ratón como
+línea de texto, solo paciente y tipo en primer plano, y el bloque borrador vivo en la rejilla
+(crece al elegir tipo, se arrastra y estira antes de guardar). Además: eje que SIEMPRE incluye el
+ahora (la línea roja no puede «no aparecer»), bloques sólidos con contraste real, aviso único
+arriba (fuera el «según Fyllio» repetido), mini calendario del mes. E2E 14/14 CONTRA EL BUILD DE
+PRODUCCIÓN en 3100. Subir este acabado al skill visual: pendiente del OK de Simon tras verlo.

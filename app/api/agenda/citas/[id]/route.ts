@@ -87,17 +87,20 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
           clinicaNueva = doctor.clinica_id ?? null;
         }
 
-        // tratamientoId explícito manda; si no, el de la cita — y la duración
-        // se RECALCULA del catálogo (mover no hereda un fin desfasado).
+        // tratamientoId explícito manda; si no, el de la cita. La duración:
+        // la EXPLÍCITA (bloque estirado en la rejilla, G2.7) gana; si no, la
+        // del catálogo se recalcula (mover no hereda un fin desfasado).
         const tratamientoId =
           typeof body.tratamientoId === "string"
             ? (body.tratamientoId || null)
             : (cita.tratamiento_id ?? null);
-        let fin: Date | null = null;
+        const duracionMin = Number.isInteger(body.duracionMin) && body.duracionMin >= 5 && body.duracionMin <= 480
+          ? (body.duracionMin as number) : null;
+        let fin: Date | null = duracionMin ? new Date(inicio.getTime() + duracionMin * 60000) : null;
         if (tratamientoId) {
           const t = await trx.selectFrom("tratamientos").select(["id", "duracion_min"]).where("id", "=", tratamientoId).executeTakeFirst();
           if (!t) return NextResponse.json({ error: "Tratamiento desconocido." }, { status: 422 });
-          if (t.duracion_min != null && t.duracion_min > 0) fin = new Date(inicio.getTime() + t.duracion_min * 60000);
+          if (!fin && t.duracion_min != null && t.duracion_min > 0) fin = new Date(inicio.getTime() + t.duracion_min * 60000);
         }
 
         await actualizarUna(

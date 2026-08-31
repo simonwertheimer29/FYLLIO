@@ -28,6 +28,10 @@ export const POST = withAuth(async (session, req) => {
   const hora = typeof body.hora === "string" ? body.hora : "";
   const doctorId = typeof body.doctorId === "string" && body.doctorId ? body.doctorId : null;
   const tratamientoId = typeof body.tratamientoId === "string" && body.tratamientoId ? body.tratamientoId : null;
+  // G2.7 — duración EXPLÍCITA (el bloque dibujado/estirado en la rejilla):
+  // manda sobre la del catálogo.
+  const duracionMin = Number.isInteger(body.duracionMin) && body.duracionMin >= 5 && body.duracionMin <= 480
+    ? (body.duracionMin as number) : null;
   const pacienteId = typeof body.pacienteId === "string" && body.pacienteId ? body.pacienteId : null;
   const notas = typeof body.notas === "string" && body.notas.trim() ? body.notas.trim().slice(0, 500) : null;
 
@@ -54,11 +58,11 @@ export const POST = withAuth(async (session, req) => {
         }
         // Duración REAL del catálogo — sin fallback (dictado): sin
         // tratamiento, hora_final null y la rejilla dirá que no afirma huecos.
-        let fin: Date | null = null;
+        let fin: Date | null = duracionMin ? new Date(inicio.getTime() + duracionMin * 60000) : null;
         if (tratamientoId) {
           const t = await trx.selectFrom("tratamientos").select(["id", "duracion_min"]).where("id", "=", tratamientoId).executeTakeFirst();
           if (!t) return NextResponse.json({ error: "Tratamiento desconocido." }, { status: 422 });
-          if (t.duracion_min != null && t.duracion_min > 0) fin = new Date(inicio.getTime() + t.duracion_min * 60000);
+          if (!fin && t.duracion_min != null && t.duracion_min > 0) fin = new Date(inicio.getTime() + t.duracion_min * 60000);
         }
         const r = await trx
           .insertInto("citas")

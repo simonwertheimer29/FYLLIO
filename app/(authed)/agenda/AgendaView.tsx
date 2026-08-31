@@ -19,7 +19,7 @@
 // la lista «cerradas en Fyllio, pendientes de pasar» (no hay escritura hacia
 // el software de la clínica — el traspaso es manual siempre).
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
@@ -28,8 +28,9 @@ import { hoyISO, sumaDias, horaClinica } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
 import { fechaCorta, fechaLarga, diaMes, diaMesCorto } from "../../lib/agenda/fechas";
-import { CitaModal, type CitaEnEdicion } from "./CitaModal";
 import { CitaPanel } from "./CitaPanel";
+import { EditorCitaFlotante, type BorradorCita } from "./EditorCitaFlotante";
+import { MiniCalendario } from "./MiniCalendario";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   CalendarDays,
@@ -102,8 +103,8 @@ export function AgendaView() {
   const [docMovil, setDocMovil] = useState("");
   // Semana: el doctor elegido EN la vista (local — no pisa el filtro global).
   const [docSemana, setDocSemana] = useState("");
-  // G2.4 — crear/mover desde la rejilla.
-  const [modalCita, setModalCita] = useState<null | { modo: "crear"; prefill?: { fecha: string; hora?: string; doctorId?: string } } | { modo: "mover"; cita: CitaEnEdicion }>(null);
+  // G2.7 — el BORRADOR: el bloque vivo de la rejilla + el editor flotante.
+  const [borrador, setBorrador] = useState<BorradorCita | null>(null);
 
   const cargar = useCallback(async (semanaDesde: string) => {
     setCargando(true);
@@ -144,32 +145,29 @@ export function AgendaView() {
   // G3-panel — clic en una cita: su estado + la ficha del caso.
   const [panelCita, setPanelCita] = useState<null | { cita: CitaDia; carril: { fecha: string; staffId: string } }>(null);
 
-  // G2.5 — arrastre terminado: CONFIRMAR antes de aplicar (dictado).
-  const [confirmMover, setConfirmMover] = useState<null | {
-    cita: CitaDia; origen: { fecha: string; staffId: string }; destino: DestinoMovimiento; aplicando: boolean;
+  // G2.5/G2.7 — gesto terminado sobre una cita EXISTENTE (mover o estirar):
+  // CONFIRMAR antes de aplicar, con el cambio legible.
+  const [confirmar, setConfirmar] = useState<null | {
+    titulo: string; descripcion: string; citaId: string; body: Record<string, unknown>; aplicando: boolean;
   }>(null);
 
-  const aplicarMovimiento = useCallback(async () => {
-    if (!confirmMover) return;
-    setConfirmMover((c) => c && { ...c, aplicando: true });
+  const aplicarConfirmacion = useCallback(async () => {
+    if (!confirmar) return;
+    setConfirmar((c) => c && { ...c, aplicando: true });
     try {
-      await cargarJSON(`/api/agenda/citas/${confirmMover.cita.id}`, {
+      await cargarJSON(`/api/agenda/citas/${confirmar.citaId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fecha: confirmMover.destino.fecha,
-          hora: deMin(confirmMover.destino.horaMin),
-          doctorId: confirmMover.destino.staffId,
-        }),
+        body: JSON.stringify(confirmar.body),
       });
-      toast.success("Cita movida. Recuerda cambiarla también en tu software.");
-      setConfirmMover(null);
+      toast.success("Guardado. Recuerda cambiarla también en tu software.");
+      setConfirmar(null);
       await cargar(desde);
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : "No se pudo mover.");
-      setConfirmMover(null);
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo guardar.");
+      setConfirmar(null);
     }
-  }, [confirmMover, cargar, desde]);
+  }, [confirmar, cargar, desde]);
 
   // G3-panel — el clic abre el PANEL (estado + ficha); mover vive dentro y
   // en el arrastre. Se abre también para citas importadas: su estado y su
@@ -178,18 +176,55 @@ export function AgendaView() {
     setPanelCita({ cita: c, carril });
   }, []);
 
-  // G2.4 — mover desde el panel (las importadas ni tienen el botón).
+  // G2.7 — mover desde el panel: el editor flotante con el borrador de ESA
+  // cita (el bloque se mueve/estira en vivo en la rejilla).
   const abrirMover = useCallback((c: CitaDia, carril: { fecha: string; staffId: string }) => {
-    setModalCita({
-      modo: "mover",
-      cita: {
-        id: c.id,
-        nombre: c.nombre,
-        fecha: carril.fecha,
-        hora: deMin(c.inicioMin),
-        doctorId: carril.staffId,
-        tratamientoId: c.tratamientoId,
-      },
+    setBorrador({
+      modo: "editar",
+      citaId: c.id,
+      nombre: c.nombre ?? "",
+      pacienteId: null,
+      tipoCitaId: c.tratamientoId ?? "",
+      fecha: carril.fecha,
+      staffId: carril.staffId,
+      inicioMin: c.inicioMin,
+      duracionMin: Math.max(15, (c.finMin ?? c.inicioMin + 30) - c.inicioMin),
+    });
+  }, []);
+
+  // G2.7 — crear: desde el dibujo sobre la rejilla (con su duración) o desde
+  // el botón (30 min a las 10:00 del día activo, primer doctor visible).
+  const crearBorrador = useCallback((carril: { fecha: string; staffId: string }, inicioMin: number, duracionMin: number) => {
+    setBorrador({
+      modo: "crear",
+      nombre: "",
+      pacienteId: null,
+      tipoCitaId: "",
+      fecha: carril.fecha,
+      staffId: carril.staffId,
+      inicioMin,
+      duracionMin,
+    });
+  }, []);
+
+  const pedirMover = useCallback((c: CitaDia, origen: { fecha: string; staffId: string }, destino: DestinoMovimiento) => {
+    const doc = data?.doctores.find((d) => d.id === destino.staffId)?.nombre;
+    setConfirmar({
+      titulo: "¿Mover la cita?",
+      descripcion: `${c.nombre ?? "La cita"}: ${diaMesCorto(origen.fecha)} · ${deMin(c.inicioMin)} → ${diaMesCorto(destino.fecha)} · ${deMin(destino.horaMin)}${destino.staffId !== origen.staffId ? ` con ${doc ?? "otro doctor"}` : ""}. Recuerda cambiarla también en tu software clínico.`,
+      citaId: c.id,
+      body: { fecha: destino.fecha, hora: deMin(destino.horaMin), doctorId: destino.staffId },
+      aplicando: false,
+    });
+  }, [data]);
+
+  const pedirResize = useCallback((c: CitaDia, carril: { fecha: string; staffId: string }, inicioMin: number, duracionMin: number) => {
+    setConfirmar({
+      titulo: "¿Cambiar la duración?",
+      descripcion: `${c.nombre ?? "La cita"}: pasa a ${deMin(inicioMin)}–${deMin(inicioMin + duracionMin)} (${duracionMin} min). Recuerda cambiarla también en tu software clínico.`,
+      citaId: c.id,
+      body: { fecha: carril.fecha, hora: deMin(inicioMin), duracionMin },
+      aplicando: false,
     });
   }, []);
 
@@ -256,7 +291,7 @@ export function AgendaView() {
         <div className="flex items-center gap-1.5 rounded-xl bg-[var(--color-accent-soft)] px-3 py-1.5">
           <Info size={13} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-accent)]" aria-hidden />
           <p className="text-[11.5px] text-[var(--color-foreground)]">
-            Lo que tenemos aquí — tu software clínico puede tener más.
+            Las horas libres son orientativas: dependen del nivel de integración con la agenda real de tu clínica.
           </p>
         </div>
       </div>
@@ -340,7 +375,11 @@ export function AgendaView() {
         </select>
         <button
           type="button"
-          onClick={() => setModalCita({ modo: "crear" })}
+          onClick={() => {
+            const f = vista === "dia" ? fecha : hoy;
+            const doc = visibles[0];
+            if (doc) crearBorrador({ fecha: f, staffId: doc.id }, 10 * 60, 30);
+          }}
           disabled={!data}
           className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
         >
@@ -354,6 +393,12 @@ export function AgendaView() {
         )}
       </div>
 
+      <div className="flex items-start gap-4">
+        {/* Mini calendario del mes (G2.7): saltar a cualquier día, como Google */}
+        <aside className="hidden xl:block">
+          <MiniCalendario seleccionada={vista === "dia" ? fecha : desde} hoy={hoy} onDia={(f) => irADia(f)} />
+        </aside>
+        <div className="min-w-0 flex-1">
       {!data && cargando ? (
         <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />
       ) : data ? (
@@ -367,9 +412,11 @@ export function AgendaView() {
               ejeBase={ejeBase}
               hoy={hoy}
               onCita={abrirPanel}
-              onCrearEnHueco={(carril, horaMin) =>
-                setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
-              onMoverSolicitado={(c, origen, destino) => setConfirmMover({ cita: c, origen, destino, aplicando: false })}
+              borrador={borrador}
+              onBorradorCambia={(patch) => setBorrador((b) => b && { ...b, ...patch })}
+              onCrear={crearBorrador}
+              onMoverSolicitado={pedirMover}
+              onResizeSolicitado={pedirResize}
             />
           ) : vista === "semana" ? (
             <VistaSemana
@@ -380,9 +427,11 @@ export function AgendaView() {
               onDocSemana={setDocSemana}
               ejeBase={ejeBase}
               onCita={abrirPanel}
-              onCrearEnHueco={(carril, horaMin) =>
-                setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
-              onMoverSolicitado={(c, origen, destino) => setConfirmMover({ cita: c, origen, destino, aplicando: false })}
+              borrador={borrador}
+              onBorradorCambia={(patch) => setBorrador((b) => b && { ...b, ...patch })}
+              onCrear={crearBorrador}
+              onMoverSolicitado={pedirMover}
+              onResizeSolicitado={pedirResize}
             />
           ) : (
             <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirPanel} />
@@ -396,6 +445,8 @@ export function AgendaView() {
           <Link href="/ajustes/agenda" className="font-semibold underline">configurar en Ajustes</Link>.
         </p>
       )}
+        </div>
+      </div>
 
       {/* Cerradas en Fyllio, pendientes de pasar — constante del producto en
           TODOS los niveles: el traspaso al software es manual siempre. */}
@@ -476,37 +527,29 @@ export function AgendaView() {
         />
       )}
 
-      {/* G2.5 — confirmación del arrastre, con el aviso de nivel 1 */}
-      {confirmMover && data && (
+      {/* G2.5/G2.7 — confirmación de mover/estirar una cita existente */}
+      {confirmar && (
         <ConfirmDialog
           open
-          title="¿Mover la cita?"
-          description={`${confirmMover.cita.nombre ?? "La cita"}: ${diaMesCorto(confirmMover.origen.fecha)} · ${deMin(confirmMover.cita.inicioMin)} → ${diaMesCorto(confirmMover.destino.fecha)} · ${deMin(confirmMover.destino.horaMin)}${
-            confirmMover.destino.staffId !== confirmMover.origen.staffId
-              ? ` con ${data.doctores.find((d) => d.id === confirmMover.destino.staffId)?.nombre ?? "otro doctor"}`
-              : ""
-          }. Recuerda cambiarla también en tu software clínico.`}
-          confirmLabel="Mover cita"
-          busy={confirmMover.aplicando}
-          onConfirm={() => void aplicarMovimiento()}
-          onClose={() => setConfirmMover(null)}
+          title={confirmar.titulo}
+          description={confirmar.descripcion}
+          confirmLabel="Aplicar"
+          busy={confirmar.aplicando}
+          onConfirm={() => void aplicarConfirmacion()}
+          onClose={() => setConfirmar(null)}
         />
       )}
 
-      {/* G2.4 — crear/mover desde la rejilla */}
-      {modalCita && data && (
-        <CitaModal
-          modo={modalCita.modo}
-          inicial={
-            modalCita.modo === "crear"
-              ? { fecha: vista === "dia" ? fecha : hoy, ...modalCita.prefill }
-              : modalCita.cita
-          }
+      {/* G2.7 — el editor flotante: SIN oscurecer, con el borrador vivo en la rejilla */}
+      {borrador && data && (
+        <EditorCitaFlotante
+          borrador={borrador}
           doctores={data.doctores.map((d) => ({ id: d.id, nombre: d.nombre, clinicaId: d.clinicaId }))}
           tratamientos={data.tratamientos}
-          onClose={() => setModalCita(null)}
-          onSaved={() => {
-            setModalCita(null);
+          onCambia={(patch) => setBorrador((b) => b && { ...b, ...patch })}
+          onClose={() => setBorrador(null)}
+          onGuardada={() => {
+            setBorrador(null);
             void cargar(desde);
           }}
         />
@@ -523,40 +566,39 @@ export function AgendaView() {
 // scrollea en horizontal). El sombreado claro es el horario laboral — se ve
 // cuándo trabaja sin ir a su configuración (todos los niveles).
 
-const PX_MIN = 1.1; // 1 minuto ≈ 1.1px → una jornada de 12 h ≈ 790px
-const SNAP_MIN = 15; // arrastres y doble clic redondean a cuartos de hora
+const PX_MIN = 1.4; // 1 minuto ≈ 1.4px → bloques con cuerpo (30 min ≈ 42px)
+const SNAP_MIN = 15; // gestos redondean a cuartos de hora
 
 type Carril = {
   key: string;
   titulo: string;
   subtitulo?: string | null;
-  /** Vista Semana: el número del día, para la cabecera tipo calendario. */
-  diaNumero?: number;
-  destacado?: boolean; // hoy, en la vista Semana
-  ocultaEnMovil?: boolean; // Día: un doctor a la vez en el móvil
-  fecha: string; // el día del carril (para mover desde el bloque)
+  diaNumero?: number; // Semana: cabecera tipo calendario
+  destacado?: boolean;
+  ocultaEnMovil?: boolean;
+  fecha: string;
   staffId: string;
   pd: PorDoctor;
 };
 
 type DestinoMovimiento = { fecha: string; staffId: string; horaMin: number };
 
-// Colores por estado: borde izquierdo sólido (identidad del bloque) + fondo
-// suave. La leyenda de abajo usa los mismos.
-const BLOQUE_ESTADO: Record<string, { borde: string; fondo: string }> = {
-  Confirmada: { borde: "var(--color-success)", fondo: "var(--color-success-soft)" },
-  Programada: { borde: "var(--color-accent)", fondo: "var(--color-accent-soft)" },
-  Completado: { borde: "var(--color-border)", fondo: "var(--color-surface-muted)" },
+// Bloques SÓLIDOS (dictado: colores presentes, contraste real entre
+// estructura y contenido) — texto claro sobre el color de estado.
+const BLOQUE_ESTADO: Record<string, { bg: string; fg: string; borde?: string }> = {
+  Confirmada: { bg: "var(--color-success)", fg: "var(--color-on-accent)" },
+  Programada: { bg: "var(--color-accent)", fg: "var(--color-on-accent)" },
+  Completado: { bg: "var(--color-surface-muted)", fg: "var(--color-muted)", borde: "var(--color-border)" },
 };
 
 function LeyendaCarriles() {
   const chip = "inline-flex items-center gap-1.5 text-[10px] text-[var(--color-muted)]";
   return (
     <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border-l-2 border-[var(--color-success)] bg-[var(--color-success-soft)]" /> Confirmada</span>
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border-l-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)]" /> Programada</span>
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border-l-2 border-[var(--color-border)] bg-[var(--color-surface-muted)]" /> Completada</span>
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[var(--color-warning)]" /> Libre según Fyllio</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-success)]" /> Confirmada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-accent)]" /> Programada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-surface-muted)]" /> Completada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[var(--color-warning)]" /> Hueco libre</span>
       <span className={chip}>
         <span className="h-2.5 w-2.5 rounded-sm border border-[var(--color-border)]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent 0 3px, var(--color-border) 3px 4px)" }} />
         Fuera del horario laboral
@@ -565,35 +607,50 @@ function LeyendaCarriles() {
   );
 }
 
+// ─── La maquinaria de gestos, IMPERATIVA ────────────────────────────────────
+//
+// La lección que costó tres pasadas (31-08): los handlers condicionados al
+// estado de React llegan TARDE — un arrastre rápido (un golpe de ratón real)
+// termina antes del re-render y no ve ni un movimiento. Aquí los listeners
+// se registran EN el pointerdown sobre window, el estado del gesto vive en
+// un ref (siempre fresco), y React solo PINTA.
+
+type Gesto =
+  | { tipo: "mover"; cita: CitaDia; origen: Carril; startX: number; startY: number; deltaX: number; deltaY: number; overKey: string; movio: boolean }
+  | { tipo: "resize"; cita: CitaDia; carril: Carril; borde: "arriba" | "abajo"; startY: number; nuevoIni: number; nuevoFin: number }
+  | { tipo: "dibujo"; carril: Carril; inicioMin: number; actualMin: number }
+  | { tipo: "borrador"; accion: "mover" | "arriba" | "abajo"; startX: number; startY: number; inicio0: number; dur0: number };
+
 function Carriles({
   lanes,
   ejeBase,
   hoy,
+  borrador,
+  onBorradorCambia,
   onCita,
-  onCrearEnHueco,
+  onCrear,
   onMoverSolicitado,
+  onResizeSolicitado,
 }: {
   lanes: Carril[];
-  /** El eje SIEMPRE cubre la jornada completa de los doctores visibles en la
-   *  semana cargada (dictado 30-08) — no se encoge al día con menos trabajo. */
   ejeBase: { min: number; max: number } | null;
   hoy: string;
+  /** El bloque BORRADOR (crear/mover con el editor flotante abierto): vive en
+   *  la rejilla, se arrastra y se estira mientras se rellena el panel. */
+  borrador: { fecha: string; staffId: string; inicioMin: number; duracionMin: number; nombre: string } | null;
+  onBorradorCambia?: (patch: { fecha?: string; staffId?: string; inicioMin?: number; duracionMin?: number }) => void;
   onCita?: (c: CitaDia, carril: Carril) => void;
-  /** Doble clic o DIBUJAR una franja arrastrando → crear con todo puesto. */
-  onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
-  /** Fin de un arrastre de bloque: el caller CONFIRMA antes de aplicar. */
+  /** Dibujo sobre el lienzo (o doble clic = 30 min por defecto). */
+  onCrear?: (carril: Carril, inicioMin: number, duracionMin: number) => void;
   onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
+  /** Estirar un borde de una cita existente (solo fyllio): cambia duración. */
+  onResizeSolicitado?: (c: CitaDia, carril: Carril, inicioMin: number, duracionMin: number) => void;
 }) {
-  // Arrastre de BLOQUE (mover) y arrastre de LIENZO (dibujar para crear),
-  // por pointer events sin librería. Umbral de 6px separa clic de arrastre.
-  const [drag, setDrag] = useState<null | {
-    cita: CitaDia; origen: Carril; startX: number; startY: number;
-    deltaX: number; deltaY: number; overKey: string | null; movio: boolean;
-  }>(null);
-  const [dibujo, setDibujo] = useState<null | { carrilKey: string; inicioMin: number; actualMin: number }>(null);
+  const gestoRef = useRef<Gesto | null>(null);
+  const [gestoVista, setGestoVista] = useState<Gesto | null>(null);
+  const laneEls = useRef<Record<string, HTMLElement | null>>({});
 
-  // La línea de AHORA (roja): lo que hace que una agenda se sienta viva. Se
-  // recoloca sola cada medio minuto; solo se pinta en el carril de HOY.
+  // La línea de AHORA: viva, cada medio minuto.
   const [ahoraMin, setAhoraMin] = useState<number>(() => aMin(horaClinica(new Date())));
   const [hoyVivo, setHoyVivo] = useState<string>(() => hoyISO());
   useEffect(() => {
@@ -612,6 +669,12 @@ function Carriles({
     for (const b of pd.bloqueos) { ejeMin = Math.min(ejeMin, b.inicio); ejeMax = Math.max(ejeMax, b.fin); }
   }
   if (!Number.isFinite(ejeMin)) { ejeMin = 9 * 60; ejeMax = 20 * 60; }
+  // Si HOY está a la vista, el eje incluye el AHORA: la línea roja no puede
+  // «no aparecer» por quedar fuera (revisión 31-08).
+  if (lanes.some((l) => l.fecha === hoyVivo)) {
+    ejeMin = Math.min(ejeMin, ahoraMin);
+    ejeMax = Math.max(ejeMax, ahoraMin + 1);
+  }
   ejeMin = Math.floor(ejeMin / 60) * 60;
   ejeMax = Math.min(24 * 60, Math.ceil(ejeMax / 60) * 60);
   const alto = (ejeMax - ejeMin) * PX_MIN;
@@ -619,49 +682,103 @@ function Carriles({
   const horas: number[] = [];
   for (let h = ejeMin; h <= ejeMax; h += 60) horas.push(h);
 
-  const hayHuecosPintados = lanes.some(({ pd }) => (pd.libres ?? []).length > 0);
   const snap = (min: number) => Math.round(min / SNAP_MIN) * SNAP_MIN;
-  const clampEje = (min: number) => Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, min));
-
-  const finDeArrastre = (e: React.PointerEvent) => {
-    if (!drag) return;
-    const d = drag;
-    setDrag(null);
-    if (!d.movio) {
-      onCita?.(d.cita, d.origen);
-      return;
-    }
-    if (!onMoverSolicitado) return;
-    const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
-    const destinoCarril = lanes.find((l) => l.key === (laneEl?.dataset.lane ?? d.origen.key)) ?? d.origen;
-    const horaMin = clampEje(snap(d.cita.inicioMin + d.deltaY / PX_MIN));
-    if (destinoCarril.key === d.origen.key && horaMin === d.cita.inicioMin) return; // no se movió de sitio
-    onMoverSolicitado(d.cita, d.origen, { fecha: destinoCarril.fecha, staffId: destinoCarril.staffId, horaMin });
+  const clampIni = (min: number) => Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, min));
+  const minEnLane = (laneKey: string, clientY: number) => {
+    const el = laneEls.current[laneKey];
+    if (!el) return ejeMin;
+    return clampIni(snap(ejeMin + (clientY - el.getBoundingClientRect().top) / PX_MIN));
+  };
+  const laneBajo = (x: number, yPx: number): Carril | null => {
+    const el = document.elementFromPoint(x, yPx)?.closest("[data-lane]") as HTMLElement | null;
+    return lanes.find((l) => l.key === el?.dataset.lane) ?? null;
   };
 
-  const moverPuntero = (e: React.PointerEvent) => {
-    if (!drag) return;
-    const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
-    setDrag((d) => d && {
-      ...d,
-      deltaX: e.clientX - d.startX,
-      deltaY: e.clientY - d.startY,
-      overKey: laneEl?.dataset.lane ?? d.overKey,
-      movio: d.movio || Math.abs(e.clientY - d.startY) + Math.abs(e.clientX - d.startX) > 6,
-    });
-  };
+  const refsGesto = useRef({ borrador, onBorradorCambia, onCita, onCrear, onMoverSolicitado, onResizeSolicitado, lanes, ejeMin, ejeMax });
+  refsGesto.current = { borrador, onBorradorCambia, onCita, onCrear, onMoverSolicitado, onResizeSolicitado, lanes, ejeMin, ejeMax };
+
+  function iniciarGesto(g: Gesto, e: React.PointerEvent) {
+    e.preventDefault();
+    gestoRef.current = g;
+    setGestoVista({ ...g });
+    const onMove = (ev: PointerEvent) => {
+      const cur = gestoRef.current;
+      if (!cur) return;
+      const R = refsGesto.current;
+      if (cur.tipo === "mover") {
+        cur.deltaX = ev.clientX - cur.startX;
+        cur.deltaY = ev.clientY - cur.startY;
+        cur.movio = cur.movio || Math.abs(cur.deltaX) + Math.abs(cur.deltaY) > 6;
+        const lane = laneBajo(ev.clientX, ev.clientY);
+        if (lane) cur.overKey = lane.key;
+      } else if (cur.tipo === "resize") {
+        const m = minEnLane(cur.carril.key, ev.clientY);
+        // El fin ES el minuto bajo el puntero (snapeado) — sin sumar nada:
+        // el mínimo de 15 lo garantiza el max/min, no un offset.
+        if (cur.borde === "abajo") cur.nuevoFin = Math.max(cur.nuevoIni + SNAP_MIN, m);
+        else cur.nuevoIni = Math.min(m, cur.nuevoFin - SNAP_MIN);
+      } else if (cur.tipo === "dibujo") {
+        cur.actualMin = minEnLane(cur.carril.key, ev.clientY);
+      } else if (cur.tipo === "borrador") {
+        const b = R.borrador;
+        if (!b || !R.onBorradorCambia) return;
+        if (cur.accion === "mover") {
+          const nuevoIni = clampIni(snap(cur.inicio0 + (ev.clientY - cur.startY) / PX_MIN));
+          const lane = laneBajo(ev.clientX, ev.clientY);
+          R.onBorradorCambia({
+            inicioMin: nuevoIni,
+            ...(lane ? { fecha: lane.fecha, staffId: lane.staffId } : {}),
+          });
+        } else if (cur.accion === "abajo") {
+          const fin = Math.max(cur.inicio0 + SNAP_MIN, snap(cur.inicio0 + cur.dur0 + (ev.clientY - cur.startY) / PX_MIN));
+          R.onBorradorCambia({ duracionMin: fin - cur.inicio0 });
+        } else {
+          const ini = Math.min(clampIni(snap(cur.inicio0 + (ev.clientY - cur.startY) / PX_MIN)), cur.inicio0 + cur.dur0 - SNAP_MIN);
+          R.onBorradorCambia({ inicioMin: ini, duracionMin: cur.inicio0 + cur.dur0 - ini });
+        }
+      }
+      setGestoVista({ ...cur });
+    };
+    const onUp = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", onMove);
+      const cur = gestoRef.current;
+      gestoRef.current = null;
+      setGestoVista(null);
+      if (!cur) return;
+      const R = refsGesto.current;
+      if (cur.tipo === "mover") {
+        if (!cur.movio) { R.onCita?.(cur.cita, cur.origen); return; }
+        if (!R.onMoverSolicitado) return;
+        const destino = laneBajo(ev.clientX, ev.clientY) ?? cur.origen;
+        const horaMin = clampIni(snap(cur.cita.inicioMin + cur.deltaY / PX_MIN));
+        if (destino.key === cur.origen.key && horaMin === cur.cita.inicioMin) return;
+        R.onMoverSolicitado(cur.cita, cur.origen, { fecha: destino.fecha, staffId: destino.staffId, horaMin });
+      } else if (cur.tipo === "resize") {
+        const finViejo = cur.cita.finMin ?? cur.cita.inicioMin + 30;
+        if (cur.nuevoIni === cur.cita.inicioMin && cur.nuevoFin === finViejo) return;
+        R.onResizeSolicitado?.(cur.cita, cur.carril, cur.nuevoIni, cur.nuevoFin - cur.nuevoIni);
+      } else if (cur.tipo === "dibujo") {
+        const ini = Math.min(cur.inicioMin, cur.actualMin);
+        const dur = Math.max(30, Math.abs(cur.actualMin - cur.inicioMin)); // clic suelto = 30 min
+        R.onCrear?.(cur.carril, ini, dur);
+      }
+      // borrador: los cambios ya se aplicaron en vivo.
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp, { once: true });
+  }
 
   return (
     <>
       <LeyendaCarriles />
       <div className="overflow-x-auto">
         <div className="flex min-w-fit select-none pb-4">
-          {/* Columna de horas, sticky para que sobreviva al scroll horizontal */}
+          {/* Columna de horas (sticky al scroll horizontal) */}
           <div className="sticky left-0 z-10 w-14 shrink-0 bg-[var(--color-surface)]">
             <div className="h-12" />
             <div className="relative" style={{ height: alto + 10 }}>
               {horas.map((h) => (
-                <span key={h} className="absolute right-2.5 -translate-y-1/2 text-[10px] text-[var(--color-muted)] opacity-80 [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
+                <span key={h} className="absolute right-2.5 -translate-y-1/2 text-[10px] font-medium text-[var(--color-muted)] [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
                   {deMin(h)}
                 </span>
               ))}
@@ -670,15 +787,13 @@ function Carriles({
 
           {lanes.map((carril) => {
             const { key, titulo, subtitulo, diaNumero, destacado, ocultaEnMovil, pd } = carril;
-            const esDestinoDeDrag = drag?.movio && drag.overKey === key;
+            const g = gestoVista;
+            const esDestinoDeDrag = g?.tipo === "mover" && g.movio && g.overKey === key;
             const esHoyCarril = carril.fecha === hoyVivo;
             const ahoraVisible = esHoyCarril && ahoraMin >= ejeMin && ahoraMin <= ejeMax;
+            const borradorAqui = borrador && borrador.staffId === carril.staffId && borrador.fecha === carril.fecha;
             return (
-            <div
-              key={key}
-              className={`w-48 min-w-48 flex-1 px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}
-            >
-              {/* Cabecera del carril: doctor (Día) o día del mes (Semana). */}
+            <div key={key} className={`w-52 min-w-52 flex-1 px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}>
               {diaNumero !== undefined ? (
                 <div className="flex h-12 flex-col items-center justify-center gap-0.5">
                   <p className="text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{titulo}</p>
@@ -690,87 +805,49 @@ function Carriles({
                 </div>
               ) : (
                 <div className="flex h-12 flex-col justify-center px-1.5">
-                  <p className={`truncate text-[11.5px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
-                  {subtitulo && <p className="truncate text-[9.5px] text-[var(--color-muted)]">{subtitulo}</p>}
+                  <p className={`truncate text-[12px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
+                  {subtitulo && <p className="truncate text-[10px] text-[var(--color-muted)]">{subtitulo}</p>}
                 </div>
               )}
               <div
+                ref={(el) => { laneEls.current[key] = el; }}
                 data-lane={key}
-                onDoubleClick={
-                  onCrearEnHueco
-                    ? (e) => {
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        onCrearEnHueco(carril, clampEje(snap(ejeMin + (e.clientY - rect.top) / PX_MIN)));
-                      }
-                    : undefined
-                }
                 onPointerDown={
-                  onCrearEnHueco
+                  onCrear
                     ? (e) => {
-                        // Dibujar para crear: solo sobre el lienzo, nunca
-                        // arrancando sobre una cita o un bloqueo.
-                        if ((e.target as HTMLElement).closest("[data-bloque]")) return;
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        const min = clampEje(snap(ejeMin + (e.clientY - rect.top) / PX_MIN));
-                        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                        setDibujo({ carrilKey: key, inicioMin: min, actualMin: min + SNAP_MIN });
+                        if ((e.target as HTMLElement).closest("[data-bloque],[data-borrador]")) return;
+                        iniciarGesto({ tipo: "dibujo", carril, inicioMin: minEnLane(key, e.clientY), actualMin: minEnLane(key, e.clientY) }, e);
                       }
                     : undefined
                 }
-                onPointerMove={
-                  dibujo?.carrilKey === key
-                    ? (e) => {
-                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        const min = clampEje(snap(ejeMin + (e.clientY - rect.top) / PX_MIN));
-                        setDibujo((d) => d && { ...d, actualMin: min });
-                      }
-                    : drag
-                      ? moverPuntero
-                      : undefined
-                }
-                onPointerUp={
-                  dibujo?.carrilKey === key
-                    ? () => {
-                        const d = dibujo;
-                        setDibujo(null);
-                        if (d && onCrearEnHueco) onCrearEnHueco(carril, Math.min(d.inicioMin, d.actualMin));
-                      }
-                    : drag
-                      ? finDeArrastre
-                      : undefined
-                }
-                title={onCrearEnHueco ? "Arrastra o haz doble clic para crear una cita" : undefined}
-                // FUERA del horario laboral = rayado apagado (contraste
-                // invertido); la franja de trabajo lo tapa con superficie
-                // limpia. Sin colores nuevos.
+                title={onCrear ? "Arrastra o haz clic para crear una cita" : undefined}
                 className={`relative rounded-xl bg-[var(--color-surface-muted)] ${esDestinoDeDrag ? "ring-2 ring-[var(--color-accent)]" : ""}`}
                 style={{
                   height: alto,
                   backgroundImage: "repeating-linear-gradient(135deg, transparent 0 7px, var(--color-border) 7px 8px)",
                 }}
               >
-                {/* Sombreado del HORARIO LABORAL: superficie limpia = trabaja. */}
+                {/* Horario laboral: superficie limpia = trabaja */}
                 {pd.franjas.map((f, i) => (
-                  <div
-                    key={`f${i}`}
-                    className="absolute inset-x-0 bg-[var(--color-surface)]"
-                    style={{ top: y(aMin(f.inicio)), height: (aMin(f.fin) - aMin(f.inicio)) * PX_MIN }}
-                  />
+                  <div key={`f${i}`} className="absolute inset-x-0 bg-[var(--color-surface)]"
+                    style={{ top: y(aMin(f.inicio)), height: (aMin(f.fin) - aMin(f.inicio)) * PX_MIN }} />
                 ))}
-                {/* Rejilla de horas: estructura, no contenido — muy ligera. */}
+                {/* Estructura: horas nítidas, medias horas sutiles */}
                 {horas.map((h) => (
-                  <div key={h} className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-border)] opacity-30" style={{ top: y(h) }} />
+                  <div key={h}>
+                    <div className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-border)] opacity-70" style={{ top: y(h) }} />
+                    {h + 30 < ejeMax && (
+                      <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[var(--color-border)] opacity-30" style={{ top: y(h + 30) }} />
+                    )}
+                  </div>
                 ))}
-                {/* Huecos libres — con la advertencia PEGADA (nivel 1) */}
+                {/* Huecos libres — sin coletilla por bloque: el aviso es ÚNICO, arriba */}
                 {(pd.libres ?? []).map((l, i) => (
-                  <div
-                    key={`l${i}`}
+                  <div key={`l${i}`}
                     className="pointer-events-none absolute inset-x-1 rounded-lg border border-dashed border-[var(--color-warning)]/70 px-1.5 py-1"
-                    style={{ top: y(l.inicio) + 1, height: Math.max(18, (l.fin - l.inicio) * PX_MIN - 2) }}
-                    title={AVISO_HUECOS}
-                  >
-                    <p className="text-[9.5px] font-medium leading-tight text-[var(--color-warning)]">
-                      <span className="[font-variant-numeric:tabular-nums]">{deMin(l.inicio)}–{deMin(l.fin)}</span> libre según Fyllio
+                    style={{ top: y(l.inicio) + 1, height: Math.max(20, (l.fin - l.inicio) * PX_MIN - 2) }}>
+                    <p className="text-[10px] font-medium leading-tight text-[var(--color-warning)] [font-variant-numeric:tabular-nums]">
+                      {deMin(l.inicio)}–{deMin(l.fin)} libre
                     </p>
                   </div>
                 ))}
@@ -781,91 +858,137 @@ function Carriles({
                 )}
                 {/* Bloqueos */}
                 {pd.bloqueos.map((b, i) => (
-                  <div
-                    key={`b${i}`}
-                    data-bloque
+                  <div key={`b${i}`} data-bloque
                     className="absolute inset-x-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1"
-                    style={{ top: y(b.inicio) + 1, height: Math.max(18, (b.fin - b.inicio) * PX_MIN - 2) }}
-                  >
-                    <p className="truncate text-[9.5px] text-[var(--color-muted)]">
+                    style={{ top: y(b.inicio) + 1, height: Math.max(20, (b.fin - b.inicio) * PX_MIN - 2) }}>
+                    <p className="truncate text-[10px] text-[var(--color-muted)]">
                       <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
                     </p>
                   </div>
                 ))}
-                {/* El bloque que se está DIBUJANDO (crear con vida) */}
-                {dibujo?.carrilKey === key && (
-                  <div
-                    className="pointer-events-none absolute inset-x-1 z-20 rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-1.5 py-1"
+                {/* El bloque que se está DIBUJANDO */}
+                {g?.tipo === "dibujo" && g.carril.key === key && (
+                  <div className="pointer-events-none absolute inset-x-1 z-20 rounded-lg border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-1.5 py-1"
                     style={{
-                      top: y(Math.min(dibujo.inicioMin, dibujo.actualMin)),
-                      height: Math.max(SNAP_MIN * PX_MIN, Math.abs(dibujo.actualMin - dibujo.inicioMin) * PX_MIN),
-                    }}
-                  >
-                    <p className="text-[10px] font-semibold leading-tight text-[var(--color-accent)] [font-variant-numeric:tabular-nums]">
-                      {deMin(Math.min(dibujo.inicioMin, dibujo.actualMin))}–{deMin(Math.max(dibujo.inicioMin, dibujo.actualMin))}
+                      top: y(Math.min(g.inicioMin, g.actualMin)),
+                      height: Math.max(SNAP_MIN * PX_MIN, Math.abs(g.actualMin - g.inicioMin) * PX_MIN),
+                    }}>
+                    <p className="text-[10.5px] font-semibold leading-tight text-[var(--color-accent)] [font-variant-numeric:tabular-nums]">
+                      {deMin(Math.min(g.inicioMin, g.actualMin))}–{deMin(Math.max(g.inicioMin, g.actualMin, Math.min(g.inicioMin, g.actualMin) + 30))}
                     </p>
-                    <p className="text-[9px] leading-tight text-[var(--color-accent)] opacity-80">Nueva cita…</p>
+                    <p className="text-[9.5px] leading-tight text-[var(--color-accent)] opacity-80">Nueva cita…</p>
                   </div>
                 )}
-                {/* Citas: clic = panel · arrastre = mover (solo lo de Fyllio) */}
+                {/* EL BORRADOR: el bloque del editor flotante — arrastrable y estirable */}
+                {borradorAqui && (
+                  <div
+                    data-borrador
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      iniciarGesto({ tipo: "borrador", accion: "mover", startX: e.clientX, startY: e.clientY, inicio0: borrador!.inicioMin, dur0: borrador!.duracionMin }, e);
+                    }}
+                    className={`absolute inset-x-1 z-30 cursor-grab rounded-lg border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-1.5 py-1 shadow-lg active:cursor-grabbing ${g?.tipo === "borrador" ? "opacity-90" : ""}`}
+                    style={{ top: y(borrador!.inicioMin), height: Math.max(26, borrador!.duracionMin * PX_MIN), touchAction: "none", ...(g?.tipo === "borrador" && g.accion === "mover" ? { pointerEvents: "none" as const } : {}) }}
+                  >
+                    <div
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        iniciarGesto({ tipo: "borrador", accion: "arriba", startX: e.clientX, startY: e.clientY, inicio0: borrador!.inicioMin, dur0: borrador!.duracionMin }, e);
+                      }}
+                      className="absolute inset-x-0 -top-1 h-2.5 cursor-ns-resize"
+                    />
+                    <p className="truncate text-[11px] font-semibold leading-tight text-[var(--color-on-accent)]">
+                      {borrador!.nombre.trim() || "Nueva cita"}
+                    </p>
+                    <p className="text-[10px] leading-tight text-[var(--color-on-accent)] opacity-90 [font-variant-numeric:tabular-nums]">
+                      {deMin(borrador!.inicioMin)}–{deMin(borrador!.inicioMin + borrador!.duracionMin)}
+                    </p>
+                    <div
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        iniciarGesto({ tipo: "borrador", accion: "abajo", startX: e.clientX, startY: e.clientY, inicio0: borrador!.inicioMin, dur0: borrador!.duracionMin }, e);
+                      }}
+                      className="absolute inset-x-0 -bottom-1 h-2.5 cursor-ns-resize"
+                    />
+                  </div>
+                )}
+                {/* Citas */}
                 {pd.citas.map((c) => {
                   const arrastrable = c.esFyllio && Boolean(onMoverSolicitado);
-                  const enDrag = drag?.cita.id === c.id && drag.movio;
-                  const altura = Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN - 2);
-                  const dosLineas = altura >= 34;
-                  const horaMostrada = enDrag
-                    ? deMin(clampEje(snap(c.inicioMin + drag!.deltaY / PX_MIN)))
-                    : deMin(c.inicioMin);
-                  const est = BLOQUE_ESTADO[c.estado] ?? { borde: "var(--color-border)", fondo: "var(--color-surface)" };
+                  const estirable = c.esFyllio && Boolean(onResizeSolicitado);
+                  const enMover = g?.tipo === "mover" && g.cita.id === c.id && g.movio;
+                  const enResize = g?.tipo === "resize" && g.cita.id === c.id;
+                  const iniVis = enResize ? (g as Extract<Gesto, { tipo: "resize" }>).nuevoIni : c.inicioMin;
+                  const finVis = enResize
+                    ? (g as Extract<Gesto, { tipo: "resize" }>).nuevoFin
+                    : (c.finMin ?? c.inicioMin + 30);
+                  const altura = Math.max(26, (finVis - iniVis) * PX_MIN - 2);
+                  const dosLineas = altura >= 40;
+                  const horaVis = enMover
+                    ? deMin(clampIni(snap(c.inicioMin + (g as Extract<Gesto, { tipo: "mover" }>).deltaY / PX_MIN)))
+                    : deMin(iniVis);
+                  const est = BLOQUE_ESTADO[c.estado] ?? { bg: "var(--color-surface)", fg: "var(--color-foreground)", borde: "var(--color-border)" };
                   return (
                   <div
                     key={c.id}
                     data-bloque
                     role={onCita ? "button" : undefined}
                     tabIndex={onCita ? 0 : undefined}
-                    onClick={onCita && !arrastrable ? () => onCita(c, carril) : undefined}
                     onPointerDown={
                       arrastrable
                         ? (e) => {
                             e.stopPropagation();
-                            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                            setDrag({ cita: c, origen: carril, startX: e.clientX, startY: e.clientY, deltaX: 0, deltaY: 0, overKey: key, movio: false });
+                            iniciarGesto({ tipo: "mover", cita: c, origen: carril, startX: e.clientX, startY: e.clientY, deltaX: 0, deltaY: 0, overKey: key, movio: false }, e);
                           }
                         : undefined
                     }
-                    onPointerMove={arrastrable && drag?.cita.id === c.id ? moverPuntero : undefined}
-                    onPointerUp={arrastrable && drag?.cita.id === c.id ? finDeArrastre : undefined}
-                    title={c.esFyllio ? "Clic: estado y ficha · arrastra para mover" : "Clic: estado y ficha (se mueve en tu software clínico)"}
-                    className={`absolute inset-x-1 overflow-hidden rounded-lg px-1.5 py-1 ${onCita || arrastrable ? "hover:shadow-sm hover:brightness-[0.98]" : ""} ${arrastrable ? "cursor-grab active:cursor-grabbing" : onCita ? "cursor-pointer" : ""} ${enDrag ? "z-30 opacity-90 shadow-lg ring-2 ring-[var(--color-accent)]" : ""}`}
+                    onClick={onCita && !arrastrable ? () => onCita(c, carril) : undefined}
+                    title={c.esFyllio ? "Clic: estado y ficha · arrastra para mover · estira los bordes para cambiar la duración" : "Clic: estado y ficha (se mueve en tu software clínico)"}
+                    className={`absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1 shadow-sm ${onCita || arrastrable ? "hover:brightness-[1.06] hover:shadow-md" : ""} ${arrastrable ? "cursor-grab active:cursor-grabbing" : onCita ? "cursor-pointer" : ""} ${enMover || enResize ? "z-30 ring-2 ring-[var(--color-danger)]/0 opacity-90 shadow-lg" : ""}`}
                     style={{
-                      top: y(c.inicioMin) + 1,
+                      top: y(iniVis) + 1,
                       height: altura,
-                      background: est.fondo,
-                      borderLeft: `3px solid ${est.borde}`,
-                      color: c.estado === "Completado" ? "var(--color-muted)" : "var(--color-foreground)",
+                      background: est.bg,
+                      color: est.fg,
+                      ...(est.borde ? { border: `1px solid ${est.borde}` } : {}),
                       ...(arrastrable ? { touchAction: "none" as const } : {}),
-                      // En arrastre el bloque sigue al puntero en los DOS
-                      // ejes — y se hace transparente al hit-testing: si no,
-                      // elementFromPoint devuelve el propio bloque y el
-                      // carril destino jamás se detecta (la captura de
-                      // puntero le sigue entregando los eventos igual).
-                      ...(enDrag ? { transform: `translate(${drag!.deltaX}px, ${drag!.deltaY}px)`, pointerEvents: "none" as const } : {}),
+                      ...(enMover ? { transform: `translate(${(g as Extract<Gesto, { tipo: "mover" }>).deltaX}px, ${(g as Extract<Gesto, { tipo: "mover" }>).deltaY}px)`, pointerEvents: "none" as const } : {}),
                     }}
                   >
-                    <p className="truncate text-[10.5px] font-semibold leading-tight">
+                    {estirable && (
+                      <div
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          iniciarGesto({ tipo: "resize", cita: c, carril, borde: "arriba", startY: e.clientY, nuevoIni: c.inicioMin, nuevoFin: c.finMin ?? c.inicioMin + 30 }, e);
+                        }}
+                        className="absolute inset-x-0 top-0 h-2 cursor-ns-resize"
+                        style={{ touchAction: "none" }}
+                      />
+                    )}
+                    <p className="truncate text-[11px] font-semibold leading-tight">
                       {dosLineas ? (c.nombre ?? "—") : (
                         <>
-                          <span className="[font-variant-numeric:tabular-nums]">{horaMostrada}</span> {c.nombre ?? "—"}
+                          <span className="[font-variant-numeric:tabular-nums]">{horaVis}</span> {c.nombre ?? "—"}
                         </>
                       )}
                     </p>
                     {dosLineas && (
-                      <p className="truncate text-[9.5px] leading-tight opacity-75 [font-variant-numeric:tabular-nums]">
-                        {horaMostrada}{c.finMin !== null ? `–${deMin(clampEje(snap(c.inicioMin + (enDrag ? drag!.deltaY / PX_MIN : 0))) + (c.finMin - c.inicioMin))}` : ""}
+                      <p className="truncate text-[10px] leading-tight opacity-85 [font-variant-numeric:tabular-nums]">
+                        {horaVis}–{deMin(finVis + (enMover ? snap((g as Extract<Gesto, { tipo: "mover" }>).deltaY / PX_MIN) : 0))}
                         {c.tratamiento ? ` · ${c.tratamiento}` : ""}
                       </p>
                     )}
-                    {c.finMin === null && <p className="text-[9px] leading-tight text-[var(--color-warning)]">sin duración</p>}
+                    {c.finMin === null && <p className="text-[9.5px] leading-tight opacity-90">sin duración</p>}
+                    {estirable && (
+                      <div
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          iniciarGesto({ tipo: "resize", cita: c, carril, borde: "abajo", startY: e.clientY, nuevoIni: c.inicioMin, nuevoFin: c.finMin ?? c.inicioMin + 30 }, e);
+                        }}
+                        className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize"
+                        style={{ touchAction: "none" }}
+                      />
+                    )}
                   </div>
                   );
                 })}
@@ -883,19 +1006,22 @@ function Carriles({
           })}
         </div>
       </div>
-
-      {/* La frase completa, pegada a la rejilla donde viven los huecos. */}
-      {hayHuecosPintados && (
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-[var(--color-warning)]">
-          <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
-          {AVISO_HUECOS} Aquí, libre = libre solo en lo que Fyllio conoce.
-        </p>
-      )}
     </>
   );
 }
 
 // ─── DÍA: un carril por doctor ──────────────────────────────────────────────
+
+type PropsCarrilesComunes = {
+  ejeBase: { min: number; max: number } | null;
+  hoy: string;
+  borrador: BorradorCita | null;
+  onBorradorCambia?: (patch: Partial<BorradorCita>) => void;
+  onCita?: (c: CitaDia, carril: Carril) => void;
+  onCrear?: (carril: { fecha: string; staffId: string }, inicioMin: number, duracionMin: number) => void;
+  onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
+  onResizeSolicitado?: (c: CitaDia, carril: Carril, inicioMin: number, duracionMin: number) => void;
+};
 
 function VistaDia({
   dia,
@@ -904,20 +1030,18 @@ function VistaDia({
   onDocMovil,
   ejeBase,
   hoy,
+  borrador,
+  onBorradorCambia,
   onCita,
-  onCrearEnHueco,
+  onCrear,
   onMoverSolicitado,
+  onResizeSolicitado,
 }: {
   dia: { fecha: string; porDoctor: PorDoctor[] } | null;
   visibles: DoctorSemana[];
   docMovil: string;
   onDocMovil: (id: string) => void;
-  ejeBase: { min: number; max: number } | null;
-  hoy: string;
-  onCita?: (c: CitaDia, carril: Carril) => void;
-  onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
-  onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
-}) {
+} & PropsCarrilesComunes) {
   if (!dia) {
     // El día activo cayó fuera de la semana cargada (transición de fetch).
     return <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />;
@@ -956,7 +1080,7 @@ function VistaDia({
           {visibles.map((doc) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
         </select>
       )}
-      <Carriles lanes={lanes} ejeBase={ejeBase} hoy={hoy} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
+      <Carriles lanes={lanes} ejeBase={ejeBase} hoy={hoy} borrador={borrador} onBorradorCambia={onBorradorCambia} onCita={onCita} onCrear={onCrear} onMoverSolicitado={onMoverSolicitado} onResizeSolicitado={onResizeSolicitado} />
     </Card>
   );
 }
@@ -975,20 +1099,18 @@ function VistaSemana({
   docSemana,
   onDocSemana,
   ejeBase,
+  borrador,
+  onBorradorCambia,
   onCita,
-  onCrearEnHueco,
+  onCrear,
   onMoverSolicitado,
+  onResizeSolicitado,
 }: {
   data: Semana;
   visibles: DoctorSemana[];
-  hoy: string;
   docSemana: string;
   onDocSemana: (id: string) => void;
-  ejeBase: { min: number; max: number } | null;
-  onCita?: (c: CitaDia, carril: Carril) => void;
-  onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
-  onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
-}) {
+} & PropsCarrilesComunes) {
   const doc = visibles.find((d) => d.id === docSemana) ?? visibles[0] ?? null;
   if (!doc) {
     return (
@@ -1024,7 +1146,7 @@ function VistaSemana({
         </select>
         {doc.clinicaNombre && <span className="text-[11px] text-[var(--color-muted)]">{doc.clinicaNombre}</span>}
       </div>
-      <Carriles lanes={lanes} ejeBase={ejeBase} hoy={hoy} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
+      <Carriles lanes={lanes} ejeBase={ejeBase} hoy={hoy} borrador={borrador} onBorradorCambia={onBorradorCambia} onCita={onCita} onCrear={onCrear} onMoverSolicitado={onMoverSolicitado} onResizeSolicitado={onResizeSolicitado} />
     </Card>
   );
 }
@@ -1048,16 +1170,8 @@ function VistaLista({
   onCita?: (c: CitaDia, carril: { fecha: string; staffId: string }) => void;
 }) {
   const nombreDe = (id: string) => data.doctores.find((d) => d.id === id)?.nombre ?? "—";
-  const hayHuecos = data.dias.some((dia) =>
-    dia.porDoctor.some((pd) => visibles.some((v) => v.id === pd.staffId) && (pd.libres ?? []).length > 0));
   return (
     <>
-      {hayHuecos && (
-        <p className="mb-2 flex items-center gap-1.5 text-[11px] text-[var(--color-warning)]">
-          <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
-          {AVISO_HUECOS}
-        </p>
-      )}
       <div className="grid gap-2 lg:grid-cols-7">
         {data.dias.map((dia) => {
           const esHoy = dia.fecha === hoy;
@@ -1128,7 +1242,6 @@ function RecuadroDoctorDia({
         {resumen.libres && (
           <p className={`mt-1 ${ESTILO_LIBRES[resumen.libres.enfasis]}`} title={resumen.libres.enfasis === "destacado" ? AVISO_HUECOS : undefined}>
             {resumen.libres.texto}
-            {resumen.libres.enfasis === "destacado" && <span className="ml-1 text-[9px] font-normal text-[var(--color-muted)]">según Fyllio</span>}
           </p>
         )}
         <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-muted)]">
@@ -1170,7 +1283,7 @@ function RecuadroDoctorDia({
             <div key={`l${i}`}
               title={AVISO_HUECOS}
               className="rounded-lg border border-dashed border-[var(--color-warning)] px-1.5 py-1 text-[10.5px] text-[var(--color-warning)]">
-              <span className="[font-variant-numeric:tabular-nums]">{deMin(l.inicio)}–{deMin(l.fin)}</span> libre según Fyllio
+              <span className="[font-variant-numeric:tabular-nums]">{deMin(l.inicio)}–{deMin(l.fin)}</span> libre
             </div>
           ))
         )}
