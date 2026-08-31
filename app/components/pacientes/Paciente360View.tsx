@@ -771,7 +771,7 @@ function ZonaAccion({
 }) {
   if (!situacion) {
     return (
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3 animate-pulse">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3 animate-pulse">
         <div className="h-3 w-28 rounded bg-[var(--color-surface-muted)]" />
         <div className="h-5 w-2/3 rounded bg-[var(--color-surface-muted)]" />
         <div className="h-4 w-full rounded bg-[var(--color-surface-muted)]" />
@@ -800,7 +800,7 @@ function ZonaAccion({
 
   return (
     <div
-      className={`rounded-2xl border p-4 ${
+      className={`rounded-xl border p-4 ${
         enReposo
           ? "border-[var(--color-border)] bg-[var(--color-surface)]"
           : "border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)] bg-[var(--color-accent-soft)]"
@@ -926,7 +926,7 @@ function ZonaConversacion({
   }, [eventos.length]);
 
   return (
-    <div id="conversacion" className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden scroll-mt-16">
+    <div id="conversacion" className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden scroll-mt-16">
       <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center justify-between">
         <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">
           Conversación
@@ -940,9 +940,9 @@ function ZonaConversacion({
 
       {mensajes === null ? (
         <div className="p-4 space-y-2 animate-pulse">
-          <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-10" />
-          <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-10" />
-          <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-10" />
+          <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] mr-10" />
+          <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] ml-10" />
+          <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] mr-10" />
         </div>
       ) : (
         <>
@@ -985,8 +985,8 @@ function ZonaConversacion({
                     <div
                       className={`max-w-[85%] sm:max-w-[75%] px-3 py-2 ${
                         e.direccion === "Saliente"
-                          ? "ml-8 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-2xl rounded-br-sm"
-                          : "mr-8 bg-[var(--color-surface-muted)] text-[var(--color-foreground)] rounded-2xl rounded-bl-sm"
+                          ? "ml-8 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-xl rounded-br-sm"
+                          : "mr-8 bg-[var(--color-surface-muted)] text-[var(--color-foreground)] rounded-xl rounded-bl-sm"
                       }`}
                     >
                       <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{e.contenido}</p>
@@ -1045,7 +1045,7 @@ function Plegable({
 }) {
   const [abierto, setAbierto] = useState(!!abiertoInicial);
   return (
-    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+    <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
       <button
         type="button"
         onClick={() => setAbierto((v) => !v)}
@@ -1366,7 +1366,7 @@ function Card({
 }) {
   return (
     <div
-      className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4"
+      className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4"
       title={title}
     >
       <span className="inline-block text-[10px] uppercase tracking-widest font-semibold rounded-full px-2 py-0.5 bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
@@ -1632,7 +1632,7 @@ function DeletePagoDialog({
   }
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] max-w-sm w-full p-5">
+      <div className="bg-[var(--color-surface)] rounded-xl shadow-xl border border-[var(--color-border)] max-w-sm w-full p-5">
         <h3 className="font-display font-semibold text-[var(--color-foreground)] text-sm">
           ¿Eliminar este pago?
         </h3>

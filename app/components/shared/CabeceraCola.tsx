@@ -53,7 +53,7 @@ export function CabeceraCola() {
   }, [cargar]);
 
   return (
-    <div className="rounded-2xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-6">
+    <div className="rounded-xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="fyllio-label text-[var(--color-accent)]">Parado esperándote</p>

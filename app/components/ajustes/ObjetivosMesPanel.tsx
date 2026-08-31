@@ -127,7 +127,7 @@ export function ObjetivosMesPanel() {
     return (
       <div className="space-y-3 animate-pulse">
         {[0, 1].map((i) => (
-          <div key={i} className="h-24 rounded-2xl bg-[var(--color-surface-muted)]" />
+          <div key={i} className="h-24 rounded-xl bg-[var(--color-surface-muted)]" />
         ))}
       </div>
     );
@@ -154,7 +154,7 @@ export function ObjetivosMesPanel() {
       </div>
 
       {cerrado && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
           <p className="text-sm font-semibold text-[var(--color-foreground)]">
             El objetivo de este mes ya está cerrado
           </p>
@@ -167,7 +167,7 @@ export function ObjetivosMesPanel() {
       )}
 
       {allClinicas.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-8 text-center">
+        <div className="rounded-xl border border-dashed border-[var(--color-border)] p-8 text-center">
           <p className="text-[var(--color-muted)] text-sm">No hay clínicas disponibles todavía.</p>
         </div>
       )}
@@ -183,7 +183,7 @@ export function ObjetivosMesPanel() {
           return (
             <div
               key={clinica}
-              className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5"
             >
               <div className="flex items-center gap-3 mb-4">
                 <h4 className="font-semibold text-[var(--color-foreground)] flex-1">{clinica}</h4>

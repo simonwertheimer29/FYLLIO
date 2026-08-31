@@ -36,7 +36,7 @@ export function SkeletonText({
 /** Card placeholder con label + valor — para KPI hero cards. */
 export function KpiCardSkeleton() {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4">
+    <div className="bg-white rounded-xl border border-slate-200 p-4">
       <Skeleton className="h-2.5 w-20" />
       <Skeleton className="h-7 w-32 mt-3" />
     </div>
@@ -63,7 +63,7 @@ export function CardListSkeleton({ rows = 3 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <li
           key={i}
-          className="bg-white rounded-2xl border border-slate-200 p-4 flex items-start gap-3"
+          className="bg-white rounded-xl border border-slate-200 p-4 flex items-start gap-3"
         >
           <div className="flex-1 space-y-2">
             <Skeleton className="h-3 w-32" />

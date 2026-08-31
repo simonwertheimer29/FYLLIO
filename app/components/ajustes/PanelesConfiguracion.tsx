@@ -143,7 +143,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
     return (
       <div className="space-y-4 animate-pulse">
         {[0, 1].map((i) => (
-          <div key={i} className="rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-surface)]">
+          <div key={i} className="rounded-xl border border-[var(--color-border)] p-5 bg-[var(--color-surface)]">
             <div className="h-4 w-40 bg-[var(--color-border)] rounded mb-4" />
             <div className="space-y-3">
               <div className="h-3 w-64 bg-[var(--color-surface-muted)] rounded" />
@@ -172,7 +172,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
         <p className="text-xs text-[var(--color-muted)] mb-4">Elige cómo quieres que funcionen las automatizaciones</p>
         <div className="grid grid-cols-3 gap-3">
           {/* Mode A — active */}
-          <div className="rounded-2xl border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-4">
+          <div className="rounded-xl border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
               <span className="text-sm font-bold text-[var(--color-foreground)]">Modo A</span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)]">Activo</span>
@@ -183,7 +183,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
             </p>
           </div>
           {/* Mode B — disabled */}
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
             <div className="flex items-start justify-between gap-2 mb-2">
               <span className="text-sm font-bold text-[var(--color-muted)]">Modo B</span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-border)] text-[var(--color-muted)]">WhatsApp Business API</span>
@@ -194,7 +194,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
             </p>
           </div>
           {/* Mode C — disabled */}
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
             <div className="flex items-start justify-between gap-2 mb-2">
               <span className="text-sm font-bold text-[var(--color-muted)]">Modo C</span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-border)] text-[var(--color-muted)]">Próximamente</span>
@@ -228,7 +228,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
         </div>
 
         {allClinicas.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-8 text-center">
+          <div className="rounded-xl border border-dashed border-[var(--color-border)] p-8 text-center">
             <p className="text-[var(--color-muted)] text-sm">No hay clínicas configuradas todavía.</p>
           </div>
         )}
@@ -239,7 +239,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
             const isSaving = saving[clinica] ?? false;
             const isSaved = saved[clinica] ?? false;
             return (
-              <div key={clinica} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
+              <div key={clinica} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <h4 className="font-semibold text-[var(--color-foreground)]">{clinica}</h4>
                   <button
@@ -446,7 +446,7 @@ export function SectionNotificaciones() {
         <p className="text-xs text-[var(--color-muted)] mb-4">Elige qué eventos quieres recibir como notificación</p>
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
         {rows.map(({ key, label, desc }) => (
           <div key={key} className="flex items-center gap-4 p-4">
             <div className="flex-1 min-w-0">
@@ -465,7 +465,7 @@ export function SectionNotificaciones() {
         ))}
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
         <div className="flex items-start gap-3">
           <Bell size={18} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-muted)] mt-0.5" aria-hidden />
           <div className="flex-1 min-w-0">
@@ -622,8 +622,8 @@ export function SectionWhatsApp({ user }: { user: UserSession }) {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-32 rounded-2xl bg-[var(--color-surface-muted)]" />
-        <div className="h-32 rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="h-32 rounded-xl bg-[var(--color-surface-muted)]" />
+        <div className="h-32 rounded-xl bg-[var(--color-surface-muted)]" />
       </div>
     );
   }
@@ -639,7 +639,7 @@ export function SectionWhatsApp({ user }: { user: UserSession }) {
 
       {/* Banner: token expirado */}
       {wabaEstado?.tokenExpirado && (
-        <div className="rounded-2xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 p-4">
+        <div className="rounded-xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 p-4">
           <p className="text-sm font-bold text-rose-800 dark:text-rose-300 mb-1">Conexión con WhatsApp caducada</p>
           <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
             La conexión con WhatsApp ha caducado. Contacta con Fyllio para renovarla.
@@ -652,7 +652,7 @@ export function SectionWhatsApp({ user }: { user: UserSession }) {
         <button
           onClick={() => handleSave("manual")}
           disabled={saving}
-          className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
+          className={`w-full text-left rounded-xl border-2 p-5 transition-colors ${
             modo === "manual"
               ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
               : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-muted)]"
@@ -683,7 +683,7 @@ export function SectionWhatsApp({ user }: { user: UserSession }) {
         <button
           onClick={() => wabaHabilitable && handleSave("waba")}
           disabled={saving || !wabaHabilitable}
-          className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
+          className={`w-full text-left rounded-xl border-2 p-5 transition-colors ${
             modo === "waba"
               ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
               : wabaHabilitable
@@ -724,7 +724,7 @@ export function SectionWhatsApp({ user }: { user: UserSession }) {
 
       {/* Panel de estado WABA */}
       {wabaEstado && !wabaEstado.credencialesConfiguradas && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
           <p className="text-sm font-semibold text-[var(--color-foreground)] mb-2">Envío automático no configurado</p>
           <p className="text-xs text-[var(--color-muted)] leading-relaxed">
             Esta clínica aún no tiene el envío automático de WhatsApp activado. Contacta con Fyllio para configurarlo.
@@ -733,7 +733,7 @@ export function SectionWhatsApp({ user }: { user: UserSession }) {
       )}
 
       {wabaEstado?.credencialesConfiguradas && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-bold text-[var(--color-foreground)]">Credenciales configuradas</p>

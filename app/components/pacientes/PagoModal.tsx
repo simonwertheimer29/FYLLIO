@@ -142,7 +142,7 @@ export function PagoModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] max-w-md w-full">
+      <div className="bg-[var(--color-surface)] rounded-xl shadow-xl border border-[var(--color-border)] max-w-md w-full">
         <div className="px-5 py-4 border-b border-[var(--color-border)]">
           <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             {mode === "create" ? "Registrar pago" : "Editar pago"}

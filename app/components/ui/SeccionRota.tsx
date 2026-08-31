@@ -49,7 +49,7 @@ export function SeccionRota({
 
   return (
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)] p-4 lg:p-6">
-      <div className="mx-auto max-w-lg rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
+      <div className="mx-auto max-w-lg rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 text-center">
         <AlertTriangle
           size={22}
           strokeWidth={ICON_STROKE}

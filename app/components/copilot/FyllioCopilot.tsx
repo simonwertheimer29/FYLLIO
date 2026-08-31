@@ -791,7 +791,7 @@ function ChatBubble({
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] ml-8 px-3 py-2 bg-[var(--color-accent-soft)] text-[var(--color-foreground)] border border-transparent rounded-2xl rounded-tr-sm">
+        <div className="max-w-[85%] ml-8 px-3 py-2 bg-[var(--color-accent-soft)] text-[var(--color-foreground)] border border-transparent rounded-xl rounded-tr-sm">
           <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
@@ -807,7 +807,7 @@ function ChatBubble({
         {message.toolCallsTrace && message.toolCallsTrace.length > 0 && (
           <ToolCallsTrace trace={message.toolCallsTrace} />
         )}
-        <div className="px-3 py-2 bg-[var(--color-surface)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
+        <div className="px-3 py-2 bg-[var(--color-surface)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
           {renderAssistantContent(message.content)}
         </p>
@@ -994,7 +994,7 @@ function ThinkingDots() {
       <div className="fyllio-ia-gradient w-6 h-6 shrink-0 rounded-md flex items-center justify-center mt-0.5">
         <Sparkles size={12} strokeWidth={ICON_STROKE} />
       </div>
-      <div className="px-3 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)] flex items-center gap-1">
+      <div className="px-3 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl rounded-tl-sm shadow-[var(--card-shadow-rest)] flex items-center gap-1">
         {[0, 1, 2].map((i) => (
           <span
             key={i}

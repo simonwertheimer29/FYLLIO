@@ -131,7 +131,7 @@ export function AccionCard({
 
   return (
     <div
-      className={`rounded-2xl border border-[var(--color-border)] transition-[opacity,border-color,box-shadow] duration-150 ease-out ${
+      className={`rounded-xl border border-[var(--color-border)] transition-[opacity,border-color,box-shadow] duration-150 ease-out ${
         onOpen ? "hover:border-[var(--color-accent)] hover:shadow-sm" : ""
       } ${faded ? "opacity-50" : ""}`}
       style={{

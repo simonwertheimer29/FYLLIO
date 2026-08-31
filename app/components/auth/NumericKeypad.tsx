@@ -19,7 +19,7 @@ const ROWS: string[][] = [
 
 export function NumericKeypad({ onDigit, onBackspace, disabled }: Props) {
   const baseBtn =
-    "h-16 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] font-display text-2xl font-semibold tabular-nums text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] active:bg-[var(--color-surface-muted)] disabled:opacity-40 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]";
+    "h-16 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] font-display text-2xl font-semibold tabular-nums text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] active:bg-[var(--color-surface-muted)] disabled:opacity-40 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]";
 
   return (
     <div className="grid grid-cols-3 gap-3 w-full">

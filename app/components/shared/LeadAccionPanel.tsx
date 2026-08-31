@@ -738,8 +738,8 @@ export function LeadAccionPanel({
           <RegistroColapsable titulo="Registro de acciones" lineas={registroLineas} />
           {loadingMensajes ? (
             <div className="space-y-2 animate-pulse">
-              <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
-              <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-8" />
+              <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] ml-8" />
+              <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] mr-8" />
             </div>
           ) : errorMensajes ? (
             <ErrorState
