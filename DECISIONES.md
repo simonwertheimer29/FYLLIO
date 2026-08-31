@@ -3587,3 +3587,12 @@ aprobado. Los controles con señal débil quedan para las pasadas por pantalla d
 xl de más hoy que un contenedor aplastado por un sed). Card y ConfirmDialog ya cumplían. Smoke
 en producción sin errores de página. El skill ganó además el matiz táctil dictado: h-9 solo en
 toolbars densas de escritorio; h-10/11 en controles primarios de pantallas de pulgar.
+
+## 2026-08-31 — La línea del chip, resuelta con criterio y aplicada
+Incoherencia señalada en KPIs: filtros-píldora allí, controles a 8px en la agenda. Criterio fijado
+en el skill con las dos preguntas que resuelven el próximo caso sin discusión: ¿lo circular ES el
+objeto? (switch, día de calendario, botón de icono → redondo aunque se pulse) y ¿el clic cambia lo
+que VES o marca lo que ES? (filtro de vista → 8px; pertenencia que se enciende → redonda). Cambio
+de bando aplicado: SegmentedToggle/RangoTemporal/ColaTabs (compartidos) + 9 filtros locales + 4
+buscadores redondos + botón Nuevo paciente. Los chips doctor↔especialidad se quedan redondos por
+decisión (selección de pertenencia, no filtro). 132 etiquetas pasivas intactas.
