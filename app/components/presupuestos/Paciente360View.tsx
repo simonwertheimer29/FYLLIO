@@ -339,7 +339,7 @@ function ResumenTabContent({
 
         {/* Presupuestos */}
         {presupuestos.length > 0 && (
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
             <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">
               Presupuestos ({presupuestos.length})
             </p>
@@ -396,7 +396,7 @@ function ResumenTabContent({
 
         {/* Timeline unificado */}
         {timeline.length > 0 && (
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+          <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
             <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">
               Actividad ({timeline.length})
             </p>
@@ -473,7 +473,7 @@ function PagosTabContent({
 }) {
   if (!pacienteId) {
     return (
-      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-8 text-center">
+      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-8 text-center">
         <p className="text-[var(--color-muted)] text-sm">
           Sin ficha de paciente vinculada — los pagos solo se muestran cuando hay un
           paciente registrado en la tabla de Pacientes.
@@ -483,7 +483,7 @@ function PagosTabContent({
   }
   if (loading && !data) {
     return (
-      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-8 text-center">
+      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-8 text-center">
         <p className="text-[var(--color-muted)] text-sm animate-pulse">Cargando pagos…</p>
       </div>
     );
@@ -516,14 +516,14 @@ function PagosTabContent({
     <div className="space-y-6">
       {/* KPIs mini header */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 text-center">
           <p className="fyllio-label text-[var(--color-muted)]">Total cobrado</p>
           <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">
             {fmtEUR(kpis.totalFacturado)}
           </p>
         </div>
         <div
-          className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center"
+          className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 text-center"
           title={pendienteTooltip}
         >
           <p className="fyllio-label text-[var(--color-muted)]">Pendiente</p>
@@ -539,11 +539,11 @@ function PagosTabContent({
             {kpis.pendiente == null ? "—" : fmtEUR(kpis.pendiente)}
           </p>
         </div>
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 text-center">
           <p className="fyllio-label text-[var(--color-muted)]">Nº pagos</p>
           <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">{kpis.numPagos}</p>
         </div>
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-4 text-center">
           <p className="fyllio-label text-[var(--color-muted)]">Último pago</p>
           <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">{fmtUltimoPago}</p>
         </div>
@@ -578,7 +578,7 @@ function PagosTabContent({
           }
         />
       ) : (
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
           <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">
             Historial ({pagos.length})
           </p>

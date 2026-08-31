@@ -356,7 +356,7 @@ function ConfirmMoveModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
         <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Confirmar cambio de estado</p>
         <p className="text-xs text-[var(--color-muted)] mb-4">
           Mover <span className="font-semibold">{patientName}</span> a{" "}
@@ -378,13 +378,13 @@ function ConfirmMoveModal({
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
+            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
           >
             Cancelar
           </button>
           <button
             onClick={() => onConfirm(skipFuture)}
-            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)]"
+            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)]"
           >
             Confirmar
           </button>

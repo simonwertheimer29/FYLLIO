@@ -83,9 +83,9 @@ export default function FichaPresupuesto({
           <ErrorState detail="No se pudo abrir la ficha del paciente." onRetry={cargar} />
         ) : (
           <div className="space-y-3 animate-pulse">
-            <div className="h-20 rounded-2xl bg-[var(--color-surface-muted)]" />
-            <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
-            <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-8" />
+            <div className="h-20 rounded-xl bg-[var(--color-surface-muted)]" />
+            <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] ml-8" />
+            <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] mr-8" />
           </div>
         )}
       </div>

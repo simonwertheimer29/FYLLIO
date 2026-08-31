@@ -574,7 +574,7 @@ export default function PresupuestosShell({
             {loading ? (
               <div className="flex-1 min-h-0 grid grid-cols-3 lg:grid-cols-6 gap-3 animate-pulse content-start">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-96 rounded-2xl bg-[var(--color-surface-muted)]" />
+                  <div key={i} className="h-96 rounded-xl bg-[var(--color-surface-muted)]" />
                 ))}
               </div>
             ) : presupuestos.length === 0 ? (

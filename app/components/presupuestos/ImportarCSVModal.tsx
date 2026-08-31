@@ -328,7 +328,7 @@ export default function ImportarCSVModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-[var(--color-surface)] rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="bg-[var(--color-surface)] rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between gap-4 shrink-0">
@@ -361,7 +361,7 @@ export default function ImportarCSVModal({
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
                 onDragLeave={() => setIsDragging(false)}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-xl p-12 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
                   isDragging ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-muted)]"
                 }`}
               >
@@ -380,7 +380,7 @@ export default function ImportarCSVModal({
                 />
               </div>
 
-              <div className="rounded-2xl border border-[var(--color-border)] p-4">
+              <div className="rounded-xl border border-[var(--color-border)] p-4">
                 <p className="text-xs font-semibold text-[var(--color-muted)] mb-2">Columnas que detecta automáticamente del export de Gesden:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {["Paciente", "Fecha", "Doctor", "Descripción / Tratamiento", "Precio", "Mutua/Privado", "Estado"].map((c) => (
@@ -395,7 +395,7 @@ export default function ImportarCSVModal({
           {/* ── Paso 2: Mapeo ──────────────────────────────── */}
           {paso === 2 && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
+              <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
                 <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Formato no reconocido automáticamente.</p>
                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Asigna cada campo del sistema a la columna correspondiente de tu fichero.</p>
               </div>
@@ -538,7 +538,7 @@ export default function ImportarCSVModal({
           {/* ── Paso 4: Confirmar ──────────────────────────── */}
           {paso === 4 && (
             <div className="flex flex-col gap-5">
-              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-5">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-5">
                 <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-accent)]">{aImportar.length}</p>
                 <p className="text-sm text-[var(--color-accent)] mt-0.5">presupuestos a importar</p>
                 {ignorados.length > 0 && (
@@ -553,7 +553,7 @@ export default function ImportarCSVModal({
                     <select
                       value={clinicaId}
                       onChange={(e) => setClinicaId(e.target.value)}
-                      className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                     >
                       <option value="">Sin clínica asignada</option>
                       {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -566,7 +566,7 @@ export default function ImportarCSVModal({
                   <select
                     value={origenDefault}
                     onChange={(e) => setOrigenDefault(e.target.value)}
-                    className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                   >
                     {ORIGEN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -671,7 +671,7 @@ export default function ImportarCSVModal({
               </button>
             )}
             {paso === 5 && !importing && !resultado && (
-              <button onClick={onClose} className="text-sm px-4 py-2 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+              <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
                 Cerrar
               </button>
             )}

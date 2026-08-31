@@ -66,7 +66,7 @@ function fechaHumana(iso: string, hoy: string): string {
 }
 
 const INPUT =
-  "w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]";
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]";
 const LABEL = "block text-xs font-medium text-[var(--color-muted)] mb-1";
 
 export default function NewPresupuestoModal({
@@ -230,7 +230,7 @@ export default function NewPresupuestoModal({
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg sm:rounded-3xl rounded-t-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
+      <div className="w-full max-w-lg sm:rounded-xl rounded-t-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
         <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
           <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             {isEdit ? "Editar presupuesto" : "Nuevo presupuesto"}
@@ -469,14 +469,14 @@ export default function NewPresupuestoModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-surface-muted)]"
+              className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-surface-muted)]"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={!puedeGuardar}
-              className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+              className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
             >
               {saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear presupuesto"}
             </button>

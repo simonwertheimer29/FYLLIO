@@ -59,7 +59,7 @@ function HeaderBlock({ title, main, sub1, sub2, highlight, tooltip }: {
   title: string; main: string; sub1?: string; sub2?: string; highlight?: boolean; tooltip?: string;
 }) {
   return (
-    <div className={`rounded-2xl border p-5 ${highlight ? "border-[var(--color-border)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"}`}>
+    <div className={`rounded-xl border p-5 ${highlight ? "border-[var(--color-border)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"}`}>
       <p className="fyllio-label font-semibold text-[var(--color-muted)] mb-2 flex items-center gap-1">
         {title}
         {tooltip && (
@@ -228,7 +228,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       {/* Bloques del mes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {bloques.map(({ tipo, mes, prev }) => (
-          <div key={tipo} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <div key={tipo} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
             <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipo} — {mesLabel}</p>
             <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{mes?.total ?? 0}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -245,7 +245,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       </div>
 
       {/* Evolución 12 meses — 4 barras: ofrecido/aceptado por tarifa */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Evolución mensual por tarifa (12 meses)</p>
         <p className="text-xs text-[var(--color-muted)] mb-4">Barras claras = ofrecidos · Barras oscuras = aceptados</p>
         <ResponsiveContainer width="100%" height={240}>
@@ -283,7 +283,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       </div>
 
       {/* Tabla resumen — todos los meses */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Resumen por tarifa — {mesLabel}</p>
         <table className="w-full text-xs">
           <thead>
@@ -327,7 +327,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         {kpisMes.porTipoVisita.map((t) => {
           const prev = kpisPrevMes.porTipoVisita.find((x) => x.tipo === t.tipo);
           return (
-            <div key={t.tipo} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div key={t.tipo} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
               <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{t.total}</p>
               <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {textoTasa(t.tasa)} se cierran</p>
@@ -338,7 +338,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         })}
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Evolución mensual por tipo de paciente (12 meses)</p>
         <p className="text-xs text-[var(--color-muted)] mb-4">Azul = 1ª Visita (nuevos) · Turquesa = Con historial (recurrentes)</p>
         <ResponsiveContainer width="100%" height={220}>
@@ -361,7 +361,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         </ResponsiveContainer>
       </div>
 
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Resumen por tipo de paciente — {mesLabel}</p>
         <table className="w-full text-xs">
           <thead>
@@ -425,7 +425,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
 
       {/* Umbrales de precio detectados */}
       {tratConTecho.length > 0 && (
-        <div className="rounded-2xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-5">
+        <div className="rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-5">
           <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Umbrales de precio detectados</p>
           <p className="text-xs text-[var(--color-muted)] mb-4">
             Importe a partir del cual la tasa de aceptación cae significativamente para cada tratamiento.
@@ -492,7 +492,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
       )}
 
       {/* Bar chart this month */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Top 8 tratamientos — tasa de conversión en {mesLabel}</p>
         <p className="text-xs text-[var(--color-muted)] mb-4">Ordenados de mayor a menor tasa de aceptación</p>
         {top8.length === 0 ? (
@@ -511,7 +511,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
       </div>
 
       {/* Table this month */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Tratamientos — {mesLabel}</p>
         {kpisMes.porTratamiento.length === 0 ? (
           <p className="px-4 py-6 text-sm text-[var(--color-muted)]">Sin datos para este mes</p>
@@ -557,7 +557,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
       </div>
 
       {/* Historical top 8 */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <p className="text-sm font-bold text-[var(--color-foreground)] mb-4">Top 8 tratamientos — histórico (todos los tiempos)</p>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={top8HistAll} layout="vertical" margin={{ top: 4, right: 40, left: 100, bottom: 0 }}>
@@ -625,7 +625,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
     <div className="space-y-5">
       {/* Visual doctor cards — comparativa */}
       {kpisMes.porDoctor.length > 0 && (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Comparativa de doctores — {mesLabel}</p>
           <p className="text-xs text-[var(--color-muted)] mb-4">Ordenados por tasa de aceptación</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -669,13 +669,13 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       )}
 
       {/* Tabla comparativa */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-[var(--color-foreground)]">Tabla de doctores — {mesLabel}</p>
             <p className="text-[10px] text-[var(--color-muted)] mt-0.5">Clic en un doctor para ver su evolución</p>
           </div>
-          <button onClick={downloadCsv} className="text-xs px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">CSV</button>
+          <button onClick={downloadCsv} className="text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">CSV</button>
         </div>
         {kpisMes.porDoctor.length === 0 ? (
           <p className="px-4 py-6 text-sm text-[var(--color-muted)]">Sin datos para este mes</p>
@@ -751,7 +751,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       </div>
 
       {/* Historical comparison table */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Histórico total — todos los tiempos</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -812,7 +812,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
             {/* Cards */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {origenData.filter((o) => o.origen !== "sin_origen").map((o, i) => (
-                <div key={o.origen} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                <div key={o.origen} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colorCategoria(i) }} />
                     <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase truncate">{o.label}</p>
@@ -825,7 +825,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
             </div>
 
             {/* Bar chart */}
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase mb-3">Tasa de conversión %</p>
               <ResponsiveContainer width="100%" height={Math.max(180, origenData.filter((o) => o.origen !== "sin_origen").length * 44)}>
                 <BarChart
@@ -843,7 +843,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
             </div>
 
             {/* Table */}
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
               <table className="w-full text-xs">
                 <thead className="bg-[var(--color-surface-muted)]">
                   <tr>
@@ -881,7 +881,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
       {isManager && clinicaData.length > 0 && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-[var(--color-foreground)]">Comparativa de clínicas</h3>
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
             <table className="w-full text-xs">
               <thead className="bg-[var(--color-surface-muted)]">
                 <tr>
@@ -940,7 +940,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
         ) : (
           <>
             {/* Bar chart */}
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <ResponsiveContainer width="100%" height={Math.max(160, motivoData.length * 44)}>
                 <BarChart
                   layout="vertical"
@@ -957,7 +957,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
             </div>
 
             {/* Table */}
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
               <table className="w-full text-xs">
                 <thead className="bg-[var(--color-surface-muted)]">
                   <tr>
@@ -1012,15 +1012,15 @@ function TabMotorIA({ stats, loading, isDemo, error }: {
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
-        <div className="h-24 rounded-2xl bg-[var(--color-surface-muted)]" />
-        <div className="h-40 rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="h-24 rounded-xl bg-[var(--color-surface-muted)]" />
+        <div className="h-40 rounded-xl bg-[var(--color-surface-muted)]" />
       </div>
     );
   }
 
   if (!stats) {
     return (
-      <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-10 text-center">
+      <div className="rounded-xl border border-dashed border-[var(--color-border)] p-10 text-center">
         <p className="text-sm font-semibold text-[var(--color-muted)]">Sin datos del asistente IA todavía</p>
         <p className="text-xs text-[var(--color-muted)] mt-1">
           Los datos aparecen cuando se envían mensajes con el asistente IA y los presupuestos se resuelven (Aceptado / Perdido).
@@ -1053,17 +1053,17 @@ function TabMotorIA({ stats, loading, isDemo, error }: {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">Mensajes IA enviados</p>
           <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{total}</p>
           <p className="text-xs text-[var(--color-muted)] mt-1">contactos con asistente IA</p>
         </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">Tasa global IA</p>
           <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{tasaGlobal != null ? `${tasaGlobal}%` : "—"}</p>
           <p className="text-xs text-[var(--color-muted)] mt-1">{totalAcep} aceptados de {total}</p>
         </div>
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-5">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-5">
           <p className="text-[11px] font-semibold text-[var(--color-accent)] uppercase tracking-wide mb-2 flex items-center gap-1">
             Mejor tono
             <Star size={12} strokeWidth={ICON_STROKE} aria-hidden />
@@ -1080,7 +1080,7 @@ function TabMotorIA({ stats, loading, isDemo, error }: {
       </div>
 
       {/* Per-tono table */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">
           A/B por tono — histórico acumulado
         </p>
@@ -1134,7 +1134,7 @@ function TabMotorIA({ stats, loading, isDemo, error }: {
       </div>
 
       {/* Bar chart */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <p className="text-sm font-bold text-[var(--color-foreground)] mb-4">Conversión por tono</p>
         <div className="space-y-3">
           {tonos.map((tono) => {
@@ -1251,8 +1251,8 @@ export default function KpiView({
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map((i) => <div key={i} className="h-28 rounded-2xl bg-[var(--color-surface-muted)]" />)}</div>
-        <div className="h-64 rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map((i) => <div key={i} className="h-28 rounded-xl bg-[var(--color-surface-muted)]" />)}</div>
+        <div className="h-64 rounded-xl bg-[var(--color-surface-muted)]" />
       </div>
     );
   }

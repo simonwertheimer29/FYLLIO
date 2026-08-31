@@ -471,8 +471,8 @@ export default function IntervencionSidePanel({
         <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
           {loadingMensajes ? (
             <div className="space-y-2 animate-pulse">
-              <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
-              <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-8" />
+              <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] ml-8" />
+              <div className="h-10 rounded-xl bg-[var(--color-surface-muted)] mr-8" />
             </div>
           ) : errorMensajes ? (
             <p className="text-xs text-[var(--color-danger)] text-center py-6">

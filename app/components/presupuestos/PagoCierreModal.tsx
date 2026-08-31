@@ -51,7 +51,7 @@ export default function PagoCierreModal({
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
         <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
           ¿Cuánto ha pagado hoy?
         </p>
@@ -77,7 +77,7 @@ export default function PagoCierreModal({
               placeholder="0"
               value={importeStr}
               onChange={(e) => setImporteStr(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] pl-3 pr-8 py-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] pl-3 pr-8 py-2 text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--color-muted)]">
               €
@@ -87,7 +87,7 @@ export default function PagoCierreModal({
             <button
               type="button"
               onClick={() => setImporteStr(String(amount))}
-              className="shrink-0 rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+              className="shrink-0 rounded-lg border border-[var(--color-border)] px-3 py-2 text-xs font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               El total ({totalStr})
             </button>
@@ -105,7 +105,7 @@ export default function PagoCierreModal({
         <select
           value={metodo}
           onChange={(e) => setMetodo(e.target.value)}
-          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] mb-4"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] mb-4"
         >
           {METODOS_PAGO.map((m) => (
             <option key={m} value={m}>
@@ -130,7 +130,7 @@ export default function PagoCierreModal({
             type="button"
             onClick={onCancel}
             disabled={enviado}
-            className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
+            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
           >
             Cancelar
           </button>
@@ -138,7 +138,7 @@ export default function PagoCierreModal({
             type="button"
             onClick={() => confirmar(null)}
             disabled={enviado}
-            className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
+            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
           >
             Aceptar sin pago
           </button>

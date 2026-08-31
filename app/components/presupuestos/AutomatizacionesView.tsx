@@ -145,7 +145,7 @@ function TabCola({ user }: { user: UserSession }) {
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
-        {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-2xl bg-[var(--color-surface-muted)]" />)}
+        {[0, 1, 2].map((i) => <div key={i} className="h-28 rounded-xl bg-[var(--color-surface-muted)]" />)}
       </div>
     );
   }
@@ -205,7 +205,7 @@ function TabCola({ user }: { user: UserSession }) {
         const isInternal = sec.canalSugerido === "interno";
 
         return (
-          <div key={sec.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+          <div key={sec.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
             <div className="p-4">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
@@ -246,23 +246,23 @@ function TabCola({ user }: { user: UserSession }) {
               <div className="flex items-center gap-2 mt-4">
                 {isEditing ? (
                   <>
-                    <button onClick={() => handleAccion(sec.id, "editar", editVal)} className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]">Guardar</button>
-                    <button onClick={() => setEditingId(null)} className="text-xs px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">Cancelar</button>
+                    <button onClick={() => handleAccion(sec.id, "editar", editVal)} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]">Guardar</button>
+                    <button onClick={() => setEditingId(null)} className="text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">Cancelar</button>
                   </>
                 ) : (
                   <>
                     {!isInternal && sec.mensajeGenerado && (
-                      <button onClick={() => handleEnviar(sec)} className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]">
+                      <button onClick={() => handleEnviar(sec)} className="flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]">
                         <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
                         Enviar por WhatsApp
                       </button>
                     )}
                     {!isInternal && (
-                      <button onClick={() => { setEditVal(sec.mensajeGenerado); setEditingId(sec.id); }} className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+                      <button onClick={() => { setEditVal(sec.mensajeGenerado); setEditingId(sec.id); }} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
                         Editar
                       </button>
                     )}
-                    <button onClick={() => handleAccion(sec.id, "descartar")} className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:text-rose-500 hover:border-rose-200 dark:hover:border-rose-500/40 ml-auto">
+                    <button onClick={() => handleAccion(sec.id, "descartar")} className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:text-rose-500 hover:border-rose-200 dark:hover:border-rose-500/40 ml-auto">
                       Descartar
                     </button>
                   </>
@@ -399,7 +399,7 @@ function TabHistorial({ user }: { user: UserSession }) {
           hint="Los mensajes enviados o descartados aparecerán aquí."
         />
       ) : (
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden divide-y divide-[var(--color-border)]">
+        <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden divide-y divide-[var(--color-border)]">
           {filtered.map((sec) => {
             const cfg = eventoCfg(sec.tipoEvento);
             const estadoCfg = deDiccionario(
@@ -490,7 +490,7 @@ function TabProximas({ user }: { user: UserSession }) {
   }
 
   if (loading) {
-    return <div className="space-y-2 animate-pulse">{[0,1,2].map(i=><div key={i} className="h-16 rounded-2xl bg-[var(--color-surface-muted)]"/>)}</div>;
+    return <div className="space-y-2 animate-pulse">{[0,1,2].map(i=><div key={i} className="h-16 rounded-xl bg-[var(--color-surface-muted)]"/>)}</div>;
   }
 
   if (loadError) {
@@ -518,7 +518,7 @@ function TabProximas({ user }: { user: UserSession }) {
         const dias = diasRestantes(p);
         const badge = urgenciaBadge(dias);
         return (
-          <div key={p.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <div key={p.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
             <div className="flex items-start gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -586,7 +586,7 @@ export default function AutomatizacionesView({ user }: Props) {
       </div>
 
       {/* Sub-tab nav */}
-      <div className="flex gap-1 bg-[var(--color-surface-muted)] rounded-2xl p-1 w-fit">
+      <div className="flex gap-1 bg-[var(--color-surface-muted)] rounded-xl p-1 w-fit">
         {SUB_TABS.map((t) => (
           <button
             key={t.id}

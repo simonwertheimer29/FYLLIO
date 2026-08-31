@@ -62,7 +62,7 @@ export default function MotivoPerdidaModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
         <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
           ¿Por qué se perdió este presupuesto?
         </p>
@@ -116,7 +116,7 @@ export default function MotivoPerdidaModal({
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             rows={2}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] mb-4"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] mb-4"
           />
         )}
 
@@ -138,14 +138,14 @@ export default function MotivoPerdidaModal({
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
+            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
           >
             Cancelar
           </button>
           <button
             onClick={handleConfirm}
             disabled={!seleccionado}
-            className="flex-1 rounded-xl bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 rounded-lg bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Confirmar y mover
           </button>

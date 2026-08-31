@@ -182,7 +182,7 @@ function ForecastCard({
   const now = new Date();
   const isCurrent = mes === getYYYYMM(now);
   return (
-    <div className={`rounded-2xl border p-5 ${isCurrent ? "border-[var(--color-border)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"}`}>
+    <div className={`rounded-xl border p-5 ${isCurrent ? "border-[var(--color-border)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-xs font-semibold text-[var(--color-muted)]">{label}</p>
@@ -223,7 +223,7 @@ function InformeCard({
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-6">
+      <div className="rounded-xl border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-6">
         <p className="text-sm font-semibold text-[var(--color-danger)] mb-1">Error al generar informe</p>
         <p className="text-xs text-[var(--color-danger)]">{error}</p>
         <button
@@ -245,7 +245,7 @@ function InformeCard({
         action={
           <button
             onClick={onGenerar}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
           >
             <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden />
             Generar con IA
@@ -641,7 +641,7 @@ export default function InformesView({ user }: { user: UserSession }) {
           <select
             value={selectedMes}
             onChange={(e) => setSelectedMes(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             {meses.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -653,7 +653,7 @@ export default function InformesView({ user }: { user: UserSession }) {
           <select
             value={selectedClinica}
             onChange={(e) => setSelectedClinica(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             <option value="todas">Todas las clínicas</option>
             {clinicas.map((c) => (
