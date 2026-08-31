@@ -224,7 +224,7 @@ function SenalCard({
         key={cambios}
         className={`font-display font-bold tabular-nums shrink-0 ${
           destacada ? "text-3xl" : "text-xl"
-        } ${cambios > 0 ? "fyllio-destello rounded-md" : ""}`}
+        } ${cambios > 0 ? "fyllio-destello rounded" : ""}`}
         style={{ color }}
       >
         {valor}
@@ -643,7 +643,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 initialAssistantMessage: "He visto el dashboard de la red. ¿Qué punto quieres que analicemos?",
               });
             }}
-            className="fyllio-ia-gradient text-xs font-medium px-3 py-2 rounded-md hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
+            className="fyllio-ia-gradient text-xs font-medium px-3 py-2 rounded-lg hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
           >
             <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> Analiza el mes
           </button>
@@ -779,9 +779,13 @@ export function RedView({ user: _user }: { user: UserSession }) {
             </div>
           </div>
 
-          {/* ══ FILA 2 · EL NEGOCIO (60%) · TUS CLÍNICAS (40%) ═══════════ */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
-            <section className={clinicaFiltrada ? "lg:col-span-5" : "lg:col-span-3"}>
+          {/* ══ FILA 2 · EL NEGOCIO · TUS CLÍNICAS ═══════════════════════
+              50/50: con el reparto 60/40 la tabla de clínicas (492px de ancho
+              natural) desbordaba su panel a 1280 y 1440 y la columna
+              «Necesitan persona» — la clicable — quedaba tras un scroll que
+              nada anunciaba. Medido, no estimado (31-08). */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+            <section className={clinicaFiltrada ? "lg:col-span-2" : ""}>
               <TituloSeccion icono={<BarChart3 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
                 El negocio
               </TituloSeccion>
@@ -935,7 +939,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
             </section>
 
             {!clinicaFiltrada && (
-            <section className="lg:col-span-2">
+            <section>
               <TituloSeccion icono={<Building2 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
                 Tus clínicas
               </TituloSeccion>
@@ -1003,7 +1007,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
               <table className="w-full text-xs">
                 <thead className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
                   <tr className="border-b border-[var(--color-border)]">
-                    <th className="text-left font-semibold px-5 py-2">Clínica</th>
+                    <th className="text-left font-semibold px-4 py-2">Clínica</th>
                     {(
                       [
                         ["conversion", "Conversión", "De los presupuestos presentados este mes, cuántos ya se aceptaron."],
@@ -1018,8 +1022,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         // «Necesitan persona» es la cabecera más larga y en un
                         // panel de 4 columnas de dinero empujaba la cifra fuera
                         // del borde. Es la única que envuelve.
-                        className={`text-right font-semibold px-3 py-2 ${
-                          k === "necesitan" ? "max-w-[5.5rem]" : "whitespace-nowrap"
+                        className={`text-right font-semibold px-2 py-2 ${
+                          k === "necesitan" ? "max-w-[4.5rem]" : "whitespace-nowrap"
                         }`}
                       >
                         <button
@@ -1043,10 +1047,10 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         onClick={() => irAClinica(c)}
                         className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] cursor-pointer"
                       >
-                        <td className="px-5 py-3 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
+                        <td className="px-4 py-3 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
                         {/* El VALOR manda y debajo va el CAMBIO en las unidades
                             del valor: un porcentaje cambia en puntos. */}
-                        <td className="px-3 py-3 text-right tabular-nums">
+                        <td className="px-2 py-3 text-right tabular-nums">
                           <span
                             className={`font-semibold ${c.muestraCorta ? "text-[var(--color-muted)]" : "text-[var(--color-foreground)]"}`}
                             title={t.tituloMuestraCorta}
@@ -1055,10 +1059,10 @@ export function RedView({ user: _user }: { user: UserSession }) {
                           </span>
                           <span className={`block text-[10px] ${t.conversionRefTono}`}>{t.conversionRef}</span>
                         </td>
-                        <td className="px-3 py-3 text-right tabular-nums">
+                        <td className="px-2 py-3 text-right tabular-nums">
                           <span className="font-semibold text-[var(--color-foreground)]">{t.aceptado}</span>
                         </td>
-                        <td className="px-3 py-3 text-right tabular-nums">
+                        <td className="px-2 py-3 text-right tabular-nums">
                           {c.vencido > 0 ? (
                             <span className="font-semibold text-[var(--color-danger)]">{eur(c.vencido)}</span>
                           ) : (
@@ -1067,7 +1071,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         </td>
                         {/* Δ% de un IMPORTE (no de un porcentaje): comparación
                             legítima y la clave del orden por defecto. */}
-                        <td className="px-3 py-3 text-right">
+                        <td className="px-2 py-3 text-right">
                           <EvolucionClinica c={c} />
                         </td>
                         {/* La única cifra de la tabla que NO es dinero, y va la
@@ -1076,7 +1080,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
                             («Conversaciones abiertas» espera al modo B: hoy
                             mediría cuánto escribe el equipo, que es otra
                             pregunta y confundiría — decisión del 11 ago.) */}
-                        <td className="px-3 py-3 text-right tabular-nums">
+                        <td className="px-2 py-3 text-right tabular-nums">
                           {c.necesitanPersona == null ? (
                             <span
                               className="text-[var(--color-muted)]"
