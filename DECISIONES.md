@@ -3607,3 +3607,13 @@ caja del ChatEmbebido a contenedor. Verificación de cierre: rounded-2xl/3xl sol
 portal del paciente (exclusión deliberada) y todos los rounded-full interactivos restantes son
 excepciones declaradas del skill (switches, días del calendario, FAB, chips de pertenencia,
 avatares, spinners, barras). Smoke en producción sin errores.
+
+## 2026-08-31 — E2 por familias: KPIs con la pasada de acabado; Tablas y kanbans VERIFICADOS conformes
+KPIs (la más densa, primera): estructura apagada — cabeceras de sección y etiquetas a peso medio
+con tinta atenuada y tracking, rejillas de gráfico a 2-4 con 50% de opacidad en las cuatro vistas,
+controles de cabecera a h-9/8px. KpiCard ya cumplía. Las tres Tablas y los dos kanbans se
+VERIFICARON con captura por pantalla y ya estaban a estándar (F4b y los sprints previos los
+construyeron con el patrón; el barrido de radios cerró lo demás): cero cambios — el trabajo que no
+hace falta no se fabrica. Con esto, el «acabado pendiente» del mapa se reduce a: Seguimiento/Envíos,
+la pasada tipográfica de Mensajería, y E3 (Ajustes, Pacientes/360 tras decidir el duplicado,
+Automatizaciones, Inicio, Agentes).
