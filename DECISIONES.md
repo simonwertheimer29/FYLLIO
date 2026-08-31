@@ -3541,3 +3541,10 @@ línea de texto, solo paciente y tipo en primer plano, y el bloque borrador vivo
 ahora (la línea roja no puede «no aparecer»), bloques sólidos con contraste real, aviso único
 arriba (fuera el «según Fyllio» repetido), mini calendario del mes. E2E 14/14 CONTRA EL BUILD DE
 PRODUCCIÓN en 3100. Subir este acabado al skill visual: pendiente del OK de Simon tras verlo.
+
+## 2026-08-31 — El servidor de revisión se reinicia SOLO tras cada build (postbuild)
+Un `next start` de 31 días sirviendo chunks de julio hizo revisar pantallas que no existían, y en
+un mes nadie lo detectó. Acordarse no es un mecanismo: hook `postbuild` →
+scripts/reiniciar-servidor-local.mjs — mata lo que ocupe el 3100, arranca el build recién escrito
+desanclado, y SONDA /login hasta verlo responder (si no levanta, el build grita con el final del
+log, §9; en CI/Vercel no aplica y lo dice). Verificado por cambio de PID + BUILD_ID + login 200.

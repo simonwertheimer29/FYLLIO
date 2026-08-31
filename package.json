@@ -45,6 +45,7 @@
     "qa:conocimiento": "tsx scripts/qa-conocimiento.mts",
     "qa:banco": "tsx scripts/qa-banco-pruebas.mts",
     "qa:agenda": "tsx scripts/qa-agenda.mts",
+    "postbuild": "node scripts/reiniciar-servidor-local.mjs",
     "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts"
   },
   "dependencies": {
