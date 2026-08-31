@@ -3637,3 +3637,13 @@ o varios enseña una pantalla honesta que manda a /pacientes?q=. Destilado como 
 (identidad por id, nunca por nombre; un buscador devuelve candidatos, jamás elige). Censo: el
 copilot ya lo hacía bien (devuelve candidatos); queda el puente clinicas-negocio por nombre de
 clínica como deuda declarada en su propio archivo.
+
+## 2026-08-31 — E3 completa (Inicio, Pacientes/360, Automatizaciones, Ajustes, Agentes)
+El hallazgo real fue de ANCHOS, no de pintura: la tabla «Tus clínicas» de /inicio solo cabía a
+1920 — a 1280/1440 la columna «Necesitan persona» (la clicable hacia la cola) quedaba tras un
+scroll invisible. Reparto de la fila al 50/50 + tabla comprimida; cero desbordamiento medido en
+los tres anchos. El resto: puñado de radios 6px→escala y dos skeletons a mano al primitivo;
+Automatizaciones, Agentes y Llamadas verificadas conformes SIN cambios. Queda una decisión
+abierta: StatePill (el primitivo de estados) es rounded-md 6px, fuera de la escala cerrada — por
+el criterio del chip (etiqueta pasiva) tocaría redondo, pero repinta decenas de pantallas ya
+aprobadas: decisión del fundador, no de barrido.
