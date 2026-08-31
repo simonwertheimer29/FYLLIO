@@ -29,7 +29,7 @@ export default async function AjustesAutomatizacionesPage() {
         </p>
         <Link
           href="/agentes/conversacional"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
         >
           Abrir la configuración del agente
         </Link>

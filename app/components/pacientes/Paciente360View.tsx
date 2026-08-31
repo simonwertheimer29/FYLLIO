@@ -666,7 +666,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
             {pill.label}
           </StatePill>
         ) : (
-          <span className="h-5 w-16 rounded-md bg-[var(--color-surface-muted)] animate-pulse" aria-hidden />
+          <span className="fyllio-skeleton h-5 w-16" aria-hidden />
         )}
       </div>
 
@@ -1131,7 +1131,7 @@ function FaltaDatoAccion({
         onKeyDown={(e) => e.key === "Enter" && guardar()}
         placeholder={campo === "email" ? "nombre@email.com" : "+34 600 000 000"}
         autoFocus
-        className="flex-1 min-w-0 px-2 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs focus:border-[var(--color-accent)] focus:outline-none"
+        className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs focus:border-[var(--color-accent)] focus:outline-none"
       />
       <button
         type="button"

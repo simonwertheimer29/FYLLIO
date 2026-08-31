@@ -767,7 +767,7 @@ export function PacientesView({
                             nunca wa.me directo desde la tabla. */}
                         <Link
                           href={`/pacientes/${p.id}`}
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[var(--fyllio-wa-green)] hover:bg-[var(--color-surface-muted)] transition-colors"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-[var(--fyllio-wa-green)] hover:bg-[var(--color-surface-muted)] transition-colors"
                           title="Abrir conversación en la ficha"
                           aria-label={`Abrir conversación con ${p.nombre}`}
                         >
