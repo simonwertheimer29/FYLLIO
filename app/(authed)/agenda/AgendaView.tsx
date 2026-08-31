@@ -29,6 +29,7 @@ import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
 import { fechaCorta, fechaLarga, diaMes, diaMesCorto } from "../../lib/agenda/fechas";
 import { CitaPanel } from "./CitaPanel";
+import { nombreCortoDoctor } from "../../lib/agenda/nombres";
 import { EditorCitaFlotante, type BorradorCita } from "./EditorCitaFlotante";
 import { MiniCalendario } from "./MiniCalendario";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -37,6 +38,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Search,
   Info,
   MessageCircle,
   Check,
@@ -105,6 +107,11 @@ export function AgendaView() {
   const [docSemana, setDocSemana] = useState("");
   // G2.7 — el BORRADOR: el bloque vivo de la rejilla + el editor flotante.
   const [borrador, setBorrador] = useState<BorradorCita | null>(null);
+  // G2.8 — el mini calendario es un DESPLEGABLE desde el título (no una
+  // columna que aplasta la rejilla) y al pulsar un día se VA a ese día.
+  const [calAbierto, setCalAbierto] = useState(false);
+  // G2.8 — buscador de doctor: directo a su agenda semanal.
+  const [busqDoc, setBusqDoc] = useState("");
 
   const cargar = useCallback(async (semanaDesde: string) => {
     setCargando(true);
@@ -205,6 +212,13 @@ export function AgendaView() {
       inicioMin,
       duracionMin,
     });
+  }, []);
+
+  const irASemanaDoctor = useCallback((staffId: string) => {
+    setDocSemana(staffId);
+    setFiltroDoc("");
+    setVista("semana");
+    setBusqDoc("");
   }, []);
 
   const pedirMover = useCallback((c: CitaDia, origen: { fecha: string; staffId: string }, destino: DestinoMovimiento) => {
@@ -331,9 +345,6 @@ export function AgendaView() {
               className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
-            <span className="ml-1 text-xs font-medium text-[var(--color-muted)]">
-              {fechaLarga(fecha)}{fecha === hoy && " · hoy"}
-            </span>
           </div>
         ) : (
           <div className="flex items-center gap-1">
@@ -349,9 +360,38 @@ export function AgendaView() {
               className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
-            <span className="ml-1 text-xs font-medium text-[var(--color-muted)]">Semana del {diaMes(desde)}</span>
           </div>
         )}
+
+        {/* G2.8 — el título de fecha ES el mini calendario (como Google) */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setCalAbierto((v) => !v)}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-display text-[15px] font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+          >
+            {vista === "dia" ? fechaLarga(fecha) : `Semana del ${diaMes(desde)}`}
+            {vista === "dia" && fecha === hoy && <span className="text-[11px] font-normal text-[var(--color-muted)]"> · hoy</span>}
+            <ChevronDown size={14} strokeWidth={ICON_STROKE} className={`text-[var(--color-muted)] transition-transform ${calAbierto ? "rotate-180" : ""}`} aria-hidden />
+          </button>
+          {calAbierto && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setCalAbierto(false)} />
+              <div className="absolute left-0 top-full z-40 mt-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-2xl">
+                <MiniCalendario
+                  seleccionada={vista === "dia" ? fecha : desde}
+                  hoy={hoy}
+                  onDia={(f) => {
+                    setCalAbierto(false);
+                    // Al día PULSADO, no al lunes de su semana: la vista Día.
+                    setVista("dia");
+                    irADia(f);
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </div>
 
         <select
           value={filtroEsp}
@@ -385,6 +425,33 @@ export function AgendaView() {
         >
           <Plus size={13} strokeWidth={ICON_STROKE} aria-hidden /> Nueva cita
         </button>
+        {/* G2.8 — buscador de doctor: directo a su semana */}
+        <div className="relative">
+          <Search size={12} strokeWidth={ICON_STROKE} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-muted)]" aria-hidden />
+          <input
+            value={busqDoc}
+            onChange={(e) => setBusqDoc(e.target.value)}
+            placeholder="Buscar doctor…"
+            aria-label="Buscar doctor"
+            className="w-40 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 pl-7 pr-2.5 text-xs text-[var(--color-foreground)] placeholder:text-[var(--color-muted)]"
+          />
+          {busqDoc.trim().length >= 2 && data && (
+            <div className="absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+              {(() => {
+                const n = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                const hits = data.doctores.filter((d) => n(d.nombre).includes(n(busqDoc.trim()))).slice(0, 6);
+                if (!hits.length) return <p className="px-3 py-2 text-xs text-[var(--color-muted)]">Sin coincidencias.</p>;
+                return hits.map((d) => (
+                  <button key={d.id} type="button" onClick={() => irASemanaDoctor(d.id)}
+                    className="block w-full px-3 py-1.5 text-left text-xs text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)]">
+                    {d.nombre}
+                    {d.clinicaNombre && <span className="text-[var(--color-muted)]"> · {d.clinicaNombre}</span>}
+                  </button>
+                ));
+              })()}
+            </div>
+          )}
+        </div>
         {error && data && (
           <button type="button" onClick={() => void cargar(desde)}
             className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-danger)] hover:underline">
@@ -393,12 +460,6 @@ export function AgendaView() {
         )}
       </div>
 
-      <div className="flex items-start gap-4">
-        {/* Mini calendario del mes (G2.7): saltar a cualquier día, como Google */}
-        <aside className="hidden xl:block">
-          <MiniCalendario seleccionada={vista === "dia" ? fecha : desde} hoy={hoy} onDia={(f) => irADia(f)} />
-        </aside>
-        <div className="min-w-0 flex-1">
       {!data && cargando ? (
         <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />
       ) : data ? (
@@ -409,6 +470,7 @@ export function AgendaView() {
               visibles={visibles}
               docMovil={docMovilEfectivo}
               onDocMovil={setDocMovil}
+              onVerSemana={irASemanaDoctor}
               ejeBase={ejeBase}
               hoy={hoy}
               onCita={abrirPanel}
@@ -434,7 +496,7 @@ export function AgendaView() {
               onResizeSolicitado={pedirResize}
             />
           ) : (
-            <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirPanel} />
+            <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirPanel} onVerSemana={irASemanaDoctor} />
           )}
         </div>
       ) : null}
@@ -445,8 +507,6 @@ export function AgendaView() {
           <Link href="/ajustes/agenda" className="font-semibold underline">configurar en Ajustes</Link>.
         </p>
       )}
-        </div>
-      </div>
 
       {/* Cerradas en Fyllio, pendientes de pasar — constante del producto en
           TODOS los niveles: el traspaso al software es manual siempre. */}
@@ -572,10 +632,13 @@ const SNAP_MIN = 15; // gestos redondean a cuartos de hora
 type Carril = {
   key: string;
   titulo: string;
+  tituloCompleto?: string; // tooltip cuando el título va abreviado
   subtitulo?: string | null;
   diaNumero?: number; // Semana: cabecera tipo calendario
   destacado?: boolean;
   ocultaEnMovil?: boolean;
+  /** G2.8 — el nombre del doctor es un ENLACE a su semana individual. */
+  onTitulo?: () => void;
   fecha: string;
   staffId: string;
   pd: PorDoctor;
@@ -775,10 +838,10 @@ function Carriles({
         <div className="flex min-w-fit select-none pb-4">
           {/* Columna de horas (sticky al scroll horizontal) */}
           <div className="sticky left-0 z-10 w-14 shrink-0 bg-[var(--color-surface)]">
-            <div className="h-12" />
+            <div className="h-14" />
             <div className="relative" style={{ height: alto + 10 }}>
               {horas.map((h) => (
-                <span key={h} className="absolute right-2.5 -translate-y-1/2 text-[10px] font-medium text-[var(--color-muted)] [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
+                <span key={h} className="absolute right-2.5 -translate-y-1/2 text-[10px] text-[var(--color-muted)] opacity-70 [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
                   {deMin(h)}
                 </span>
               ))}
@@ -786,26 +849,37 @@ function Carriles({
           </div>
 
           {lanes.map((carril) => {
-            const { key, titulo, subtitulo, diaNumero, destacado, ocultaEnMovil, pd } = carril;
+            const { key, titulo, tituloCompleto, subtitulo, diaNumero, destacado, ocultaEnMovil, onTitulo, pd } = carril;
             const g = gestoVista;
             const esDestinoDeDrag = g?.tipo === "mover" && g.movio && g.overKey === key;
             const esHoyCarril = carril.fecha === hoyVivo;
             const ahoraVisible = esHoyCarril && ahoraMin >= ejeMin && ahoraMin <= ejeMax;
             const borradorAqui = borrador && borrador.staffId === carril.staffId && borrador.fecha === carril.fecha;
             return (
-            <div key={key} className={`w-52 min-w-52 flex-1 px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}>
+            <div key={key} className={`min-w-52 flex-1 basis-52 px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}>
               {diaNumero !== undefined ? (
-                <div className="flex h-12 flex-col items-center justify-center gap-0.5">
-                  <p className="text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{titulo}</p>
-                  <p className={`flex h-6 w-6 items-center justify-center rounded-full text-[13px] font-semibold [font-variant-numeric:tabular-nums] ${
+                <div className="flex h-14 flex-col items-center justify-center gap-0.5">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted)]">{titulo}</p>
+                  <p className={`flex h-7 w-7 items-center justify-center rounded-full text-[15px] font-semibold [font-variant-numeric:tabular-nums] ${
                     destacado ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "text-[var(--color-foreground)]"
                   }`}>
                     {diaNumero}
                   </p>
                 </div>
               ) : (
-                <div className="flex h-12 flex-col justify-center px-1.5">
-                  <p className={`truncate text-[12px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
+                <div className="flex h-14 flex-col justify-center px-1.5">
+                  {onTitulo ? (
+                    <button
+                      type="button"
+                      onClick={onTitulo}
+                      title={`Ver la semana de ${tituloCompleto ?? titulo}`}
+                      className={`truncate text-left text-[13px] font-semibold hover:text-[var(--color-accent)] hover:underline ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}
+                    >
+                      {titulo}
+                    </button>
+                  ) : (
+                    <p title={tituloCompleto ?? undefined} className={`truncate text-[13px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
+                  )}
                   {subtitulo && <p className="truncate text-[10px] text-[var(--color-muted)]">{subtitulo}</p>}
                 </div>
               )}
@@ -1028,6 +1102,7 @@ function VistaDia({
   visibles,
   docMovil,
   onDocMovil,
+  onVerSemana,
   ejeBase,
   hoy,
   borrador,
@@ -1041,6 +1116,7 @@ function VistaDia({
   visibles: DoctorSemana[];
   docMovil: string;
   onDocMovil: (id: string) => void;
+  onVerSemana: (staffId: string) => void;
 } & PropsCarrilesComunes) {
   if (!dia) {
     // El día activo cayó fuera de la semana cargada (transición de fetch).
@@ -1051,9 +1127,11 @@ function VistaDia({
     .filter((l): l is { doc: DoctorSemana; pd: PorDoctor } => l.pd !== undefined)
     .map(({ doc, pd }) => ({
       key: doc.id,
-      titulo: doc.nombre,
+      titulo: nombreCortoDoctor(doc.nombre),
+      tituloCompleto: doc.nombre,
       subtitulo: doc.clinicaNombre,
       ocultaEnMovil: doc.id !== docMovil,
+      onTitulo: () => onVerSemana(doc.id),
       fecha: dia.fecha,
       staffId: doc.id,
       pd,
@@ -1163,36 +1241,43 @@ function VistaLista({
   visibles,
   hoy,
   onCita,
+  onVerSemana,
 }: {
   data: Semana;
   visibles: DoctorSemana[];
   hoy: string;
   onCita?: (c: CitaDia, carril: { fecha: string; staffId: string }) => void;
+  onVerSemana: (staffId: string) => void;
 }) {
   const nombreDe = (id: string) => data.doctores.find((d) => d.id === id)?.nombre ?? "—";
   return (
-    <>
-      <div className="grid gap-2 lg:grid-cols-7">
-        {data.dias.map((dia) => {
-          const esHoy = dia.fecha === hoy;
-          const bloques = dia.porDoctor.filter((pd) => visibles.some((v) => v.id === pd.staffId));
-          return (
-            <Card key={dia.fecha} padding="none" className={`px-2 py-2 ${esHoy ? "ring-1 ring-[var(--color-accent)]" : ""}`}>
-              <p className={`mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide ${esHoy ? "text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}>
-                {fechaCorta(dia.fecha)}
-                {esHoy && " · hoy"}
+    <div className="grid gap-3 lg:grid-cols-7">
+      {data.dias.map((dia) => {
+        const esHoy = dia.fecha === hoy;
+        const bloques = dia.porDoctor.filter((pd) => visibles.some((v) => v.id === pd.staffId));
+        return (
+          <Card key={dia.fecha} padding="none" className={`px-2 pb-2 pt-1.5 ${esHoy ? "ring-2 ring-[var(--color-accent)]" : ""}`}>
+            {/* Cabecera de día como la Semana: estructura pequeña, dato grande */}
+            <div className="mb-2 flex flex-col items-center gap-0.5">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted)]">
+                {LABEL_DIA[diaSemanaISO(dia.fecha)]}
               </p>
-              <div className="space-y-1.5">
-                {bloques.map((pd) => (
-                  <RecuadroDoctorDia key={pd.staffId} pd={pd} nombre={nombreDe(pd.staffId)} fecha={dia.fecha} onCita={onCita} />
-                ))}
-                {bloques.length === 0 && <p className="text-[10.5px] text-[var(--color-muted)]">—</p>}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-    </>
+              <p className={`flex h-7 w-7 items-center justify-center rounded-full text-[15px] font-semibold [font-variant-numeric:tabular-nums] ${
+                esHoy ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "text-[var(--color-foreground)]"
+              }`}>
+                {Number(dia.fecha.slice(8))}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {bloques.map((pd) => (
+                <RecuadroDoctorDia key={pd.staffId} pd={pd} nombre={nombreDe(pd.staffId)} fecha={dia.fecha} onCita={onCita} onVerSemana={onVerSemana} />
+              ))}
+              {bloques.length === 0 && <p className="text-center text-[10.5px] text-[var(--color-muted)]">—</p>}
+            </div>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1201,11 +1286,13 @@ function RecuadroDoctorDia({
   nombre,
   fecha,
   onCita,
+  onVerSemana,
 }: {
   pd: PorDoctor;
   nombre: string;
   fecha: string;
   onCita?: (c: CitaDia, carril: { fecha: string; staffId: string }) => void;
+  onVerSemana: (staffId: string) => void;
 }) {
   const trabaja = pd.franjas.length > 0;
   const sinPasar = pd.citas.filter((c) => c.sinPasar).length;
@@ -1215,9 +1302,12 @@ function RecuadroDoctorDia({
   // Un día sin nada no tiene detalle que desplegar: el resumen ES todo.
   if (vacio) {
     return (
-      <div className="rounded-xl border border-[var(--color-border)] px-2 py-1.5">
-        <p className="truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
-        <p className="text-[10px] text-[var(--color-muted)]">{resumen.nota}</p>
+      <div className="rounded-xl border border-[var(--color-border)] px-2.5 py-2">
+        <button type="button" onClick={() => onVerSemana(pd.staffId)} title={`Ver la semana de ${nombre}`}
+          className="block max-w-full truncate text-[11.5px] font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline">
+          {nombre}
+        </button>
+        <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">{resumen.nota}</p>
       </div>
     );
   }
@@ -1227,16 +1317,23 @@ function RecuadroDoctorDia({
   // Jerarquía dictada (30-08, 2ª pasada): el dato libre en COLOR PROPIO (el
   // acento), no en negro — es lo que se busca al escanear. El resto, apagado.
   const ESTILO_LIBRES = {
-    destacado: "text-[12px] font-semibold text-[var(--color-accent)]",
+    destacado: "text-[13px] font-semibold text-[var(--color-accent)]",
     apagado: "text-[10.5px] text-[var(--color-muted)]",
     aviso: "text-[10.5px] font-medium text-[var(--color-warning)]",
   } as const;
 
   return (
-    <details className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <details className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-sm">
       <summary className="cursor-pointer list-none px-2.5 py-2 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-1">
-          <p className="truncate text-[11px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); onVerSemana(pd.staffId); }}
+            title={`Ver la semana de ${nombre}`}
+            className="truncate text-left text-[11.5px] font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
+          >
+            {nombre}
+          </button>
           <ChevronDown size={11} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)] transition-transform group-open:rotate-180" aria-hidden />
         </div>
         {resumen.libres && (
@@ -1255,20 +1352,24 @@ function RecuadroDoctorDia({
         )}
       </summary>
       <div className="space-y-1 border-t border-[var(--color-border)] px-2 py-1.5">
-        {pd.citas.map((c) => (
+        {pd.citas.map((c) => {
+          const est = BLOQUE_ESTADO[c.estado] ?? { bg: "var(--color-surface)", fg: "var(--color-foreground)", borde: "var(--color-border)" };
+          return (
           <div key={c.id}
             role={onCita ? "button" : undefined}
             onClick={onCita ? () => onCita(c, { fecha, staffId: pd.staffId }) : undefined}
             title={c.esFyllio ? "Clic: estado y ficha" : "Clic: estado y ficha (se mueve en tu software clínico)"}
-            className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${onCita ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
+            className={`rounded-lg px-2 py-1 text-[10.5px] leading-tight shadow-sm ${onCita ? "cursor-pointer hover:brightness-[1.06]" : ""}`}
+            style={{ background: est.bg, color: est.fg, ...(est.borde ? { border: `1px solid ${est.borde}` } : {}) }}>
             <span className="font-semibold [font-variant-numeric:tabular-nums]">
               {deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}
             </span>{" "}
             {c.nombre ?? "—"}
-            {c.sinPasar && <span className="text-[var(--color-warning)]"> · sin pasar</span>}
-            {c.finMin === null && <span className="text-[var(--color-warning)]"> · sin duración</span>}
+            {c.sinPasar && <span className="opacity-90"> · sin pasar</span>}
+            {c.finMin === null && <span className="opacity-90"> · sin duración</span>}
           </div>
-        ))}
+          );
+        })}
         {pd.bloqueos.map((b, i) => (
           <div key={`b${i}`} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1 text-[10.5px] text-[var(--color-muted)]">
             <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}

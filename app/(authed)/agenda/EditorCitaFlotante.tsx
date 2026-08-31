@@ -11,7 +11,7 @@
 // que falta de verdad: el PACIENTE y el TIPO DE CITA — y al elegir tipo, el
 // bloque de la rejilla crece o encoge a la vista (la duración del catálogo).
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cargarJSON } from "../../lib/fetch-json";
 import { deMin } from "../../lib/agenda/disponibilidad";
@@ -78,6 +78,32 @@ export function EditorCitaFlotante({
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [borrador.nombre, borrador.pacienteId, borrador.modo]);
 
+  // G2.8 — el panel se coloca JUNTO al bloque borrador, nunca encima: a su
+  // derecha si hay sitio, a su izquierda si el bloque está pegado al borde
+  // derecho. Se recoloca cuando el borrador cambia (arrastres incluidos).
+  const ANCHO = 320;
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const coloca = () => {
+      const bloque = document.querySelector("[data-borrador]");
+      if (!bloque) { setPos(null); return; }
+      const r = bloque.getBoundingClientRect();
+      const margen = 16;
+      let left = r.right + margen;
+      if (left + ANCHO > window.innerWidth - 8) left = r.left - ANCHO - margen;
+      if (left < 8) left = Math.min(window.innerWidth - ANCHO - 8, Math.max(8, r.right + margen));
+      const top = Math.max(72, Math.min(r.top, window.innerHeight - 380));
+      setPos({ left, top });
+    };
+    coloca();
+    window.addEventListener("resize", coloca);
+    window.addEventListener("scroll", coloca, true);
+    return () => {
+      window.removeEventListener("resize", coloca);
+      window.removeEventListener("scroll", coloca, true);
+    };
+  }, [borrador.fecha, borrador.staffId, borrador.inicioMin, borrador.duracionMin]);
+
   const doctor = doctores.find((d) => d.id === borrador.staffId) ?? null;
   const finMin = borrador.inicioMin + borrador.duracionMin;
   const puedeGuardar = Boolean(borrador.nombre.trim()) && Boolean(borrador.staffId) && !saving;
@@ -120,7 +146,8 @@ export function EditorCitaFlotante({
   return (
     <div
       data-editor-cita
-      className="fixed right-6 top-28 z-50 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-2xl"
+      className="fixed z-50 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-2xl"
+      style={pos ? { left: pos.left, top: pos.top } : { right: 24, top: 112 }}
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
       <div className="mb-2 flex items-center justify-between">

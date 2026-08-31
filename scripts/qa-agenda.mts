@@ -315,6 +315,14 @@ check("2026-08-30 es domingo (7)", diaSemanaISO("2026-08-30") === 7);
   check("fin de año no se desplaza de día", fechaCorta("2026-01-01").includes("1 ene"), fechaCorta("2026-01-01"));
 }
 
+// ── L · nombres de doctor abreviados (G2.8) ────────────────────────────
+{
+  const { nombreCortoDoctor } = await import("../app/lib/agenda/nombres");
+  check("abrevia por el NOMBRE, no el apellido", nombreCortoDoctor("Dr. Alejandro Fernández") === "Dr. A. Fernández", nombreCortoDoctor("Dr. Alejandro Fernández"));
+  check("si cabe, no toca nada", nombreCortoDoctor("Dr. Gil") === "Dr. Gil");
+  check("Dra. conserva el título", nombreCortoDoctor("Dra. Encarnación Villanueva").startsWith("Dra. E."), nombreCortoDoctor("Dra. Encarnación Villanueva"));
+}
+
 // ── resultado ──────────────────────────────────────────────────────────
 if (fallos.length > 0) {
   console.error(`✗ ${fallos.length} fallos:`);

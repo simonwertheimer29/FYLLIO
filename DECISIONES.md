@@ -3548,3 +3548,15 @@ un mes nadie lo detectó. Acordarse no es un mecanismo: hook `postbuild` →
 scripts/reiniciar-servidor-local.mjs — mata lo que ocupe el 3100, arranca el build recién escrito
 desanclado, y SONDA /login hasta verlo responder (si no levanta, el build grita con el final del
 log, §9; en CI/Vercel no aplica y lo dice). Verificado por cambio de PID + BUILD_ID + login 200.
+
+## 2026-08-31 — Agenda G2.8: el calendario al título, el editor que no tapa, y doctores a un clic
+Ocho puntos de la revisión. El mini calendario deja de ser columna (aplastaba la rejilla) y pasa a
+DESPLEGABLE desde el título de fecha, como Google — y pulsar un día aterriza EN ese día en vista
+Día (el «salto al lunes» era que la vista semanal seguía activa). El editor flotante se coloca
+respecto al BORRADOR: derecha si hay sitio, izquierda si el bloque está pegado al borde — nunca
+encima (verificado midiendo rectángulos en ambos extremos). Carriles con ancho mínimo (el actual)
+y crecimiento al espacio; buscador de doctor que lleva directo a su semana; el nombre del doctor
+en cabeceras de Día y recuadros de Lista es un ENLACE a su semana individual. Lista con el mismo
+acabado que la rejilla (cabecera de día con número grande y hoy en círculo, chips sólidos, libres
+en acento 13px). Tipografía con jerarquía real (dato vs estructura). Nombres largos abreviados por
+el NOMBRE, nunca el apellido («Dra. P. Iglesias»), con qa propio. E2E 12/12 en producción.
