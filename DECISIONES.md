@@ -3729,3 +3729,16 @@ misma tabla se lee una vez (el dashboard leía configuraciones ×4). Medido en l
 contención del pooler desde el portátil hay picos de 4 s que no son del código. `leads.fecha_cita` es
 TEXTO en la base (001): se castea en la consulta. Los QA del seed limpian eventos de los hilos
 huérfanos: `demo:reset` antes de una demo.
+
+## 2026-09-04 — Inicio fase 4: la pantalla, y la cola cierra por hechos en lote
+InicioView sustituye a RedView (RedView y /api/red/dashboard retirados; /red sigue redirigiendo).
+Una pantalla sin scroll a 1440×900 (medido: 900 px en 900), cinco elementos: la línea «desde el
+<último cierre de jornada>» con cuatro cifras que abren su lista; dinero parado (total + las cuatro
+líneas de riesgo con delta vs la foto de hace 7 días y clic a la cola); tu equipo (tres cohortes y
+el SLA, sin ranking de personas); qué hizo Fyllio este mes por proceso con «llegó cocinado» y la
+ventana de 30 días dicha en pantalla, detalle expandible con el coste «medido desde el día X»; y en
+red la tabla de clínicas ordenada por «necesitan persona» con SOLO la sede que cayó resaltada. Se
+van el embudo, el progreso y «qué está funcionando» (viven en KPIs). Hallazgo de camino: con el log
+del agente lleno, la doctrina «la cola asume de más» producía 86 «fuera de plazo» falsos (entregas
+de caso completo ya cumplidas); ahora la cola aplica en lote la misma regla monótona del semáforo
+—objetivo ya no abierto = entrega cumplida— con datos en memoria, cero consultas por hilo.
