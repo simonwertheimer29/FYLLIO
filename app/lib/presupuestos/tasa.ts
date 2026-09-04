@@ -126,7 +126,10 @@ export function textoTasa(t: TasaCierre): string {
  * tampoco se hace como si nada: `legado: true` permite que quien los pinte diga
  * de qué denominador habla ese número, que no es el de hoy.
  */
-const eurTxt = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
+// Miles con punto SIEMPRE (6.420 €): el locale es-ES de Node omite el
+// separador en cifras de cuatro dígitos y la nota se leía «6420 €» al lado de
+// un «6.420 €» de la misma pantalla.
+const eurTxt = (n: number) => `${String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} €`;
 
 /** Informes GUARDADOS: tres formatos conviven. (1) el actual con euros;
  *  (2) el de 07/2026, aceptados sobre decididos (`decididos` sin

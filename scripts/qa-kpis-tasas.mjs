@@ -56,16 +56,23 @@ const admin = (await c.query("select id,nombre from usuarios where email='demo@f
 if (!admin) { await c.query("rollback"); c.release(); await pool.end(); abortar("no existe el usuario demo@fyllio.com"); }
 
 const est = (await c.query(
-  "select estado, count(*)::int n from presupuestos group by 1",
+  "select estado, count(*)::int n, coalesce(sum(importe),0)::float eur from presupuestos group by 1",
 )).rows;
 const nDe = (e) => est.filter((r) => r.estado === e).reduce((s, r) => s + r.n, 0);
+const eurDe = (e) => est.filter((r) => r.estado === e).reduce((s, r) => s + r.eur, 0);
 const ACEPTADOS = nDe("ACEPTADO");
 const PERDIDOS = nDe("PERDIDO");
 const TOTAL = est.reduce((s, r) => s + r.n, 0);
 const ABIERTOS = TOTAL - ACEPTADOS - PERDIDOS;
+// La definición ANTERIOR (por número, sobre decididos): sobrevive solo como
+// `pctDecididos`, nota secundaria (04-09).
 const TASA_REAL = ACEPTADOS + PERDIDOS > 0
   ? Math.round((ACEPTADOS / (ACEPTADOS + PERDIDOS)) * 100)
   : null;
+// LA tasa (04-09): € aceptado sobre € presentado, lo abierto en el denominador.
+const EUR_ACEPTADO = eurDe("ACEPTADO");
+const EUR_PRESENTADO = est.reduce((s, r) => s + r.eur, 0);
+const TASA_EUR = EUR_PRESENTADO > 0 ? Math.round((EUR_ACEPTADO / EUR_PRESENTADO) * 100) : null;
 
 const visitas = (await c.query(
   "select coalesce(tipo_visita,'(null)') v, count(*)::int n from presupuestos group by 1",
@@ -102,16 +109,26 @@ const ok = (nombre, cond, detalle = "") => {
 };
 
 console.log(`\nDEMO: ${TOTAL} presupuestos = ${ACEPTADOS} aceptados + ${PERDIDOS} perdidos + ${ABIERTOS} abiertos`);
-console.log(`Tasa esperada (aceptados/decididos): ${TASA_REAL}%\n`);
+console.log(`Tasa esperada: ${TASA_EUR}% del € presentado (${Math.round(EUR_ACEPTADO)} de ${Math.round(EUR_PRESENTADO)} €) · definición anterior por decididos: ${TASA_REAL}%\n`);
 
 const { kpis, kpisMes } = await api("/api/presupuestos/kpis");
 const kpisMesTasa = kpisMes?.resumen?.tasa;
 
 // 1.1 — la tasa global ya no diluye
 ok(
-  "1.1 · la tasa global es sobre decididos",
-  kpis.resumen.tasa?.pct === TASA_REAL,
-  `API ${kpis.resumen.tasa?.pct}% vs esperado ${TASA_REAL}%`,
+  "1.1 · la tasa global es € aceptado sobre € presentado",
+  kpis.resumen.tasa?.pct === TASA_EUR,
+  `API ${kpis.resumen.tasa?.pct}% vs esperado ${TASA_EUR}%`,
+);
+ok(
+  "1.1 · la definición anterior sobrevive como nota (pctDecididos), no como tasa",
+  kpis.resumen.tasa?.pctDecididos === TASA_REAL,
+  `API ${kpis.resumen.tasa?.pctDecididos}% vs ${TASA_REAL}%`,
+);
+ok(
+  "1.1 · lo abierto entra en el denominador y viaja en euros",
+  typeof kpis.resumen.tasa?.abiertosEur === "number" && Math.round(kpis.resumen.tasa.presentadoEur) === Math.round(EUR_PRESENTADO),
+  `presentadoEur=${Math.round(kpis.resumen.tasa?.presentadoEur ?? -1)} abiertosEur=${Math.round(kpis.resumen.tasa?.abiertosEur ?? -1)}`,
 );
 ok(
   "1.1 · el denominador viaja con la tasa",
