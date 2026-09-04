@@ -46,6 +46,7 @@
     "qa:banco": "tsx scripts/qa-banco-pruebas.mts",
     "qa:agenda": "tsx scripts/qa-agenda.mts",
     "qa:agenda-externa": "tsx scripts/qa-agenda-externa.mts",
+    "qa:coste": "tsx scripts/qa-coste.mts",
     "postbuild": "node scripts/reiniciar-servidor-local.mjs",
     "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts"
   },

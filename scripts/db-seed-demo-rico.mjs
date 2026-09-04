@@ -757,6 +757,11 @@ try {
   // notas murió con la migración (la nota humana se queda).
   const citasPlan = [[0, 6, "Confirmada"], [1, 5, "Confirmada"], [3, 4, "Programada"], [4, 3, "Programada"],
     [-2, 4, "Completado"], [-5, 3, "Completado"], [-3, 3, "No_show"]];
+  // 034 — quién confirmó. Los pacientes[0..11] con llamada de voz «confirmada»
+  // (se siembran más abajo, i%4!==3) confirmaron por el AGENTE DE VOZ; el
+  // resto alterna recordatorio/persona. Coherente con las llamadas sembradas.
+  const confirmoVoz = new Set(pacientes.slice(0, 12).filter((_, i) => i % 4 !== 3).map((p) => p.id));
+  const confirmadaPor = (pacId, n) => (confirmoVoz.has(pacId) ? "agente_voz" : n % 2 === 0 ? "recordatorio" : "persona");
   let nc = 0; let citasN = 0;
   for (const [off, cnt, estado] of citasPlan) {
     for (let k = 0; k < cnt; k++) {
@@ -768,6 +773,7 @@ try {
       await ins("citas", {
         nombre: pac.nombre, hora_inicio: dPlus(off, hueco.h, hueco.m).toISOString(), hora_final: dPlus(off, hueco.h, hueco.m + 30).toISOString(),
         estado, notas: estado === "No_show" ? "No se presentó." : null, origen: "Coordinación",
+        confirmada_por: estado === "Confirmada" ? confirmadaPor(pac.id, nc) : null,
         // 032: el seed simula la agenda que la clínica YA tenía en su
         // software — 'importado', no 'fyllio': la lista «pendientes de pasar»
         // es SOLO para lo que nace en Fyllio.
@@ -1147,6 +1153,7 @@ try {
           citaVolRows.push({
             nombre: pac.nombre, hora_inicio: dPlus(off, hueco.h, hueco.m).toISOString(),
             hora_final: dPlus(off, hueco.h, hueco.m + 30).toISOString(), estado,
+            confirmada_por: estado === "Confirmada" ? confirmadaPor(pac.id, k) : null,
             notas: noShow ? "No se presentó." : null, origen: "Coordinación",
             origen_sistema: "importado", // 032: agenda preexistente, no nacida en Fyllio
             paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: hueco.doc.id,
@@ -1192,9 +1199,13 @@ try {
     });
   }
   // configuración por clínica: modo_whatsapp MANUAL (candado 3)
+  // 31-08 — el agente ENCENDIDO en la demo (modo A: evalúa y redacta, la
+  // persona envía). Con el log del agente sembrado desde los hilos, un agente
+  // «apagado» en la config contradiría el log — y la demo enseña el agente.
+  // Sin WABA en el entorno demo nada sale de verdad.
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_automatizaciones", {
     clinica_id: cid, activa: true, dias_inactividad_alerta: 3, dias_portal_sin_respuesta: 7, dias_reactivacion: 60,
-    modo_whatsapp: "manual", actualizado_en: dISO(-2),
+    modo_whatsapp: "manual", evaluador_activo: true, actualizado_en: dISO(-2),
   });
   // eventos del sistema — TODOS procesado=true (candado 2: el cron los ignora)
   let eventosN = 0;
@@ -1310,6 +1321,191 @@ try {
     const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");
     await ins("plantillas_mensaje", { nombre: "Recordatorio de cita", tipo: "Recordatorio de cita", categoria: "cita_recordatorio", contenido, variables_detectadas: vars, activa: true });
   }
+
+  // ── EL LOG DEL AGENTE (Inicio, 31-08) — GENERADO DESDE LOS HILOS ─────────
+  //  Condición dictada: coherente con lo que dicen las conversaciones. Por eso
+  //  no se inventa un log aparte: se LEE cada hilo ya persistido y de cada
+  //  entrante con intención se deriva lo que el agente habría anotado —
+  //  evaluación (con campos recogidos que salen del texto), aplazamiento con
+  //  su clave, espera, o entrega del caso completo. Un log que contradiga el
+  //  hilo es peor que ninguno; generado desde el hilo, no puede.
+  //  Modo A: los salientes posteriores a una evaluación quedan como borrador
+  //  del agente enviado por la persona (sugerido_por_ia), no como «autor
+  //  agente» — el agente aún no envía solo.
+  {
+    // Dos hilos más, para que existan las causas que el resto del seed no
+    // produce: una QUEJA (con malestar) y una URGENCIA. Van sobre leads en
+    // espera (le escribimos y ahora contesta esto): la causa ES el texto.
+    {
+      const { rows: enEspera } = await db.query(
+        `select m.lead_id, m.telefono, max(m."timestamp") as ult
+           from mensajes_whatsapp m join leads l on l.id = m.lead_id
+          where m.cliente = 'DEMO' and l.cliente = 'DEMO' and l.estado = 'Contactado'
+          group by m.lead_id, m.telefono
+          having count(*) = 3 order by max(m."timestamp") desc limit 2`,
+      );
+      const extras = [
+        { txt: "Llevo dos días esperando respuesta y nadie me dice nada. Quiero hablar con una persona, por favor.", ts: hAgo(3) },
+        { txt: "Se me ha roto una muela y me duele bastante. ¿Podéis verme hoy o mañana como muy tarde?", ts: hAgo(1) },
+      ];
+      for (let i = 0; i < Math.min(2, enEspera.length); i++) {
+        await ins("mensajes_whatsapp", {
+          lead_id: enEspera[i].lead_id, telefono: enEspera[i].telefono, direccion: "Entrante",
+          contenido: extras[i].txt, timestamp: extras[i].ts, fuente: "Modo_A_manual", procesado_por_ia: true,
+        });
+      }
+    }
+
+    const { rows: msgs } = await db.query(
+      `select id, telefono, lead_id, presupuesto_id, paciente_id, direccion, contenido,
+              intencion_detectada as intn, "timestamp" as ts
+         from mensajes_whatsapp where cliente = 'DEMO' and telefono is not null
+         order by telefono, "timestamp" asc, id asc`,
+    );
+    const { rows: leadRows } = await db.query(`select id, nombre, estado, tratamiento_interes from leads where cliente = 'DEMO'`);
+    const { rows: presRows } = await db.query(`select id, estado, tratamiento_nombre, importe from presupuestos where cliente = 'DEMO'`);
+    const leadDe = new Map(leadRows.map((l) => [l.id, l]));
+    const presDe = new Map(presRows.map((p) => [p.id, p]));
+    const hilos = new Map();
+    for (const m of msgs) (hilos.get(m.telefono) ?? hilos.set(m.telefono, []).get(m.telefono)).push(m);
+
+    const MODELO = "claude-haiku-4-5-20251001";
+    const seg = (iso, n) => new Date(new Date(iso).getTime() + n * 1000).toISOString();
+    const dias = (iso, n) => new Date(new Date(iso).getTime() + n * 86_400_000).toISOString().slice(0, 10);
+    const evento = (row) => ins("eventos_automatizacion", { tipo_caso: "conversacion", actor_nombre: "agente", ...row });
+    let nEval = 0, nDeriv = 0, nAplaz = 0, nEspera = 0;
+    const sugeridos = [];
+
+    for (const [telefono, hilo] of hilos) {
+      const lead = hilo.find((m) => m.lead_id) ? leadDe.get(hilo.find((m) => m.lead_id).lead_id) : null;
+      const pres = hilo.find((m) => m.presupuesto_id) ? presDe.get(hilo.find((m) => m.presupuesto_id).presupuesto_id) : null;
+      const tema = pres ? "presupuesto" : lead ? "cita" : "identificar";
+      const trat = pres?.tratamiento_nombre ?? lead?.tratamiento_interes ?? null;
+      let entrantesVistos = 0;
+      let evaluado = false;
+      let entregado = false;
+      for (let i = 0; i < hilo.length; i++) {
+        const m = hilo[i];
+        if (m.direccion === "Saliente") {
+          if (evaluado) sugeridos.push(m.id);
+          continue;
+        }
+        entrantesVistos++;
+        const txt = String(m.contenido ?? "");
+        const t = txt.toLowerCase();
+        const intn = m.intn ?? null;
+        const siguienteSaliente = hilo.slice(i + 1).find((x) => x.direccion === "Saliente");
+        // Qué habría recogido el agente de ESTE texto (solo lo que el texto dice).
+        const campos = {};
+        let queja = false, malestar = false, urgencia = false;
+        let aplazar = null, esperaDias = null, entregar = null;
+        if (tema === "cita") {
+          campos.nombre_completo = lead?.nombre ?? null;
+          campos.tratamiento_o_molestia = trat;
+          if (/por la tarde/.test(t)) campos.disponibilidad = /esta semana/.test(t) ? "esta semana por la tarde" : "por la tarde";
+          if (/resérvalo|allí estaré|me viene bien/.test(t)) { campos.disponibilidad = campos.disponibilidad ?? "la propuesta"; campos.urgencia = "sin prisa"; entregar = "cita"; }
+          if (/cuánto cost|precio|financiación/.test(t) && !/tarde/.test(t)) aplazar = "precio_descuento";
+          if (/muela|duele|dolor/.test(t)) { campos.urgencia = "dolor ahora"; campos.tratamiento_o_molestia = "dolor de muela"; urgencia = true; }
+          if (/hablar con una persona|nadie me dice/.test(t)) { queja = true; malestar = true; }
+        } else if (tema === "presupuesto") {
+          if (intn === "Acepta sin condiciones") { campos.decision = "acepta"; entregar = "presupuesto"; }
+          if (intn === "Acepta pero pregunta pago") { campos.decision = "acepta"; campos.como_pagar = null; aplazar = "plan_pago"; entregar = "presupuesto"; }
+          if (intn === "Pide oferta/descuento") { campos.decision = null; campos.que_le_frena = "el precio"; aplazar = "precio_descuento"; }
+          if (intn === "Tiene duda sobre tratamiento") { campos.decision = null; aplazar = /incluye|revisiones/.test(t) ? "garantia_condiciones" : "duda_clinica"; }
+          if (intn === "Quiere pensarlo") { campos.decision = "se lo piensa"; campos.cuando_retomar = /semana que viene/.test(t) ? "la semana que viene" : "en unos días"; esperaDias = 7; }
+          if (intn === "Rechaza") { campos.decision = "rechaza"; campos.motivo_rechazo = txt.slice(0, 80); }
+          if (/me interesa mucho|cómo pido cita/.test(t)) { campos.decision = "acepta"; campos.disponibilidad_primera_cita = null; }
+        } else {
+          campos.nombre = null; campos.es_paciente = "no";
+          if (/cuánto cuesta|precio/.test(t)) aplazar = "precio_descuento";
+          if (/horario|abrís/.test(t)) campos.motivo = "horario";
+        }
+        const payload = {
+          v: 1, tema, peticionOQueja: queja, malestar, urgenciaMedica: urgencia, mencionaAntecedenteMedico: false,
+          vuelveSobreAplazado: null, camposRecogidos: { [tema]: campos }, hiloTruncado: false, borradorDescartado: null,
+          respuesta: siguienteSaliente ? String(siguienteSaliente.contenido) : "",
+          esperaHasta: esperaDias ? dias(m.ts, esperaDias) : null,
+          presupuestoReferidoId: pres?.id ?? null,
+          // El coste del turno (31-08): tokens realistas de un turno en haiku.
+          usage: { inputTokens: 1600 + (entrantesVistos * 137) % 900, outputTokens: 180 + (i * 31) % 160, cacheEscritura: 0, cacheLectura: 1200 },
+          modelo: MODELO,
+        };
+        await evento({ caso_id: telefono, evento: "evaluacion", evaluacion_json: JSON.stringify(payload), mensaje_id: m.id, created_at: seg(m.ts, 2) });
+        nEval++; evaluado = true;
+        if (aplazar) {
+          await evento({ caso_id: telefono, evento: "aplazado", clave_aplazado: aplazar, motivo_texto: `«${txt.slice(0, 120)}»`, mensaje_id: m.id, created_at: seg(m.ts, 3) });
+          nAplaz++;
+        }
+        if (esperaDias) {
+          await evento({ caso_id: telefono, evento: "espera_fijada", hasta: dias(m.ts, esperaDias), motivo_texto: `«${txt.slice(0, 120)}»`, mensaje_id: m.id, created_at: seg(m.ts, 3) });
+          nEspera++;
+        }
+        // Entregas: la causa ES el texto. Una por hilo (no se revierte).
+        let causa = null;
+        if (queja) causa = "peticion_queja";
+        else if (urgencia) causa = "urgencia";
+        else if (tema === "identificar" && entrantesVistos >= 2) causa = "insistencia";
+        else if (entregar) causa = "caso_completo";
+        if (causa && !entregado) {
+          await evento({
+            caso_id: telefono, evento: "derivado", causa_derivacion: causa,
+            malestar: causa === "peticion_queja" ? malestar : null,
+            objetivo_activo: entregar ?? tema, motivo_texto: `«${txt.slice(0, 120)}»`, mensaje_id: m.id, created_at: seg(m.ts, 4),
+          });
+          nDeriv++; entregado = true;
+        }
+      }
+    }
+    if (sugeridos.length) {
+      await db.query(`update mensajes_whatsapp set sugerido_por_ia = true where cliente = 'DEMO' and id = any($1::text[])`, [sugeridos]);
+    }
+    // Envíos que caducaron AYER (la línea «desde ayer» del Inicio los cuenta).
+    {
+      const abiertos = presRows.filter((p) => !["ACEPTADO", "PERDIDO"].includes(p.estado)).slice(0, 3);
+      const ayer = dPlus(-1, 10).toISOString();
+      for (const p of abiertos) {
+        const pac = msgs.find((m) => m.presupuesto_id === p.id);
+        await ins("cola_envios", {
+          presupuesto_ref: p.id, paciente_nombre: null, telefono: pac?.telefono ?? null,
+          contenido: `Seguimiento del presupuesto de ${p.tratamiento_nombre ?? "tratamiento"}.`,
+          tipo: "Recordatorio 1", estado: "Caducado", programado_para: ayer,
+          plantilla_usada: "Seguimiento de presupuesto", origen: "seguimiento_presupuesto",
+          tratamiento: p.tratamiento_nombre ?? null, importe: p.importe ?? null,
+        });
+      }
+    }
+    console.log(`log del agente: ${nEval} evaluaciones · ${nDeriv} entregas · ${nAplaz} aplazados · ${nEspera} esperas · ${sugeridos.length} borradores del agente enviados por el equipo`);
+
+    // INVARIANTE (§15) — el log es COHERENTE con los hilos por construcción, y
+    // esto lo comprueba: ningún evento sin un entrante anterior en su hilo,
+    // toda entrega con objetivo, todo aplazado con clave, todo borrador del
+    // agente con su evaluación antes. Y que haya de cada cosa: un Inicio con
+    // el bloque 2 en blanco es un seed que miente por omisión.
+    {
+      const { rows: [inv] } = await db.query(`select
+        (select count(*) from eventos_automatizacion e where e.cliente = 'DEMO' and e.tipo_caso = 'conversacion'
+           and not exists (select 1 from mensajes_whatsapp m where m.cliente = 'DEMO' and m.telefono = e.caso_id
+                             and m.direccion = 'Entrante' and m."timestamp" <= e.created_at))::int as sin_entrante,
+        (select count(*) from eventos_automatizacion where cliente = 'DEMO' and evento = 'derivado' and objetivo_activo is null)::int as entrega_sin_objetivo,
+        (select count(*) from eventos_automatizacion where cliente = 'DEMO' and evento in ('aplazado','aplazado_resuelto') and clave_aplazado is null)::int as aplazado_sin_clave,
+        (select count(*) from mensajes_whatsapp m where m.cliente = 'DEMO' and m.sugerido_por_ia = true
+           and not exists (select 1 from eventos_automatizacion e where e.cliente = 'DEMO' and e.evento = 'evaluacion'
+                             and e.caso_id = m.telefono and e.created_at <= m."timestamp"))::int as borrador_sin_evaluacion,
+        (select count(*) from eventos_automatizacion where cliente = 'DEMO' and evento = 'evaluacion')::int as evaluaciones,
+        (select count(*) from eventos_automatizacion where cliente = 'DEMO' and evento = 'derivado' and causa_derivacion = 'caso_completo')::int as completos,
+        (select count(*) from eventos_automatizacion where cliente = 'DEMO' and evento = 'derivado' and causa_derivacion <> 'caso_completo')::int as otras_entregas,
+        (select count(distinct clave_aplazado) from eventos_automatizacion where cliente = 'DEMO' and evento = 'aplazado')::int as claves`);
+      const malas = [];
+      if (inv.sin_entrante) malas.push(`${inv.sin_entrante} evento(s) sin entrante previo en su hilo`);
+      if (inv.entrega_sin_objetivo) malas.push(`${inv.entrega_sin_objetivo} entrega(s) sin objetivo`);
+      if (inv.aplazado_sin_clave) malas.push(`${inv.aplazado_sin_clave} aplazado(s) sin clave`);
+      if (inv.borrador_sin_evaluacion) malas.push(`${inv.borrador_sin_evaluacion} borrador(es) del agente sin evaluación previa`);
+      if (!inv.evaluaciones || inv.completos < 3 || inv.otras_entregas < 2 || inv.claves < 3) malas.push(`poco log: ${JSON.stringify(inv)}`);
+      if (malas.length) throw new Error(`[seed] log del agente incoherente: ${malas.join(" · ")}`);
+      console.log(`  log coherente con los hilos: ${inv.completos} entregas completas · ${inv.otras_entregas} por queja/urgencia/insistencia · ${inv.claves} claves de aplazado`);
+    }
+  }
+
   // INVARIANTE (§15) — mensajería: todo saliente declara quién lo escribió, y
   // todo teléfono va en E.164. Lo segundo es la CLAVE DEL HILO de la bandeja:
   // si el seed y el webhook guardan formatos distintos, la misma persona sale
@@ -1559,7 +1755,16 @@ try {
   const nAct = Number(pres[pres.length - 1].n);
   const nPrev = Number(pres[pres.length - 2].n);
   const salto = nPrev > 0 ? nAct / nPrev : Infinity;
-  if (salto > 2) {
+  // A principios de mes el «mismo tramo» son pocos días y pocos casos: 4 → 9
+  // es ruido de números pequeños, no un escalón (este seed se cayó el 4 de
+  // septiembre por esto — §16, corolario: los bugs de ciertos días se simulan,
+  // no se sufren). El tope ×2 se pensó para decenas de casos: con menos de 7
+  // días de tramo o menos de 8 casos de base, no hay comparativa que valga —
+  // se dice y se omite.
+  const diasDeTramo = new Date().getDate();
+  if (diasDeTramo < 7 || nPrev < 8) {
+    console.log(`  presentados en el tramo: ${nPrev} → ${nAct} con ${diasDeTramo} día(s) de mes — comparativa omitida (tramo o base demasiado pequeños)`);
+  } else if (salto > 2) {
     throw new Error(
       `Presentados apilados en el mes en curso (MEJORAS 46): ${nPrev} → ${nAct} en el mismo tramo (×${salto.toFixed(1)}, tope ×2). ` +
       `Serie: ${pres.map((p) => `${p.mes}:${p.n}`).join(" · ")}`,
@@ -1597,6 +1802,13 @@ try {
     ["leads", "motivo_no_interes", ["No_Asistio", "No_Contesta", "Horarios", "Precio", "Otra_Clinica", "Ya_No_Necesita"]],
     ["acciones_automatizacion", "resultado", ["success", "error", "pendiente_integracion", "skipped_cooldown", "skipped_optout", "skipped_horario", "skipped_test", "skipped_dedupe"]],
     ["mensajes_whatsapp", "direccion", ["Entrante", "Saliente"]],
+    // El log del agente (31-08): copia deliberada de lib/db/types.ts.
+    ["eventos_automatizacion", "evento", ["quiebre_reconocido", "asumido", "asumido_manual", "mensaje_enviado", "aplazado", "aplazado_resuelto", "derivado", "evaluacion", "resuelto_manual", "soltado", "espera_fijada", "espera_levantada"]],
+    ["eventos_automatizacion", "causa_derivacion", ["peticion_queja", "insistencia", "urgencia", "caso_completo", "antecedente_medico"]],
+    ["eventos_automatizacion", "clave_aplazado", ["precio_descuento", "plan_pago", "cobertura_seguro", "cambio_tratamiento", "garantia_condiciones", "dato_presupuesto", "agenda_disponibilidad", "dato_cita", "duda_clinica", "otro"]],
+    ["eventos_automatizacion", "objetivo_activo", ["identificar", "cita", "presupuesto", "cobro"]],
+    ["citas", "confirmada_por", ["agente_voz", "recordatorio", "persona"]],
+    ["cola_envios", "estado", ["Pendiente", "Enviado", "Fallido", "Cancelado", "Caducado"]],
   ];
   const fueraDeVocabulario = [];
   for (const [tabla, columna, admitidos] of VOCABULARIO) {

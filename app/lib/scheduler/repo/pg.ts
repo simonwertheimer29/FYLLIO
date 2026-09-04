@@ -115,9 +115,16 @@ export async function findCitaRawPg(citaId: string): Promise<any> {
 }
 
 // ── Citas: escrituras ─────────────────────────────────────────────────
-export async function updateCitaEstadoPg(citaId: string, estado: string): Promise<void> {
+export async function updateCitaEstadoPg(
+  citaId: string,
+  estado: string,
+  opts: { confirmadaPor?: "agente_voz" | "recordatorio" | "persona" } = {},
+): Promise<void> {
+  // 034 — al confirmar se dice QUIÉN; cualquier otro estado no toca la columna.
+  const set: Record<string, unknown> = { estado };
+  if (estado === "Confirmada" && opts.confirmadaPor) set.confirmada_por = opts.confirmadaPor;
   await runWithClienteDb(cli(), (trx) =>
-    actualizarUna(trx.updateTable("citas").set({ estado } as any).where("id", "=", citaId), "citas", citaId));
+    actualizarUna(trx.updateTable("citas").set(set as any).where("id", "=", citaId), "citas", citaId));
 }
 export async function registrarAccionNoShowEnCitaPg(citaId: string, i: {
   ultimaAccion: string; tipoUltimaAccion?: string; faseRecordatorio?: string; notasAccion?: string;
@@ -165,8 +172,11 @@ export async function markNoShowPg(citaId: string, notas?: string): Promise<void
   // la migración. Sin notas nuevas, las existentes no se pisan.
   await setCita(citaId, notas !== undefined ? { estado: "No_show", notas } : { estado: "No_show" });
 }
-export async function confirmAppointmentPg(citaId: string): Promise<void> {
-  await setCita(citaId, { estado: "Confirmada" });
+export async function confirmAppointmentPg(
+  citaId: string,
+  confirmadaPor: "recordatorio" | "persona" = "persona",
+): Promise<void> {
+  await setCita(citaId, { estado: "Confirmada", confirmada_por: confirmadaPor });
 }
 export async function updateAppointmentPg(citaId: string, p: {
   startIso?: string; endIso?: string; staffRecordId?: string; treatmentRecordId?: string; notes?: string;

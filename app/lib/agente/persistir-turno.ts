@@ -49,6 +49,12 @@ export type PayloadEvaluacion = {
   /** Aditivo (21-08) — de QUÉ presupuesto habla el turno (id resuelto por
    *  código desde la letra del juicio). Mata el proxy del activo. */
   presupuestoReferidoId?: string | null;
+  /** Aditivo (31-08) — el COSTE del turno: tokens del evaluador (+ juez,
+   *  sumados) y el modelo con el que se tarifa. Antes se devolvía y se tiraba;
+   *  el «cuánto costó este mes» del Inicio sale de sumar esto. Los turnos
+   *  anteriores no lo tienen: la pantalla dice «desde el día X». */
+  usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
+  modelo?: string;
 };
 
 export type TurnoAPersistir = {
@@ -174,6 +180,8 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     esperaHasta: ev.esperaHasta ?? null,
     etiquetasDescartadas: ev.etiquetasDescartadas?.length ? ev.etiquetasDescartadas : undefined,
     presupuestoReferidoId: ev.presupuestoReferidoId ?? null,
+    usage: ev.usage,
+    modelo: ev.modelo,
   };
   cuenta(
     await registrarEventoIdempotente({

@@ -178,6 +178,10 @@ export type EvaluacionTurno = {
    *  aditivos y opcionales; los precios son distintos (1.25× / 0.1×) y sin
    *  separarlos la medición de coste del plan de negocio saldría inflada. */
   usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
+  /** Id del modelo con el que se tarifa `usage` (31-08). El juez suma sus
+   *  tokens aquí y va siempre en haiku: se tarifa todo al modelo del
+   *  evaluador — con sonnet sobreestima un poco el juez, nunca al revés. */
+  modelo?: string;
 };
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
@@ -682,6 +686,7 @@ export async function evaluarTurno(
       hiloTruncado: truncado,
       fallback: true,
       usage,
+      modelo: MODELOS[opts?.modelo ?? "haiku"].id,
     };
   }
 
@@ -812,6 +817,7 @@ export async function evaluarTurno(
     hiloTruncado: truncado,
     fallback: false as const,
     usage,
+    modelo: MODELOS[opts?.modelo ?? "haiku"].id,
   };
 
   if (juicio.urgenciaMedica) {

@@ -473,10 +473,10 @@ const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonReco
 export async function updateCitaEstado(
   citaId: string,
   estado: string,
-  opts: { typecast?: boolean } = {},
+  opts: { typecast?: boolean; confirmadaPor?: "agente_voz" | "recordatorio" | "persona" } = {},
 ): Promise<void> {
   const pg = await import("./pg");
-  return pg.updateCitaEstadoPg(citaId, estado);
+  return pg.updateCitaEstadoPg(citaId, estado, { confirmadaPor: opts.confirmadaPor });
 }
 
 /** Registra una acción de recordatorio no-show sobre la cita. */

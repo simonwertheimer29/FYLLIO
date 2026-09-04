@@ -3699,3 +3699,18 @@ cola 37→8 consultas, 11,4→3,8 s; dashboard 85→20, ≈13→3,8 s; API /segu
 «ahora» fijo, diff vacío) y qa:cola/cohortes/semaforo verdes. El objetivo «Inicio < 2 s» queda
 para la fase 3 (consultas agregadas por bloque + tirar secciones): el dashboard aún lee pacientes,
 pagos y presupuestos dos veces y configuraciones cuatro.
+
+## 2026-09-04 — Inicio fase 2: el log del agente sembrado DESDE los hilos, usage por turno, confirmada_por
+Condición dictada: un log que contradiga el hilo es peor que ninguno. Por eso el seed no inventa
+un log aparte: lee cada hilo ya persistido y de cada entrante deriva lo que el agente habría
+anotado (evaluación con campos que salen del texto, aplazado con su clave, espera, entrega del caso
+completo; la queja y la urgencia son dos hilos nuevos cuyo texto ES la causa). Invariantes dentro
+del seed: ningún evento sin entrante previo en su hilo, toda entrega con objetivo, todo aplazado con
+clave, todo borrador del agente con evaluación antes. El agente pasa a ENCENDIDO en la config demo
+(un log con el agente apagado sería la contradicción). `usage`+`modelo` viajan ahora en el payload
+del turno (antes se devolvían y se tiraban) y `lib/agente/coste` tarifa en USD con modelo desconocido
+→ null, nunca a ojo. `citas.confirmada_por` (034): hoy el único escritor vivo de 'Confirmada' es el
+webhook de voz — el flujo del recordatorio no confirma citas todavía (hallazgo). Dos fragilidades de
+seed cazadas por el calendario: la invariante del «mismo tramo» no vale a principios de mes ni con
+menos de 8 casos de base (se omite y se dice), y los QA de cola/ficha/semáforo limpian eventos de los
+hilos huérfanos sembrados — tras correr QA, `demo:reset` antes de una demo.

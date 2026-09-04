@@ -296,6 +296,9 @@ type ExtraCitas = {
   /** 032 — nivel 1: cuándo se marcó como pasada al software clínico.
    *  NULL = pendiente (si origen_sistema='fyllio'). */
   trasladada_en: Date | null;
+  /** 034 — quién confirmó: la plataforma (voz, recordatorio) o una persona.
+   *  NULL = confirmada antes de la columna, o no confirmada. */
+  confirmada_por: "agente_voz" | "recordatorio" | "persona" | null;
 };
 
 /** 031 — especialidades de la clínica (Ortodoncia, Implantes…). Sin defaults

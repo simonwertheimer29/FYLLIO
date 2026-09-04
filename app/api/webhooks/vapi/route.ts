@@ -218,7 +218,7 @@ async function aplicarSideEffects(args: {
   if (resultado === "confirmada" && citaId) {
     try {
       // FASE 1 migración: escritura via repo del dominio Agenda.
-      await updateCitaEstado(citaId, "Confirmada", { typecast: true });
+      await updateCitaEstado(citaId, "Confirmada", { typecast: true, confirmadaPor: "agente_voz" });
     } catch (err) {
       console.error("[webhooks/vapi] update cita Confirmada:", err);
     }
