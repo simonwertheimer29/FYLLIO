@@ -332,7 +332,7 @@ try {
     if (lastSal) await ins("acciones_lead", { lead_id: lid, tipo_accion: "WhatsApp_Saliente", resumen: "WhatsApp enviado", timestamp: lastSal.ts, detalles: "Mensaje enviado desde el panel." });
     for (const m of guion) {
       await ins("mensajes_whatsapp", {
-        lead_id: lid, telefono: telLead, direccion: m.dir, contenido: m.txt,
+        lead_id: lid, telefono: telLead, clinica_id: cid, direccion: m.dir, contenido: m.txt,
         timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
         // 018 — la autoría. En modo A el saliente lo manda una persona; el
@@ -615,7 +615,7 @@ try {
       });
       for (const m of guion) {
         await ins("mensajes_whatsapp", {
-          paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
+          paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, clinica_id: pac.cid, direccion: m.dir,
           contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
           intencion_detectada: m.intn ?? null,
           autor: m.dir === "Saliente" ? "persona" : null,
@@ -683,7 +683,7 @@ try {
     presupuestos.push({ id: pid, estado: "ACEPTADO", importe: hct.importe, pac, fechaAceptado, guion, pctPago: hct.pct });
     for (const m of guion) {
       await ins("mensajes_whatsapp", {
-        paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
+        paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, clinica_id: pac.cid, direccion: m.dir,
         contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
         // 018 — la autoría. En modo A el saliente lo manda una persona; el
@@ -732,7 +732,7 @@ try {
     });
     for (const m of guion) {
       await ins("mensajes_whatsapp", {
-        paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
+        paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, clinica_id: pac.cid, direccion: m.dir,
         contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
         // 018 — la autoría. En modo A el saliente lo manda una persona; el
@@ -968,19 +968,19 @@ try {
           ultima_accion: guion.length ? "WhatsApp_Saliente" : null,
           created_at: creado.toISOString(),
         });
-        leadMeta.push({ guion, telefono: telL });
+        leadMeta.push({ guion, telefono: telL, cid });
       }
     }
     const leadVolIds = await insMany("leads", leadRows);
     const msgVolRows = []; const accVolRows = [];
     leadVolIds.forEach((lid, i) => {
-      const { guion, telefono } = leadMeta[i];
+      const { guion, telefono, cid } = leadMeta[i];
       const lastSal = [...guion].reverse().find((x) => x.dir === "Saliente");
       if (lastSal) accVolRows.push({ lead_id: lid, tipo_accion: "WhatsApp_Saliente", resumen: "WhatsApp enviado", timestamp: lastSal.ts, detalles: "Mensaje enviado desde el panel." });
       // Claves homogéneas: insMany toma las columnas de la PRIMERA fila del
       // lote — todos los mensajes llevan los tres vínculos (con null).
       for (const g of guion) msgVolRows.push({
-        lead_id: lid, paciente_id: null, presupuesto_id: null,
+        lead_id: lid, paciente_id: null, presupuesto_id: null, clinica_id: cid,
         telefono, direccion: g.dir, contenido: g.txt, timestamp: g.ts,
         fuente: "Modo_A_manual", procesado_por_ia: g.dir === "Entrante", intencion_detectada: g.intn ?? null,
         // La invariante de autoría (b005c80) aplica también al volumen: sin
@@ -1082,7 +1082,7 @@ try {
       const { e, pac, guion, fechaAceptado } = presVolMeta[i];
       presupuestos.push({ id: pid, estado: presVolRows[i].estado, importe: e.importe, pac, fechaAceptado, guion });
       for (const g of guion) msgVolRows.push({
-        lead_id: null, paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: g.dir,
+        lead_id: null, paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, clinica_id: pac.cid, direccion: g.dir,
         contenido: g.txt, timestamp: g.ts, fuente: "Modo_A_manual",
         procesado_por_ia: g.dir === "Entrante", intencion_detectada: g.intn ?? null,
         autor: g.dir === "Saliente" ? "persona" : null, sugerido_por_ia: g.dir === "Saliente" ? false : null,
@@ -1338,10 +1338,10 @@ try {
     // espera (le escribimos y ahora contesta esto): la causa ES el texto.
     {
       const { rows: enEspera } = await db.query(
-        `select m.lead_id, m.telefono, max(m."timestamp") as ult
+        `select m.lead_id, m.telefono, l.clinica_id, max(m."timestamp") as ult
            from mensajes_whatsapp m join leads l on l.id = m.lead_id
           where m.cliente = 'DEMO' and l.cliente = 'DEMO' and l.estado = 'Contactado'
-          group by m.lead_id, m.telefono
+          group by m.lead_id, m.telefono, l.clinica_id
           having count(*) = 3 order by max(m."timestamp") desc limit 2`,
       );
       const extras = [
@@ -1350,7 +1350,7 @@ try {
       ];
       for (let i = 0; i < Math.min(2, enEspera.length); i++) {
         await ins("mensajes_whatsapp", {
-          lead_id: enEspera[i].lead_id, telefono: enEspera[i].telefono, direccion: "Entrante",
+          lead_id: enEspera[i].lead_id, telefono: enEspera[i].telefono, clinica_id: enEspera[i].clinica_id, direccion: "Entrante",
           contenido: extras[i].txt, timestamp: extras[i].ts, fuente: "Modo_A_manual", procesado_por_ia: true,
         });
       }

@@ -807,6 +807,54 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       const d = dig(pacCompletoPorId.get(cb.pacienteId)?.telefono);
       if (d && cb.pendiente > 0) digitosConCobroPendiente.add(d);
     }
+    // CIERRE POR HECHOS, EN LOTE (04-09) — ANTES de anexar cobros: un caso
+    // cumplido que se borra no puede llevarse el cobro; el cobro nace como caso
+    // propio abajo. La doctrina «la cola asume de más y
+  // la ficha lo dice exacto» valía con un puñado de entregas; con el log del
+  // agente lleno (decenas de «caso completo» históricos) llenaba la cola de
+  // casos cumplidos — 86 «fuera de plazo» falsos. Aquí se aplica la MISMA
+  // regla monótona del semáforo (hechoCierra) con datos que ya están en
+  // memoria, cero consultas por hilo: una entrega de caso completo está
+  // cumplida si su objetivo ya no está abierto. Las causas sin hecho
+  // observable (queja, insistencia, urgencia, antecedente) se quedan.
+  {
+    const pacPorId = new Map(datos.pacientes.map((pc) => [pc.id, pc]));
+    const digitosConPresupuestoAbierto = new Set<string>();
+    for (const pr of datos.presupuestos) {
+      const d = dig(pr.paciente_telefono ?? pacPorId.get(pr.paciente_id ?? "")?.telefono);
+      if (d) digitosConPresupuestoAbierto.add(d);
+    }
+    const digitosConLeadEsperandoCita = new Set<string>();
+    const digitosConIdentidad = new Set<string>();
+    for (const l of datos.leads) {
+      const d = dig(l.telefono);
+      if (!d) continue;
+      digitosConIdentidad.add(d);
+      if (esLeadActivo(l.estado) && l.estado !== "Citado" && l.estado !== "Citados Hoy") digitosConLeadEsperandoCita.add(d);
+    }
+    for (const pc of datos.pacientes) {
+      const d = dig(pc.telefono);
+      if (d) digitosConIdentidad.add(d);
+    }
+    const cumplida = (a: EstadoAgente): boolean => {
+      if (a.entregadoCausa !== "caso_completo") return false;
+      const d = dig(a.telefono);
+      switch (a.entregadoObjetivo) {
+        case "presupuesto": return !digitosConPresupuestoAbierto.has(d);
+        case "cita": return !digitosConLeadEsperandoCita.has(d);
+        case "cobro": return !digitosConCobroPendiente.has(d);
+        case "identificar": return digitosConIdentidad.has(d);
+        default: return false; // sin objetivo persistido no hay hecho atribuible
+      }
+    };
+    for (let i = casos.length - 1; i >= 0; i--) {
+      const c = casos[i];
+      if (c.tipo !== "conversacion") continue;
+      const a = buscarAgente(c.telefono);
+      if (a && a.aplazadosVivos === 0 && cumplida(a)) casos.splice(i, 1);
+    }
+  }
+
     const casoPorDigitos = new Map<string, CasoDeCola>();
     for (const c of casos) {
       const d = dig(c.telefono);
@@ -862,52 +910,6 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
   // Solo suma lo que espera a una PERSONA (los casos de la cola). Lo que
   // trabaja el agente o la cadencia no está parado por nosotros — el total
   // de presupuestos abiertos ya vive en /presupuestos y /red.
-  // CIERRE POR HECHOS, EN LOTE (04-09). La doctrina «la cola asume de más y
-  // la ficha lo dice exacto» valía con un puñado de entregas; con el log del
-  // agente lleno (decenas de «caso completo» históricos) llenaba la cola de
-  // casos cumplidos — 86 «fuera de plazo» falsos. Aquí se aplica la MISMA
-  // regla monótona del semáforo (hechoCierra) con datos que ya están en
-  // memoria, cero consultas por hilo: una entrega de caso completo está
-  // cumplida si su objetivo ya no está abierto. Las causas sin hecho
-  // observable (queja, insistencia, urgencia, antecedente) se quedan.
-  {
-    const pacPorId = new Map(datos.pacientes.map((pc) => [pc.id, pc]));
-    const digitosConPresupuestoAbierto = new Set<string>();
-    for (const pr of datos.presupuestos) {
-      const d = dig(pr.paciente_telefono ?? pacPorId.get(pr.paciente_id ?? "")?.telefono);
-      if (d) digitosConPresupuestoAbierto.add(d);
-    }
-    const digitosConLeadEsperandoCita = new Set<string>();
-    const digitosConIdentidad = new Set<string>();
-    for (const l of datos.leads) {
-      const d = dig(l.telefono);
-      if (!d) continue;
-      digitosConIdentidad.add(d);
-      if (esLeadActivo(l.estado) && l.estado !== "Citado" && l.estado !== "Citados Hoy") digitosConLeadEsperandoCita.add(d);
-    }
-    for (const pc of datos.pacientes) {
-      const d = dig(pc.telefono);
-      if (d) digitosConIdentidad.add(d);
-    }
-    const cumplida = (a: EstadoAgente): boolean => {
-      if (a.entregadoCausa !== "caso_completo") return false;
-      const d = dig(a.telefono);
-      switch (a.entregadoObjetivo) {
-        case "presupuesto": return !digitosConPresupuestoAbierto.has(d);
-        case "cita": return !digitosConLeadEsperandoCita.has(d);
-        case "cobro": return !digitosConCobroPendiente.has(d);
-        case "identificar": return digitosConIdentidad.has(d);
-        default: return false; // sin objetivo persistido no hay hecho atribuible
-      }
-    };
-    for (let i = casos.length - 1; i >= 0; i--) {
-      const c = casos[i];
-      if (c.tipo !== "conversacion") continue;
-      const a = buscarAgente(c.telefono);
-      if (a && a.aplazadosVivos === 0 && cumplida(a)) casos.splice(i, 1);
-    }
-  }
-
   const dineroPresupuestos = casos
     .filter((c) => c.tipo === "presupuesto")
     .reduce((s, c) => s + (c.importeTotal ?? c.importe ?? 0), 0);
