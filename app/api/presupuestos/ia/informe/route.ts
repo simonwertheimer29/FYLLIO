@@ -209,10 +209,10 @@ function buildPrompt(mes: string, clinicaNombre: string, datos: ReturnType<typeo
   // La IA narra lo que le damos: si le pasamos una tasa sin su denominador,
   // escribe frases sobre un número que no significa lo que parece.
   const doctoresStr = datos.porDoctor.slice(0, 5)
-    .map((d) => `  - ${d.doctor}: ${d.total} presupuestos, ${d.aceptados} aceptados · cierra ${textoTasa(d.tasa)} (${notaTasa(d.tasa)})`)
+    .map((d) => `  - ${d.doctor}: ${d.total} presupuestos, ${d.aceptados} aceptados · acepta ${textoTasa(d.tasa)} del € presentado (${notaTasa(d.tasa)})`)
     .join("\n");
   const tipoPacienteStr = datos.porTipoPaciente
-    .map((t) => `  - ${t.tipo}: ${t.total} presupuestos, cierra ${textoTasa(t.tasa)} (${notaTasa(t.tasa)})`)
+    .map((t) => `  - ${t.tipo}: ${t.total} presupuestos, acepta ${textoTasa(t.tasa)} del € presentado (${notaTasa(t.tasa)})`)
     .join("\n");
   const origenStr = datos.porOrigen.slice(0, 4)
     .map((o) => `  - ${o.origen}: ${o.count}`)
@@ -225,7 +225,7 @@ function buildPrompt(mes: string, clinicaNombre: string, datos: ReturnType<typeo
 
 DATOS DE ${periodoLabel.toUpperCase()} — ${clinicaNombre.toUpperCase()}:
 - Total presupuestos: ${datos.total} | Aceptados: ${datos.aceptados} | Perdidos: ${datos.perdidos} | Sin decidir todavía: ${datos.tasa.abiertos}
-- Tasa de cierre: ${textoTasa(datos.tasa)} — ${notaTasa(datos.tasa)}. IMPORTANTE: se mide sobre los DECIDIDOS. Los que siguen abiertos NO cuentan como rechazo; no los trates como pérdidas.
+- Tasa de aceptación: ${textoTasa(datos.tasa)} del € presentado — ${notaTasa(datos.tasa)}. IMPORTANTE: se mide en EUROS (€ aceptado sobre € presentado). Lo que sigue abierto entra en el denominador pero NO es rechazo: no lo trates como pérdida, dilo como «aún sin decidir».
 - Importe aceptado: €${datos.importeTotal.toLocaleString("es-ES")} | Pipeline activo: €${datos.importePipeline.toLocaleString("es-ES")}
 Por tipo de paciente:
 ${tipoPacienteStr || "  - Sin datos"}

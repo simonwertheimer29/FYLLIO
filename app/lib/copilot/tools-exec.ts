@@ -12,6 +12,7 @@
 import { findClinicaCentralRaw, selectClinicasCentralRaw } from "../auth/users";
 import { selectMensajesWhatsAppRaw } from "../presupuestos/mensajeria";
 import { DateTime } from "luxon";
+import { tasaCierre, notaTasa } from "../presupuestos/tasa";
 import { listClinicasNegocioCamposRaw } from "../clinicas-negocio";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listPagosResumen } from "../pagos";
@@ -284,10 +285,12 @@ async function execKpisResumenClinica(
     (s, r) => s + (Number((r.fields as any)?.["Importe"] ?? 0) || 0),
     0,
   );
+  // La misma tasa que /kpis: € aceptado sobre € presentado (04-09).
   const tasaAceptacion =
-    presupsPeriodo.length === 0
-      ? 0
-      : Math.round((aceptados.length / presupsPeriodo.length) * 100);
+    tasaCierre(presupsPeriodo.map((r) => ({
+      estado: String((r.fields as any)?.["Estado"] ?? ""),
+      importe: Number((r.fields as any)?.["Importe"] ?? 0) || 0,
+    }))).pct ?? 0;
 
   return {
     periodo,
@@ -318,31 +321,31 @@ async function execRankingDoctores(
     const fecha = f["Fecha"] ? new Date(String(f["Fecha"])).getTime() : 0;
     return fecha >= desdeMs;
   });
-  const porDoctor = new Map<string, { total: number; aceptados: number; perdidos: number; enDuda: number }>();
+  // LA MISMA tasa que /kpis (lib/presupuestos/tasa): € aceptado sobre €
+  // presentado. Aquí vivía una tercera definición —aceptados sobre
+  // aceptados+perdidos+EN_DUDA, que contaba «en duda» como decidido— sin
+  // declarar en ningún sitio. Muerta el 04-09 (dictado).
+  const porDoctor = new Map<string, Array<{ estado: string; importe: number }>>();
   for (const r of enPeriodo) {
     const f = r.fields as any;
     const doctor = Array.isArray(f["Doctor"])
       ? String(f["Doctor"][0] ?? "")
       : String(f["Doctor"] ?? "");
     if (!doctor) continue;
-    if (!porDoctor.has(doctor))
-      porDoctor.set(doctor, { total: 0, aceptados: 0, perdidos: 0, enDuda: 0 });
-    const o = porDoctor.get(doctor)!;
-    o.total += 1;
-    const e = String(f["Estado"] ?? "");
-    if (e === "ACEPTADO") o.aceptados += 1;
-    if (e === "PERDIDO") o.perdidos += 1;
-    if (e === "EN_DUDA") o.enDuda += 1;
+    (porDoctor.get(doctor) ?? porDoctor.set(doctor, []).get(doctor)!).push({
+      estado: String(f["Estado"] ?? ""),
+      importe: Number(f["Importe"] ?? 0) || 0,
+    });
   }
-  const filas = Array.from(porDoctor.entries()).map(([doctor, o]) => {
-    const den = o.aceptados + o.perdidos + o.enDuda;
-    const conversion = den === 0 ? 0 : Math.round((o.aceptados / den) * 100);
+  const filas = Array.from(porDoctor.entries()).map(([doctor, ps]) => {
+    const t = tasaCierre(ps);
     return {
       doctor,
-      total: o.total,
-      aceptados: o.aceptados,
-      perdidos: o.perdidos,
-      conversion_pct: conversion,
+      total: t.total,
+      aceptados: t.aceptados,
+      perdidos: t.perdidos,
+      conversion_pct: t.pct ?? 0,
+      nota: notaTasa(t),
     };
   });
   filas.sort((a, b) =>

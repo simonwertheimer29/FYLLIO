@@ -3742,3 +3742,15 @@ van el embudo, el progreso y «qué está funcionando» (viven en KPIs). Hallazg
 del agente lleno, la doctrina «la cola asume de más» producía 86 «fuera de plazo» falsos (entregas
 de caso completo ya cumplidas); ahora la cola aplica en lote la misma regla monótona del semáforo
 —objetivo ya no abierto = entrega cumplida— con datos en memoria, cero consultas por hilo.
+
+## 2026-09-04 — Inicio fase 5: LA tasa es € aceptado sobre € presentado; muere la tercera definición
+Convivían tres: aceptados sobre DECIDIDOS por número (tasa.ts → KPIs, informes, PDF/PPT, IA), la
+cohorte de presentación por número (/red, Pacientes) y una tercera SIN declarar en el copilot
+(aceptados / aceptados+perdidos+EN_DUDA — contaba «en duda» como decidido). La primera inflaba: 6 de
+8 decididos = 75 % con 20 abiertos detrás, y subía sola con el tiempo. Ahora `TasaCierre.pct` es
+€ ACEPTADO / € PRESENTADO del conjunto; lo abierto entra en el denominador y SE DICE («X € aún sin
+decidir»); la definición anterior sobrevive solo como `pctDecididos`, nota secundaria. El copilot
+usa la misma función (dictado: matarla ahora, no después). Los informes guardados conviven en tres
+formatos y se leen etiquetados («definición anterior»), jamás recalculados. Copy: «se cierran» →
+«del € presentado se aceptó». La cohorte por número de /red y Pacientes queda como definición
+declarada aparte (pendiente decidir si también pasa a euros).

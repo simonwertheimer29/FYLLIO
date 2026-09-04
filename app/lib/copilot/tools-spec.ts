@@ -167,7 +167,8 @@ export const READ_TOOLS: AnthropicTool[] = [
     name: "ranking_doctores",
     description:
       "Ranking de doctores por métrica en el periodo. Métrica conversion = " +
-      "ACEPTADO/(ACEPTADO+PERDIDO+EN_DUDA). volumen = nº de presupuestos.",
+      "€ ACEPTADO sobre € PRESENTADO (la misma tasa que KPIs; lo abierto entra en el " +
+      "denominador y se declara). volumen = nº de presupuestos.",
     input_schema: {
       type: "object",
       properties: {

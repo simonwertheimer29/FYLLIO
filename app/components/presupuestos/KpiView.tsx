@@ -127,9 +127,9 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         <HeaderBlock
           title="Aceptados"
           main={String(resumen.aceptados)}
-          sub1={`${textoTasa(resumen.tasa)} se cierran · ${notaTasa(resumen.tasa, `de los presentados en ${mesLabel}`)}`}
+          sub1={`${textoTasa(resumen.tasa)} del € presentado se aceptó · ${notaTasa(resumen.tasa, `en ${mesLabel}`)}`}
           sub2={`vs mes anterior: ${prevRes.aceptados}`}
-          tooltip="De los presupuestos presentados en el mes elegido que YA se decidieron, cuántos aceptó el paciente. Los que siguen abiertos no cuentan: todavía no han dicho que no. Ojo: la cabecera de Presupuestos mide otra cosa a propósito — lo que se CERRÓ este mes, se presentara cuando se presentara."
+          tooltip="Del importe presentado en el mes elegido, qué parte ya se aceptó. Los que siguen abiertos entran en el denominador y se dicen aparte («aún sin decidir»): un presupuesto grande abierto baja la tasa hasta que se decide. Antes se medía por número y sobre decididos, que inflaba."
         />
         <HeaderBlock
           title="Presupuestos en seguimiento"
@@ -158,7 +158,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             // Sin decididos no hay tasa que comparar: se enseña "—" y no se
             // fabrica un 0% que se leería como "no cerró ninguno".
             {
-              label: "Se cierran",
+              label: "€ aceptado / presentado",
               curr: resumen.tasa.pct,
               prev: prevRes.tasa.pct,
               unit: "%",
@@ -232,7 +232,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <p className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider mb-2">{tipo} — {mesLabel}</p>
             <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{mes?.total ?? 0}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              {mes?.aceptados ?? 0} aceptados · {mes ? `${textoTasa(mes.tasa)} se cierran` : "—"}
+              {mes?.aceptados ?? 0} aceptados · {mes ? `${textoTasa(mes.tasa)} del € presentado` : "—"}
             </p>
             {(mes?.importe ?? 0) > 0 && (
               <p className="text-xs font-semibold text-[var(--color-success)] mt-0.5">{eur((mes?.importe ?? 0))} aceptado</p>
@@ -330,7 +330,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <div key={t.tipo} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
               <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{t.total}</p>
-              <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {textoTasa(t.tasa)} se cierran</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {textoTasa(t.tasa)} del € presentado</p>
               {t.importe > 0 && <p className="text-xs font-semibold text-[var(--color-success)] mt-0.5">{eur(t.importe)} aceptado</p>}
               <div className="mt-2"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></div>
             </div>
@@ -586,12 +586,12 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
     const rows = [
       // El CSV declara su denominador igual que la pantalla: la tasa sin la
       // columna "decididos" al lado se vuelve a leer mal en cuanto sale de aquí.
-      ["Doctor", "Especialidad", "Este mes", "Aceptados", "Decididos", "Sin decidir", "Se cierran", "vs prev mes"],
+      ["Doctor", "Especialidad", "Este mes", "Aceptados", "€ presentado", "€ aceptado", "€ sin decidir", "Tasa € aceptado/presentado", "vs prev mes"],
       ...kpisMes.porDoctor.map((d) => {
         const p = kpisPrevMes.porDoctor.find((x) => x.doctor === d.doctor);
         return [
           d.doctor, d.especialidad, d.total, d.aceptados,
-          d.tasa.decididos, d.tasa.abiertos, textoTasa(d.tasa),
+          Math.round(d.tasa.presentadoEur), Math.round(d.tasa.aceptadoEur), Math.round(d.tasa.abiertosEur), textoTasa(d.tasa),
           (p ? d.total - p.total : 0),
         ];
       }),
@@ -627,7 +627,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       {kpisMes.porDoctor.length > 0 && (
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Comparativa de doctores — {mesLabel}</p>
-          <p className="text-xs text-[var(--color-muted)] mb-4">Ordenados por tasa de aceptación</p>
+          <p className="text-xs text-[var(--color-muted)] mb-4">Ordenados por € aceptado sobre € presentado</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[...kpisMes.porDoctor].sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1)).map((d) => {
               const prev = prevMap.get(d.doctor);
@@ -650,7 +650,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                   </span>
                   {/* Tasa grande */}
                   <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">{textoTasa(d.tasa)}</p>
-                  <p className="text-[10px] text-[var(--color-muted)] mb-2">se cierran · {notaTasa(d.tasa)}</p>
+                  <p className="text-[10px] text-[var(--color-muted)] mb-2">del € presentado · {notaTasa(d.tasa)}</p>
                   {/* Progress bar */}
                   <div className="w-full bg-[var(--color-border)] rounded-full h-1.5 mb-2">
                     <div
@@ -826,7 +826,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
 
             {/* Bar chart */}
             <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-              <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase mb-3">Tasa de conversión %</p>
+              <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase mb-3">€ aceptado / € presentado</p>
               <ResponsiveContainer width="100%" height={Math.max(180, origenData.filter((o) => o.origen !== "sin_origen").length * 44)}>
                 <BarChart
                   layout="vertical"

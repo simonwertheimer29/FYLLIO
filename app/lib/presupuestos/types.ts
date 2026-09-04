@@ -145,9 +145,10 @@ export type UserSession = {
 
 // KPI types
 // Toda tasa de aceptación de este módulo es un `TasaCierre` de
-// `lib/presupuestos/tasa`: aceptados sobre DECIDIDOS, con los abiertos
-// declarados. Una sola definición para /kpis, los informes y la cabecera de
-// /presupuestos — antes cada una calculaba la suya y se contradecían.
+// `lib/presupuestos/tasa`: € ACEPTADO sobre € PRESENTADO, con lo abierto
+// declarado (04-09; antes aceptados sobre decididos por número, que inflaba).
+// Una sola definición para /kpis, los informes, la cabecera de /presupuestos y
+// el copilot — antes cada uno calculaba la suya y se contradecían.
 export type KpiResumen = {
   total: number;
   primeraVisita: number;

@@ -44,32 +44,45 @@ export function esPresupuestoAbierto(estado: string): boolean {
 }
 
 export type TasaCierre = {
-  /** Aceptados sobre DECIDIDOS, redondeado. `null` si nadie ha decidido
-   *  todavía: un 0% ahí sería "los rechazaron a todos", que es mentira. */
+  /** LA TASA (dictado 31-08): € ACEPTADO sobre € PRESENTADO del conjunto.
+   *  null si no se presentó nada (o nada con importe). */
   pct: number | null;
+  aceptadoEur: number;
+  presentadoEur: number;
+  /** € de lo que sigue abierto: entra en el denominador y SE DECLARA. */
+  abiertosEur: number;
+  /** La definición anterior (aceptados sobre decididos, por número), como
+   *  nota secundaria. Inflaba: 6 de 8 decididos = 75 % con 20 abiertos
+   *  detrás, y subía sola con el tiempo. */
+  pctDecididos: number | null;
   aceptados: number;
   perdidos: number;
-  /** El denominador real: aceptados + perdidos. */
   decididos: number;
-  /** Los que aún no han decidido. NO entran en `pct`; se declaran aparte. */
   abiertos: number;
-  /** Todo el conjunto medido. Sirve de volumen, nunca de denominador. */
   total: number;
 };
 
 export const TASA_VACIA: TasaCierre = {
-  pct: null, aceptados: 0, perdidos: 0, decididos: 0, abiertos: 0, total: 0,
+  pct: null, aceptadoEur: 0, presentadoEur: 0, abiertosEur: 0, pctDecididos: null,
+  aceptados: 0, perdidos: 0, decididos: 0, abiertos: 0, total: 0,
 };
 
-/** La tasa a partir de los recuentos, para quien ya va acumulando en un bucle. */
+/** Recuentos + importes → tasa. Los importes pesan: dos implantes aceptados
+ *  superan a diez limpiezas; un presupuesto grande abierto domina el
+ *  denominador un mes — y se dice («X € aún sin decidir»), no se esconde. */
 export function tasaDeRecuentos(
   aceptados: number,
   perdidos: number,
   abiertos: number,
+  eur: { aceptado: number; presentado: number; abiertos: number } = { aceptado: 0, presentado: 0, abiertos: 0 },
 ): TasaCierre {
   const decididos = aceptados + perdidos;
   return {
-    pct: decididos > 0 ? Math.round((aceptados / decididos) * 100) : null,
+    pct: eur.presentado > 0 ? Math.round((eur.aceptado / eur.presentado) * 100) : null,
+    aceptadoEur: eur.aceptado,
+    presentadoEur: eur.presentado,
+    abiertosEur: eur.abiertos,
+    pctDecididos: decididos > 0 ? Math.round((aceptados / decididos) * 100) : null,
     aceptados,
     perdidos,
     decididos,
@@ -78,22 +91,28 @@ export function tasaDeRecuentos(
   };
 }
 
-/** La tasa de una lista de presupuestos. La forma de uso normal. */
+const importeDe = (p: { amount?: number | null; importe?: number | null }) =>
+  Number(p.amount ?? p.importe ?? 0) || 0;
+
 export function tasaCierre(
-  presupuestos: ReadonlyArray<{ estado: string }>,
+  presupuestos: ReadonlyArray<{ estado: string; amount?: number | null; importe?: number | null }>,
 ): TasaCierre {
   let aceptados = 0;
   let perdidos = 0;
   let abiertos = 0;
+  let aceptadoEur = 0;
+  let presentadoEur = 0;
+  let abiertosEur = 0;
   for (const p of presupuestos) {
-    if (p.estado === "ACEPTADO") aceptados++;
+    const e = importeDe(p);
+    presentadoEur += e;
+    if (p.estado === "ACEPTADO") { aceptados++; aceptadoEur += e; }
     else if (p.estado === "PERDIDO") perdidos++;
-    else if (esPresupuestoAbierto(p.estado)) abiertos++;
+    else if (esPresupuestoAbierto(p.estado)) { abiertos++; abiertosEur += e; }
   }
-  return tasaDeRecuentos(aceptados, perdidos, abiertos);
+  return tasaDeRecuentos(aceptados, perdidos, abiertos, { aceptado: aceptadoEur, presentado: presentadoEur, abiertos: abiertosEur });
 }
 
-/** El porcentaje para pintar. Sin decididos no se inventa un número. */
 export function textoTasa(t: TasaCierre): string {
   return t.pct == null ? "—" : `${t.pct}%`;
 }
@@ -107,43 +126,41 @@ export function textoTasa(t: TasaCierre): string {
  * tampoco se hace como si nada: `legado: true` permite que quien los pinte diga
  * de qué denominador habla ese número, que no es el de hoy.
  */
+const eurTxt = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
+
+/** Informes GUARDADOS: tres formatos conviven. (1) el actual con euros;
+ *  (2) el de 07/2026, aceptados sobre decididos (`decididos` sin
+ *  `presentadoEur`) — su pct se respeta y se ETIQUETA como definición
+ *  anterior, no se recalcula; (3) el número suelto de antes de julio. */
 export function leerTasaGuardada(
   valor: unknown,
   total: number,
   aceptados: number,
-): TasaCierre & { legado: boolean } {
+): TasaCierre & { legado: "no" | "decididos" | "numero" } {
+  if (valor && typeof valor === "object" && "presentadoEur" in valor) {
+    return { ...(valor as TasaCierre), legado: "no" };
+  }
   if (valor && typeof valor === "object" && "decididos" in valor) {
-    return { ...(valor as TasaCierre), legado: false };
+    const v = valor as { pct: number | null; aceptados: number; perdidos: number; decididos: number; abiertos: number; total: number };
+    return { ...TASA_VACIA, ...v, pctDecididos: v.pct, legado: "decididos" };
   }
   const pct = typeof valor === "number" ? valor : null;
-  return {
-    pct, aceptados, perdidos: 0, decididos: 0, abiertos: 0, total,
-    legado: true,
-  };
+  return { ...TASA_VACIA, pct, aceptados, total, legado: "numero" };
 }
 
-export function notaTasaGuardada(t: TasaCierre & { legado: boolean }): string {
-  return t.legado ? `sobre ${t.total} presentados` : notaTasa(t);
+export function notaTasaGuardada(t: TasaCierre & { legado: "no" | "decididos" | "numero" }): string {
+  if (t.legado === "numero") return `sobre ${t.total} presentados (definición anterior)`;
+  if (t.legado === "decididos") return `de ${t.decididos} decididos (definición anterior, por número)`;
+  return notaTasa(t);
 }
 
-/**
- * La coletilla que DECLARA el denominador. Idéntica en las tres pantallas: dos
- * frases que dicen lo mismo con palabras distintas acaban divergiendo.
- *
- * `cohorte` dice de QUÉ conjunto habla el denominador, porque no es el mismo en
- * todas partes y esa es la única diferencia que queda entre pantallas: la
- * cabecera de /presupuestos mide lo que se CERRÓ este mes (14 de 21 → 67%) y
- * /kpis mide lo que se decidió de lo PRESENTADO este mes (6 de 7 → 86%). Las
- * dos son ciertas y responden a preguntas distintas; lo que no vale es que
- * ninguna diga cuál.
- */
+/** La nota del denominador, SIEMPRE: «3.400 € de 9.100 € presentados · 2.700 €
+ *  aún sin decidir». Un denominador que se calla es lo que hubo que arreglar. */
 export function notaTasa(t: TasaCierre, cohorte = ""): string {
   const suf = cohorte ? ` ${cohorte}` : "";
-  if (t.decididos === 0) {
-    return t.abiertos > 0
-      ? `${t.abiertos} sin decidir${suf} · aún no hay tasa`
-      : "Sin datos";
+  if (t.presentadoEur <= 0) {
+    return t.total > 0 ? `${t.total} presentado${t.total === 1 ? "" : "s"}${suf} sin importe · aún no hay tasa` : "Sin datos";
   }
-  const base = `de ${t.decididos} decidido${t.decididos === 1 ? "" : "s"}${suf}`;
-  return t.abiertos > 0 ? `${base} · ${t.abiertos} sin decidir` : base;
+  const base = `${eurTxt(t.aceptadoEur)} de ${eurTxt(t.presentadoEur)} presentados${suf}`;
+  return t.abiertosEur > 0 ? `${base} · ${eurTxt(t.abiertosEur)} aún sin decidir` : base;
 }
