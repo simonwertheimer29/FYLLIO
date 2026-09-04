@@ -42,8 +42,9 @@
 // NO se toca: LeadsView, Intervención y /red siguen sobre ella hasta P4.
 
 import { sql } from "kysely";
-import { runWithClienteDb } from "../db/context";
+import { runWithClienteDb, conTransaccionCompartida } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
+import type { EventoAutomatizacion } from "../automatizacion/estado";
 import { hoyISO } from "../time";
 import {
   estadoConversacion,
@@ -58,7 +59,6 @@ import {
   type CausaDerivacion,
 } from "../automatizacion/estado";
 import type { IntencionDetectada } from "../presupuestos/types";
-import { ultimosEventosPorCaso, toquesAntesDeAgotar } from "../automatizacion/pg";
 import { esLeadActivo } from "../leads/pipeline";
 import { parseConocimiento, plazosParaReloj, politicaCobro, POLITICA_COBRO_DEFAULT } from "../agente/conocimiento";
 import { calcularCobrosPorPaciente } from "../cobros";
@@ -343,7 +343,16 @@ export async function colaDeSeguimiento(opts?: { hoy?: string; ahora?: Date }): 
   casos: CasoDeCola[];
   resumen: ResumenCola;
 }> {
+  // TODO lo de dentro (repos incluidos) va en UNA transacción: de 8 a 1
+  // (31-08). Solo lectura — ver conTransaccionCompartida.
   const cliente = requireCliente("colaDeSeguimiento");
+  return conTransaccionCompartida(cliente, () => colaDeSeguimientoEnTrx(cliente, opts));
+}
+
+async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>, opts?: { hoy?: string; ahora?: Date }): Promise<{
+  casos: CasoDeCola[];
+  resumen: ResumenCola;
+}> {
   // RELOJ VIVO (MEJORAS 111, dictada 23-08): el «ahora» de los plazos
   // operativos es el instante real — con el ancla vieja de mediodía, una
   // urgencia de las 15:00 no podía escalar hasta el día siguiente y el
@@ -359,62 +368,87 @@ export async function colaDeSeguimiento(opts?: { hoy?: string; ahora?: Date }): 
   // El clasificador VIEJO, con su función real (no una réplica que pierda
   // ramas): últimos eventos humanos por caso + umbral de agotado. Compat
   // 93/94 — vive hasta que Simon decida encender el evaluador.
-  const [evPresupuesto, evLead, umbralToques] = await Promise.all([
-    ultimosEventosPorCaso("presupuesto"),
-    ultimosEventosPorCaso("lead"),
-    toquesAntesDeAgotar(null),
+  // UNA consulta para todo lo crudo (31-08, medido): antes eran tres
+  // transacciones + ocho consultas en serie; cada ida y vuelta al pooler
+  // cuesta ~300 ms. json_agg devuelve las MISMAS filas que las consultas de
+  // antes; lo único que cambia por el JSON son los tipos (fechas como texto,
+  // numéricos como número) y se restauran abajo, en el borde.
+  // Los pacientes se leen UNA vez, completos: los usa esta parte (id, nombre,
+  // teléfono) y la de cobros (ficha entera) — antes se leían dos veces.
+  const [pacientesCompletos, crudo] = await Promise.all([
+    listPacientes({}),
+    runWithClienteDb(cliente, async (trx) => {
+      const r: any = await sql`select
+        (select toques_antes_de_agotar from configuracion_automatizaciones where clinica_id is null limit 1) as toques,
+        (select json_agg(e) from (
+           select distinct on (tipo_caso, caso_id) tipo_caso, caso_id, evento
+           from eventos_automatizacion where tipo_caso in ('presupuesto', 'lead')
+           order by tipo_caso, caso_id, created_at desc) e) as ultimos_eventos,
+        (select json_agg(l) from (
+           select id, nombre, telefono, estado, tratamiento_interes, canal_captacion, clinica_id, fecha_cita,
+                  convertido_a_paciente, created_at, whatsapp_enviados
+           from leads where convertido_a_paciente is null or convertido_a_paciente = false) l) as leads,
+        (select json_agg(p) from (
+           select id, paciente_id, paciente_telefono, tratamiento_nombre, estado, importe, clinica_id, fecha, created_at,
+                  requiere_persona, intencion_detectada, contact_count, fase_seguimiento
+           from presupuestos where estado is null or estado not in ('ACEPTADO', 'PERDIDO')) p) as presupuestos,
+        (select json_agg(m) from (
+           select telefono,
+                  max("timestamp") filter (where direccion = 'Entrante') as ultimo_entrante,
+                  max("timestamp") filter (where direccion = 'Saliente') as ultimo_saliente
+           from mensajes_whatsapp where telefono is not null group by telefono) m) as mensajes,
+        (select json_agg(e order by e.created_at asc) from (
+           select caso_id, evento, causa_derivacion, clave_aplazado, hasta, created_at, evaluacion_json
+           from eventos_automatizacion
+           where tipo_caso = 'conversacion'
+             and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto','evaluacion')) e) as eventos,
+        (select json_agg(c) from (select clinica_id, conocimiento from configuracion_automatizaciones) c) as configs
+      `.execute(trx);
+      return (r.rows?.[0] ?? {}) as {
+        toques: unknown;
+        ultimos_eventos: Array<{ tipo_caso: string; caso_id: string; evento: string }> | null;
+        leads: any[] | null;
+        presupuestos: any[] | null;
+        mensajes: Array<{ telefono: string; ultimo_entrante: string | null; ultimo_saliente: string | null }> | null;
+        eventos: any[] | null;
+        configs: Array<{ clinica_id: string | null; conocimiento: string | null }> | null;
+      };
+    }),
   ]);
 
-  const datos = await runWithClienteDb(cliente, async (trx) => {
-    const leads = await trx
-      .selectFrom("leads")
-      .select(["id", "nombre", "telefono", "estado", "tratamiento_interes", "canal_captacion", "clinica_id", "fecha_cita", "convertido_a_paciente", "created_at", "whatsapp_enviados"])
-      .where((eb) => eb.or([eb("convertido_a_paciente", "is", null), eb("convertido_a_paciente", "=", false)]))
-      .execute();
-
-    const presupuestos = await trx
-      .selectFrom("presupuestos")
-      .select(["id", "paciente_id", "paciente_telefono", "tratamiento_nombre", "estado", "importe", "clinica_id", "fecha", "created_at", "requiere_persona", "intencion_detectada", "contact_count", "fase_seguimiento"])
-      .where((eb) => eb.or([eb("estado", "is", null), eb("estado", "not in", ["ACEPTADO", "PERDIDO"])]))
-      .execute();
-
-    const pacientes = await trx
-      .selectFrom("pacientes")
-      .select(["id", "nombre", "telefono"])
-      .execute();
-
-    // Mensajes: agregados por teléfono, una consulta (el patrón de la bandeja).
-    const m: any = await sql`select telefono,
-        max("timestamp") filter (where direccion = 'Entrante') as ultimo_entrante,
-        max("timestamp") filter (where direccion = 'Saliente') as ultimo_saliente
-      from mensajes_whatsapp where telefono is not null group by telefono`.execute(trx);
-
-    // El LOG del agente: derivados/cierres/aplazados/esperas por caso.
-    const ev: any = await sql`select caso_id, evento, causa_derivacion, clave_aplazado, hasta, created_at, evaluacion_json
-        from eventos_automatizacion
-        where tipo_caso = 'conversacion'
-          and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto','evaluacion')
-        order by created_at asc`.execute(trx);
-
-    // Fase D grupo 4: los PLAZOS y el HORARIO por clínica viven en la
-    // configuración del agente — el reloj de cada caso se construye con los
-    // de SU clínica (fila clinica_id null = la global de la red).
-    const cfg: any = await sql`select clinica_id, conocimiento
-        from configuracion_automatizaciones`.execute(trx);
-
-    // (La consulta de citas futuras murió con la condición anotada de
-    //  citados, 18-08: un citado ya no es cola — su recordatorio vive en
-    //  Envíos y «¿quién viene?» es la agenda.)
-
-    return {
-      leads,
-      presupuestos,
-      pacientes,
-      mensajes: (m.rows ?? []) as { telefono: string; ultimo_entrante: Date | null; ultimo_saliente: Date | null }[],
-      eventos: (ev.rows ?? []) as { caso_id: string; evento: string; causa_derivacion: CausaDerivacion | null; clave_aplazado: string | null; hasta: Date | string | null; created_at: Date; evaluacion_json: unknown }[],
-      configs: (cfg.rows ?? []) as { clinica_id: string | null; conocimiento: string | null }[],
-    };
-  });
+  // Mismo default que toquesAntesDeAgotar (3) cuando no hay fila global.
+  const umbralToques = (() => {
+    const n = Number(crudo.toques);
+    return Number.isFinite(n) && n > 0 ? n : 3;
+  })();
+  const evPresupuesto = new Map<string, EventoAutomatizacion>();
+  const evLead = new Map<string, EventoAutomatizacion>();
+  for (const e of crudo.ultimos_eventos ?? []) {
+    (e.tipo_caso === "presupuesto" ? evPresupuesto : evLead).set(String(e.caso_id), e.evento as EventoAutomatizacion);
+  }
+  // Restaurar en el borde los tipos que kysely daba: timestamps → Date. Lo
+  // que abajo hace .toISOString() o compara instantes cuenta con ello.
+  const aDate = (v: unknown): Date | null => (v == null ? null : new Date(String(v)));
+  const datos = {
+    leads: (crudo.leads ?? []).map((l: any) => ({ ...l, created_at: aDate(l.created_at) })),
+    presupuestos: (crudo.presupuestos ?? []).map((p: any) => ({ ...p, created_at: aDate(p.created_at) })),
+    pacientes: pacientesCompletos.map((p) => ({ id: p.id, nombre: p.nombre, telefono: p.telefono })),
+    mensajes: (crudo.mensajes ?? []).map((m) => ({
+      telefono: m.telefono,
+      ultimo_entrante: aDate(m.ultimo_entrante),
+      ultimo_saliente: aDate(m.ultimo_saliente),
+    })),
+    eventos: (crudo.eventos ?? []).map((e: any) => ({
+      ...e,
+      created_at: aDate(e.created_at) as Date,
+      hasta: aDate(e.hasta),
+      // La columna es text; por JSON llega como string igual. Si algún día
+      // fuera jsonb, llegaría objeto: se re-serializa para que el parse de
+      // abajo siga viendo texto.
+      evaluacion_json: e.evaluacion_json != null && typeof e.evaluacion_json !== "string" ? JSON.stringify(e.evaluacion_json) : e.evaluacion_json,
+    })) as { caso_id: string; evento: string; causa_derivacion: CausaDerivacion | null; clave_aplazado: string | null; hasta: Date | string | null; created_at: Date; evaluacion_json: unknown }[],
+    configs: crudo.configs ?? [],
+  };
 
   // ── El log del agente, agrupado por dígitos del hilo ──────────────────────
   type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; evaluado: boolean; presupuestoReferidoId: string | null; telefono: string };
@@ -752,8 +786,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string; ahora?: Date }): 
   //     ANEXA (dos objetivos, una card) y la cohorte queda en la peor; solo
   //     el vencido sin caso crea uno nuevo (tipo "cobro").
   {
-    const [pacientesCompletos, pagos, presupRaw, opciones] = await Promise.all([
-      listPacientes({}),
+    const [pagos, presupRaw, opciones] = await Promise.all([
       listPagosResumen(),
       selectPresupuestosRaw({
         fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado", "FechaAlta", "Tratamiento_nombre"],

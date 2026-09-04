@@ -19,6 +19,7 @@ import { listLeads } from "./leads/leads";
 import { listPacientes } from "./pacientes/pacientes";
 import { listClinicas } from "./auth/users";
 import { currentCliente } from "./airtable";
+import { conTransaccionCompartida } from "./db/context";
 import { selectPresupuestosRaw } from "./presupuestos/repo";
 import { listPagosResumen } from "./pagos";
 import { listAllOpciones } from "./configuraciones/configuraciones";
@@ -253,6 +254,17 @@ const mesDeIso = (iso: string) => iso.slice(0, 7);
 
 export async function calcularDashboardRed(opts: {
   /** null = todas las clínicas del cliente (admin). */
+  clinicaIds: string[] | null;
+  ahora?: Date;
+}): Promise<DashboardRed> {
+  // UNA transacción para los ~20 repos que llama por dentro (31-08, medido:
+  // 85 consultas de las que 60 eran begin/set_config/commit). Solo lectura.
+  const cliente = currentCliente();
+  if (!cliente) throw new Error("[dashboard-red] sin cliente en contexto (fail-closed)");
+  return conTransaccionCompartida(cliente, () => calcularDashboardRedEnTrx(opts));
+}
+
+async function calcularDashboardRedEnTrx(opts: {
   clinicaIds: string[] | null;
   ahora?: Date;
 }): Promise<DashboardRed> {

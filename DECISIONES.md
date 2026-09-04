@@ -3687,3 +3687,15 @@ sync roto se dice en rojo en la agenda Y en la campana (tipo agenda_externa). Sy
 after() + botón; sin cron nuevo. E2E 13/13 de la capa genérica contra producción (fusión, UI, roto,
 campana, ajustes, cascade); el camino vivo contra Google queda pendiente SOLO de la credencial
 (GOOGLE_SERVICE_ACCOUNT_JSON, declarada en lib/entorno). Festivos por clínica → MEJORAS 116.
+
+## 2026-08-31 — Inicio fase 1: la cola en una transacción y una consulta (medido)
+Diagnóstico con contador de consultas: de las 37 «consultas» de la cola, 24 eran begin/set_config/
+commit — ocho repos, ocho transacciones, ~300 ms cada ida y vuelta al pooler. Dos piezas: (1)
+`conTransaccionCompartida` (opt-in, solo lectura): los runWithClienteDb anidados del MISMO cliente
+reutilizan la transacción — jamás se cruza de cliente; (2) la cola lee todo lo crudo en UNA consulta
+json_agg y restaura en el borde los tipos que kysely daba (timestamps→Date). Medido en local:
+cola 37→8 consultas, 11,4→3,8 s; dashboard 85→20, ≈13→3,8 s; API /seguimiento/cola 8→2–3 s,
+/red/dashboard 12–30→2,6–7 s. Paridad EXACTA de resultados con el código viejo (volcado con
+«ahora» fijo, diff vacío) y qa:cola/cohortes/semaforo verdes. El objetivo «Inicio < 2 s» queda
+para la fase 3 (consultas agregadas por bloque + tirar secciones): el dashboard aún lee pacientes,
+pagos y presupuestos dos veces y configuraciones cuatro.

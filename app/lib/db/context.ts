@@ -24,6 +24,31 @@ const CLIENTES_VALIDOS: ReadonlySet<string> = new Set(["RB", "INDEP", "DEMO"]);
 
 const trxContext = new AsyncLocalStorage<Transaction<DB>>();
 
+/** Cliente de la transacción COMPARTIDA en curso (ver conTransaccionCompartida).
+ *  Fuera de ella, undefined: cada runWithClienteDb abre la suya, como siempre. */
+const compartidaContext = new AsyncLocalStorage<Cliente>();
+
+/**
+ * Una sola transacción para TODO lo que fn llame por dentro (repos incluidos).
+ *
+ * Por qué existe (31-08, medido): la cola de seguimiento hacía 37 consultas y
+ * 24 eran begin/set_config/commit — ocho repos, ocho transacciones, y cada ida
+ * y vuelta al pooler cuesta ~300 ms. Con esto, los runWithClienteDb anidados
+ * del MISMO cliente reutilizan esta transacción en vez de abrir otra.
+ *
+ * Es OPT-IN a propósito y para LECTURA: dentro, un error en cualquier consulta
+ * aborta la transacción entera (Postgres no permite seguir tras un fallo), así
+ * que un repo que se trague su error con catch dejaría las siguientes consultas
+ * fallando con «transaction is aborted». Para un cálculo de solo lectura eso es
+ * lo correcto —la respuesta entera es error honesto (§4)—; para escrituras
+ * independientes, NO usarlo.
+ */
+export async function conTransaccionCompartida<T>(cliente: Cliente, fn: () => Promise<T>): Promise<T> {
+  // Ya dentro de una compartida del mismo cliente: no se anida otra.
+  if (compartidaContext.getStore() === cliente && trxContext.getStore()) return fn();
+  return runWithClienteDb(cliente, () => compartidaContext.run(cliente, fn));
+}
+
 /**
  * Ejecuta fn dentro de una transacción con el contexto de cliente fijado
  * via SET LOCAL. Único camino de acceso a datos de negocio en Postgres.
@@ -35,6 +60,10 @@ export async function runWithClienteDb<T>(
   if (!CLIENTES_VALIDOS.has(cliente)) {
     throw new Error(`[db aislamiento] cliente inválido: ${String(cliente)}`);
   }
+  // Transacción compartida en curso, del MISMO cliente: se reutiliza. Jamás
+  // se cruza de cliente — otro cliente abre la suya (aislamiento §3).
+  const compartida = trxContext.getStore();
+  if (compartida && compartidaContext.getStore() === cliente) return fn(compartida);
   return getDb()
     .transaction()
     .execute(async (trx) => {
