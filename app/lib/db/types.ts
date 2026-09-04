@@ -383,6 +383,18 @@ export interface Tabla_ocupaciones_externas {
   sync_at: Generated<Date>;
 }
 
+/** 035 — Inicio: foto diaria del bloque «dinero parado» por alcance ('red' o
+ *  id de clínica), para el delta vs hace 7 días. No se deriva: se guarda. */
+export interface Tabla_inicio_snapshots {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  alcance: string;
+  dia: Date;
+  riesgo_json: string;
+  dinero_parado: Generated<number>;
+  created_at: Generated<Date>;
+}
+
 // ─── El esquema real ────────────────────────────────────────────────────────
 
 export interface DB
@@ -420,4 +432,5 @@ export interface DB
   bloqueos_staff: Tabla_bloqueos_staff;
   agendas_externas: Tabla_agendas_externas;
   ocupaciones_externas: Tabla_ocupaciones_externas;
+  inicio_snapshots: Tabla_inicio_snapshots;
 }

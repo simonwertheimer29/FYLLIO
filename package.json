@@ -10,7 +10,7 @@
     "lint": "eslint",
     "clean": "rm -rf .next",
     "dev:fresh": "rm -rf .next && next dev",
-    "demo:reset": "node scripts/db-seed-demo-rico.mjs",
+    "demo:reset": "node scripts/db-seed-demo-rico.mjs && tsx scripts/db-seed-inicio-fotos.mts",
     "demo:entrante": "tsx scripts/demo-entrante.mts",
     "semaforo": "tsx scripts/semaforo-censo.mts",
     "db:migrate": "node scripts/db-migrate.mjs",
@@ -47,6 +47,7 @@
     "qa:agenda": "tsx scripts/qa-agenda.mts",
     "qa:agenda-externa": "tsx scripts/qa-agenda-externa.mts",
     "qa:coste": "tsx scripts/qa-coste.mts",
+    "qa:inicio": "tsx scripts/qa-inicio.mts",
     "postbuild": "node scripts/reiniciar-servidor-local.mjs",
     "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts"
   },

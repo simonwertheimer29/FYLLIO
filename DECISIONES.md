@@ -3714,3 +3714,18 @@ webhook de voz — el flujo del recordatorio no confirma citas todavía (hallazg
 seed cazadas por el calendario: la invariante del «mismo tramo» no vale a principios de mes ni con
 menos de 8 casos de base (se omite y se dice), y los QA de cola/ficha/semáforo limpian eventos de los
 hilos huérfanos sembrados — tras correr QA, `demo:reset` antes de una demo.
+
+## 2026-09-04 — Inicio fase 3: consultas agregadas por bloque, fotos diarias y /api/inicio (medido)
+`/api/inicio` compone: dashboard (riesgo + clínicas, con la COLA en paralelo en su propia
+transacción — dentro de una sola todo es serie sobre una conexión) ∥ agregados propios en UNA
+consulta (desde ayer, Fyllio este mes con el «cocinado» por teléfono y objetivo en la ventana de 30
+días, derivaciones, aplazados, mensajes y coste) ∥ las fotos. Tres decisiones de honestidad: la
+ventana de cocinado y el «coste desde el día X» viajan en el payload (política, se dicen); el delta
+vs hace 7 días NO se deriva (el estado de hace una semana ya no existe) — se GUARDA una foto diaria
+por alcance (035, cron + on-read); y en citas, si todas las confirmadas son anteriores a la columna,
+el cocinado es null, no cero. `memoEnTransaccion`: dentro de una transacción compartida de lectura la
+misma tabla se lee una vez (el dashboard leía configuraciones ×4). Medido en local sin contención:
+/api/inicio 1,3–1,7 s (objetivo < 2 s), 30 idas y vuelta frente a las 85 del dashboard viejo; bajo
+contención del pooler desde el portátil hay picos de 4 s que no son del código. `leads.fecha_cita` es
+TEXTO en la base (001): se castea en la consulta. Los QA del seed limpian eventos de los hilos
+huérfanos: `demo:reset` antes de una demo.

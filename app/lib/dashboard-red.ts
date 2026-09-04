@@ -24,7 +24,7 @@ import { selectPresupuestosRaw } from "./presupuestos/repo";
 import { listPagosResumen } from "./pagos";
 import { listAllOpciones } from "./configuraciones/configuraciones";
 import { ultimosMensajesPorConversacion } from "./presupuestos/mensajeria";
-import { colaDeSeguimiento } from "./seguimiento/cola";
+import { colaDeSeguimiento, type CasoDeCola } from "./seguimiento/cola";
 import { ultimasAccionesDireccionPorLead } from "./leads/acciones";
 import { esIntencionDeCierre } from "./presupuestos/intenciones";
 import { conversacionDePresupuesto } from "./presupuestos/conversacion-presupuesto";
@@ -234,6 +234,9 @@ export type DashboardRed = {
    *  total = € aceptado · leads = nuevos · presupuestos = presentados ·
    *  cobros = € cobrado. Mismos orígenes que el resto del dashboard. */
   progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }>;
+  /** Los casos de la cola con los que se calculó «necesitan persona» — Inicio
+   *  los reutiliza para «tu equipo» y «dinero parado» sin segunda pasada. */
+  casos?: CasoDeCola[];
 };
 
 // Mes DE LA CLÍNICA: `getMonth()` es el mes del runtime, y en Vercel eso es
@@ -261,13 +264,23 @@ export async function calcularDashboardRed(opts: {
   // 85 consultas de las que 60 eran begin/set_config/commit). Solo lectura.
   const cliente = currentCliente();
   if (!cliente) throw new Error("[dashboard-red] sin cliente en contexto (fail-closed)");
-  return conTransaccionCompartida(cliente, () => calcularDashboardRedEnTrx(opts));
+  // La COLA va en su propia transacción, EN PARALELO con los loaders del
+  // dashboard (04-09, medido): dentro de una sola transacción todo es serie
+  // sobre una conexión; en dos, se solapan. ~2,3 s → ~1,3 s.
+  const [cola, resto] = await Promise.all([
+    colaDeSeguimiento({ ahora: opts.ahora }).catch((err) => {
+      console.error("[dashboard-red] no se pudo calcular la cola:", err);
+      return null;
+    }),
+    conTransaccionCompartida(cliente, () => calcularDashboardRedEnTrx(opts)),
+  ]);
+  return resto(cola);
 }
 
 async function calcularDashboardRedEnTrx(opts: {
   clinicaIds: string[] | null;
   ahora?: Date;
-}): Promise<DashboardRed> {
+}): Promise<(cola: Awaited<ReturnType<typeof colaDeSeguimiento>> | null) => DashboardRed> {
   const ahora = opts.ahora ?? new Date();
   const mesActual = mesKey(ahora);
   const mesPrevio = mesMenos(mesActual, 1);
@@ -720,12 +733,13 @@ async function calcularDashboardRedEnTrx(opts: {
   //
   // Si falla, queda `null` y la tabla lo dice: un cero inventado aquí afirmaría
   // que la clínica lo lleva al día (§4).
-  let necesitanPersona: { porClinica: Record<string, number>; sinClinica: number } | null = null;
-  try {
-    const { casos } = await colaDeSeguimiento();
+  // «Necesitan persona» sale de la cola, que llega calculada en paralelo (ver
+  // calcularDashboardRed): esta sección se resuelve al final con ella.
+  const necesitanPersonaDe = (cola: Awaited<ReturnType<typeof colaDeSeguimiento>> | null) => {
+    if (!cola) return null;
     const porClinica: Record<string, number> = {};
     let sinClinica = 0;
-    for (const caso of casos) {
+    for (const caso of cola.casos) {
       if (!caso.clinicaId) {
         sinClinica++;
         continue;
@@ -733,11 +747,9 @@ async function calcularDashboardRedEnTrx(opts: {
       if (opts.clinicaIds != null && !opts.clinicaIds.includes(caso.clinicaId)) continue;
       porClinica[caso.clinicaId] = (porClinica[caso.clinicaId] ?? 0) + 1;
     }
-    necesitanPersona = { porClinica, sinClinica };
-  } catch (err) {
-    console.error("[dashboard-red] no se pudo contar «necesitan persona»:", err);
-  }
-
+    return { porClinica, sinClinica };
+  };
+  const filasCon = (necesitanPersona: { porClinica: Record<string, number>; sinClinica: number } | null): ClinicaFila[] => {
   const filas: ClinicaFila[] = clinicas.map((c) => {
     const deClinica = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) =>
       rs.filter((r) => pacDe(r)?.clinicaId === c.id);
@@ -778,6 +790,8 @@ async function calcularDashboardRedEnTrx(opts: {
     if (a.muestraCorta !== b.muestraCorta) return a.muestraCorta ? 1 : -1;
     return (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity);
   });
+  return filas;
+  };
 
   // ── Mezcla privado / aseguradora ─────────────────────────────────────
   // Se mide sobre los pacientes CON TIPO, y los que no lo tienen se declaran:
@@ -954,7 +968,8 @@ async function calcularDashboardRedEnTrx(opts: {
     avisosDelDia.sort((a, b) => (a.horaCita ?? "99:99").localeCompare(b.horaCita ?? "99:99"));
   }
 
-  return {
+  return (cola) => ({
+    casos: cola?.casos,
     hoy: {
       // La franja ocupa el ancho completo y admite hasta 6 señales; hoy el
       // catálogo tiene 4 tipos, así que el tope no recorta nada.
@@ -992,8 +1007,8 @@ async function calcularDashboardRedEnTrx(opts: {
       },
       mezcla,
     },
-    clinicas: filas,
+    clinicas: filasCon(necesitanPersonaDe(cola)),
     embudo: { etapas: etapasEmbudo, meses: MESES_EMBUDO },
     progreso,
-  };
+  });
 }

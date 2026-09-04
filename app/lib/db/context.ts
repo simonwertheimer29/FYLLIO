@@ -87,3 +87,26 @@ export function dbActual(): Transaction<DB> {
   }
   return trx;
 }
+
+/**
+ * MEMO POR TRANSACCIÓN (04-09, medido): dentro de una transacción compartida
+ * de lectura, la misma tabla leída dos veces es el MISMO dato — el dashboard
+ * leía configuraciones cuatro veces y pacientes/pagos/presupuestos dos. Los
+ * repos envuelven su SELECT completo con esto, con una clave que incluye sus
+ * parámetros. Fuera de una compartida cada llamada tiene su transacción y el
+ * memo no reutiliza nada: cero cambio de comportamiento. Se memoizan las FILAS
+ * crudas; el mapeo a objetos se hace por llamada, así nadie comparte arrays.
+ */
+const memoPorTrx = new WeakMap<Transaction<DB>, Map<string, Promise<unknown>>>();
+export function memoEnTransaccion<T>(trx: Transaction<DB>, clave: string, fn: () => Promise<T>): Promise<T> {
+  let m = memoPorTrx.get(trx);
+  if (!m) {
+    m = new Map();
+    memoPorTrx.set(trx, m);
+  }
+  const hit = m.get(clave);
+  if (hit) return hit as Promise<T>;
+  const p = fn();
+  m.set(clave, p);
+  return p;
+}

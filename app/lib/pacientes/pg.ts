@@ -1,7 +1,7 @@
 // app/lib/pacientes/pg.ts — FASE 2 gate 4: dominio Pacientes sobre Postgres.
 // Mismos shapes que la implementación Airtable; cliente desde runWithCliente.
 import { sql } from "kysely";
-import { runWithClienteDb } from "../db/context";
+import { runWithClienteDb, memoEnTransaccion } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import type { Paciente, PacienteAceptado, ListPacientesParams } from "./pacientes";
 import { telefonoParaGuardar } from "../telefono";
@@ -29,8 +29,8 @@ function rowToPaciente(r: any): Paciente {
 
 export async function listPacientesPg(params: ListPacientesParams = {}): Promise<Paciente[]> {
   return runWithClienteDb(cli(), async (trx) => {
-    const rows = await trx.selectFrom("pacientes").selectAll()
-      .orderBy("created_at", "desc").orderBy("id", "asc").execute();
+    const rows = await memoEnTransaccion(trx, "pacientes:todos", () =>
+      trx.selectFrom("pacientes").selectAll().orderBy("created_at", "desc").orderBy("id", "asc").execute());
     let ps = rows.map(rowToPaciente);
     if (params.clinicaIds?.length) { const s = new Set(params.clinicaIds); ps = ps.filter((p) => p.clinicaId && s.has(p.clinicaId)); }
     if (params.search) { const q = params.search.toLowerCase().trim(); if (q) ps = ps.filter((p) => p.nombre.toLowerCase().includes(q) || (p.telefono ?? "").toLowerCase().includes(q) || (p.email ?? "").toLowerCase().includes(q)); }

@@ -6,7 +6,7 @@
 // FIND/LOWER/ARRAYJOIN, RECORD_ID) evaluado en JS sobre los shims — mismo
 // resultado que Airtable, sin traducir SQL. Volumen acotado (maxRecords 2000).
 
-import { runWithClienteDb } from "../db/context";
+import { runWithClienteDb, memoEnTransaccion } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, type Shim } from "../db/airtable-formula";
 import { actualizarUna } from "../db/escritura";
@@ -63,8 +63,11 @@ function presShim(r: any): Shim {
 async function todosShims(): Promise<Shim[]> {
   return runWithClienteDb(cli(), async (trx) => {
     const { sql } = await import("kysely");
-    const r: any = await sql.raw(`${PRES_SELECT} order by pr.created_at asc, pr.id asc`).execute(trx);
-    return (r.rows as any[]).map(presShim);
+    const rows = await memoEnTransaccion(trx, "presupuestos:todos", async () => {
+      const r: any = await sql.raw(`${PRES_SELECT} order by pr.created_at asc, pr.id asc`).execute(trx);
+      return r.rows as any[];
+    });
+    return rows.map(presShim);
   });
 }
 

@@ -15,7 +15,7 @@
 // La proyección a ConfigOpcion reusa toOpcion() de configuraciones.ts sobre el
 // shim → paridad exacta garantizada con el backend Airtable (una sola verdad).
 
-import { runWithClienteDb } from "../db/context";
+import { runWithClienteDb, memoEnTransaccion } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
 import { toOpcion, type ConfigCategoria, type ConfigOpcion } from "./configuraciones";
@@ -63,12 +63,13 @@ function fieldsToColumns(fields: Record<string, unknown>): Record<string, unknow
 
 async function selectAllShims(): Promise<Shim[]> {
   const rows = await runWithClienteDb(cli(), (trx) =>
-    trx
-      .selectFrom("configuraciones_clinica")
-      .selectAll()
-      .orderBy("created_at", "asc")
-      .orderBy("id", "asc")
-      .execute(),
+    memoEnTransaccion(trx, "configuraciones_clinica:todas", () =>
+      trx
+        .selectFrom("configuraciones_clinica")
+        .selectAll()
+        .orderBy("created_at", "asc")
+        .orderBy("id", "asc")
+        .execute()),
   );
   return rows.map(toShim);
 }

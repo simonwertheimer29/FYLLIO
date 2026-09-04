@@ -73,3 +73,22 @@ export function minutosLaborablesEntre(
   }
   return Math.round(minutos);
 }
+
+/** El ÚLTIMO CIERRE de jornada anterior a `ahora`, en la zona de la clínica
+ *  (Inicio, «desde ayer», dictado 31-08). Un martes a las 11 es el lunes a las
+ *  20; un lunes a las 9 es el VIERNES a las 20 — el fin de semana entero, que
+ *  es justo lo que nadie miró. No depende de quién mira ni de cuántas veces
+ *  entra: la ventana es de la clínica, no del usuario. */
+export function ultimoCierreDeJornada(ahora: Date, horario: HorarioLaboral = HORARIO_DEFAULT): Date {
+  const t = DateTime.fromJSDate(ahora).setZone(ZONE);
+  let dia = t.startOf("day");
+  for (let i = 0; i < 14; i++, dia = dia.minus({ days: 1 })) {
+    const tramo = tramoDelDia(dia, horario);
+    if (!tramo) continue;
+    if (tramo.cierra <= t) return tramo.cierra.toJSDate();
+  }
+  // Horario sin ningún día activo en dos semanas: no hay jornada que cerrar.
+  // Se cae a «hace 24 h» y se dice en el log — nunca una ventana vacía.
+  console.error("[tiempo-laborable] ultimoCierreDeJornada: sin día laborable en 14 días, usando 24 h");
+  return t.minus({ hours: 24 }).toJSDate();
+}

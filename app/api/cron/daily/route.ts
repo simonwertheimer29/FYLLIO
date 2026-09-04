@@ -356,6 +356,19 @@ async function runDailyCron(): Promise<NextResponse> {
     errors.push(`noshows_reeval: ${String(err)}`);
   }
 
+  // Inicio (035): la FOTO diaria del bloque «dinero parado», por alcance —
+  // el delta vs hace 7 días vive de esto. Red + cada clínica.
+  try {
+    const { guardarFotoInicio } = await import("../../../lib/inicio/calcular");
+    const { runWithClienteDb } = await import("../../../lib/db/context");
+    const clinicas = await runWithClienteDb(PILOT_CLIENTE, (trx) => trx.selectFrom("clinicas").select(["id"]).execute());
+    await guardarFotoInicio({ clinicaIds: null, esRed: true });
+    for (const c of clinicas) await guardarFotoInicio({ clinicaIds: [c.id], esRed: false });
+  } catch (err) {
+    console.error("[daily inicio] foto:", err);
+    errors.push(`inicio_foto: ${String(err)}`);
+  }
+
   console.log(
     `[daily] ${now.toISODate()} — reminders: ${remindersSent}/${tomorrowAppts.length}, ` +
     `confirmations: ${confirmsSent}/${tomorrowAppts.length}, ` +

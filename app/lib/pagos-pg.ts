@@ -3,7 +3,7 @@
 // única fuente. usuario_id (link a Usuarios central) queda null hasta que
 // Identidad voltee (misma decisión que acciones_lead.usuario_id).
 import { sql } from "kysely";
-import { runWithClienteDb } from "./db/context";
+import { runWithClienteDb, memoEnTransaccion } from "./db/context";
 import { currentCliente, type Cliente } from "./airtable";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 import { listResumenFinancieroPorIds, sumPendientePorIds } from "./pacientes/pacientes";
@@ -41,10 +41,12 @@ export async function getPagosByPacientePg(pacienteId: string): Promise<Pago[]> 
 
 export async function listPagosResumenPg(opts: { desdeExclusivoIso?: string; hastaExclusivoIso?: string } = {}): Promise<PagoResumen[]> {
   return runWithClienteDb(cli(), async (trx) => {
-    let q = trx.selectFrom("pagos_paciente").selectAll();
-    if (opts.desdeExclusivoIso) q = q.where("fecha_pago", ">", opts.desdeExclusivoIso as any);
-    if (opts.hastaExclusivoIso) q = q.where("fecha_pago", "<", opts.hastaExclusivoIso as any);
-    const rows = await q.execute();
+    const rows = await memoEnTransaccion(trx, `pagos:resumen:${opts.desdeExclusivoIso ?? ""}:${opts.hastaExclusivoIso ?? ""}`, () => {
+      let q = trx.selectFrom("pagos_paciente").selectAll();
+      if (opts.desdeExclusivoIso) q = q.where("fecha_pago", ">", opts.desdeExclusivoIso as any);
+      if (opts.hastaExclusivoIso) q = q.where("fecha_pago", "<", opts.hastaExclusivoIso as any);
+      return q.execute();
+    });
     return rows.map((r: any) => ({
       pacienteRecordId: r.paciente_id ?? "", importe: Number(r.importe ?? 0),
       metodo: r.metodo ?? "", tipo: r.tipo ?? "", fechaPago: d10(r.fecha_pago),
