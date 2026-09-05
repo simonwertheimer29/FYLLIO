@@ -33,10 +33,10 @@ Estados: ⬜ abierta · 🟠 en curso · ✅ cerrada (con fecha y línea en el m
 
 | # | Qué | MEJORAS | Estado |
 |---|---|---|---|
-| 0.1 | El turno perdido no se reintenta → barrido de reevaluación + **cola de trabajos** (decisión: QStash, push, sin worker, funciona en Hobby) | 163, 164, 146 | ⬜ |
+| 0.1 | El turno perdido no se reintenta → barrido de reevaluación + **cola de trabajos** (decisión: QStash, push, sin worker, funciona en Hobby) | 163, 164, 146 | 🟠 barrido ✅ 6-sep (webhook + `/api/cron/reevaluar` + suelo diario) · cola 164 ⬜ |
 | 0.2 | Nada sale solo → **una sola salida** (`cola_envios` → WABA) con dedup, semáforo, opt-out y ventana de 24 h; el motor 16b deja de «enviar» | 165, 9, 10, 11, 24, 39, 74, 83, 98, 115, 132, 133, 154 | ⬜ **Bloqueada por Meta** (ver bloqueantes) — se construye hasta donde no dependa del catálogo y queda **declarada aplazada**, no olvidada |
-| 0.3 | Borrado, retención y consentimiento + **log de cambios de configuración** | 147, 166, 167 | ⬜ · el mecanismo se construye con plazo configurable; el plazo lo pone el abogado |
-| 0.4 | **Log drain** (Vercel Hobby no tiene drains: envío desde `lib/log` a un destino externo, o plan Pro) | 162 | ⬜ |
+| 0.3 | Borrado, retención y consentimiento + **log de cambios de configuración** | 147, 166, 167 | 🟠 167 ✅ 6-sep (038; el interruptor de `evaluador_activo` aún no tiene ruta) · 147/166 ⬜ · el plazo lo pone el abogado |
+| 0.4 | **Log drain** (Vercel Hobby no tiene drains: envío desde `lib/log-drain` a un destino externo, o plan Pro) | 162 | ✅ 6-sep en código · **inerte hasta `LOG_DRAIN_URL`** (bloqueante de Simon) |
 | 0.5 | Pequeños de fiabilidad del mismo camino | 130, 134, 145, 155 | ⬜ |
 
 **Cierra cuando:** un entrante sin evaluar se reevalúa solo en menos de 10 minutos; existe un camino
@@ -59,6 +59,9 @@ irrecuperables — cada turno que pasa sin ellas es histórico perdido.
 | 1.7 | Métricas del modelo por día (latencia, errores, fallback) | 174 |
 | 1.8 | Paralelismo del lote en `after()` con tope, o vía cola | 175 |
 | 1.9 | Deuda que estorba a lo anterior | 35, 63, 65, 66, 72, 80, 91, 126, 136, 142, 144, 161 |
+
+**Estado (6-sep):** 1.1, 1.2, 1.4 ✅ y 1.3 ✅ en su mitad irrecuperable (migración 037); quedan
+1.5–1.9 (la serie 172 es la que abre la fase 2).
 
 **Valor visible al cerrar:** «ver por qué» en cada mensaje, sparkline de 30 días de dinero parado,
 tiempo de respuesta por clínica.
@@ -207,3 +210,6 @@ Nuevas hoy: 162–205 (44), todas con fase. Reparto de las abiertas anteriores:
 ## Historial del plan
 
 - **2026-09-06** — Nace del diagnóstico aprobado. Fases 0 y 1 abiertas juntas. Censo hecho.
+- **2026-09-06** — Primer bloque ejecutado: 168, 169, 170 (mitad irrecuperable), 171 (fase 1);
+  163, 167, 162 (fase 0). Migraciones 037 y 038 aplicadas. Queda en fase 0: 164 (cola), 165
+  (salida, bloqueada por Meta), 147 y 166 (borrado y consentimiento), 130/134/145/155.

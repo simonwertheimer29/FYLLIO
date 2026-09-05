@@ -3884,6 +3884,23 @@ si ya están hechas (15, 49, 68, 90, 97) y 9 fuera del plan con propuesta de mat
 cambios ajenos sin commit en el árbol (InicioView, calcular.ts, micro.tsx, migración 036 — trabajo
 de MEJORAS 157-159 de otra sesión); no se tocaron ni se incluyeron en estos commits.
 
+## 2026-09-06 — Fase 0+1, primer bloque: lo irrecuperable ya se guarda, y el turno perdido se recupera
+Ejecutado el mismo día del plan. **Fase 1 (168-171):** cada evento `evaluacion` lleva `version`
+(hashes del system del evaluador, del juez, del conocimiento y de los objetivos, `lib/agente/version`),
+la `entrada` renderizada que vio el modelo y las `senales` del hilo; migración 037
+`mensajes_whatsapp.respuesta_a_mensaje_id`, resuelto en el único punto de escritura al último
+entrante del hilo — desde hoy un saliente se une con el juicio que lo produjo. **Fase 0:** el barrido
+de reevaluación (163) recupera los turnos que un timeout o un `after()` muerto perdían: idempotente
+por mensaje_id, excluye lo ya contestado y el lote en curso; lo dispara el webhook (3 hilos por
+lote), `/api/cron/reevaluar` (todos los clientes) y el cron diario como suelo — la cola (164) sigue
+pendiente y es lo que dará el disparo periódico sin tráfico. Historial de configuración (167,
+migración 038) en la misma transacción que el cambio; hallazgo: hoy ninguna ruta escribe
+`evaluador_activo` (solo el seed), así que la marca de encendido existirá cuando exista su interruptor.
+Log drain (162) instalado desde `instrumentation.ts` e inerte hasta que Simon cree el destino
+(`LOG_DRAIN_URL`). Decisión técnica: el QA del barrido siembra solo mensajes (fyllio_app puede
+borrarlos) y nunca eventos (sin grant de delete): comprobar la selección no exige gastar modelo.
+Lección aplicada del §22 nuevo: `next build` antes de cada commit (el hook lo impone).
+
 ## 2026-09-06 — be26b8e rompió el build de Vercel: `tsc` limpio, `next build` no
 `InicioView` (cliente) importó `BASE_MINIMA_COHORTE` y `UMBRAL_COHORTE_ABIERTA` como valor desde
 `dashboard-red.ts`; antes solo había un `import type`, que se borra al compilar. La constante
