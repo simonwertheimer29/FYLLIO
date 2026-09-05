@@ -2008,3 +2008,216 @@ verdad: un editor, un vocabulario, un renderizador.
   `clinica_id`, y sus ocupaciones se restan como bloqueo global en el compositor. El conector no
   cambia. Dictado el 31-08: «sí, pero después».
 - **Fecha:** 2026-08-31
+
+---
+
+## AUDITORÍA PROFUNDA DEL AGENTE (2026-09-05) — 117 a 155
+
+Salida de la auditoría de solo-lectura del flujo entero (webhook → contexto → evaluador → juez →
+veto → persistencia → cola → entrega). Severidad con el vocabulario de la auditoría:
+**rompe silencioso · rompe visible · degrada · mejora**. Estado: ✅ = en el encargo de resolución
+del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fuera del encargo.
+
+## 117. Webhook — un fallo de persistencia pierde el mensaje para siempre
+- **Qué es:** el dedup marca el KV ANTES de guardar (`route.ts:238` → `:257`). Si el insert falla,
+  devolvemos 500, Meta reintenta, el reintento cae en «ya visto» y responde 200: nadie lo vuelve a
+  intentar. Es S1 con otra forma. Además el KV es get-y-luego-set (race) y sin UNIQUE en base.
+- **Severidad:** rompe silencioso · **Propuesta:** UNIQUE (cliente, waba_message_id) + ON CONFLICT;
+  el KV se marca DESPUÉS de persistir · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅
+
+## 118. Webhook — solo `messages[0]` y solo texto
+- **Qué es:** del lote de Meta se procesa el primer mensaje (`route.ts:194`) y solo si es `text`
+  (`:195`). Audios, fotos, documentos, ubicaciones y respuestas de botón no se guardan ni dejan rastro.
+- **Severidad:** rompe silencioso · **Propuesta:** lote entero + todos los tipos persistidos con
+  `tipo`; en el hilo se ven como lo que son; el agente deriva lo que no puede leer sin inventar ·
+  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · ✅
+
+## 119. Un solo borrador — el composer no enseña el del evaluador
+- **Qué es:** el borrador que juzga, veta y mide el evaluador solo lo lee el banco. El composer
+  genera OTRO por `/api/agente/entrada` (`ComposerConversacion.tsx:132`), que no pasa por el veto
+  determinista de agenda. Dos veces se midió un artefacto que no era el producto.
+- **Severidad:** rompe visible · **Propuesta:** el composer precarga el del evaluador (al día), el de
+  entrada solo en el relevo, veto en los dos, y la coincidencia se mide contra ese texto ·
+  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · ✅
+
+## 120. La coletilla del pago pendiente se pega en cada turno
+- **Qué es:** `evaluador.ts:945-952` la añade sin memoria de turnos previos, y el prompt también.
+- **Severidad:** rompe visible (tono) · **Propuesta:** una vez por conversación, contado del hilo ·
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+
+## 121. Nadie emite `aplazado_resuelto`
+- **Qué es:** ni la ruta de decisiones ni ningún botón lo escriben: los pendientes son eternos y el
+  agente re-aplaza y deriva por insistencia sobre lo ya contestado a mano.
+- **Severidad:** rompe visible · **Propuesta:** botón «Respondido» por pendiente en la ficha ·
+  **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅
+
+## 122. Red de clínicas — el hilo no distingue clínica y la config es la de la ficha
+- **Qué es:** hilo por teléfono sin `clinica_id` (`evaluar-entrante.ts:81-87`); objetivos y
+  conocimiento salen de `ctx.clinicaId ?? e.clinicaId` (`:62`), la clínica del paciente antes que la
+  del número que recibió. En RB, diez clínicas.
+- **Severidad:** rompe visible · **Propuesta:** config del NÚMERO (hoy) + hilo filtrado por clínica
+  (decisión de producto: ver diagnóstico del 2026-09-05) · **Esfuerzo:** 1 h + 1 día ·
+  **Fecha:** 2026-09-05 · ✅ config del número · 🔵 hilo por clínica
+
+## 123. El contador de insistencia cuenta toda la vida y todas las ráfagas
+- **Qué es:** `evaluar-entrante.ts:125-129` suma todo `aplazado` de la clave sin cortar en el último
+  resuelto ni agrupar una ráfaga.
+- **Severidad:** degrada · **Propuesta:** vueltas desde el último resuelto, ráfaga = una vuelta ·
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+
+## 124. Una espera de más de 14 días se pierde sin rastro
+- **Qué es:** `evaluador.ts:770-778` la descarta sin anotar ni contar.
+- **Severidad:** rompe silencioso · **Propuesta:** pendiente visible «pide no ser contactado hasta X
+  (la fija una persona)» · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+
+## 125. Rojo eterno por queja o insistencia
+- **Qué es:** `semaforo.ts:187` solo cierra a mano. Cada paciente que se quejó una vez deja mudo al
+  agente con él hasta un clic.
+- **Severidad:** degrada (crece con los meses) · **Propuesta:** ver la recomendación del
+  2026-09-05 (cierre por hecho + edad) · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵 decisión
+
+## 126. El semáforo carga todos los eventos del cliente en cada evaluación
+- **Qué es:** `semaforo.ts:100-110` sin WHERE por caso; matching por subcadena de dígitos (`:254`).
+- **Severidad:** degrada con volumen · **Propuesta:** filtrar por dígitos del caso en SQL y exigir
+  ≥ 9 dígitos para el matching · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵
+
+## 127. La anonimización es un no-op en producción
+- **Qué es:** el mapa solo lleva `e.clinica` (`evaluador.ts:483`) y el orquestador no lo pasa. Nombre
+  de pila y texto de salud íntegro viajan a Anthropic. Va al resumen para la consulta legal.
+- **Severidad:** legal · **Esfuerzo:** decisión · **Fecha:** 2026-09-05 · 🔵 consulta legal
+
+## 128. Los fallos sistemáticos del agente solo llegan a consola
+- **Qué es:** config ilegible, contexto roto y API caída → `console.error` y nada más
+  (`evaluar-entrante.ts:71`, `route.ts:309`). La bandeja no distingue «sin evaluar».
+- **Severidad:** rompe silencioso · **Propuesta:** aviso en la campana (uno por hora y motivo) +
+  contador «sin evaluar» por clínica en la bandeja · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · ✅
+
+## 129. El webhook no declara `maxDuration`
+- **Qué es:** evaluador (20 s) + juez (10 s) + semáforo dentro de un `after()` sin tope declarado. Si
+  el proyecto no está en Fluid Compute, el default de 10-15 s mata la evaluación en silencio.
+- **Severidad:** rompe silencioso · **Propuesta:** `maxDuration = 60` + verificar Fluid en el
+  dashboard (el token del CLI local está caducado) · **Esfuerzo:** 10 min · **Fecha:** 2026-09-05 · ✅
+
+## 130. Modo manual — el saliente se inserta antes de que nadie lo envíe
+- **Qué es:** `mensajeria.ts:256-274` registra y luego abre wa.me; si no se completa, el hilo dice
+  «Clínica:» sobre algo que nunca salió y el evaluador lo lee.
+- **Severidad:** rompe silencioso · **Propuesta:** registrar al confirmar («ya lo envié») o marcar
+  el saliente como `pendiente_confirmar` · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵
+
+## 131. La rama WABA no persiste `autor` ni `sugerido_por_ia`
+- **Qué es:** `mensajeria.ts:385-396`. En modo B real la tasa de coincidencia y «las lleva el
+  agente» nacen muertas. · **Severidad:** degrada · **Esfuerzo:** 15 min · **Fecha:** 2026-09-05 · ✅
+
+## 132. Los webhooks de estado de Meta se descartan
+- **Qué es:** `route.ts:192`. Sin columna de entrega; un `failed` posterior no lo ve nadie; el
+  envío no lee el cuerpo del error (`mensajeria.ts:370`).
+- **Severidad:** rompe silencioso · **Propuesta:** procesar `statuses` (sent/delivered/read/failed)
+  sobre `waba_message_id` + leer el código de error de Meta · **Esfuerzo:** 1 día ·
+  **Fecha:** 2026-09-05 · 🔵
+
+## 133. La ventana de 24 h no se comprueba antes de enviar
+- **Qué es:** ni backend ni UI (`ComposerConversacion.tsx:149-172` recibe `ultimoEntrante` y no lo
+  usa). Sin plantilla viva, el envío fuera de ventana falla como «No se pudo cargar».
+- **Severidad:** rompe visible · **Propuesta:** aviso en el composer + bloqueo hasta que exista
+  plantilla · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵 (depende del catálogo de Meta)
+
+## 134. El composer pisa cualquier error de envío con «No se pudo cargar»
+- **Qué es:** `ComposerConversacion.tsx:175,190` + `fetch-json.ts:92-95`.
+- **Severidad:** rompe visible · **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵
+
+## 135. Opt-out — una fuente, la mitad de los lectores, y sin detección conversacional
+- **Qué es:** `pacientes.optout_automatizaciones` lo respetan cola, recordatorios, engine, no-shows y
+  llamadas; NO el webhook, ni el evaluador, ni el composer, ni el envío WABA. Solo lo escribe el STOP
+  legacy de Twilio. «No me escribáis más» no existe como juicio.
+- **Severidad:** rompe silencioso · **Propuesta:** una lib por teléfono, todos los lectores, juicio
+  `pideNoContacto` + evento `opt_out` · **Esfuerzo:** 4 h · **Fecha:** 2026-09-05 · ✅
+
+## 136. Idioma — sin instrucción; vetos y plantillas solo en español
+- **Qué es:** el evaluador no fija idioma; el veto determinista (`juez-borrador.ts:210-218`), la
+  coletilla y las preguntas seguras son español puro.
+- **Severidad:** degrada · **Propuesta:** instrucción + juicio `idioma` + firmas en en/ca; plantillas
+  en otros idiomas, decisión aparte · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅ parcial
+
+## 137. Config — precio y horario absurdos se afirman tal cual
+- **Qué es:** precios texto libre sin rango (`conocimiento.ts:15-17`); «25:00» pasa la regex de
+  horario (`:354-356`). · **Severidad:** degrada · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+
+## 138. Inyección — texto del paciente sin delimitar; cero casos en el eval
+- **Qué es:** `evaluador.ts:423`, `juez-borrador.ts:141`. · **Severidad:** degrada ·
+  **Propuesta:** delimitar con etiquetas + regla en el system + tanda I del eval · **Esfuerzo:** 2 h ·
+  **Fecha:** 2026-09-05 · ✅
+
+## 139. Teléfono compartido — mezcla presupuestos de madre e hijo en el mismo prompt
+- **Qué es:** paciente por `LIKE %dígitos%` con `limit 1` (`contexto-conversacion.ts:115-124`);
+  presupuestos por teléfono O por ese paciente (`:147-155`). Mandamiento 20 con teléfono.
+- **Severidad:** rompe visible · **Propuesta:** ver diagnóstico del 2026-09-05 (guarda de
+  ambigüedad: no afirmar presupuestos ni pagos cuando el número es de más de una persona) ·
+  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵 decisión
+
+## 140. Menores — el agente no lee `edad`, `fecha_nacimiento` ni `tutor_telefono`
+- **Severidad:** degrada · **Propuesta:** si el paciente casado es menor, la ficha lo dice y toda
+  duda clínica deriva · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵
+
+## 141. Reglas duras de dinero, clínico y art. 9 solo en el juez (modelo)
+- **Qué es:** el único veto en código son cinco regex de agenda. Censo de frases-firma en la auditoría
+  del 2026-09-05. · **Severidad:** degrada · **Propuesta:** veto determinista condicionado a «no
+  consta» (mismo mecanismo que `huecosConstan`) · **Esfuerzo:** una mañana · **Fecha:** 2026-09-05 · 🔵
+
+## 142. Descarte del juez → plantilla que ignora lo preguntado
+- **Qué es:** `plantillaNeutraConRecogida` pregunta por el objetivo activo aunque la persona
+  preguntara otra cosa (`evaluador.ts:926`). · **Severidad:** rompe visible · **Propuesta:** juez
+  que corrige (una llamada más solo en el 10 % de turnos, re-vetada) · **Esfuerzo:** 3 h ·
+  **Fecha:** 2026-09-05 · 🔵
+
+## 143. `camposRecogidos` por etapa, no por presupuesto
+- **Qué es:** con seis presupuestos vivos, «decision: acepta» no dice cuál; letras sin tope.
+- **Severidad:** degrada · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵
+
+## 144. Hilo largo — el juez ve solo los últimos 1.500 caracteres de la persona
+- **Qué es:** `evaluador.ts:871-875`; y el recorte tira los salientes viejos antes que los entrantes.
+  El falso positivo de «dato no pedido» del 22-08 vuelve con volumen.
+- **Severidad:** degrada · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵
+
+## 145. Sin tope de coste ni de mensajes por conversación en producción
+- **Qué es:** el banco tiene 100/día; el camino real, nada. · **Severidad:** degrada ·
+  **Propuesta:** tope por conversación/día con aviso · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+
+## 146. Crons sin heartbeat ni registro de última ejecución
+- **Severidad:** rompe silencioso (cola de envíos, no-shows, llamadas Vapi) · **Propuesta:** fila
+  de última ejecución + `/api/salud` que la lea · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵
+
+## 147. Retención y borrado de mensajes y eventos del agente
+- **Qué es:** `evaluacion_json` y `motivo_texto` guardan salud en claro; ningún camino de borrado;
+  borrar paciente no los toca (van por teléfono). Va al resumen legal. · **Fecha:** 2026-09-05 · 🔵
+
+## 148. Transparencia de IA — ver 108
+- Censo del 2026-09-05: primer mensaje de cada hilo, reanudación por plantilla, relevo persona-agente.
+  Va al resumen legal. · 🔵
+
+## 149. Caso 35 del eval a regla de código
+- «¿Con quién hablo de esto?» tras un enlace no es pedir persona. · **Esfuerzo:** 30 min ·
+  **Fecha:** 2026-09-05 · ✅
+
+## 150. Señales del log que el prompt no ve
+- Tiempo desde el último saliente y el entrante previo, hora contra el horario, salientes sin
+  respuesta: tres líneas contadas por código. · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+
+## 151. El motivo de descarte del juez está persistido y nadie lo mira
+- Panel por clínica y motivo (30 días). · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅
+
+## 152. Caso 49 del eval — decisión de producto
+- «Hay opiniones de todo» exige una causa «desconfianza» que no existe. Ver propuesta del
+  2026-09-05. · 🔵 decisión
+
+## 153. Transcripción de audio — decisión aparte
+- Coste por minuto y salud hablada en otro proveedor. Se diagnostica como pieza propia cuando el
+  punto 2 esté cerrado. · **Fecha:** 2026-09-05 · 🔵
+
+## 154. Plantillas — sin guarda de categoría y `outbound.ts` muerto con nombres inexistentes
+- `nombrePlantilla` es texto libre; `outbound.ts` usa nombres que no están en el catálogo. ·
+  **Severidad:** degrada · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+
+## 155. Un error transitorio en `evaluadorActivo` manda el mensaje al clasificador viejo
+- Dos comportamientos para la misma clínica según un hipo de base. · **Severidad:** degrada ·
+  **Propuesta:** con B5 muere el camino viejo; hasta entonces, reintento único · **Esfuerzo:** 30 min ·
+  **Fecha:** 2026-09-05 · 🔵
