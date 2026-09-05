@@ -13,6 +13,7 @@
 // bandeja. Cuando exista un rol manager, se abrirá ahí.
 
 import { NextResponse } from "next/server";
+import { diffConfiguracion, registrarCambiosConfiguracion } from "../../../lib/configuracion/historial";
 import { sql } from "kysely";
 import { withAuth } from "../../../lib/auth/session";
 import { runWithCliente } from "../../../lib/airtable";
@@ -133,19 +134,37 @@ export const PUT = withAuth(async (session, req) => {
           const c = await trx.selectFrom("clinicas").select("id").where("id", "=", clinicaId).executeTakeFirst();
           if (!c) throw new Error("clinica_desconocida");
         }
-        const existe: any = await sql`select id from configuracion_automatizaciones
+        const existe: any = await sql`select id, conocimiento, toques_antes_de_agotar from configuracion_automatizaciones
             where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
             limit 1`.execute(trx);
-        if (existe.rows?.length) {
+        const fila = existe.rows?.[0] ?? null;
+        const antes = fila
+          ? { conocimiento: fila.conocimiento ?? null, toques_antes_de_agotar: fila.toques_antes_de_agotar ?? null }
+          : null;
+        const despues = {
+          conocimiento: raw,
+          toques_antes_de_agotar: toques ?? (fila ? fila.toques_antes_de_agotar ?? null : 3),
+        };
+        if (fila) {
           await sql`update configuracion_automatizaciones
               set conocimiento = ${raw},
                   toques_antes_de_agotar = coalesce(${toques}, toques_antes_de_agotar),
                   actualizado_en = now()
-              where id = ${String(existe.rows[0].id)}`.execute(trx);
+              where id = ${String(fila.id)}`.execute(trx);
         } else {
           await sql`insert into configuracion_automatizaciones (cliente, clinica_id, conocimiento, toques_antes_de_agotar, actualizado_en)
               values (${session.cliente}, ${clinicaId}, ${raw}, coalesce(${toques}, 3), now())`.execute(trx);
         }
+        // 038 (MEJORAS 167) — el historial va EN la misma transacción: si no se
+        // anota quién cambió qué, no se guarda el cambio.
+        await registrarCambiosConfiguracion(trx, {
+          cliente: session.cliente!,
+          clinicaId,
+          tabla: "configuracion_automatizaciones",
+          cambios: diffConfiguracion(antes, despues),
+          actorId: session.userId ?? null,
+          actorNombre: session.nombre ?? null,
+        });
       });
       return NextResponse.json({ ok: true });
     });

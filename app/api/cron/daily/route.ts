@@ -378,9 +378,27 @@ async function runDailyCron(): Promise<NextResponse> {
     `noShowsEvaluadas: ${noShowsEvaluadas} (${noShowsErrores} error)`
   );
 
+  // Plan maestro 0.1 (MEJORAS 163): el barrido de reevaluación como SUELO
+  // diario mientras no exista la cola de trabajos (164). El camino vivo es el
+  // webhook (cada lote barre hasta 3 hilos) y /api/cron/reevaluar.
+  let reevaluacion: { candidatos: number; reevaluados: number } | { error: string } | { truncado: true } = { truncado: true };
+  if (!overBudget()) {
+    try {
+      const { barridoReevaluacion } = await import("../../../lib/agente/barrido-reevaluacion");
+      const r = await barridoReevaluacion({ tope: 25 });
+      reevaluacion = { candidatos: r.candidatos, reevaluados: r.reevaluados };
+    } catch (e) {
+      reevaluacion = { error: motivoFallo(e) };
+      errors.push(`reevaluacion: ${motivoFallo(e)}`);
+    }
+  } else {
+    truncated.push("reevaluacion");
+  }
+
   return NextResponse.json({
     ok: true,
     date: now.toISODate(),
+    reevaluacion,
     reminders: { sent: remindersSent, total: tomorrowAppts.length },
     confirmations: { sent: confirmsSent, total: tomorrowAppts.length },
     feedback: { sent: feedbackSent, total: yesterdayAppts.length },

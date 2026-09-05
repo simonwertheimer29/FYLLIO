@@ -341,6 +341,28 @@ async function processIncomingPayload(body: unknown): Promise<void> {
   }
   if (persistidos.length === 0) return;
 
+  // ─── Plan maestro 0.1 (MEJORAS 163): el barrido de reevaluación ──────────
+  //
+  // Mientras no exista la cola de trabajos (164), cada lote que entra barre
+  // hasta 3 hilos AJENOS a este lote que llevan más de 5 minutos con su último
+  // entrante sin evaluar ni contestar — el turno que se perdió por un timeout
+  // o un `after()` muerto se recupera con el siguiente mensaje de cualquiera.
+  // Idempotente por mensaje_id: nunca duplica.
+  {
+    const clienteBarrido = currentCliente();
+    const enEsteLote = [...new Set(persistidos.map((p) => p.telefono))];
+    after(async () => {
+      if (!clienteBarrido) return;
+      try {
+        const { barridoReevaluacion } = await import("../../../lib/agente/barrido-reevaluacion");
+        const r = await runWithCliente(clienteBarrido, () => barridoReevaluacion({ tope: 3, excluir: enEsteLote }));
+        if (r.reevaluados > 0) console.log(`[waba webhook] barrido: ${r.reevaluados} hilo(s) reevaluado(s) de ${r.candidatos} candidato(s)`);
+      } catch (err) {
+        console.error("[waba webhook] barrido de reevaluación:", sanitizeError(err));
+      }
+    });
+  }
+
   // ─── La evaluación: UNA por hilo y lote, sobre el ÚLTIMO mensaje ─────────
   //
   // Tres mensajes seguidos del mismo paciente son UN turno: el evaluador lee

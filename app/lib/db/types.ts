@@ -233,6 +233,22 @@ export interface Tabla_uso_banco_pruebas {
   turnos: number;
 }
 
+/** 038 (MEJORAS 167) — historial append-only de cambios de configuración, una
+ *  fila por campo. El encendido del agente es su primer hecho: la marca de
+ *  intervención de la comparación antes/después. */
+export interface Tabla_configuracion_historial {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string | null;
+  tabla: string;
+  campo: string;
+  antes: string | null;
+  despues: string | null;
+  actor_id: string | null;
+  actor_nombre: string | null;
+  created_at: Generated<Date>;
+}
+
 /** 016 — el rediseño «decisión primero»: la decisión se guarda aparte de la
  *  categoría, porque son dos preguntas distintas y mezclarlas fue lo que dejó el
  *  clasificador en el 56 %. Las tres estuvieron sin tipo hasta que las encontró
@@ -444,6 +460,7 @@ export interface DB
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;
   uso_banco_pruebas: Tabla_uso_banco_pruebas;
+  configuracion_historial: Tabla_configuracion_historial;
   seguimiento_vistos: Tabla_seguimiento_vistos;
   eventos_automatizacion: Tabla_eventos_automatizacion;
   sugerencias_categoria: Tabla_sugerencias_categoria;

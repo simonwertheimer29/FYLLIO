@@ -2278,13 +2278,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   cuando RB diga «el martes contestó mal». · **Propuesta:** `lib/log` que además de consola envíe
   a un destino externo por HTTP (Axiom o Sentry, capa gratuita), o plan Pro con drain nativo
   (decisión de gasto de Simon). · **Severidad:** ciega · **Esfuerzo:** 1-2 h · **Fase 0** ·
-  **Fecha:** 2026-09-06 · 🔵
+  **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — `lib/log-drain` envuelve `console.error/warn`
+  desde `instrumentation.ts`; declarado en `lib/entorno`. **Inerte hasta que Simon cree el destino y
+  ponga `LOG_DRAIN_URL` (+ `LOG_DRAIN_TOKEN`) en Vercel** — bloqueante suyo, no de código.
 
 ## 163. Fase 0 · Barrido de reevaluación — el turno perdido no se reintenta
 - Modelo caído o timeout de 20 s → turno perdido; el caso queda en «Sin evaluar» hasta que alguien
   mire. · **Propuesta:** ruta protegida que busca entrantes legibles sin evento `evaluacion` con más
   de N minutos y evaluador activo, y los reevalúa (idempotente por `mensaje_id`); la dispara la cola
-  (164). · **Severidad:** pierde turno · **Esfuerzo:** 1 día · **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+  (164). · **Severidad:** pierde turno · **Esfuerzo:** 1 día · **Fase 0** · **Fecha:** 2026-09-06 ·
+  🟢 **HECHA el 2026-09-06** — `lib/agente/barrido-reevaluacion` (idempotente, excluye lo contestado y
+  lo del lote) + `/api/cron/reevaluar` (todos los clientes, CRON_SECRET) + el webhook barre 3 hilos
+  por lote + suelo en el cron diario; `qa:barrido` sin modelo. Sin la cola (164) el disparo periódico
+  fuera del tráfico sigue siendo el cron diario.
 
 ## 164. Fase 0 · Cola de trabajos — `after()` y dos crons diarios no sostienen nada de lo que viene
 - Sin reintentos, sin ejecución diferida, sin garantía. · **Propuesta:** QStash (push, reintentos y
@@ -2314,32 +2320,43 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   **Propuesta:** tabla `configuracion_historial` (cliente, clínica, campo, antes, después, quién,
   cuándo) escrita por todas las rutas de configuración; el encendido del agente es su primer
   hecho. · **Severidad:** irrecuperable hacia atrás · **Esfuerzo:** 1 día · **Fase 0** ·
-  **Fecha:** 2026-09-06 · 🔵
+  **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — migración 038 `configuracion_historial` +
+  `lib/configuracion/historial` (diff por campo, en la MISMA transacción) enganchado a
+  `PUT /api/agente/configuracion` (con actor) y a `updateConfigRawPg`. **Hallazgo:** ninguna ruta
+  escribe `evaluador_activo` hoy (solo el seed): el encendido quedará registrado cuando exista su
+  interruptor en Ajustes.
 
 ## 168. Fase 1 · Hash de prompts, conocimiento y objetivos en el payload de cada turno
 - El system prompt es una constante en git; el payload lleva `v:1` y `modelo`, ningún hash. Ningún
   juicio del histórico es atribuible a una versión. · **Propuesta:** sha256 de
   `SYSTEM_PROMPT_EVALUADOR`, `SYSTEM_PROMPT_JUEZ`, del conocimiento y de los objetivos renderizados,
   guardados en `evaluacion_json` (aditivo). · **Severidad:** irrecuperable · **Esfuerzo:** 2 h ·
-  **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+  **Fase 1** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — `lib/agente/version.ts`; el
+  payload lleva `version.{evaluador,juez,conocimiento,objetivos}` (12 hex de sha256 del texto tal
+  cual se mandó, override incluido).
 
 ## 169. Fase 1 · Entrada renderizada persistida — reproducir una decisión pasada
 - Se guarda el juicio, no lo que el modelo vio (`renderEntrada` se tira). · **Propuesta:** guardar
   la entrada renderizada (comprimida si hace falta) junto al juicio; con 168 permite replay exacto
   en el banco de pruebas. · **Severidad:** irrecuperable · **Esfuerzo:** medio día · **Fase 1** ·
-  **Fecha:** 2026-09-06 · 🔵
+  **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — `entrada` en el payload (texto renderizado
+  antes de anonimizar). El replay en el banco queda para 183.
 
 ## 170. Fase 1 · El eslabón acción → resultado: `respuesta_a_mensaje_id` en salientes
 - El saliente lleva un boolean `sugerido_por_ia`; `mensaje_enviado` lleva la distancia pero ningún
   id. No se puede saber qué borrador respondió a qué evaluación, ni qué resultado siguió a qué
   acción. · **Propuesta:** columna en `mensajes_whatsapp` escrita por las cuatro rutas de envío
   (id del entrante evaluado) + id del saliente en el evento `mensaje_enviado`. · **Severidad:**
-  irrecuperable · **Esfuerzo:** 1 día · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+  irrecuperable · **Esfuerzo:** 1 día · **Fase 1** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06**
+  (primera mitad, la irrecuperable) — migración 037 `mensajes_whatsapp.respuesta_a_mensaje_id`,
+  resuelto en `createMensajeWhatsAppPg` al último entrante del hilo (id de Meta o id de fila). La
+  segunda mitad (id del saliente en `mensaje_enviado`) es derivable por tiempo y queda 🔵.
 
 ## 171. Fase 1 · Señales del hilo persistidas
 - `senalesDelHilo` (minutos sin respuesta, salientes sin respuesta, hora, en horario) se calcula y
   se tira cada turno. · **Propuesta:** viajar en el payload; de ahí sale 180 sin consulta nueva. ·
-  **Severidad:** dato perdido · **Esfuerzo:** 1 h · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+  **Severidad:** dato perdido · **Esfuerzo:** 1 h · **Fase 1** · **Fecha:** 2026-09-06 · 🟢 **HECHA el
+  2026-09-06** — `senales` viaja en el payload de cada turno.
 
 ## 172. Fase 1 · `metricas_diarias` con definición versionada y backfill
 - La única serie es dinero parado (035) con dos días. La tasa cambió de definición el 4-sep sin

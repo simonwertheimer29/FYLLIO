@@ -63,6 +63,12 @@ export const CONTRATO: Requisito[] = [
     nivel: "funcional",
   },
   {
+    nombre: "LOG_DRAIN_URL",
+    rompe:
+      "El envío de logs fuera de Vercel (MEJORAS 162): los errores de producción solo viven un día en la consola de Vercel y «el martes contestó mal» no se puede investigar. Ingesta HTTP con array JSON (Axiom, Better Stack…); LOG_DRAIN_TOKEN opcional como Bearer.",
+    nivel: "funcional",
+  },
+  {
     nombre: "GOOGLE_SERVICE_ACCOUNT_JSON",
     rompe:
       "La lectura de agendas externas (nivel 2, Google Calendar): las conectadas dejan de refrescarse y lo dicen.",

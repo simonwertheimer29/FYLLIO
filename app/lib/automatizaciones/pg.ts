@@ -219,12 +219,35 @@ export async function listConfigsRawPg(clinicaFormula?: string | null): Promise<
 export async function listConfigsProcesarRawPg(): Promise<any[]> {
   return listConfigsRawPg(null);
 }
-export async function updateConfigRawPg(id: string, fields: Record<string, unknown>): Promise<void> {
+export async function updateConfigRawPg(
+  id: string,
+  fields: Record<string, unknown>,
+  /** 038 (MEJORAS 167) — quién cambia. Opcional por compat; los callers con
+   *  sesión deberían pasarlo. */
+  actor?: { id?: string | null; nombre?: string | null },
+): Promise<void> {
   const M: Record<string, string> = { activa: "activa", dias_inactividad_alerta: "dias_inactividad_alerta", dias_portal_sin_respuesta: "dias_portal_sin_respuesta", dias_reactivacion: "dias_reactivacion", modo_whatsapp: "modo_whatsapp", actualizado_en: "actualizado_en" };
   const set: Record<string, unknown> = {};
   for (const [k, c] of Object.entries(M)) if (fields[k] !== undefined) set[c] = k === "actualizado_en" ? new Date(String(fields[k])) : fields[k];
-  await runWithClienteDb(cli(), (trx) =>
-    actualizarUna(trx.updateTable("configuracion_automatizaciones").set(set as any).where("id", "=", id), "configuracion_automatizaciones", id));
+  await runWithClienteDb(cli(), async (trx) => {
+    // 038 — el «antes» se lee en la misma transacción que el cambio; el
+    // historial se escribe con él o no se escribe el cambio.
+    const antes = await trx
+      .selectFrom("configuracion_automatizaciones")
+      .select(["clinica_id", "activa", "dias_inactividad_alerta", "dias_portal_sin_respuesta", "dias_reactivacion", "modo_whatsapp"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+    await actualizarUna(trx.updateTable("configuracion_automatizaciones").set(set as any).where("id", "=", id), "configuracion_automatizaciones", id);
+    const { diffConfiguracion, registrarCambiosConfiguracion } = await import("../configuracion/historial");
+    await registrarCambiosConfiguracion(trx, {
+      cliente: cli(),
+      clinicaId: antes?.clinica_id ?? null,
+      tabla: "configuracion_automatizaciones",
+      cambios: diffConfiguracion((antes ?? null) as Record<string, unknown> | null, set),
+      actorId: actor?.id ?? null,
+      actorNombre: actor?.nombre ?? null,
+    });
+  });
 }
 export async function createConfigRawPg(fields: Record<string, unknown>): Promise<void> {
   await runWithClienteDb(cli(), async (trx) => {

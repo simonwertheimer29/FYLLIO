@@ -17,6 +17,13 @@ export async function register() {
   // Solo en el runtime de Node (no en Edge, que tiene otro entorno).
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
+  // Plan maestro 0.4 (MEJORAS 162): el envío de logs se instala ANTES de
+  // revisar el entorno, para que un arranque fallido también salga de Vercel.
+  // Sin LOG_DRAIN_URL no hace nada (declarado en lib/entorno).
+  const { instalarLogDrain } = await import("./app/lib/log-drain");
+  const drain = instalarLogDrain();
+  if (drain) console.log(`[log-drain] activo → ${drain}`);
+
   const { revisarEntorno, informeEntorno } = await import("./app/lib/entorno");
   const estado = revisarEntorno();
   const informe = informeEntorno(estado);
