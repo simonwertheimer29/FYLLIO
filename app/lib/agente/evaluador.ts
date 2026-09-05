@@ -23,7 +23,8 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
+import { hashVersion, type VersionTurno } from "./version";
 import {
   CLAVES_APLAZADO,
   type ClaveAplazado,
@@ -225,6 +226,14 @@ export type EvaluacionTurno = {
   pideNoContacto?: boolean;
   /** MEJORAS 136 — idioma del último mensaje (juicio, canónico). */
   idioma?: "es" | "ca" | "en" | "otro" | null;
+  /** MEJORAS 168 — de qué versión de prompt, juez, conocimiento y objetivos
+   *  salió este juicio. Hash del texto tal cual se mandó. */
+  version?: VersionTurno;
+  /** MEJORAS 169 — lo que el modelo vio (antes de anonimizar), para poder
+   *  reproducir la decisión. */
+  entradaRenderizada?: string;
+  /** MEJORAS 171 — las señales del hilo contadas por código, para el payload. */
+  senales?: SenalesHilo | null;
 };
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
@@ -804,7 +813,7 @@ export async function evaluarTurno(
     };
   }
 
-  const { truncado } = renderEntrada(e);
+  const { texto: entradaRenderizada, truncado } = renderEntrada(e);
   const { juicio, descartes, usage } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
 
   if (!juicio) {
@@ -988,6 +997,20 @@ export async function evaluarTurno(
     modelo: MODELOS[opts?.modelo ?? "haiku"].id,
     idioma: juicio.idioma,
     pideNoContacto: juicio.pideNoContacto,
+    // MEJORAS 168/169/171 — la versión, la entrada y las señales viajan con
+    // el juicio: sin ellas ningún turno del histórico se puede explicar ni
+    // reproducir, y no admiten backfill.
+    version: {
+      evaluador: hashVersion(opts?._promptOverride ?? SYSTEM_PROMPT_EVALUADOR),
+      juez: hashVersion(SYSTEM_PROMPT_JUEZ),
+      conocimiento: (() => {
+        const lineas = renderConocimiento(e.conocimiento);
+        return lineas.length ? hashVersion(lineas.join("\n")) : null;
+      })(),
+      objetivos: e.objetivosAbiertos.length ? hashVersion(renderObjetivos(e.objetivosAbiertos)) : null,
+    } satisfies VersionTurno,
+    entradaRenderizada,
+    senales: e.senales ?? null,
   };
 
   if (juicio.urgenciaMedica) {

@@ -266,6 +266,11 @@ type ExtraMensajesWhatsApp = {
   /** 034 — id del archivo en Meta para audio/imagen/vídeo/documento/sticker.
    *  No se descarga hoy; se guarda para poder hacerlo. */
   media_id: string | null;
+  /** 037 (MEJORAS 170) — solo en salientes: id del entrante al que responde
+   *  (waba_message_id, o id de fila si fue registro manual). NULL = anterior
+   *  a la 037 o mensaje proactivo sin entrante. Une el saliente con el evento
+   *  `evaluacion` del mismo mensaje_id. */
+  respuesta_a_mensaje_id: string | null;
 };
 
 /** 019 — el número de WhatsApp de esta clínica, para saber a qué clínica llega

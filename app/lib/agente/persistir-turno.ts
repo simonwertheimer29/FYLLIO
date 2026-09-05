@@ -59,6 +59,15 @@ export type PayloadEvaluacion = {
   idioma?: string | null;
   /** Aditivo (2026-09-05, MEJORAS 135) — pidió no recibir más mensajes. */
   pideNoContacto?: boolean;
+  /** Aditivo (2026-09-06, MEJORAS 168) — hashes del prompt, juez, conocimiento
+   *  y objetivos con los que se juzgó. Sin esto ningún turno es atribuible a
+   *  una versión. */
+  version?: EvaluacionTurno["version"];
+  /** Aditivo (2026-09-06, MEJORAS 169) — la entrada renderizada que vio el
+   *  modelo. Es lo que permite reproducir la decisión; no admite backfill. */
+  entrada?: string;
+  /** Aditivo (2026-09-06, MEJORAS 171) — señales del hilo contadas por código. */
+  senales?: EvaluacionTurno["senales"];
 };
 
 export type TurnoAPersistir = {
@@ -222,6 +231,9 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     modelo: ev.modelo,
     idioma: ev.idioma ?? null,
     pideNoContacto: ev.pideNoContacto === true ? true : undefined,
+    version: ev.version,
+    entrada: ev.entradaRenderizada,
+    senales: ev.senales ?? undefined,
   };
   cuenta(
     await registrarEventoIdempotente({

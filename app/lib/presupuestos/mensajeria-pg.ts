@@ -201,8 +201,32 @@ export async function createMensajeWhatsAppPg(
     // 034 — qué es (texto, audio, foto…) y el id del archivo en Meta.
     tipo: refOrNull(fields["Tipo"]),
     media_id: refOrNull(fields["Media_id"]),
+    // 037 (MEJORAS 170) — a qué entrante responde este saliente. El caller
+    // puede mandarlo; si no, se resuelve abajo.
+    respuesta_a_mensaje_id: refOrNull(fields["Respuesta_a_mensaje_id"]),
   };
   return runWithClienteDb(cli(), async (trx) => {
+    // ─── 037 · EL ESLABÓN acción → resultado (MEJORAS 170) ─────────────
+    //
+    // Un saliente responde al ÚLTIMO entrante del hilo. Se resuelve AQUÍ, en
+    // el único punto de escritura, para que ninguna de las cuatro rutas de
+    // envío pueda olvidarlo. Mismo criterio que `borradorAgenteDe`: el id de
+    // Meta si lo hay, el id de fila si el entrante se registró a mano. Con
+    // él, saliente → evento `evaluacion` del mismo mensaje_id → juicio,
+    // versión y entrada renderizada. Un hilo sin entrante queda NULL, que es
+    // la verdad (mensaje proactivo).
+    if (row.direccion === "Saliente" && row.telefono && !row.respuesta_a_mensaje_id) {
+      const ult = await trx
+        .selectFrom("mensajes_whatsapp")
+        .select(["id", "waba_message_id"])
+        .where("telefono", "=", row.telefono)
+        .where("direccion", "=", "Entrante")
+        .orderBy("timestamp", "desc")
+        .limit(1)
+        .executeTakeFirst();
+      if (ult) row.respuesta_a_mensaje_id = ult.waba_message_id ? String(ult.waba_message_id) : String(ult.id);
+    }
+
     // ─── Completar el caso ANTES de insertar (§6) ─────────────────────
     //
     // «Registrar respuesta» manda solo presupuesto_id; el webhook, según el
