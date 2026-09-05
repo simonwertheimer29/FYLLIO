@@ -2312,7 +2312,12 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - Fyllio no guarda ni pide el consentimiento del canal WhatsApp; lo respeta si la clínica lo tiene
   en papel. · **Propuesta:** columna con fecha y origen en pacientes/leads, bloqueo del envío
   proactivo sin ella, visible en la ficha. La forma exacta la fija la consulta legal. ·
-  **Severidad:** legal · **Esfuerzo:** medio día · **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+  **Severidad:** legal · **Esfuerzo:** medio día · **Fase 0** · **Fecha:** 2026-09-06 · 🟡 **PARCIAL el
+  2026-09-06** — migración 039: fecha y origen en pacientes, y las tres columnas en leads (no existía);
+  `lib/contacto/consentimiento` (sí/no/desconocido por teléfono, paciente manda, ambigüedad =
+  desconocido; `registrarConsentimiento` por id) y la ficha del caso lo lleva. **Pendiente:** el
+  bloqueo del envío proactivo está detrás de `CONSENTIMIENTO_WHATSAPP_OBLIGATORIO` y aún no se cablea
+  en las cuatro rutas de envío: se hace cuando la consulta legal fije la forma (bloqueante de Simon).
 
 ## 167. Fase 0 · Log de cambios de configuración — nadie sabe quién apagó el agente ni cuándo
 - `configuracion_automatizaciones` se sobreescribe; `evaluador_activo` es un boolean sin fecha.

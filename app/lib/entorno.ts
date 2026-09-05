@@ -63,6 +63,12 @@ export const CONTRATO: Requisito[] = [
     nivel: "funcional",
   },
   {
+    nombre: "RETENCION_CONVERSACIONES_DIAS",
+    rompe:
+      "La caducidad de conversaciones por plazo (MEJORAS 147): sin plazo declarado el cron de retención no borra nada. El plazo lo fija la consulta legal; hasta entonces solo existe el borrado por petición (derecho de supresión).",
+    nivel: "funcional",
+  },
+  {
     nombre: "LOG_DRAIN_URL",
     rompe:
       "El envío de logs fuera de Vercel (MEJORAS 162): los errores de producción solo viven un día en la consola de Vercel y «el martes contestó mal» no se puede investigar. Ingesta HTTP con array JSON (Axiom, Better Stack…); LOG_DRAIN_TOKEN opcional como Bearer.",

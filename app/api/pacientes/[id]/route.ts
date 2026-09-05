@@ -288,6 +288,29 @@ export const DELETE = withAuth<Ctx>(async (session, _req, ctx) => {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   const { id } = await ctx.params;
+  // 039 (MEJORAS 147): la conversación se borra CON la ficha — salvo que el
+  // número lo compartan otras personas (madre e hijo, un lead con el mismo
+  // móvil): entonces se conserva y se dice, porque borrarla sería borrar la
+  // conversación de otra persona. El teléfono se lee ANTES de borrar la fila.
+  const paciente = await getPaciente(id);
   await deletePaciente(id);
-  return NextResponse.json({ ok: true });
+  let supresion: { hecha: boolean; motivo?: string; mensajes?: number; eventos?: number } = { hecha: false, motivo: "sin teléfono" };
+  const telefono = paciente?.telefono ?? null;
+  if (telefono && telefono.replace(/[^0-9]/g, "").length >= 7) {
+    try {
+      const { telefonoCompartido, borrarConversacion } = await import("../../../lib/contacto/supresion");
+      const otros = await telefonoCompartido(telefono); // la ficha ya no está: lo que quede es de OTROS
+      if (otros.pacientes + otros.leads > 0) {
+        supresion = { hecha: false, motivo: `número compartido con ${otros.pacientes + otros.leads} persona(s): la conversación se conserva` };
+      } else {
+        const r = await borrarConversacion({ telefono, motivo: "baja_paciente", actorId: session.userId, actorNombre: session.nombre ?? null });
+        supresion = { hecha: true, mensajes: r.mensajes, eventos: r.eventos };
+      }
+    } catch (err) {
+      // La ficha ya está borrada (eso sí se confirma); la conversación no, y se dice.
+      console.error("[pacientes DELETE] supresión de la conversación:", err instanceof Error ? err.message : err);
+      supresion = { hecha: false, motivo: "no se pudo borrar la conversación; queda pendiente" };
+    }
+  }
+  return NextResponse.json({ ok: true, supresion });
 });

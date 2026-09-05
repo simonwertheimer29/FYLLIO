@@ -50,7 +50,8 @@
     "qa:inicio": "tsx scripts/qa-inicio.mts",
     "postbuild": "node scripts/reiniciar-servidor-local.mjs",
     "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts",
-    "qa:barrido": "tsx scripts/qa-barrido.mts"
+    "qa:barrido": "tsx scripts/qa-barrido.mts",
+    "qa:supresion": "tsx scripts/qa-supresion.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

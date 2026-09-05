@@ -395,10 +395,34 @@ async function runDailyCron(): Promise<NextResponse> {
     truncated.push("reevaluacion");
   }
 
+  // Plan maestro 0.3 (MEJORAS 147): la retención como suelo diario, SOLO con
+  // plazo declarado (RETENCION_CONVERSACIONES_DIAS). Sin plazo del abogado no
+  // se borra nada — y se dice en la respuesta.
+  let retencion: { sinPlazo: true } | { plazoDias: number; candidatos: number; borrados: number } | { error: string } | { truncado: true } = { sinPlazo: true };
+  {
+    const { plazoRetencionDias, retencionConversaciones } = await import("../../../lib/contacto/supresion");
+    const plazo = plazoRetencionDias();
+    if (plazo != null) {
+      if (overBudget()) {
+        retencion = { truncado: true };
+        truncated.push("retencion");
+      } else {
+        try {
+          const r = await retencionConversaciones({ dias: plazo, tope: 50 });
+          retencion = { plazoDias: plazo, candidatos: r.candidatos.length, borrados: r.borrados.length };
+        } catch (e) {
+          retencion = { error: motivoFallo(e) };
+          errors.push(`retencion: ${motivoFallo(e)}`);
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     date: now.toISODate(),
     reevaluacion,
+    retencion,
     reminders: { sent: remindersSent, total: tomorrowAppts.length },
     confirmations: { sent: confirmsSent, total: tomorrowAppts.length },
     feedback: { sent: feedbackSent, total: yesterdayAppts.length },

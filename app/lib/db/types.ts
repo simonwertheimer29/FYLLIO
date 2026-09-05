@@ -32,6 +32,7 @@ import type {
   Tabla_pacientes,
   Tabla_presupuestos,
   Tabla_mensajes_whatsapp,
+  Tabla_leads,
   Tabla_configuracion_waba,
   Tabla_cola_envios,
   Tabla_citas,
@@ -202,7 +203,34 @@ type ExtraAlertasEnviadas = {
 /** 010 — privado o el nombre de su aseguradora; null = sin tipo (estado válido). */
 type ExtraPacientes = {
   tipo_paciente: string | null;
+  /** 039 (MEJORAS 166) — fecha y origen del consentimiento del canal WhatsApp
+   *  (la columna boolean es de la 001). NULL con true = consta en papel. */
+  consentimiento_whatsapp_fecha: Date | null;
+  consentimiento_whatsapp_origen: string | null;
 };
+
+/** 039 (MEJORAS 166) — el consentimiento del canal en leads, que no existía.
+ *  NULL = desconocido, no «no». */
+type ExtraLeads = {
+  consentimiento_whatsapp: boolean | null;
+  consentimiento_whatsapp_fecha: Date | null;
+  consentimiento_whatsapp_origen: string | null;
+};
+
+/** 039 (MEJORAS 147) — registro append-only de cada borrado de conversación:
+ *  hash del teléfono, motivo, actor y recuentos. Nunca el contenido. */
+export interface Tabla_supresiones {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  telefono_hash: string;
+  motivo: "derecho_supresion" | "retencion" | "baja_paciente" | "qa";
+  actor_id: string | null;
+  actor_nombre: string | null;
+  mensajes_borrados: Generated<number>;
+  eventos_borrados: Generated<number>;
+  otros_borrados: string | null;
+  created_at: Generated<Date>;
+}
 
 /** 014 — cuántos toques antes de dar la cadencia por agotada.
  *  020 — `objetivos`: definición de «caso listo» por etapa, JSON-string con la
@@ -445,10 +473,12 @@ export interface DB
     | "configuracion_waba"
     | "cola_envios"
     | "citas"
+    | "leads"
   > {
   // Generadas, con columnas añadidas después.
   alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
   pacientes: Tabla_pacientes & ExtraPacientes;
+  leads: Tabla_leads & ExtraLeads;
   configuracion_automatizaciones: Tabla_configuracion_automatizaciones &
     ExtraConfiguracionAutomatizaciones;
   presupuestos: Tabla_presupuestos & ExtraPresupuestos;
@@ -461,6 +491,7 @@ export interface DB
   alertas_pospuestas: Tabla_alertas_pospuestas;
   uso_banco_pruebas: Tabla_uso_banco_pruebas;
   configuracion_historial: Tabla_configuracion_historial;
+  supresiones: Tabla_supresiones;
   seguimiento_vistos: Tabla_seguimiento_vistos;
   eventos_automatizacion: Tabla_eventos_automatizacion;
   sugerencias_categoria: Tabla_sugerencias_categoria;

@@ -3901,6 +3901,22 @@ Log drain (162) instalado desde `instrumentation.ts` e inerte hasta que Simon cr
 borrarlos) y nunca eventos (sin grant de delete): comprobar la selección no exige gastar modelo.
 Lección aplicada del §22 nuevo: `next build` antes de cada commit (el hook lo impone).
 
+## 2026-09-06 — Fase 0.3: el derecho de supresión tiene camino, y la retención espera al plazo
+Migración 039. `lib/contacto/supresion`: `borrarConversacion` borra por teléfono (mensajes, eventos de
+la conversación, vistos, cola, secuencias) en UNA transacción y deja la anotación en `supresiones`
+(hash del teléfono, motivo, actor, recuentos — nunca el contenido); se ejerce desde
+`POST /api/admin/supresion` (admin; con número compartido pide confirmación explícita) y al dar de
+baja una ficha (`DELETE /api/pacientes/[id]`: solo si el número no es de nadie más — borrar «la
+conversación de este paciente» borraría la de la madre o el hermano; si es compartido se conserva y
+se dice). La RETENCIÓN reutiliza el mismo borrado hilo a hilo, excluye a quien tiene cita futura o
+presupuesto vivo, y **solo corre con `RETENCION_CONVERSACIONES_DIAS` declarado**: sin plazo del
+abogado no borra nada y la respuesta del cron lo dice. Para borrar del log append-only se concede
+`delete` a fyllio_app sobre `eventos_automatizacion`; el único código que lo ejerce es este módulo y
+`qa:supresion` lo comprueba con un hilo sembrado. Consentimiento (166): fecha y origen en pacientes,
+las tres columnas en leads, `lib/contacto/consentimiento` con tres estados (NULL = desconocido, no
+«no») y la ficha del caso lo enseña; el bloqueo del envío proactivo queda detrás de
+`CONSENTIMIENTO_WHATSAPP_OBLIGATORIO` sin cablear hasta la consulta legal.
+
 ## 2026-09-06 — be26b8e rompió el build de Vercel: `tsc` limpio, `next build` no
 `InicioView` (cliente) importó `BASE_MINIMA_COHORTE` y `UMBRAL_COHORTE_ABIERTA` como valor desde
 `dashboard-red.ts`; antes solo había un `import type`, que se borra al compilar. La constante

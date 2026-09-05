@@ -35,7 +35,7 @@ Estados: ⬜ abierta · 🟠 en curso · ✅ cerrada (con fecha y línea en el m
 |---|---|---|---|
 | 0.1 | El turno perdido no se reintenta → barrido de reevaluación + **cola de trabajos** (decisión: QStash, push, sin worker, funciona en Hobby) | 163, 164, 146 | 🟠 barrido ✅ 6-sep (webhook + `/api/cron/reevaluar` + suelo diario) · cola 164 ⬜ |
 | 0.2 | Nada sale solo → **una sola salida** (`cola_envios` → WABA) con dedup, semáforo, opt-out y ventana de 24 h; el motor 16b deja de «enviar» | 165, 9, 10, 11, 24, 39, 74, 83, 98, 115, 132, 133, 154 | ⬜ **Bloqueada por Meta** (ver bloqueantes) — se construye hasta donde no dependa del catálogo y queda **declarada aplazada**, no olvidada |
-| 0.3 | Borrado, retención y consentimiento + **log de cambios de configuración** | 147, 166, 167 | 🟠 167 ✅ 6-sep (038; el interruptor de `evaluador_activo` aún no tiene ruta) · 147/166 ⬜ · el plazo lo pone el abogado |
+| 0.3 | Borrado, retención y consentimiento + **log de cambios de configuración** | 147, 166, 167 | ✅ 6-sep en código: 167 (038) · 147 (039: borrado por teléfono desde admin y al dar de baja una ficha, retención SOLO con plazo declarado) · 166 (registro con fecha y origen; el bloqueo detrás de flag) · **del abogado quedan el plazo y la forma del consentimiento** |
 | 0.4 | **Log drain** (Vercel Hobby no tiene drains: envío desde `lib/log-drain` a un destino externo, o plan Pro) | 162 | ✅ 6-sep en código · **inerte hasta `LOG_DRAIN_URL`** (bloqueante de Simon) |
 | 0.5 | Pequeños de fiabilidad del mismo camino | 130, 134, 145, 155 | ⬜ |
 
@@ -213,3 +213,6 @@ Nuevas hoy: 162–205 (44), todas con fase. Reparto de las abiertas anteriores:
 - **2026-09-06** — Primer bloque ejecutado: 168, 169, 170 (mitad irrecuperable), 171 (fase 1);
   163, 167, 162 (fase 0). Migraciones 037 y 038 aplicadas. Queda en fase 0: 164 (cola), 165
   (salida, bloqueada por Meta), 147 y 166 (borrado y consentimiento), 130/134/145/155.
+- **2026-09-06** — Segundo bloque: 147 (borrado, retención con plazo declarado) y 166 (registro de
+  consentimiento) en la migración 039. Fase 0 pendiente: 164 (cola), 165 (salida, Meta),
+  130/134/145/155, y el cableado del bloqueo por consentimiento cuando el abogado fije la forma.

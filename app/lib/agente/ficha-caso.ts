@@ -36,6 +36,7 @@ import type { PayloadEvaluacion } from "./persistir-turno";
 import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
 import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
 import { optOutDeTelefono, type EstadoOptOut } from "../contacto/optout";
+import { consentimientoDeTelefono, type EstadoConsentimiento } from "../contacto/consentimiento";
 
 export type FichaCaso = {
   telefono: string;
@@ -93,6 +94,9 @@ export type FichaCaso = {
   /** MEJORAS 135 — pidió no recibir mensajes. Lo enseña el composer y lo
    *  respetan las rutas de envío. */
   optOut: EstadoOptOut;
+  /** MEJORAS 166 — si consta consentimiento del canal (sí / no / desconocido),
+   *  con fecha y origen. La ficha lo enseña; el bloqueo va detrás de flag. */
+  consentimiento: EstadoConsentimiento;
   /** MEJORAS 139 — el número lo comparten varias personas: la ficha lo
    *  declara y no afirma nada de ningún expediente. */
   identidadAmbigua: { motivo: "varios_pacientes" | "paciente_y_lead"; nombres: string[] } | null;
@@ -133,7 +137,11 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   const cliente = requireCliente("fichaDeCaso");
   const ctx = await contextoDeConversacion(telefono);
   const sem = await semaforoDeContacto(telefono, { hoy: opts?.hoy });
-  const [agente, optOut] = await Promise.all([estadoBorradorDe(telefono), optOutDeTelefono(telefono)]);
+  const [agente, optOut, consentimiento] = await Promise.all([
+    estadoBorradorDe(telefono),
+    optOutDeTelefono(telefono),
+    consentimientoDeTelefono(telefono),
+  ]);
 
   // G3 — el lead del teléfono (activo = no convertido). caída-declarada: si
   // la búsqueda falla, la ficha sigue sin el botón de agendar, no se cae.
@@ -309,6 +317,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     },
     agente,
     optOut,
+    consentimiento,
     identidadAmbigua: ctx.identidadAmbigua,
     lead,
   };
