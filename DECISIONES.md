@@ -3865,3 +3865,21 @@ objetivo → la consulta de Inicio lo casa por teléfono con el pago. Funciona; 
 Y las reglas de consumo dejaron de ser reglas: `autoCompactWindow` 300k + hooks (aviso a 200k,
 reanudación fría, heredoc sobre fichero existente, cat/Read entero > 300 líneas, un subagente
 a la vez) en `~/.claude/settings.json`; el porqué vive en `~/.claude/CLAUDE.md`.
+
+## 2026-09-06 — Plan maestro: diagnóstico estratégico aprobado, marcador de misión y fases 0-5 vivas
+Simon aprueba el [diagnóstico](DIAGNOSTICO-ESTRATEGICO-2026-09-06.md) (22,5/50 en diez áreas) y
+su plan de fases. Tres documentos nuevos gobiernan desde hoy: `MARCADOR-MISION.md` (la nota de cada
+área CON su historia: de dónde a dónde y qué la movió; no se sube por intención, solo por algo
+desplegado), `PLAN-MAESTRO.md` (fases 0-5 con estado y fecha, bloqueantes de Simon con «qué se para
+sin cada uno», Gesden sin RB, y el censo de MEJORAS) y las MEJORAS 162-205, cada una con su fase.
+Decisiones tomadas: **(1)** la fase 1 va DENTRO de la 0 porque dos cosas (eslabón acción→resultado
+por id y entrada renderizada) son irrecuperables; **(2)** si el catálogo de Meta no llega, la salida
+automática queda DECLARADA aplazada, no olvidada; **(3)** la cola de trabajos se decide ya (QStash,
+push, sin worker) porque 0.1 y 0.2 la necesitan; **(4)** Gesden: verificado que ONE no tiene API
+pública documentada (EBROTECH 2026, Cliniflux, Henry Schein One API Exchange solo Dentrix/EE. UU.);
+el 60-70 % del lector es independiente del servidor y se adelanta desde la fase 2 con un simulador,
+objetivo «a 1-2 semanas del sí»; **(5)** censo: ≈103 MEJORAS abiertas, 98 con fase, 5 a verificar
+si ya están hechas (15, 49, 68, 90, 97) y 9 fuera del plan con propuesta de matar o hacer una tanda
+«seed honesto» (36 · 41/82/110/112 · 53/54/56/70), pendiente de OK. Hallazgo de camino: había
+cambios ajenos sin commit en el árbol (InicioView, calcular.ts, micro.tsx, migración 036 — trabajo
+de MEJORAS 157-159 de otra sesión); no se tocaron ni se incluyeron en estos commits.

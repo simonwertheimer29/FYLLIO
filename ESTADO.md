@@ -11,11 +11,21 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 > [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) · [`PLAN-AGENTE.md`](PLAN-AGENTE.md) ·
 > [`CONSULTA-LEGAL-AGENTE.md`](CONSULTA-LEGAL-AGENTE.md).
 
-**Regenerado:** 5 de septiembre de 2026.
+**Regenerado:** 6 de septiembre de 2026.
 
 ---
 
 ## Ahora mismo
+
+**Hoy (6 sep): el plan maestro gobierna.** Diagnóstico estratégico aprobado (22,5/50 en diez
+áreas) → [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md) (fases 0-5 con estado, bloqueantes de Simon, Gesden
+sin RB, censo de MEJORAS) y [`MARCADOR-MISION.md`](MARCADOR-MISION.md) (cada nota con su historia).
+**Fases 0 y 1 en curso a la vez**: las tres que duelen con RB (reintento del turno + cola de
+trabajos · una sola salida automática, bloqueada por Meta y declarada · borrado, retención,
+consentimiento y log de configuración) y las dos irrecuperables (eslabón acción→resultado por id,
+entrada renderizada + hash del prompt). Tareas: MEJORAS 162-205, cada una con su fase.
+
+### Lo anterior (5 sep)
 
 **Hoy (5 sep): auditoría profunda del agente y su resolución en el mismo día.** Detalle en las
 tres entradas del 2026-09-05 de [`DECISIONES.md`](DECISIONES.md); cada hallazgo, en

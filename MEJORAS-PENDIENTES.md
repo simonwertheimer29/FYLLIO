@@ -2265,6 +2265,265 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   como texto) y `d10` sin conversión de huso. · **Severidad:** engaña fuera de Vercel ·
   **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵
 
+---
+
+# Plan maestro (6-sep-2026) — entradas 162-205, cada una con su FASE
+
+Nacen del [diagnóstico estratégico](DIAGNOSTICO-ESTRATEGICO-2026-09-06.md) aprobado por Simon; la
+fase de cada una y el reparto de las anteriores están en [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md).
+Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
+
+## 162. Fase 0 · Log drain — los errores de producción viven un día
+- Vercel Hobby retiene los logs ~24 h y no ofrece drains; 265 `console.error` que nadie podrá leer
+  cuando RB diga «el martes contestó mal». · **Propuesta:** `lib/log` que además de consola envíe
+  a un destino externo por HTTP (Axiom o Sentry, capa gratuita), o plan Pro con drain nativo
+  (decisión de gasto de Simon). · **Severidad:** ciega · **Esfuerzo:** 1-2 h · **Fase 0** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 163. Fase 0 · Barrido de reevaluación — el turno perdido no se reintenta
+- Modelo caído o timeout de 20 s → turno perdido; el caso queda en «Sin evaluar» hasta que alguien
+  mire. · **Propuesta:** ruta protegida que busca entrantes legibles sin evento `evaluacion` con más
+  de N minutos y evaluador activo, y los reevalúa (idempotente por `mensaje_id`); la dispara la cola
+  (164). · **Severidad:** pierde turno · **Esfuerzo:** 1 día · **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+
+## 164. Fase 0 · Cola de trabajos — `after()` y dos crons diarios no sostienen nada de lo que viene
+- Sin reintentos, sin ejecución diferida, sin garantía. · **Propuesta:** QStash (push, reintentos y
+  mensajes diferidos, sin worker, funciona en Hobby) o equivalente; primer uso: la evaluación del
+  turno y el barrido 163; después cadencias a la hora correcta, retención, recálculo de NBA. Cierra
+  146 (heartbeat) de paso. · **Severidad:** bloquea 0.1 y 0.2 · **Esfuerzo:** 1 semana ·
+  **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+
+## 165. Fase 0 · UNA sola salida automática hacia el paciente
+- Hoy nada sale solo: Twilio apagado, `engine.ts` no envía (skeleton), `cola_envios` se genera por
+  cron y se **envía a mano** (11), el motor de reglas no tiene dedup (9/10). · **Propuesta:**
+  `cola_envios` → plantillas WABA, con dedup por (persona, plantilla, día), idempotency key,
+  semáforo, opt-out y ventana de 24 h (133), estados de entrega de Meta (132); el motor 16b deja de
+  «enviar». **Bloqueada por el catálogo de Meta**: se construye hasta donde no dependa de él y
+  queda DECLARADA aplazada, no olvidada. · **Severidad:** el producto promete lo que no hace ·
+  **Esfuerzo:** 1 semana · **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+
+## 166. Fase 0 · Registro de consentimiento y bloqueo de envío sin él
+- Fyllio no guarda ni pide el consentimiento del canal WhatsApp; lo respeta si la clínica lo tiene
+  en papel. · **Propuesta:** columna con fecha y origen en pacientes/leads, bloqueo del envío
+  proactivo sin ella, visible en la ficha. La forma exacta la fija la consulta legal. ·
+  **Severidad:** legal · **Esfuerzo:** medio día · **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+
+## 167. Fase 0 · Log de cambios de configuración — nadie sabe quién apagó el agente ni cuándo
+- `configuracion_automatizaciones` se sobreescribe; `evaluador_activo` es un boolean sin fecha.
+  Sin esto no hay auditoría, ni rollback, ni «desde cuándo» para comparar antes/después. ·
+  **Propuesta:** tabla `configuracion_historial` (cliente, clínica, campo, antes, después, quién,
+  cuándo) escrita por todas las rutas de configuración; el encendido del agente es su primer
+  hecho. · **Severidad:** irrecuperable hacia atrás · **Esfuerzo:** 1 día · **Fase 0** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 168. Fase 1 · Hash de prompts, conocimiento y objetivos en el payload de cada turno
+- El system prompt es una constante en git; el payload lleva `v:1` y `modelo`, ningún hash. Ningún
+  juicio del histórico es atribuible a una versión. · **Propuesta:** sha256 de
+  `SYSTEM_PROMPT_EVALUADOR`, `SYSTEM_PROMPT_JUEZ`, del conocimiento y de los objetivos renderizados,
+  guardados en `evaluacion_json` (aditivo). · **Severidad:** irrecuperable · **Esfuerzo:** 2 h ·
+  **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+
+## 169. Fase 1 · Entrada renderizada persistida — reproducir una decisión pasada
+- Se guarda el juicio, no lo que el modelo vio (`renderEntrada` se tira). · **Propuesta:** guardar
+  la entrada renderizada (comprimida si hace falta) junto al juicio; con 168 permite replay exacto
+  en el banco de pruebas. · **Severidad:** irrecuperable · **Esfuerzo:** medio día · **Fase 1** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 170. Fase 1 · El eslabón acción → resultado: `respuesta_a_mensaje_id` en salientes
+- El saliente lleva un boolean `sugerido_por_ia`; `mensaje_enviado` lleva la distancia pero ningún
+  id. No se puede saber qué borrador respondió a qué evaluación, ni qué resultado siguió a qué
+  acción. · **Propuesta:** columna en `mensajes_whatsapp` escrita por las cuatro rutas de envío
+  (id del entrante evaluado) + id del saliente en el evento `mensaje_enviado`. · **Severidad:**
+  irrecuperable · **Esfuerzo:** 1 día · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+
+## 171. Fase 1 · Señales del hilo persistidas
+- `senalesDelHilo` (minutos sin respuesta, salientes sin respuesta, hora, en horario) se calcula y
+  se tira cada turno. · **Propuesta:** viajar en el payload; de ahí sale 180 sin consulta nueva. ·
+  **Severidad:** dato perdido · **Esfuerzo:** 1 h · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+
+## 172. Fase 1 · `metricas_diarias` con definición versionada y backfill
+- La única serie es dinero parado (035) con dos días. La tasa cambió de definición el 4-sep sin
+  versión. · **Propuesta:** tabla (cliente, clínica, día, métrica, valor, n, `definicion_v`)
+  alimentada por la cola; backfill desde datos crudos con timestamp (tiempo de respuesta,
+  aceptación, pérdida, lead→cita). Necesita 37 (fecha de cierre de leads). · **Severidad:** sin
+  esto no hay comparación contra uno mismo · **Esfuerzo:** 2-3 días · **Fase 1** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 173. Fase 1 · JSON en columnas `text` → `jsonb` con índice
+- `objetivos`, `conocimiento`, `evaluacion_json` son texto; Inicio castea `::jsonb` en caliente en
+  cada agregación. · **Propuesta:** migración a jsonb + índice GIN antes de que el log crezca. ·
+  **Severidad:** deuda que se encarece · **Esfuerzo:** medio día · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+
+## 174. Fase 1 · Métricas del modelo por día
+- Latencia, errores HTTP, fallbacks y descartes del juez solo existen en consola. · **Propuesta:**
+  contadores diarios en 172 (métricas `modelo_*`). · **Severidad:** ciega · **Esfuerzo:** 1 día ·
+  **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+
+## 175. Fase 1 · Los hilos del lote se evalúan en serie dentro de `after()`
+- 20 s + 10 s por hilo; con 3-4 pacientes a la vez se agotan los 60 s. · **Propuesta:** encolar un
+  trabajo por hilo (164) o `Promise.all` con tope de 3. · **Severidad:** pierde turnos bajo carga ·
+  **Esfuerzo:** 2 h · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+
+## 176. Fase 2 · Inteligencia de conversación agregada
+- `camposRecogidos` (qué le frena, motivo de rechazo, cuándo retomar, urgencia, tratamiento) y los
+  motivos literales de los aplazados están en cada turno y solo se ven en la ficha. ·
+  **Propuesta:** agregado mensual por clínica: objeciones, motivos de pérdida, qué preguntan; sin
+  coste de modelo. · **Severidad:** valor no enseñado · **Esfuerzo:** 3-4 días · **Fase 2** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 177. Fase 2 · Mapa de fuga por etapa en €
+- Dinero parado, motivo de pérdida y aplazados existen por separado. · **Propuesta:** lead sin
+  contactar → sin cita → presupuesto no aceptado → cobro vencido, en € y con el «por qué» de 176. ·
+  **Severidad:** valor · **Esfuerzo:** 3-4 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 178. Fase 2 · Next Best Config — qué publicar para que el agente resuelva más
+- `aplazados` por clave (con `NATURALEZA_DE_CLAVE`) y `capacidadesDe(conocimiento)` existen y no
+  se cruzan. · **Propuesta:** «14 conversaciones se atascaron en plan de pago: publica tu plan» /
+  «conecta la agenda: 9 preguntas de huecos». · **Severidad:** valor · **Esfuerzo:** 2-3 días ·
+  **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 179. Fase 2 · Confianza del agente
+- Vara 66/67, descartes 10 %, coincidencia agente-humano: nada se ve. · **Propuesta:** bloque en
+  Ajustes/Agentes: vara sintética hoy, tus conversaciones reales cuando existan. ·
+  **Severidad:** valor · **Esfuerzo:** 1 día · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 180. Fase 2 · Tiempo hasta la primera respuesta humana por cola
+- Métrica #1 de `PLAN-AGENTE-OFENSIVO §10`; solo existe un comentario en `leads/acciones.ts`. ·
+  **Propuesta:** evento `derivado` → primer saliente con `autor='persona'`; serie en 172; en Inicio
+  equipo. · **Severidad:** la única que detecta que el agente haga daño · **Esfuerzo:** 1 día ·
+  **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 181. Fase 2 · Antes/después por clínica — la comparación contra uno mismo
+- Con 167 (marca) + 172 (serie): «aceptaba el 40 % y ahora el 52 % desde el día X», con n, ventana
+  igual y aviso de no causalidad. · **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 182. Fase 2 · Botón «el agente se equivocó aquí» → caso candidato del eval
+- La vara es sintética; el bucle de PLAN-AGENTE fase 4 no tiene UI. · **Propuesta:** un botón en el
+  chat que guarda (entrada renderizada 169 + juicio + corrección de la persona) como caso candidato;
+  revisión humana antes de entrar en la vara. Es la única forma de que la vara deje de ser
+  sintética sin esperar el histórico de RB. · **Severidad:** sin esto el agente no aprende ·
+  **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 183. Fase 2 · «Ver por qué» por mensaje — inspector de decisiones
+- La ficha enseña el último juicio; el resto vive en el log. · **Propuesta:** en el chat, por
+  mensaje del agente: juicios, campos, aplazados, descarte, versión (168) y replay en el banco. ·
+  **Severidad:** confianza · **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 184. Fase 2 · Madurez del agente por clínica
+- Ratio `caso_completo` / resto de derivaciones por mes, ya contado en Inicio detalle. ·
+  **Propuesta:** «de qué te libera y qué sigue exigiendo persona», por clínica. · **Esfuerzo:**
+  medio día · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+
+## 185. Fase 2 · La coincidencia agente-humano en Inicio equipo
+- `CoincidenciaView` existe aislada. · **Propuesta:** «el equipo envía el borrador tal cual el X %»
+  como el disparador declarado del paso de modo A a B. · **Esfuerzo:** medio día · **Fase 2** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 186. Fase 3 · Next Best Action v1 con cupo diario
+- La cola de Seguimiento ordena por cohorte y edad; no por impacto esperado ni por capacidad. ·
+  **Propuesta:** impacto = importe × urgencia × plazo; cupo diario declarado por clínica; v2 con
+  probabilidad aprendida cuando 170 tenga meses de datos. Sustituye al tablero como cola (53, 54,
+  56, 70). · **Esfuerzo:** 2 semanas · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 187. Fase 3 · Propietario nominal y escalado por SLA
+- «Asumido» es autoasignación; nadie asigna, nadie reasigna, nada escala al vencer el plazo. ·
+  **Propuesta:** asignación a persona, reasignación, escalado a segundo nivel con la campana. ·
+  **Esfuerzo:** 1 semana · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 188. Fase 3 · Motor de políticas consolidado, con historial y con el banco de pruebas como test
+- Semáforo, veto, juez, opt-out, plazos, horario, nivel de agenda y conocimiento son políticas
+  repartidas en código, prompt, regex y JSON. · **Propuesta:** módulo `politicas` declarado, con
+  historial (167) y un test por política en el banco de pruebas. Absorbe 141 (reglas duras solo en
+  el juez) y 104 (Vapi). · **Esfuerzo:** 3 semanas · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 189. Fase 3 · Tres automatizaciones → una
+- Motor de reglas 16b (`reglas_automatizacion`, `eventos_sistema`, `engine.ts`), `secuencias_automaticas`
+  y `cola_envios`. · **Propuesta:** la salida es 165; las secuencias pasan a ser políticas (188);
+  el motor 16b se retira o su tabla queda como almacén de políticas. Cierra 12, 106, 64. ·
+  **Esfuerzo:** 1 semana · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 190. Fase 3 · Supabase analítica con service role sin RLS
+- `eventos_comportamentales` y `factores_no_show` son un segundo plano de datos fuera del
+  aislamiento. · **Propuesta:** fundir en Postgres con RLS o retirar (Sprint B lo tiene congelado).
+  · **Severidad:** aislamiento · **Esfuerzo:** 2 días · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 191. Fase 3 · Herencia por campo red → clínica
+- La fila `clinica_id = null` es el default de red, pero una clínica con su JSON deja de heredar
+  campo a campo. · **Propuesta:** merge por campo; la pantalla enseña «heredado de la red» /
+  «propio». · **Esfuerzo:** 2 días · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 192. Fase 3 · Copilot sobre el log del agente
+- 26 tools, ninguna sobre el agente. · **Propuesta:** «¿por qué derivó a X?», «¿qué se aplaza
+  más?», «¿cuánto tarda el equipo en contestar lo prioritario?» leyendo el log. · **Esfuerzo:**
+  1 semana · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 193. Fase 3 · Identidad unificada — la entidad «contacto»
+- La identidad es el teléfono, resuelto con `LIKE '%dígitos%'` en cuatro tablas cada turno; la guarda
+  de ambigüedad evita elegir mal, no da una entidad. · **Propuesta:** `contactos` (teléfonos
+  normalizados, paciente, lead, NHC) como clave de hilo y de oportunidad; tabla de mapeo antes de
+  tocar la clave del log. Prerrequisito de la cola por impacto. Cierra 17, 79. · **Esfuerzo:**
+  1 semana · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 194. Fase 3 · Oportunidad como entidad
+- El objetivo se deriva por teléfono en cada turno; la NBA necesita una fila por oportunidad con
+  importe, probabilidad y estado. · **Propuesta:** vista primero; tabla cuando NBA v2 lo pida.
+  Cierra 143. · **Esfuerzo:** 3 días (vista) · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 195. Fase 3 · Vista única de acciones
+- Cinco tablas de acciones más los mensajes. · **Propuesta:** vista `acciones` unificada para la
+  ficha, la NBA y la auditoría. · **Esfuerzo:** 2 días · **Fase 3** · **Fecha:** 2026-09-06 · 🔵
+
+## 196. Fase 3 · Tanda de retirada declarada
+- Nomenclatura Airtable (44, 45), doble sesión (38), Twilio y `CRON_TWILIO_WHATSAPP`, CommandCenter
+  huérfano (29), login muerto (47), restos de prototipo (6, 14, 62, 69). · **Propuesta:** una tanda
+  con verificación en producción (lección §11). · **Esfuerzo:** 3 días · **Fase 3** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 197. Fase 4 · Lector de Gesden — la parte independiente del servidor real
+- Modelo canónico de ingesta, API con clave por instalación y heartbeat, reconciliación por NHC,
+  ciclo de sincronización con cursor, conflictos («Fyllio propone, Gesden confirma»), simulador
+  (SQL Server en Docker o JSON) y esqueleto del servicio. Detalle en `PLAN-MAESTRO.md §Gesden`. ·
+  **Puede adelantarse desde la fase 2**; se usa desde el primer día en la demo y en un segundo
+  conector con API pública (Dentalink). · **Esfuerzo:** 3-4 semanas · **Fase 4** ·
+  **Fecha:** 2026-09-06 · 🔵
+
+## 198. Fase 4 · Lector de Gesden — la parte que espera a la firma
+- Mapeo del esquema real de la versión de RB, servicio Windows instalado y firmado, pruebas contra
+  su volumen, papel (art. 28, NDA, autorización de acceso). · **Objetivo:** 1-2 semanas desde el
+  «sí». · **Bloqueada por:** firma de RB · **Fase 4** · **Fecha:** 2026-09-06 · 🔵
+
+## 199. Fase 4 · Enrutado real multi-cliente
+- `PILOT_CLIENTE` en seis entradas sin sesión. · **Propuesta:** la tarea escrita en
+  `lib/multi-cliente-pendiente.ts` (mapa WABA → cliente, cliente en el token del portal y en la
+  metadata de Vapi, crons por cliente). · **Esfuerzo:** 2 días · **Fase 4** · **Fecha:** 2026-09-06 · 🔵
+
+## 200. Fase 4 · Encendido escalonado por sede como diseño experimental
+- Comparar entre clínicas pide volumen; encender el agente por sedes escalonadas en una red de diez
+  convierte el despliegue en un diseño (stepped-wedge). · **Propuesta:** el orden de encendido se
+  decide y se registra (167); 181 lo lee. · **Esfuerzo:** 1 día · **Fase 4** · **Fecha:** 2026-09-06 · 🔵
+
+## 201. Fase 5 · Experimentación online por clínica o por hilo
+- Con 168 (versión) y 170 (resultado por id). · **Propuesta:** asignación de variante de prompt,
+  cadencia u horario por clínica/hilo, registrada en el payload; comparación en 172. Absorbe 84. ·
+  **Esfuerzo:** 3 semanas · **Fase 5** · **Fecha:** 2026-09-06 · 🔵
+
+## 202. Fase 5 · Playbooks versionados que proponen
+- El bucle de PLAN-AGENTE fase 4: acumular correcciones (182) y proponer; nunca aplicar solos. ·
+  **Esfuerzo:** 3-4 semanas · **Fase 5** · **Fecha:** 2026-09-06 · 🔵
+
+## 203. Fase 5 · Resumen de dirección con anomalías explicadas
+- Reglas de anomalía sobre 172 («la aceptación cayó 15 puntos frente a tus ocho semanas») y
+  explicación generada desde hechos agregados, como hace el informe IA. · **Esfuerzo:** 2 semanas ·
+  **Fase 5** · **Fecha:** 2026-09-06 · 🔵
+
+## 204. Fase 5 · Motor de capacidad — demanda ↔ huecos
+- Disponibilidad declarada del paciente × huecos reales; depende de la agenda del PMS (197/198). ·
+  **Esfuerzo:** 2 semanas de lógica · **Fase 5** · **Fecha:** 2026-09-06 · 🔵
+
+## 205. Fase 5 · Modo objetivo
+- El director fija una meta; la plataforma propone y ejecuta palancas dentro de límites (188). ·
+  **Esfuerzo:** 6-12 meses · **Fase 5** · **Fecha:** 2026-09-06 · 🔵
+
 ## 162. Demo · la serie de 30 días del total parado sale PLANA (17.000 € todos los días)
 - Las fotos derivadas (`calcularDashboardRed({ahora})` con el reloj movido) dan el mismo total de
   presupuestos parados los 30 días: la pertenencia a las líneas «cierre» y «reactivables» no
