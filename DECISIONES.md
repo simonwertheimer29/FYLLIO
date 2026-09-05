@@ -3832,3 +3832,18 @@ de un paciente en el número, o paciente y lead que no son la misma persona, no 
 nadie, solo `identificar`; la ficha lo declara; `qa:contexto` lo censa. **(d)** 49 remapeado a A
 en la vara. Y `qa:entrante` siembra su propio estado del interruptor en vez de asumir el de la
 demo (Fluid Compute confirmado activo por Simon; `maxDuration = 60` se queda).
+
+## 2026-09-05 — La demo «vacía» del Inicio: el seed envejece en un día, no en semanas
+La franja «Desde el vie 4 sept» arranca en el ÚLTIMO CIERRE de jornada (20:00), y el seed
+siembra RELATIVO al momento en que corre y nada después: sembrado el viernes 07:39 y mirado el
+sábado (o el lunes), la franja no contiene nada → 0·0·0·0 aunque el log tenga 354 evaluaciones.
+Con el seed fresco esa misma franja dice 13 atendidas · 3 entregados · 3 derivados. El 0 % de
+conversión de las cuatro clínicas era otra cosa: la conversión es POR COHORTE (presentados este
+mes → aceptados) y el seed presentaba los aceptados de los días 1-3 dos días antes, en el mes
+anterior; los 9 presentados en septiembre estaban todos abiertos. Y aunque el dato sea honesto,
+«0 %» sobre una cohorte 100 % abierta se lee como «no vende», no como «aún no ha pasado tiempo».
+**Decidido:** (1) cron diario en GitHub Actions (`demo-reset.yml`, 06:00 Madrid) — inerte hasta
+que exista el secret `SUPABASE_DB_URL_APP`; (2) el seed ancla la presentación de los aceptados
+del mes en curso dentro del mes (`iso10` recorta en UTC: la medianoche local del día 1 es el 31
+en UTC — se hereda la hora de HOY); (3) `db-seed-inicio-fotos.mts` tolera no tener `.env.local`.
+La pantalla que enseña «0 %» de una cohorte abierta queda como MEJORA 156 (pide OK).

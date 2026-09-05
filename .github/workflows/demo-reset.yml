@@ -1,0 +1,52 @@
+# Resiembra la DEMO cada madrugada para que «desde ayer» nunca salga vacío.
+#
+# Por qué: el seed es RELATIVO al día en que corre. Sembrado el viernes a las
+# 07:39 y enseñado el sábado (o el lunes), la franja «Desde el vie 4 sept»
+# —que arranca en el ÚLTIMO CIERRE de jornada, 20:00— no contiene nada:
+# 0 · 0 · 0 · 0 (05-09-2026). Con el seed fresco esa misma franja enseña
+# 13 atendidas · 3 entregados · 3 derivados.
+#
+# Solo toca el tenant DEMO (RLS + set_config app.cliente='DEMO' dentro del
+# propio seed). Inerte hasta que exista el secret SUPABASE_DB_URL_APP.
+name: demo-reset
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 06:00 Madrid en verano, 05:00 en invierno
+  workflow_dispatch:
+
+concurrency:
+  group: demo-reset
+  cancel-in-progress: false
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Comprobar secret
+        id: guard
+        env:
+          URL: ${{ secrets.SUPABASE_DB_URL_APP }}
+        run: |
+          if [ -z "$URL" ]; then
+            echo "::notice::Falta el secret SUPABASE_DB_URL_APP — no se resiembra la demo."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.run == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.guard.outputs.run == 'true'
+      - name: Resembrar DEMO
+        if: steps.guard.outputs.run == 'true'
+        env:
+          SUPABASE_DB_URL_APP: ${{ secrets.SUPABASE_DB_URL_APP }}
+          TZ: Europe/Madrid
+        run: npm run demo:reset

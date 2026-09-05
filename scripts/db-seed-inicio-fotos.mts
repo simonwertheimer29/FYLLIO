@@ -5,9 +5,14 @@
 // movido a esa fecha (calcularDashboardRed({ahora})): es una aproximación
 // derivada de los mismos datos sembrados, no una cifra tecleada — y en un
 // entorno real la escribe el cron cada día.
-import { readFileSync } from "node:fs";
-for (const l of readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n")) {
-  if (l.includes("=") && !l.startsWith("#")) { const i = l.indexOf("="); process.env[l.slice(0, i)] ??= l.slice(i + 1).trim(); }
+import { existsSync, readFileSync } from "node:fs";
+// En CI (cron diario de la demo) no hay .env.local: las variables llegan por
+// process.env y el fichero simplemente no está. Sin el guard, ENOENT.
+const envLocal = new URL("../.env.local", import.meta.url);
+if (existsSync(envLocal)) {
+  for (const l of readFileSync(envLocal, "utf8").split("\n")) {
+    if (l.includes("=") && !l.startsWith("#")) { const i = l.indexOf("="); process.env[l.slice(0, i)] ??= l.slice(i + 1).trim(); }
+  }
 }
 const { runWithCliente } = await import("../app/lib/cliente-contexto");
 const { guardarFotoInicio } = await import("../app/lib/inicio/calcular");

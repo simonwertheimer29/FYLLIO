@@ -2221,3 +2221,46 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 - Dos comportamientos para la misma clínica según un hipo de base. · **Severidad:** degrada ·
   **Propuesta:** con B5 muere el camino viejo; hasta entonces, reintento único · **Esfuerzo:** 30 min ·
   **Fecha:** 2026-09-05 · 🔵
+
+## 156. Inicio · «Conversión» de la tabla de clínicas enseña 0 % de una cohorte 100 % abierta
+- La primera semana de cada mes (no solo en la demo) todas las sedes salen a «0 %». El bloque
+  de negocio ya sabe que la cohorte no es comparable (`abiertos/total > 20 %`, `muestraCorta`);
+  la tabla lo ignora y pinta el porcentaje. · **Propuesta:** la celda pasa a «aceptados de
+  presentados» con barra de proporción; el % solo cuando la cohorte es comparable; si no,
+  «N abiertos · muestra corta». · **Severidad:** engaña · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+
+## 157. Inicio · micro-visualización dentro de lo que ya existe (sin gráficos nuevos)
+- Hoy no hay un solo elemento donde la forma comunique: todo cifras. · **Propuesta:** «Qué hizo
+  Fyllio» → barra de proporción bajo cada cifra (cobros a cero salta a la vista); «Tu equipo» →
+  barra apilada de las tres cohortes; «Tus clínicas» → barra fina bajo € aceptado y € vencido
+  (ranking legible); «Parado esperándote» → bullet (medida, marca hace 7 d, bandas = rango del
+  mes) y sparkline de 7 d en cada línea. Una familia de color; rojo = actuar; sin ejes ni
+  leyendas. Modelo visual publicado el 2026-09-05; pendiente de OK. · **Esfuerzo:** 3-4 h ·
+  **Fecha:** 2026-09-05 · 🔵
+
+## 158. Inicio · «Ver el detalle» en dinero parado, equipo y clínicas
+- Solo «Qué hizo Fyllio» tiene desplegable. · **Propuesta:** dentro va lo analítico del MISMO
+  bloque: dinero → evolución del mes, composición, qué entró/salió en 7 d; equipo → la cola en
+  el mes, edad de espera en tramos, por sede; clínicas → aceptado vs mismo tramo del mes previo,
+  vencidos por sede, agente por sede. Nada nuevo fuera. · **Depende de:** 159 para las series ·
+  **Esfuerzo:** 4-6 h · **Fecha:** 2026-09-05 · 🔵
+
+## 159. Fotos diarias del Inicio: el seed guarda 2 (hoy, hace 7 d); las series piden ~30
+- Sparklines, bullet con bandas y «evolución del mes» necesitan una foto por día. En real las
+  escribe el cron; en la demo, `db-seed-inicio-fotos.mts` debe sembrar 30 días (30 pasadas de
+  `calcularDashboardRed({ahora})`, ~+1 min de seed). Sin esto, 157/158 enseñan líneas planas. ·
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+
+## 160. Demo · el agente nunca «cocina» un cobro (0 de N siempre)
+- El seed no genera ninguna entrega `caso_completo` con `objetivo_activo='cobro'`, así que la
+  tarjeta de cobros sale a cero mes tras mes. Decidir si es realidad del producto (el agente aún
+  no persigue cobros) y entonces la tarjeta lo dice, o si el seed debe sembrar 1-2. ·
+  **Severidad:** confunde en demo · **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵
+
+## 161. `d10` en `presupuestos/pg.ts` resta un día a las fechas cuando el proceso no corre en UTC
+- pg devuelve las columnas `date` como Date a medianoche LOCAL y `d10` hace `toISOString()` (UTC):
+  en Madrid, el 1-sept sale como 31-ago. En Vercel (UTC) no se nota; en local y en cualquier QA
+  o seed que calcule sobre el mismo loader, sí (esta sesión: la cohorte de septiembre «perdía»
+  sus 3 aceptados). · **Propuesta:** `types.setTypeParser(1082, v => v)` en el cliente pg (date
+  como texto) y `d10` sin conversión de huso. · **Severidad:** engaña fuera de Vercel ·
+  **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵

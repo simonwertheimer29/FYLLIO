@@ -1038,7 +1038,18 @@ try {
       const perdido = e.tipo === "perdido";
       const aceptado = !abierto && !perdido;
       const fechaAceptado = aceptado ? iso10(e.base) : null;
-      const alta = diasAntes(e.base, 2);
+      // La presentación va 2 días antes del cierre… salvo que eso la saque del
+      // mes en curso: la conversión de Inicio es POR COHORTE (de los presentados
+      // este mes, cuántos aceptaron) y con el desfase fijo los aceptados de los
+      // días 1-3 se presentaban en el mes anterior. Resultado (05-09-2026): las
+      // cuatro clínicas a «0 %» toda la primera semana de cada mes. Un
+      // presupuesto presentado el día 1 y aceptado el día 1 o el 3 es normal.
+      // Hereda las 09:00 de HOY a propósito: `iso10` recorta en UTC y la
+      // medianoche local del día 1 es todavía el 31 en UTC (lo hizo).
+      const primeroDeMes = new Date(HOY); primeroDeMes.setDate(1);
+      const alta = aceptado && e.base >= primeroDeMes
+        ? new Date(Math.max(diasAntes(e.base, 2).getTime(), primeroDeMes.getTime()))
+        : diasAntes(e.base, 2);
       const motivoPerd = perdido ? MOTIVOS_PERD_VOL[presVolRows.length % MOTIVOS_PERD_VOL.length] : null;
       const guion = abierto
         ? [{ dir: "Saliente", ts: hAgo(e.horas), txt: `Hola ${primer}, aquí tienes el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas 😊` }]
