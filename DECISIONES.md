@@ -3883,3 +3883,14 @@ si ya están hechas (15, 49, 68, 90, 97) y 9 fuera del plan con propuesta de mat
 «seed honesto» (36 · 41/82/110/112 · 53/54/56/70), pendiente de OK. Hallazgo de camino: había
 cambios ajenos sin commit en el árbol (InicioView, calcular.ts, micro.tsx, migración 036 — trabajo
 de MEJORAS 157-159 de otra sesión); no se tocaron ni se incluyeron en estos commits.
+
+## 2026-09-06 — be26b8e rompió el build de Vercel: `tsc` limpio, `next build` no
+`InicioView` (cliente) importó `BASE_MINIMA_COHORTE` y `UMBRAL_COHORTE_ABIERTA` como valor desde
+`dashboard-red.ts`; antes solo había un `import type`, que se borra al compilar. La constante
+arrastró el módulo entero —`db/context`, `kysely`, `pg`— al bundle del navegador: «Can't resolve
+'async_hooks'». El build local fallaba igual; no se había ejecutado — se verificó con `tsc` y
+`eslint`. **Arreglo por la vía correcta:** las reglas de la cohorte pasan a `lib/inicio/cohorte.ts`
+(módulo puro, con `cohorteComparable`); `dashboard-red` las importa y reexporta; `InicioView` solo
+importa del módulo puro. Barrido del repo: era la única cadena cliente→servidor. **Automatizado:**
+hook de pre-commit del repo (`scripts/precommit-build.sh` vía `.claude/settings.json`) que corre
+`tsc` + `next build` (~20 s) y bloquea el commit si falla. Mandamiento §22 en el skill de ingeniería.

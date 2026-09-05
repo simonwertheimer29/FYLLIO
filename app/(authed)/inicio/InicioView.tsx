@@ -30,7 +30,9 @@ import { cargarJSON } from "../../lib/fetch-json";
 import { eur } from "../../components/shared/Cifra";
 import { fechaHoraLegible } from "../../lib/agenda/fechas";
 import type { Inicio, ClinicaInicio, PuntoDinero } from "../../lib/inicio/calcular";
-import { BASE_MINIMA_COHORTE, UMBRAL_COHORTE_ABIERTA } from "../../lib/dashboard-red";
+// Como VALOR, solo desde el módulo puro: importar la constante desde
+// dashboard-red arrastraba pg al bundle de cliente (build roto el 06-09).
+import { BASE_MINIMA_COHORTE, cohorteComparable } from "../../lib/inicio/cohorte";
 import { BarraProporcion, BarraApilada, Bullet, Sparkline, CifraConBarra, FilaBarra } from "./micro";
 import {
   Sparkles,
@@ -567,12 +569,6 @@ export function InicioView() {
 
 /** La tabla del dashboard, ordenada por «necesitan persona» y con SOLO la
  *  sede que cayó resaltada (dictado). Sin gradiente de color en las filas. */
-/** ¿La cohorte del mes ya dice algo? Misma regla que el bloque de negocio
- *  (`conversionDe`): base mínima Y no más del 20 % todavía abierto. La primera
- *  semana de cada mes casi todo está abierto y un «0 %» se lee como «no vende». */
-const cohorteComparable = (c: ClinicaInicio) =>
-  c.presentadosMes >= BASE_MINIMA_COHORTE && c.abiertosMes / c.presentadosMes <= UMBRAL_COHORTE_ABIERTA;
-
 function TablaClinicas({ filas, onClinica }: { filas: ClinicaInicio[]; onClinica: (id: string) => void }) {
   const [detalle, setDetalle] = useState(false);
   const ordenadas = [...filas].sort((a, b) => (b.necesitanPersona ?? -1) - (a.necesitanPersona ?? -1) || (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));

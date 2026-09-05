@@ -367,6 +367,21 @@ X en él.
 > que nadie enviaba. El eval llevaba semanas al 95 % midiendo un artefacto que no era el
 > producto.
 
+### 22. `tsc` no ve la frontera cliente/servidor; solo la ve `next build`
+Un `import type` se borra al compilar; un `import { constante }` arrastra el archivo ENTERO al
+bundle de quien lo importa. Si quien importa es un Client Component y el archivo toca `pg`,
+`kysely` o `db/context`, el navegador intenta cargar `async_hooks`, `dns` y `fs` — y `tsc --noEmit`
+pasa limpio, porque los tipos son los mismos. Reglas: **(a)** un componente de cliente solo
+importa como VALOR desde módulos puros (sin nada de servidor detrás, ni transitivo); lo que
+comparte con el servidor —constantes, reglas— vive en un módulo aparte (`lib/inicio/cohorte.ts`
+es el patrón) y el módulo de servidor lo reexporta; **(b)** `npm run build` es OBLIGATORIO antes
+de dar algo por hecho, y no es un ruego: el hook de pre-commit del repo (`scripts/precommit-build.sh`,
+`.claude/settings.json`) lo ejecuta y bloquea el commit si falla. Son 17 segundos.
+> **Nos lo enseñó:** `be26b8e` (06-09-2026). `InicioView` importó `BASE_MINIMA_COHORTE` desde
+> `dashboard-red.ts` como valor —antes solo había un `import type`— y el deploy de Vercel cayó
+> con «Can't resolve 'async_hooks'» en `db/context.ts:17`. Se había verificado con `tsc` y
+> `eslint`, no con `next build`. El build local fallaba igual: nadie lo había lanzado.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -392,6 +407,7 @@ X en él.
 - [ ] Si escribí una migración, ¿la tabla o la columna está **declarada en los tipos**? (`npm run qa:tipos`) ¿Y estoy metiendo trabajo a mano en un archivo que un script reescribe? (§18)
 - [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
 - [ ] Si enlazo o resuelvo a una **persona**, ¿viaja su **id** en el payload? ¿Hay algún match por nombre que elija solo? (§20)
+- [ ] Si un Client Component importa algo como VALOR, ¿el módulo es **puro**? ¿Ha pasado `npm run build`, no solo `tsc`? (§22)
 - [ ] Lo que estoy midiendo o protegiendo, ¿es **lo que el usuario ve**? ¿He seguido el camino desde la pantalla hasta el texto? ¿Hay un segundo generador para el mismo hueco? (§21)
 
 ## Cómo crece este skill

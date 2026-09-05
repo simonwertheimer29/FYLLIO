@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/precommit-build.sh",
+            "timeout": 300,
+            "statusMessage": "tsc + next build antes del commit…"
+          }
+        ]
+      }
+    ]
+  }
+}

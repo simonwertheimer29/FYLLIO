@@ -69,12 +69,11 @@ export type ConversionCohorte = {
   muestraCorta: boolean;
 };
 
-/** Denominador mínimo para que un porcentaje se pinte como señal (y para que
- *  una clínica pueda encabezar el ranking de caídas). Con 2 presupuestos, un
- *  100% es ruido con autoridad. */
-export const BASE_MINIMA_COHORTE = 5;
-/** Parte de la cohorte que puede seguir abierta sin invalidar la comparación. */
-export const UMBRAL_COHORTE_ABIERTA = 0.2;
+// Las reglas de la cohorte viven en un módulo PURO (`inicio/cohorte.ts`): un
+// componente de cliente las necesita como valor, y desde aquí arrastrarían pg
+// al navegador (build roto el 06-09). Se reexportan por compatibilidad.
+import { BASE_MINIMA_COHORTE, UMBRAL_COHORTE_ABIERTA } from "./inicio/cohorte";
+export { BASE_MINIMA_COHORTE, UMBRAL_COHORTE_ABIERTA };
 
 export type RiesgoItem = {
   tipo: "reactivables" | "vencidos" | "sin_contacto" | "cierre_sin_accion";

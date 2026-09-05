@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# export temporal del índice para el build de pre-commit (scripts/precommit-build.sh)
+.precommit-build/
+.precommit-build.log
