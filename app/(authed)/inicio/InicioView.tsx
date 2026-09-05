@@ -29,8 +29,9 @@ import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import { cargarJSON } from "../../lib/fetch-json";
 import { eur } from "../../components/shared/Cifra";
 import { fechaHoraLegible } from "../../lib/agenda/fechas";
-import type { Inicio } from "../../lib/inicio/calcular";
-import type { ClinicaFila } from "../../lib/dashboard-red";
+import type { Inicio, ClinicaInicio, PuntoDinero } from "../../lib/inicio/calcular";
+import { BASE_MINIMA_COHORTE, UMBRAL_COHORTE_ABIERTA } from "../../lib/dashboard-red";
+import { BarraProporcion, BarraApilada, Bullet, Sparkline, CifraConBarra, FilaBarra } from "./micro";
 import {
   Sparkles,
   ChevronDown,
@@ -91,6 +92,13 @@ const PROCESO: Record<string, { titulo: string; resultado: (n: number, importe: 
 };
 
 const s = (n: number) => (n === 1 ? "" : "s");
+const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+/** Los últimos `n` días de una línea del dinero parado, para su sparkline.
+ *  Un día sin esa línea en la foto es un hueco (null), no un cero. */
+const serieLinea = (serie: PuntoDinero[], tipo: string, n = 8): Array<number | null> =>
+  serie.slice(-n).map((p) => (tipo in p.lineas ? p.lineas[tipo] : null));
+const CLASE_DETALLE = "mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)]";
+const CLASE_EYEBROW = "text-[10px] font-medium uppercase tracking-wider";
 
 export function InicioView() {
   const { selectedClinicaId, selectedClinicaNombre, isHydrated, setSelectedClinicaId } = useClinic();
@@ -98,6 +106,8 @@ export function InicioView() {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const [detalleDinero, setDetalleDinero] = useState(false);
+  const [detalleEquipo, setDetalleEquipo] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -239,11 +249,28 @@ export function InicioView() {
                   </div>
                   <p className="text-right text-[11px] leading-snug text-[var(--color-muted)]">
                     {data.dineroParado.comparadoConDia
-                      ? <>vs hace 7 días<br /><span className="tabular-nums">(foto del {data.dineroParado.comparadoConDia.slice(8, 10)}/{data.dineroParado.comparadoConDia.slice(5, 7)})</span></>
-                      : <>sin comparación aún<br />{data.dineroParado.primeraFotoDia ? <span className="tabular-nums">fotos desde el {data.dineroParado.primeraFotoDia.slice(8, 10)}/{data.dineroParado.primeraFotoDia.slice(5, 7)}</span> : "primera foto hoy"}</>}
+                      ? <>vs hace 7 días<br /><span className="tabular-nums">(foto del {ddmm(data.dineroParado.comparadoConDia)})</span></>
+                      : <>sin comparación aún<br />{data.dineroParado.primeraFotoDia ? <span className="tabular-nums">fotos desde el {ddmm(data.dineroParado.primeraFotoDia)}</span> : "primera foto hoy"}</>}
                   </p>
                 </div>
-                <ul className="mt-3 divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+                {/* Bullet de Few: barra = parado hoy · marca = hace 7 días · bandas =
+                    rango del último mes (mín–máx de las fotos) · rojo = vencidos. */}
+                {(() => {
+                  const totales = data.dineroParado.serie.map((p) => p.total);
+                  const conRango = totales.length >= 2;
+                  return (
+                    <Bullet
+                      hoy={data.dineroParado.total}
+                      hace7={data.dineroParado.hace7Total}
+                      bandaMin={conRango ? Math.min(...totales) : null}
+                      bandaMax={conRango ? Math.max(...totales) : null}
+                      rojo={data.dineroParado.cobros}
+                      etiquetaMarca={data.dineroParado.hace7Total != null ? `hace 7 d · ${eur(data.dineroParado.hace7Total)}` : null}
+                      formato={eur}
+                    />
+                  );
+                })()}
+                <ul className={`${data.dineroParado.hace7Total != null ? "mt-8" : "mt-3"} divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]`}>
                   {data.dineroParado.lineas.length === 0 && (
                     <li className="px-4 py-3 text-sm text-[var(--color-muted)]">Nada en riesgo hoy — las colas están al día.</li>
                   )}
@@ -257,9 +284,11 @@ export function InicioView() {
                           <span className="font-medium text-[var(--color-foreground)]">{l.titulo}</span>
                           <span className="text-[var(--color-muted)]"> — {l.detalle}</span>
                         </span>
-                        <span className="w-32 shrink-0 whitespace-nowrap text-right text-[11.5px] tabular-nums" title={data.dineroParado.comparadoConDia ? `Comparado con la foto del ${data.dineroParado.comparadoConDia}` : "Todavía no hay foto de hace 7 días"}>
+                        {/* Sparkline de los últimos 7 días + el neto, en vez de solo el texto. */}
+                        <span className="flex w-44 shrink-0 items-center justify-end gap-2 whitespace-nowrap text-right text-[11.5px] tabular-nums" title={data.dineroParado.comparadoConDia ? `Comparado con la foto del ${data.dineroParado.comparadoConDia}` : "Todavía no hay foto de hace 7 días"}>
+                          <Sparkline valores={serieLinea(data.dineroParado.serie, l.tipo)} rojo={(l.delta7d ?? 0) > 0} />
                           {l.delta7d == null ? (
-                            <span className="text-[var(--color-muted)]">—</span>
+                            <span className="text-[var(--color-muted)]">sin foto aún</span>
                           ) : l.delta7d === 0 ? (
                             <span className="text-[var(--color-muted)]">igual que hace 7 d</span>
                           ) : (
@@ -273,6 +302,66 @@ export function InicioView() {
                     </li>
                   ))}
                 </ul>
+                <button type="button" onClick={() => setDetalleDinero((v) => !v)} aria-expanded={detalleDinero} className={CLASE_DETALLE}>
+                  {detalleDinero ? <ChevronDown size={14} strokeWidth={ICON_STROKE} aria-hidden /> : <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />}
+                  {detalleDinero ? "Ocultar el detalle del dinero parado" : "Ver el detalle del dinero parado"}
+                </button>
+                {detalleDinero && (() => {
+                  // Detalle del MISMO bloque: cómo llegó hasta aquí, de qué está
+                  // hecho y qué se movió. Ninguna métrica nueva.
+                  const serie = data.dineroParado.serie;
+                  const totales = serie.map((p) => p.total);
+                  const conImporte = data.dineroParado.lineas.filter((l) => l.importe != null);
+                  const maxImporte = Math.max(0, ...conImporte.map((l) => l.importe ?? 0));
+                  return (
+                    <div className="mt-3 grid gap-4 border-t border-[var(--color-border)] pt-3 text-[12.5px] text-[var(--color-muted)] sm:grid-cols-3">
+                      <div>
+                        <p className={CLASE_EYEBROW}>Evolución del mes</p>
+                        {serie.length >= 2 ? (
+                          <>
+                            <Sparkline valores={totales} ancho={300} alto={56} className="mt-1 h-14 w-full" />
+                            <p className="mt-1 tabular-nums">
+                              Presupuestos parados, una foto al día · máximo <b className="font-semibold text-[var(--color-foreground)]">{eur(Math.max(...totales))}</b> · mínimo{" "}
+                              <b className="font-semibold text-[var(--color-foreground)]">{eur(Math.min(...totales))}</b> · {serie.length} día{s(serie.length)} con foto.
+                            </p>
+                          </>
+                        ) : (
+                          <p className="mt-1">Todavía {serie.length === 0 ? "no hay fotos" : "hay una sola foto"}: se guarda una al día y la curva aparece con la segunda.</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className={CLASE_EYEBROW}>De qué está hecho</p>
+                        <ul className="mt-1">
+                          {conImporte.map((l) => (
+                            <FilaBarra key={l.tipo} etiqueta={l.titulo} valor={l.importe ?? 0} max={maxImporte} texto={eur(l.importe ?? 0)} rojo={l.tipo === "vencidos"} />
+                          ))}
+                          {data.dineroParado.lineas.filter((l) => l.importe == null).map((l) => (
+                            <li key={l.tipo} className="flex items-baseline justify-between gap-2 py-0.5">
+                              <span className="truncate">{l.titulo}</span>
+                              <b className="font-semibold tabular-nums text-[var(--color-foreground)]">{l.n} sin importe</b>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className={CLASE_EYEBROW}>Qué se movió en 7 días</p>
+                        <ul className="mt-1 space-y-0.5 tabular-nums">
+                          {data.dineroParado.lineas.map((l) => (
+                            <li key={l.tipo} className="flex items-baseline justify-between gap-2">
+                              <span className="truncate">{l.titulo}</span>
+                              <b className={`shrink-0 font-semibold ${l.delta7d == null ? "text-[var(--color-muted)]" : l.delta7d > 0 ? "text-[var(--color-danger)]" : l.delta7d < 0 ? "text-[var(--color-success)]" : "text-[var(--color-foreground)]"}`}>
+                                {l.delta7d == null ? "sin foto" : l.delta7d === 0 ? "igual" : `${l.delta7d > 0 ? "+" : "−"}${l.importe != null ? eur(Math.abs(l.delta7d)) : Math.abs(l.delta7d)}`}
+                              </b>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-1 text-[11px]">
+                          Neto por línea frente a la foto{data.dineroParado.comparadoConDia ? ` del ${ddmm(data.dineroParado.comparadoConDia)}` : " de hace 7 días"}. Lo que entró y lo que salió por separado no se guarda todavía.
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
               </section>
 
               <section className="lg:col-span-2" data-bloque="equipo">
@@ -281,7 +370,16 @@ export function InicioView() {
                     <Users size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
                     Tu equipo
                   </h2>
-                  <ul className="mt-3 space-y-1.5">
+                  {/* La cola de un golpe: qué parte está fuera de plazo se ve antes de leer. */}
+                  <BarraApilada
+                    className="mt-3"
+                    partes={[
+                      { n: data.equipo.porCohorte.necesita_respuesta ?? 0, color: "var(--color-warning)", etiqueta: ETIQUETA_COHORTE.necesita_respuesta },
+                      { n: data.equipo.porCohorte.listos_para_cerrar ?? 0, color: "var(--color-accent)", etiqueta: ETIQUETA_COHORTE.listos_para_cerrar },
+                      { n: data.equipo.porCohorte.fuera_de_plazo ?? 0, color: "var(--color-danger)", etiqueta: ETIQUETA_COHORTE.fuera_de_plazo },
+                    ]}
+                  />
+                  <ul className="mt-2 space-y-1">
                     {(["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"] as const).map((k) => (
                       <li key={k}>
                         <Link href={`/seguimiento?cohorte=${k}`} className="flex items-center justify-between gap-3 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--color-surface-muted)]">
@@ -313,6 +411,54 @@ export function InicioView() {
                       </>
                     )}
                   </p>
+                  <button type="button" onClick={() => setDetalleEquipo((v) => !v)} aria-expanded={detalleEquipo} className={CLASE_DETALLE}>
+                    {detalleEquipo ? <ChevronDown size={14} strokeWidth={ICON_STROKE} aria-hidden /> : <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />}
+                    {detalleEquipo ? "Ocultar el detalle del equipo" : "Ver el detalle del equipo"}
+                  </button>
+                  {detalleEquipo && (() => {
+                    // Detalle del MISMO bloque: cómo ha ido la cola, cuánto espera
+                    // cada caso y en qué sede. Sin ranking de personas, nunca.
+                    const serie = data.equipo.serie;
+                    const e = data.equipo.edades;
+                    const maxEdad = Math.max(1, e.menosDeUnDia, e.de1a3, e.masDe3);
+                    const maxSede = Math.max(1, ...data.equipo.porClinica.map((c) => c.n));
+                    return (
+                      <div className="mt-3 space-y-3 border-t border-[var(--color-border)] pt-3 text-[12.5px] text-[var(--color-muted)]">
+                        <div>
+                          <p className={CLASE_EYEBROW}>La cola este mes</p>
+                          {serie.length >= 2 ? (
+                            <>
+                              <Sparkline valores={serie.map((p) => p.total)} ancho={300} alto={44} rojo className="mt-1 h-11 w-full" />
+                              <p className="mt-1 tabular-nums">
+                                Casos esperando a alguien, una foto al día. El {ddmm(serie[0].dia)} eran <b className="font-semibold text-[var(--color-foreground)]">{serie[0].total}</b>; hoy{" "}
+                                <b className="font-semibold text-[var(--color-foreground)]">{data.equipo.total}</b>.
+                              </p>
+                            </>
+                          ) : (
+                            <p className="mt-1">Todavía {serie.length === 0 ? "no hay fotos de la cola" : "hay una sola foto de la cola"}: se guarda una al día y la curva aparece con la segunda.</p>
+                          )}
+                        </div>
+                        <div>
+                          <p className={CLASE_EYEBROW}>Cuánto llevan esperando</p>
+                          <ul className="mt-1">
+                            <FilaBarra etiqueta="Menos de un día" valor={e.menosDeUnDia} max={maxEdad} texto={String(e.menosDeUnDia)} />
+                            <FilaBarra etiqueta="De 1 a 3 días" valor={e.de1a3} max={maxEdad} texto={String(e.de1a3)} />
+                            <FilaBarra etiqueta="Más de 3 días" valor={e.masDe3} max={maxEdad} texto={String(e.masDe3)} rojo={e.masDe3 > 0} />
+                          </ul>
+                        </div>
+                        {data.esRed && data.equipo.porClinica.length > 0 && (
+                          <div>
+                            <p className={CLASE_EYEBROW}>Por sede</p>
+                            <ul className="mt-1">
+                              {data.equipo.porClinica.map((c) => (
+                                <FilaBarra key={c.clinicaId} etiqueta={c.nombre ?? "Sin clínica asignada"} valor={c.n} max={maxSede} texto={String(c.n)} />
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </Card>
               </section>
             </div>
@@ -337,13 +483,16 @@ export function InicioView() {
                       <li key={p.proceso} className="rounded-lg border border-[var(--color-border)] px-3.5 py-2">
                         <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted)]">{def.titulo}</p>
                         <p className="mt-0.5 font-display text-base font-bold tabular-nums text-[var(--color-foreground)]">{def.resultado(p.resultado, p.importe)}</p>
-                        <p className="mt-0.5 text-[12px] leading-snug tabular-nums text-[var(--color-muted)]">
+                        {/* La proporción, en forma: con cocinado = 0 el carril queda
+                            vacío y se ve a la primera (antes las cuatro cifras pesaban igual). */}
+                        {p.resultado > 0 && p.cocinado != null && <BarraProporcion n={p.cocinado} total={p.resultado} className="mt-2" />}
+                        <p className="mt-1 text-[12px] leading-snug tabular-nums text-[var(--color-muted)]">
                           {p.resultado === 0 ? (
                             "Nada cerrado este mes todavía."
                           ) : p.cocinado == null ? (
                             <span title="Confirmadas antes de que Fyllio registrara quién confirma.">Quién las confirmó no consta todavía.</span>
                           ) : (
-                            <><span className="font-semibold text-[var(--color-accent)]">{def.cocinado(p.cocinado, p.resultado)}</span>{p.sinDato > 0 ? ` · ${p.sinDato} sin dato` : ""}</>
+                            <><span className={`font-semibold ${p.cocinado === 0 ? "text-[var(--color-muted)]" : "text-[var(--color-accent)]"}`}>{def.cocinado(p.cocinado, p.resultado)}</span>{p.sinDato > 0 ? ` · ${p.sinDato} sin dato` : ""}</>
                           )}
                         </p>
                       </li>
@@ -418,12 +567,26 @@ export function InicioView() {
 
 /** La tabla del dashboard, ordenada por «necesitan persona» y con SOLO la
  *  sede que cayó resaltada (dictado). Sin gradiente de color en las filas. */
-function TablaClinicas({ filas, onClinica }: { filas: ClinicaFila[]; onClinica: (id: string) => void }) {
+/** ¿La cohorte del mes ya dice algo? Misma regla que el bloque de negocio
+ *  (`conversionDe`): base mínima Y no más del 20 % todavía abierto. La primera
+ *  semana de cada mes casi todo está abierto y un «0 %» se lee como «no vende». */
+const cohorteComparable = (c: ClinicaInicio) =>
+  c.presentadosMes >= BASE_MINIMA_COHORTE && c.abiertosMes / c.presentadosMes <= UMBRAL_COHORTE_ABIERTA;
+
+function TablaClinicas({ filas, onClinica }: { filas: ClinicaInicio[]; onClinica: (id: string) => void }) {
+  const [detalle, setDetalle] = useState(false);
   const ordenadas = [...filas].sort((a, b) => (b.necesitanPersona ?? -1) - (a.necesitanPersona ?? -1) || (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
   // La que cayó: la peor evolución NEGATIVA con muestra suficiente. Una sola.
   const caida = filas
     .filter((c) => !c.muestraCorta && c.tendenciaPct != null && c.tendenciaPct < 0)
     .sort((a, b) => (a.tendenciaPct ?? 0) - (b.tendenciaPct ?? 0))[0];
+  // Longitud = ranking: las barras de € comparten escala por columna.
+  const maxAceptado = Math.max(0, ...filas.map((c) => Math.max(c.aceptadoMes, c.aceptadoMesPrevio)));
+  const maxVencido = Math.max(0, ...filas.map((c) => c.vencido));
+  const maxAgente = Math.max(1, ...filas.map((c) => c.agenteAtendidas));
+  const porAceptado = [...filas].sort((a, b) => b.aceptadoMes - a.aceptadoMes);
+  const porVencido = [...filas].filter((c) => c.vencido > 0).sort((a, b) => b.vencido - a.vencido);
+  const porAgente = [...filas].sort((a, b) => b.agenteAtendidas - a.agenteAtendidas);
   return (
     <section data-bloque="clinicas">
       <Card padding="none" className="overflow-hidden">
@@ -443,7 +606,7 @@ function TablaClinicas({ filas, onClinica }: { filas: ClinicaFila[]; onClinica: 
               <tr className="border-b border-[var(--color-border)]">
                 <th className="px-4 py-2 text-left font-semibold">Clínica</th>
                 <th className="px-2 py-2 text-right font-semibold max-w-[4.5rem]">Necesitan persona</th>
-                <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Conversión</th>
+                <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Aceptados de presentados</th>
                 <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">€ aceptado</th>
                 <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">€ vencido</th>
                 <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Evolución €</th>
@@ -474,13 +637,36 @@ function TablaClinicas({ filas, onClinica }: { filas: ClinicaFila[]; onClinica: 
                       )}
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">
-                      <span className={c.muestraCorta ? "text-[var(--color-muted)]" : "font-semibold text-[var(--color-foreground)]"} title={c.muestraCorta ? `Muestra corta: ${c.presentadosMes} presupuestos este mes.` : undefined}>
-                        {c.conversionPct != null ? `${c.conversionPct}%` : "—"}
-                      </span>
-                      <span className="ml-1 text-[10px] text-[var(--color-muted)]">({c.aceptadosMes} de {c.presentadosMes})</span>
+                      {/* MEJORAS 156: «aceptados de presentados» con barra; el % solo
+                          cuando la cohorte ya dice algo. Nunca «0 %» de una cohorte abierta. */}
+                      {c.presentadosMes === 0 ? (
+                        <span className="text-[var(--color-muted)]">sin presupuestos este mes</span>
+                      ) : (
+                        <span className="inline-flex min-w-[6.5rem] flex-col items-end gap-0.5">
+                          <span><b className="font-semibold text-[var(--color-foreground)]">{c.aceptadosMes}</b> de {c.presentadosMes}</span>
+                          <BarraProporcion n={c.aceptadosMes} total={c.presentadosMes} className="w-24" />
+                          <span className="text-[10px] text-[var(--color-muted)]">
+                            {cohorteComparable(c)
+                              ? `${c.conversionPct ?? 0} %`
+                              : `${c.abiertosMes} abierto${s(c.abiertosMes)}${c.presentadosMes < BASE_MINIMA_COHORTE ? " · muestra corta" : ""}`}
+                          </span>
+                        </span>
+                      )}
                     </td>
-                    <td className="px-2 py-1.5 text-right font-semibold tabular-nums text-[var(--color-foreground)]">{eur(c.aceptadoMes)}</td>
-                    <td className="px-2 py-1.5 text-right tabular-nums">{c.vencido > 0 ? <span className="font-semibold text-[var(--color-danger)]">{eur(c.vencido)}</span> : <span className="text-[var(--color-muted)]">—</span>}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      <CifraConBarra valor={c.aceptadoMes} max={maxAceptado}>
+                        <span className={c.aceptadoMes > 0 ? "font-semibold text-[var(--color-foreground)]" : "text-[var(--color-muted)]"}>{eur(c.aceptadoMes)}</span>
+                      </CifraConBarra>
+                    </td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">
+                      {c.vencido > 0 ? (
+                        <CifraConBarra valor={c.vencido} max={maxVencido} rojo>
+                          <span className="font-semibold text-[var(--color-danger)]">{eur(c.vencido)}</span>
+                        </CifraConBarra>
+                      ) : (
+                        <span className="text-[var(--color-muted)]">—</span>
+                      )}
+                    </td>
                     <td className="px-2 py-1.5 text-right tabular-nums">
                       {c.tendenciaPct == null ? (
                         <span className="text-[var(--color-muted)]">—</span>
@@ -495,6 +681,57 @@ function TablaClinicas({ filas, onClinica }: { filas: ClinicaFila[]; onClinica: 
               })}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 pb-3">
+          <button type="button" onClick={() => setDetalle((v) => !v)} aria-expanded={detalle} className={CLASE_DETALLE}>
+            {detalle ? <ChevronDown size={14} strokeWidth={ICON_STROKE} aria-hidden /> : <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />}
+            {detalle ? "Ocultar el detalle de las clínicas" : "Ver el detalle de las clínicas"}
+          </button>
+          {detalle && (
+            // Detalle del MISMO bloque: la comparativa que la tabla resume en un
+            // %, los vencidos que suma, y lo que el agente hizo en cada sede.
+            <div className="mt-3 grid gap-4 border-t border-[var(--color-border)] pt-3 text-[12.5px] text-[var(--color-muted)] sm:grid-cols-3">
+              <div>
+                <p className={CLASE_EYEBROW}>€ aceptado · este mes vs el mismo tramo del anterior</p>
+                <ul className="mt-1">
+                  {porAceptado.map((c) => (
+                    <li key={c.id} className="py-0.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="min-w-0 truncate">{c.nombre}</span>
+                        <b className="shrink-0 font-semibold tabular-nums text-[var(--color-foreground)]">
+                          {eur(c.aceptadoMes)} <span className="font-normal text-[var(--color-muted)]">· antes {eur(c.aceptadoMesPrevio)}</span>
+                        </b>
+                      </div>
+                      <div className="mt-0.5 h-[5px] overflow-hidden rounded-sm bg-[var(--color-border)]"><div className="h-full rounded-sm bg-[var(--color-accent)]" style={{ width: `${maxAceptado > 0 ? (c.aceptadoMes / maxAceptado) * 100 : 0}%` }} /></div>
+                      <div className="mt-0.5 h-[5px] overflow-hidden rounded-sm bg-[var(--color-border)] opacity-50"><div className="h-full rounded-sm bg-[var(--color-accent)]" style={{ width: `${maxAceptado > 0 ? (c.aceptadoMesPrevio / maxAceptado) * 100 : 0}%` }} /></div>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1 text-[11px]">Barra intensa: este mes. Tenue: los mismos días del mes pasado.</p>
+              </div>
+              <div>
+                <p className={CLASE_EYEBROW}>Cobros vencidos por sede</p>
+                {porVencido.length === 0 ? (
+                  <p className="mt-1">Ninguna sede tiene cobros fuera de plazo.</p>
+                ) : (
+                  <ul className="mt-1">
+                    {porVencido.map((c) => (
+                      <FilaBarra key={c.id} etiqueta={c.nombre} valor={c.vencido} max={maxVencido} texto={eur(c.vencido)} rojo />
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <p className={CLASE_EYEBROW}>El agente por sede, este mes</p>
+                <ul className="mt-1">
+                  {porAgente.map((c) => (
+                    <FilaBarra key={c.id} etiqueta={c.nombre} valor={c.agenteAtendidas} max={maxAgente} texto={`${c.agenteAtendidas} atendida${s(c.agenteAtendidas)} · ${c.agenteEntregadas} entregada${s(c.agenteEntregadas)}`} />
+                  ))}
+                </ul>
+                <p className="mt-1 text-[11px]">Conversaciones que el agente evaluó y casos que entregó completos. La sede es la del último mensaje del hilo.</p>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
     </section>

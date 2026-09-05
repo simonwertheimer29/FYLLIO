@@ -814,6 +814,53 @@ try {
   }
   console.log(`pagos_paciente: ${pagosN} (+ acciones)`);
 
+  // ── COBROS que el agente dejó ACORDADOS (MEJORAS 160, 06-09) ──────────
+  // Dos señales de meses anteriores cuyo resto se liquida ESTE mes tras una
+  // conversación de cobro: recordatorio, «os hago transferencia el viernes»,
+  // confirmación. El log del agente (más abajo) lee la intención «Confirma
+  // pago» y entrega el caso completo con objetivo cobro; Inicio lo cuenta
+  // como «llegó con el pago ya acordado». Antes la tarjeta decía «0 de N»
+  // siempre — y el camino real SÍ funciona (evaluador → persistir-turno →
+  // consulta de Inicio, comprobado el 06-09 con una evaluación real): era
+  // hueco del seed, no del producto.
+  {
+    const primeroDeMes = new Date(HOY); primeroDeMes.setDate(1);
+    const offPago = -Math.min(2, Math.max(0, HOY.getDate() - 1)); // día 3+ → hace 2 días; día 1 → hoy
+    const candidatos = presupuestos
+      .filter((x) => x.estado === "ACEPTADO" && (x.pctPago ?? 1) < 1 && new Date(`${x.fechaAceptado}T12:00:00Z`) < primeroDeMes)
+      .slice(0, 2);
+    let nAcordados = 0;
+    for (const p of candidatos) {
+      const resto = p.importe - (pagadoPorPaciente.get(p.pac.id) ?? 0);
+      if (resto <= 0) continue;
+      const primer = p.pac.nombre.split(" ")[0];
+      const restoTxt = `${resto.toLocaleString("es-ES")}€`;
+      const t0 = dPlus(offPago - 3, 10);
+      const guion = [
+        { dir: "Saliente", ts: t0.toISOString(), txt: `Hola ${primer}, te escribimos de la clínica: te queda pendiente el resto del presupuesto (${restoTxt}). ¿Cómo prefieres hacerlo?` },
+        { dir: "Entrante", ts: new Date(t0.getTime() + 47 * 60_000).toISOString(), txt: `Hola, sí, perdonad el retraso. Os hago transferencia este viernes, los ${restoTxt} completos.`, intn: "Confirma pago" },
+        { dir: "Saliente", ts: new Date(t0.getTime() + 61 * 60_000).toISOString(), txt: `Perfecto, ${primer}, gracias por confirmarlo. Anotamos la transferencia de ${restoTxt} para el viernes.` },
+      ];
+      for (const m of guion) {
+        await ins("mensajes_whatsapp", {
+          paciente_id: p.pac.id, telefono: p.pac.tel, clinica_id: p.pac.cid, direccion: m.dir, contenido: m.txt,
+          timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
+          intencion_detectada: m.intn ?? null,
+          autor: m.dir === "Saliente" ? "persona" : null, sugerido_por_ia: m.dir === "Saliente" ? false : null,
+        });
+      }
+      const fechaPago = fecha10(offPago);
+      const pid = await ins("pagos_paciente", {
+        paciente_id: p.pac.id, importe: resto, fecha_pago: fechaPago, metodo: "Transferencia", tipo: "Liquidacion",
+        resumen: `Pago de ${p.pac.nombre}`, nota: "Resto del presupuesto; pago acordado por WhatsApp.",
+      });
+      await ins("acciones_pago", { pago_id: pid, tipo: "Crear", fecha: `${fechaPago}T10:00:00.000Z`, importe_antes: null, importe_despues: resto, resumen: `Alta de pago · ${p.pac.nombre}`, nota_cambio: "Transferencia recibida; acordada por WhatsApp." });
+      pagadoPorPaciente.set(p.pac.id, (pagadoPorPaciente.get(p.pac.id) ?? 0) + resto);
+      pagosN++; nAcordados++;
+    }
+    console.log(`cobros acordados por el agente este mes: ${nAcordados}`);
+  }
+
   // ════════════════════════════════════════════════════════════════════
   // CAPA DE VOLUMEN (MEJORAS nº 31, 2026-07-24) — la red de 4 clínicas con
   // 6 meses de historia: cientos de leads con forma mensual creíble,
@@ -1410,7 +1457,16 @@ try {
         const campos = {};
         let queja = false, malestar = false, urgencia = false;
         let aplazar = null, esperaDias = null, entregar = null;
-        if (tema === "cita") {
+        // Un mensaje con intención «Confirma pago» es un turno de COBRO aunque
+        // el hilo naciera por un presupuesto (MEJORAS 160): los tres campos del
+        // objetivo quedan recogidos y el caso se entrega completo.
+        const temaMsg = intn === "Confirma pago" ? "cobro" : tema;
+        if (temaMsg === "cobro") {
+          campos.confirma_pago = "sí";
+          campos.via_pago = /transferencia/.test(t) ? "transferencia" : /tarjeta/.test(t) ? "tarjeta" : "en clínica";
+          campos.fecha_pago = /viernes/.test(t) ? "el viernes" : "esta semana";
+          entregar = "cobro";
+        } else if (tema === "cita") {
           campos.nombre_completo = lead?.nombre ?? null;
           campos.tratamiento_o_molestia = trat;
           if (/por la tarde/.test(t)) campos.disponibilidad = /esta semana/.test(t) ? "esta semana por la tarde" : "por la tarde";
@@ -1432,8 +1488,8 @@ try {
           if (/horario|abrís/.test(t)) campos.motivo = "horario";
         }
         const payload = {
-          v: 1, tema, peticionOQueja: queja, malestar, urgenciaMedica: urgencia, mencionaAntecedenteMedico: false,
-          vuelveSobreAplazado: null, camposRecogidos: { [tema]: campos }, hiloTruncado: false, borradorDescartado: null,
+          v: 1, tema: temaMsg, peticionOQueja: queja, malestar, urgenciaMedica: urgencia, mencionaAntecedenteMedico: false,
+          vuelveSobreAplazado: null, camposRecogidos: { [temaMsg]: campos }, hiloTruncado: false, borradorDescartado: null,
           respuesta: siguienteSaliente ? String(siguienteSaliente.contenido) : "",
           esperaHasta: esperaDias ? dias(m.ts, esperaDias) : null,
           presupuestoReferidoId: pres?.id ?? null,
@@ -1457,11 +1513,13 @@ try {
         else if (urgencia) causa = "urgencia";
         else if (tema === "identificar" && entrantesVistos >= 2) causa = "insistencia";
         else if (entregar) causa = "caso_completo";
-        if (causa && !entregado) {
+        // Una entrega por hilo… salvo el cobro: el mismo paciente puede haber
+        // entregado su presupuesto hace meses y acordar hoy el resto (160).
+        if (causa && (!entregado || entregar === "cobro")) {
           await evento({
             caso_id: telefono, evento: "derivado", causa_derivacion: causa,
             malestar: causa === "peticion_queja" ? malestar : null,
-            objetivo_activo: entregar ?? tema, motivo_texto: `«${txt.slice(0, 120)}»`, mensaje_id: m.id, created_at: seg(m.ts, 4),
+            objetivo_activo: entregar ?? temaMsg, motivo_texto: `«${txt.slice(0, 120)}»`, mensaje_id: m.id, created_at: seg(m.ts, 4),
           });
           nDeriv++; entregado = true;
         }

@@ -139,6 +139,10 @@ export type ClinicaFila = {
   presentadosMesPrevio: number;
   aceptadosMes: number;
   aceptadosMesPrevio: number;
+  /** Presentados este mes que siguen ABIERTOS. Si pesan más del 20 % de la
+   *  cohorte (UMBRAL_COHORTE_ABIERTA), el % todavía no dice nada: la primera
+   *  semana de cada mes casi todo está abierto y «0 %» se lee como «no vende». */
+  abiertosMes: number;
   aceptadoMes: number;
   aceptadoMesPrevio: number;
   /** Σ pendiente VENCIDO de la clínica (regla de cobros compartida). */
@@ -771,6 +775,7 @@ async function calcularDashboardRedEnTrx(opts: {
       presentadosMesPrevio: cohortePrevia.total,
       aceptadosMes: cohorte.aceptados,
       aceptadosMesPrevio: cohortePrevia.aceptados,
+      abiertosMes: cohorte.abiertos,
       aceptadoMes,
       aceptadoMesPrevio,
       vencido,

@@ -3847,3 +3847,21 @@ que exista el secret `SUPABASE_DB_URL_APP`; (2) el seed ancla la presentación d
 del mes en curso dentro del mes (`iso10` recorta en UTC: la medianoche local del día 1 es el 31
 en UTC — se hereda la hora de HOY); (3) `db-seed-inicio-fotos.mts` tolera no tener `.env.local`.
 La pantalla que enseña «0 %» de una cohorte abierta queda como MEJORA 156 (pide OK).
+
+## 2026-09-06 — Inicio con micro-visualización: la forma dice lo que había que leer
+Aprobado sobre el modelo visual del 05-09 (variante A del bullet). Sin gráficos nuevos: barra de
+proporción bajo cada cifra de «Qué hizo Fyllio» (cobros a cero se ve sin leer), cola apilada en
+«Tu equipo», barras finas bajo € aceptado y € vencido en la tabla (longitud = ranking), bullet de
+Few para el total parado (hoy · marca hace 7 d · bandas = rango del mes · rojo = vencidos) y
+sparklines de 7 días por línea. Tres desplegables nuevos con lo analítico del MISMO bloque.
+**La cohorte honesta (156) es de producto, no de demo:** la tabla pintaba «0 %» de una cohorte
+100 % abierta la primera semana de cada mes; ahora dice «0 de 4 · 4 abiertos · muestra corta» y
+el % solo cuando la cohorte es comparable (misma regla que el bloque de negocio: base ≥ 5 y
+≤ 20 % abierto). Para las series hacía falta guardar más: 036 añade `equipo_json` a la foto
+diaria y el seed siembra 30 días (en paralelo por día, ~1 min). **Cobros «0 de N»:** antes de
+sembrarlo se comprobó el camino real con una evaluación de verdad (haiku): confirma_pago +
+via_pago + fecha_pago → deriva caso_completo objetivo cobro → `persistir-turno` guarda el
+objetivo → la consulta de Inicio lo casa por teléfono con el pago. Funciona; era hueco del seed.
+Y las reglas de consumo dejaron de ser reglas: `autoCompactWindow` 300k + hooks (aviso a 200k,
+reanudación fría, heredoc sobre fichero existente, cat/Read entero > 300 líneas, un subagente
+a la vez) en `~/.claude/settings.json`; el porqué vive en `~/.claude/CLAUDE.md`.

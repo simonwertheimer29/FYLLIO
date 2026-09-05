@@ -33,6 +33,15 @@ export const VENTANA_COCINADO_DIAS = 30;
 
 export type Proceso = "presupuestos" | "leads" | "cobros" | "citas";
 
+/** Un día de foto del bloque «dinero parado»: el total y cada línea por su tipo
+ *  (importe si lo tiene, si no el recuento). Solo existen los días con foto. */
+export type PuntoDinero = { dia: string; total: number; lineas: Record<string, number> };
+/** Un día de foto de la cola («Tu equipo»). Las fotos anteriores a la 036 no
+ *  la tienen: ese día simplemente no está en la serie, nunca se rellena con 0. */
+export type PuntoEquipo = { dia: string; total: number; porCohorte: Record<Cohorte, number> };
+/** Fila de «Tus clínicas» + lo que el agente hizo en esa sede este mes. */
+export type ClinicaInicio = ClinicaFila & { agenteAtendidas: number; agenteEntregadas: number };
+
 export type Inicio = {
   esRed: boolean;
   generadoEnISO: string;
@@ -51,13 +60,23 @@ export type Inicio = {
     lineas: Array<RiesgoItem & { delta7d: number | null }>;
     /** Día de la foto con la que se compara; null = aún no hay foto de hace 7 días. */
     comparadoConDia: string | null;
+    /** Total parado en esa foto (la marca del bullet); null sin foto. */
+    hace7Total: number | null;
     /** Primera foto guardada (para decir «desde el X» mientras no hay delta). */
     primeraFotoDia: string | null;
+    /** Últimos 30 días de fotos, ascendente. Bandas del bullet y sparklines. */
+    serie: PuntoDinero[];
   };
   equipo: {
     porCohorte: Record<Cohorte, number>;
     total: number;
     masViejoDias: number | null;
+    /** Últimos 30 días de fotos con cola (036), ascendente. */
+    serie: PuntoEquipo[];
+    /** Cuánto lleva esperando cada caso, en días de clínica (`paradoDias`). */
+    edades: { menosDeUnDia: number; de1a3: number; masDe3: number };
+    /** Casos esperando por sede (solo tiene sentido en red). */
+    porClinica: Array<{ clinicaId: string; nombre: string | null; n: number }>;
   };
   fyllioMes: {
     mes: string;
@@ -82,7 +101,7 @@ export type Inicio = {
       aplazadosPorClave: Record<string, number>;
     };
   };
-  clinicas: ClinicaFila[] | null;
+  clinicas: ClinicaInicio[] | null;
 };
 
 const ORDEN_COHORTES: Cohorte[] = ["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"];
@@ -120,6 +139,28 @@ export async function calcularInicio(opts: {
     return { ...r, delta7d: antes == null ? null : Math.round((actual - antes) * 100) / 100 };
   });
 
+  // Edad de la espera en días de clínica (§13): tres tramos, los mismos que
+  // separan «hoy» de «se está enfriando» de «fuera de plazo» en la cola.
+  const edades = { menosDeUnDia: 0, de1a3: 0, masDe3: 0 };
+  for (const c of casos) {
+    if (c.paradoDias < 1) edades.menosDeUnDia++;
+    else if (c.paradoDias <= 3) edades.de1a3++;
+    else edades.masDe3++;
+  }
+  const porClinicaN = new Map<string, number>();
+  for (const c of casos) if (c.clinicaId) porClinicaN.set(c.clinicaId, (porClinicaN.get(c.clinicaId) ?? 0) + 1);
+  const nombreDe = (id: string) => dash.clinicas?.find((c) => c.id === id)?.nombre ?? null;
+  const porClinica = [...porClinicaN.entries()]
+    .map(([clinicaId, n]) => ({ clinicaId, nombre: nombreDe(clinicaId), n }))
+    .sort((a, b) => b.n - a.n);
+
+  const clinicas: ClinicaInicio[] | null = opts.esRed
+    ? (dash.clinicas ?? []).map((c) => {
+        const a = agregados.agentePorClinica[c.id];
+        return { ...c, agenteAtendidas: a?.atendidas ?? 0, agenteEntregadas: a?.entregadas ?? 0 };
+      })
+    : null;
+
   return {
     esRed: opts.esRed,
     generadoEnISO: ahora.toISOString(),
@@ -131,15 +172,20 @@ export async function calcularInicio(opts: {
       leadsSinImporte: casos.filter((c) => c.tipo === "lead").length,
       lineas,
       comparadoConDia: fotos.hace7 ? diaISO(fotos.hace7.dia) : null,
+      hace7Total: fotos.hace7 ? fotos.hace7.dinero_parado : null,
       primeraFotoDia: fotos.primera ? diaISO(fotos.primera) : null,
+      serie: fotos.serie,
     },
     equipo: {
       porCohorte,
       total: casos.length,
       masViejoDias: casos.length ? Math.max(...casos.map((c) => c.paradoDias)) : null,
+      serie: fotos.serieEquipo,
+      edades,
+      porClinica,
     },
     fyllioMes: agregados.fyllioMes,
-    clinicas: opts.esRed ? dash.clinicas : null,
+    clinicas,
   };
 }
 
@@ -165,13 +211,41 @@ async function leerFotos(cliente: ReturnType<typeof requireCliente>, ids: string
          from inicio_snapshots where alcance = ${alcance} and dia <= ${objetivo}::date and dia >= ${sumaDias(objetivo, -3)}::date
          order by dia desc limit 1) as hace7,
       (select min(dia) from inicio_snapshots where alcance = ${alcance}) as primera,
-      exists (select 1 from inicio_snapshots where alcance = ${alcance} and dia = ${hoy}::date) as tiene_de_hoy`.execute(trx);
+      exists (select 1 from inicio_snapshots where alcance = ${alcance} and dia = ${hoy}::date) as tiene_de_hoy,
+      -- Los últimos 30 días de fotos, para las bandas del bullet y las
+      -- sparklines (micro-visualización, 06-09). Solo los días que existen.
+      (select json_agg(json_build_object('dia', dia, 'riesgo_json', riesgo_json, 'dinero_parado', dinero_parado, 'equipo_json', equipo_json) order by dia)
+         from inicio_snapshots where alcance = ${alcance} and dia > ${sumaDias(hoy, -30)}::date and dia <= ${hoy}::date) as serie`.execute(trx);
     const row = r.rows?.[0] ?? {};
     const h = row.hace7 == null ? null : typeof row.hace7 === "string" ? JSON.parse(row.hace7) : row.hace7;
+    type FotoFila = { dia: string; riesgo_json: string; dinero_parado: number | string; equipo_json: string | null };
+    const fotos: FotoFila[] = row.serie == null ? [] : typeof row.serie === "string" ? JSON.parse(row.serie) : row.serie;
+    const serie: PuntoDinero[] = [];
+    const serieEquipo: PuntoEquipo[] = [];
+    for (const f of fotos) {
+      const dia = diaISO(String(f.dia));
+      const lineas: Record<string, number> = {};
+      try {
+        for (const l of JSON.parse(String(f.riesgo_json)) as RiesgoItem[]) lineas[l.tipo] = l.importe ?? l.n;
+      } catch {
+        // Una foto ilegible no tumba la serie: ese día va sin líneas.
+      }
+      serie.push({ dia, total: Number(f.dinero_parado), lineas });
+      if (f.equipo_json) {
+        try {
+          const e = JSON.parse(String(f.equipo_json));
+          serieEquipo.push({ dia, total: Number(e.total), porCohorte: e.porCohorte });
+        } catch {
+          // Igual: sin cola ese día, no un cero inventado.
+        }
+      }
+    }
     return {
       hace7: h ? { dia: String(h.dia), riesgo_json: String(h.riesgo_json), dinero_parado: Number(h.dinero_parado) } : null,
       primera: row.primera ?? null,
       tieneDeHoy: Boolean(row.tiene_de_hoy),
+      serie,
+      serieEquipo,
     };
   });
 }
@@ -190,6 +264,10 @@ export async function guardarFotoInicio(p: {
     p.clinicaIds === null ? true : c.clinicaId != null && p.clinicaIds.includes(c.clinicaId),
   );
   const alcance = alcanceDe(p.clinicaIds, p.esRed);
+  // 036 — la cola del día, para la serie de «Tu equipo».
+  const porCohorte = Object.fromEntries(ORDEN_COHORTES.map((c) => [c, 0])) as Record<Cohorte, number>;
+  for (const c of casos) porCohorte[c.cohorte]++;
+  const equipoJson = JSON.stringify({ total: casos.length, porCohorte });
   await runWithClienteDb(cliente, (trx) =>
     trx
       .insertInto("inicio_snapshots")
@@ -199,11 +277,13 @@ export async function guardarFotoInicio(p: {
         dia: hoyISO(ahora) as any,
         riesgo_json: JSON.stringify(dash.hoy.riesgo),
         dinero_parado: dineroDe(casos, "presupuesto"),
+        equipo_json: equipoJson,
       })
       .onConflict((oc) =>
         oc.columns(["cliente", "alcance", "dia"]).doUpdateSet({
           riesgo_json: JSON.stringify(dash.hoy.riesgo),
           dinero_parado: dineroDe(casos, "presupuesto"),
+          equipo_json: equipoJson,
         }),
       )
       .execute(),
@@ -223,7 +303,13 @@ async function agregadosInicio(
   cliente: ReturnType<typeof requireCliente>,
   ids: string[] | null,
   ahora: Date,
-): Promise<{ desdeAyer: Inicio["desdeAyer"]; fyllioMes: Inicio["fyllioMes"] }> {
+): Promise<{
+  desdeAyer: Inicio["desdeAyer"];
+  fyllioMes: Inicio["fyllioMes"];
+  /** Lo que hizo el agente este mes por sede: conversaciones atendidas y
+   *  casos entregados completos. La sede de un hilo es la de su último mensaje. */
+  agentePorClinica: Record<string, { atendidas: number; entregadas: number }>;
+}> {
   // La ventana de «cocinado» como intervalo literal: es una constante de
   // código (política dictada), no un dato de usuario — sql.raw es legítimo.
   const VENTANA = sql.raw(`interval '${VENTANA_COCINADO_DIAS} days'`);
@@ -302,7 +388,22 @@ async function agregadosInicio(
          from eventos_automatizacion e
         where e.evento = 'evaluacion' and e.created_at >= date_trunc('month', (${ahora}::timestamptz at time zone 'Europe/Madrid')) at time zone 'Europe/Madrid' and ${enScope("e")}) as turnos,
       (select min(e.created_at) from eventos_automatizacion e
-        where e.evento = 'evaluacion' and e.evaluacion_json like '%"usage"%') as coste_desde
+        where e.evento = 'evaluacion' and e.evaluacion_json like '%"usage"%') as coste_desde,
+      -- ── 3 · el agente por sede, este mes (desplegable de «Tus clínicas») ──
+      -- La sede de un hilo es la del último mensaje con clínica: un hilo que
+      -- cruza la red cuenta en la sede donde está ahora, no en las dos.
+      (select json_agg(json_build_object('clinica_id', x.clinica_id, 'atendidas', x.atendidas, 'entregadas', x.entregadas)) from (
+         select s.clinica_id,
+                count(distinct e.caso_id) filter (where e.evento = 'evaluacion')::int as atendidas,
+                count(*) filter (where e.evento = 'derivado' and e.causa_derivacion = 'caso_completo')::int as entregadas
+           from eventos_automatizacion e
+           join lateral (select m.clinica_id from mensajes_whatsapp m
+                          where m.telefono = e.caso_id and m.clinica_id is not null
+                          order by m."timestamp" desc limit 1) s on true
+          where e.evento in ('evaluacion', 'derivado')
+            and e.created_at >= date_trunc('month', (${ahora}::timestamptz at time zone 'Europe/Madrid')) at time zone 'Europe/Madrid'
+            and ${enScope("e")}
+          group by 1) x) as agente_por_clinica
     `.execute(trx);
     const row = r.rows?.[0] ?? {};
     const num = (v: unknown) => Number(v ?? 0);
@@ -341,6 +442,12 @@ async function agregadosInicio(
           turnosSinTarifa: coste.sinTarifa,
         },
       },
+      agentePorClinica: Object.fromEntries(
+        ((row.agente_por_clinica ?? []) as Array<{ clinica_id: string; atendidas: number; entregadas: number }>).map((x) => [
+          String(x.clinica_id),
+          { atendidas: Number(x.atendidas ?? 0), entregadas: Number(x.entregadas ?? 0) },
+        ]),
+      ),
     };
   });
 }

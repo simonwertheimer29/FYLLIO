@@ -19,11 +19,21 @@ const { guardarFotoInicio } = await import("../app/lib/inicio/calcular");
 const { runWithClienteDb } = await import("../app/lib/db/context");
 await runWithCliente("DEMO" as any, async () => {
   const clinicas = await runWithClienteDb("DEMO" as any, (trx) => trx.selectFrom("clinicas").select(["id"]).execute());
-  const hace7 = new Date(Date.now() - 7 * 86_400_000);
-  for (const ahora of [hace7, new Date()]) {
-    await guardarFotoInicio({ clinicaIds: null, esRed: true, ahora });
-    for (const c of clinicas) await guardarFotoInicio({ clinicaIds: [c.id], esRed: false, ahora });
+  // 30 días de fotos (MEJORAS 159): las sparklines, las bandas del bullet y la
+  // «evolución del mes» del Inicio salen de aquí; con dos fotos eran líneas
+  // planas. Cada foto es calcularDashboardRed({ahora}) sobre los mismos datos
+  // sembrados — una aproximación derivada, no cifras tecleadas. Los cinco
+  // alcances de un día van en paralelo (≈1,3 s por foto en serie → 30 días
+  // en ~1 min en vez de 3).
+  const DIAS = 30;
+  const t0 = Date.now();
+  for (let d = DIAS - 1; d >= 0; d--) {
+    const ahora = new Date(Date.now() - d * 86_400_000);
+    await Promise.all([
+      guardarFotoInicio({ clinicaIds: null, esRed: true, ahora }),
+      ...clinicas.map((c) => guardarFotoInicio({ clinicaIds: [c.id], esRed: false, ahora })),
+    ]);
   }
-  console.log(`fotos de Inicio: red + ${clinicas.length} clínicas × (hoy, hace 7 días)`);
+  console.log(`fotos de Inicio: red + ${clinicas.length} clínicas × ${DIAS} días (${Math.round((Date.now() - t0) / 1000)} s)`);
 });
 process.exit(0);

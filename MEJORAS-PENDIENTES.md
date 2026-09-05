@@ -2227,7 +2227,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   de negocio ya sabe que la cohorte no es comparable (`abiertos/total > 20 %`, `muestraCorta`);
   la tabla lo ignora y pinta el porcentaje. · **Propuesta:** la celda pasa a «aceptados de
   presentados» con barra de proporción; el % solo cuando la cohorte es comparable; si no,
-  «N abiertos · muestra corta». · **Severidad:** engaña · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+  «N abiertos · muestra corta». · **Severidad:** engaña · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-06: tabla → «aceptados de presentados» + barra; % solo con cohorte comparable)
 
 ## 157. Inicio · micro-visualización dentro de lo que ya existe (sin gráficos nuevos)
 - Hoy no hay un solo elemento donde la forma comunique: todo cifras. · **Propuesta:** «Qué hizo
@@ -2236,26 +2236,26 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   (ranking legible); «Parado esperándote» → bullet (medida, marca hace 7 d, bandas = rango del
   mes) y sparkline de 7 d en cada línea. Una familia de color; rojo = actuar; sin ejes ni
   leyendas. Modelo visual publicado el 2026-09-05; pendiente de OK. · **Esfuerzo:** 3-4 h ·
-  **Fecha:** 2026-09-05 · 🔵
+  **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-06: barras de proporción, cola apilada, barras en la tabla, bullet A de Few, sparklines)
 
 ## 158. Inicio · «Ver el detalle» en dinero parado, equipo y clínicas
 - Solo «Qué hizo Fyllio» tiene desplegable. · **Propuesta:** dentro va lo analítico del MISMO
   bloque: dinero → evolución del mes, composición, qué entró/salió en 7 d; equipo → la cola en
   el mes, edad de espera en tramos, por sede; clínicas → aceptado vs mismo tramo del mes previo,
   vencidos por sede, agente por sede. Nada nuevo fuera. · **Depende de:** 159 para las series ·
-  **Esfuerzo:** 4-6 h · **Fecha:** 2026-09-05 · 🔵
+  **Esfuerzo:** 4-6 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-06: desplegables de dinero, equipo y clínicas con lo analítico del mismo bloque)
 
 ## 159. Fotos diarias del Inicio: el seed guarda 2 (hoy, hace 7 d); las series piden ~30
 - Sparklines, bullet con bandas y «evolución del mes» necesitan una foto por día. En real las
   escribe el cron; en la demo, `db-seed-inicio-fotos.mts` debe sembrar 30 días (30 pasadas de
   `calcularDashboardRed({ahora})`, ~+1 min de seed). Sin esto, 157/158 enseñan líneas planas. ·
-  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-06: seed de fotos a 30 días, en paralelo por día; columna equipo_json (036))
 
 ## 160. Demo · el agente nunca «cocina» un cobro (0 de N siempre)
 - El seed no genera ninguna entrega `caso_completo` con `objetivo_activo='cobro'`, así que la
   tarjeta de cobros sale a cero mes tras mes. Decidir si es realidad del producto (el agente aún
   no persigue cobros) y entonces la tarjeta lo dice, o si el seed debe sembrar 1-2. ·
-  **Severidad:** confunde en demo · **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵
+  **Severidad:** confunde en demo · **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-06: hueco del seed confirmado — el camino real funciona (evaluación real 06-09); 2 cobros acordados sembrados)
 
 ## 161. `d10` en `presupuestos/pg.ts` resta un día a las fechas cuando el proceso no corre en UTC
 - pg devuelve las columnas `date` como Date a medianoche LOCAL y `d10` hace `toISOString()` (UTC):
@@ -2264,3 +2264,13 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   sus 3 aceptados). · **Propuesta:** `types.setTypeParser(1082, v => v)` en el cliente pg (date
   como texto) y `d10` sin conversión de huso. · **Severidad:** engaña fuera de Vercel ·
   **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵
+
+## 162. Demo · la serie de 30 días del total parado sale PLANA (17.000 € todos los días)
+- Las fotos derivadas (`calcularDashboardRed({ahora})` con el reloj movido) dan el mismo total de
+  presupuestos parados los 30 días: la pertenencia a las líneas «cierre» y «reactivables» no
+  depende del instante como debería, o el seed no mueve nada en ese eje. Las líneas de vencidos sí
+  varían (10.325 → 11.765 €). Efecto: bandas del bullet colapsadas y «evolución del mes» plana en
+  la demo; en producción las fotos son reales y no pasa. · **Propuesta:** revisar qué de la cola
+  depende de `ahora` y que el seed mueva casos entre semanas; si no, que el desplegable diga
+  «sin variación en 30 días» en vez de pintar una recta. · **Severidad:** afea la demo ·
+  **Esfuerzo:** 1-2 h · **Fecha:** 2026-09-06 · 🔵

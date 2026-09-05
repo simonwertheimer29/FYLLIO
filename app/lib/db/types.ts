@@ -406,6 +406,8 @@ export interface Tabla_inicio_snapshots {
   dia: Date;
   riesgo_json: string;
   dinero_parado: Generated<number>;
+  /** 036 — {total, porCohorte} de la cola el día de la foto. Null = foto anterior a la columna. */
+  equipo_json: string | null;
   created_at: Generated<Date>;
 }
 
