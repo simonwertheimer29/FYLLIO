@@ -81,8 +81,11 @@ await runWithCliente("DEMO", async () => {
     fallos++;
     return;
   }
-  ok("tras demo:reset, el interruptor arranca APAGADO", cfg.evaluador_activo === false, `clinica=${cfg.clinica_id}`);
-  ok("evaluadorActivo() lo lee apagado", (await evaluadorActivo(cfg.clinica_id)) === false);
+  // 2026-09-05: el QA siembra SU estado en vez de asumir el de la demo — el
+  // seed dejó el interruptor encendido y este QA fallaba por eso, no por el
+  // código. Snapshot arriba, estado explícito aquí, restauración abajo.
+  await q(`update configuracion_automatizaciones set evaluador_activo=false where clinica_id=$1`, [cfg.clinica_id]);
+  ok("apagado explícitamente → evaluadorActivo() lo lee apagado", (await evaluadorActivo(cfg.clinica_id)) === false, `clinica=${cfg.clinica_id}`);
   ok("clínica inexistente → apagado (fail-closed, sin fila)", (await evaluadorActivo("no-existe")) === false);
   await q(`update configuracion_automatizaciones set evaluador_activo=true where clinica_id=$1`, [cfg.clinica_id]);
   ok("encendido por clínica → true", (await evaluadorActivo(cfg.clinica_id)) === true);

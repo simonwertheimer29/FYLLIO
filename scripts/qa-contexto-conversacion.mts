@@ -124,7 +124,7 @@ await db.end();
 
 // ── el recorrido ───────────────────────────────────────────────────────────
 let fallos = 0;
-let nCobro = 0, nPresu = 0, nCita = 0, nIdent = 0, nSinObjetivo = 0;
+let nCobro = 0, nPresu = 0, nCita = 0, nIdent = 0, nSinObjetivo = 0, nAmbiguos = 0;
 const fallo = (tel: string, msg: string) => {
   console.error(`  ✗ ${tel}: ${msg}`);
   fallos++;
@@ -158,7 +158,20 @@ await runWithCliente("DEMO", async () => {
 
     // Expectativas por CONTENCIÓN de dígitos, la misma semántica de
     // emparejamiento que usa todo el sistema.
-    const pacienteEsperado = pacientes.find((p) => dig(p.telefono).includes(d) || d.includes(dig(p.telefono))) ?? null;
+    const pacientesQueCasan = pacientes.filter((p) => dig(p.telefono).includes(d) || d.includes(dig(p.telefono)));
+
+    // MEJORAS 139 (decisión 2026-09-05) — LA GUARDA DE AMBIGÜEDAD: con más de
+    // un paciente en el número, o paciente y lead que no son la misma
+    // persona, el contexto NO afirma nada de nadie: solo `identificar`.
+    if (pacientesQueCasan.length > 1 || ctx.identidadAmbigua?.motivo === "paciente_y_lead") {
+      if (!ctx.identidadAmbigua) fallo(tel, `${pacientesQueCasan.length} pacientes con este número y el contexto no lo declara ambiguo`);
+      if (abiertos.join() !== "identificar") fallo(tel, `ambiguo: esperaba [identificar], salió [${abiertos.join(", ")}]`);
+      if (ctx.pacienteId || ctx.leadActivo || ctx.presupuestosVivos.length || ctx.pendienteCobro)
+        fallo(tel, "ambiguo: afirma paciente, lead, presupuestos o pendiente");
+      nAmbiguos++;
+      return;
+    }
+    const pacienteEsperado = pacientesQueCasan[0] ?? null;
     const esperaCita =
       leadsActivos.some((l) => l.includes(d) || d.includes(l)) ||
       (pacienteEsperado != null && !conCitaFutura.has(pacienteEsperado.id));
@@ -211,7 +224,7 @@ await runWithCliente("DEMO", async () => {
 // Un «346 en verde» que mezcla las dos leería como cuatro ramas cubiertas con
 // datos reales, y no es verdad: una rama cubierta solo por un caso que existe
 // dentro de este script no está probada contra el producto.
-console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCobro} · presupuesto=${nPresu} · cita=${nCita} · identificar=${nIdent} · sin objetivo=${nSinObjetivo}`);
+console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCobro} · presupuesto=${nPresu} · cita=${nCita} · identificar=${nIdent} · sin objetivo=${nSinObjetivo} · número compartido (guarda)=${nAmbiguos}`);
 console.log(`Cobertura SINTÉTICA (1 caso): identificar`);
 
 const ramasReales = [["cobro", nCobro], ["presupuesto", nPresu], ["cita", nCita], ["identificar", nIdent]] as const;

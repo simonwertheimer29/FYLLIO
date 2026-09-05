@@ -33,7 +33,13 @@ export const POST = withAuth(async (session, req) => {
     return await runWithCliente(session.cliente, async () => {
       const ctx = await contextoDeConversacion(telefono);
       if (clinicasPermitidas) {
-        if (ctx.clinicaId == null || !clinicasPermitidas.includes(String(ctx.clinicaId))) {
+        // 2026-09-05 (MEJORAS 122): la regla es la del HILO — cualquiera de
+        // sus clínicas —, no la clínica de la ficha del paciente; si el hilo
+        // no tiene clínica, la de la ficha desempata.
+        const { clinicasDelHilo, puedeVerHilo } = await import("../../../../lib/mensajeria/acceso-hilo");
+        const { todas } = await clinicasDelHilo(telefono);
+        const cls = todas.length ? todas : ctx.clinicaId ? [String(ctx.clinicaId)] : [];
+        if (!puedeVerHilo(clinicasPermitidas, cls)) {
           return NextResponse.json({ error: "No encontrado" }, { status: 404 });
         }
       }

@@ -128,6 +128,12 @@ export type EntradaEvaluador = {
   senales?: SenalesHilo | null;
   /** MEJORAS 135 — la persona tiene un opt-out vigente (informativo). */
   optOutVigente?: boolean;
+  /** MEJORAS 122 — en una red: esta conversación es de `actual` y la persona
+   *  también ha escrito a `otras`. Ausente o sin otras = ni una línea. */
+  clinicasDelHilo?: { actual: string | null; otras: string[] } | null;
+  /** MEJORAS 139 — el número lo comparten varias personas (guarda de
+   *  ambigüedad): no se afirma nada de ningún expediente y se pide el nombre. */
+  identidadAmbigua?: { nombres: string[] } | null;
 };
 
 // ─── Salida ─────────────────────────────────────────────────────────────────
@@ -467,6 +473,16 @@ export function renderEntrada(e: EntradaEvaluador): {
   if (e.optOutVigente) {
     lineas.push(
       "OJO: esta persona pidió no recibir mensajes de la clínica. Contestar a lo que escribe ahora sí; nada de proponer contacto ni seguimiento.",
+    );
+  }
+  if (e.identidadAmbigua && e.identidadAmbigua.nombres.length > 0) {
+    lineas.push(
+      `OJO — IDENTIDAD: este número lo comparten varias personas (${e.identidadAmbigua.nombres.join(", ")}). NO sabes con quién hablas: no afirmes presupuestos, pagos ni citas de nadie, no uses ninguno de esos nombres, y pide el nombre completo antes de nada. Trata a quien escribe como contacto nuevo.`,
+    );
+  }
+  if (e.clinicasDelHilo && e.clinicasDelHilo.otras.length > 0) {
+    lineas.push(
+      `RED DE CLÍNICAS: esta conversación es de ${e.clinicasDelHilo.actual ?? "esta clínica"}; la persona también ha escrito a ${e.clinicasDelHilo.otras.join(", ")}. Horarios, precios y agenda que constan son de ESTA clínica — no des por hecho nada de las otras.`,
     );
   }
   if (e.senales) {

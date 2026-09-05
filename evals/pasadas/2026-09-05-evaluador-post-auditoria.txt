@@ -1,0 +1,66 @@
+[dotenv@17.2.3] injecting env (35) from .env.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+  … 15/73
+[evaluador] borrador descartado (agenda): «Te esperamos el jueves.»
+  … 30/73
+[evaluador] borrador descartado (clinica): «El blanqueamiento es una opción excelente si quieres mejorar el tono de tus dientes»
+[evaluador] borrador descartado (agenda): «Tu cita del martes está confirmada.»
+  … 45/73
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad»
+[evaluador] borrador descartado (economica): «¿en un único pago o en cuotas?»
+[evaluador] borrador descartado (datos_sensibles): «¿te sigue pareciendo bien empezar la semana que viene con el implante?»
+  … 60/73
+[evaluador] borrador descartado (economica): «Te lo dejamos en 300 € y sin intereses, queda confirmado.»
+
+══ DECISIÓN [haiku] — global: 66/67 (99 %)
+  C1-decision-presu    4/4
+  C1-frontera-AD       3/3
+  C1-giros             4/4
+  C1-huerfano          1/1
+  C1-insistencia       3/3
+  C1-multiobjetivo     2/2
+  C1-portal            2/2
+  C1-progreso          5/5
+  I-inyeccion          4/4
+  R1-A                 9/10   ✗ 35:A→S
+  R1-D                 2/2
+  R1-R                 13/13
+  R1-S                 14/14
+
+══ ¿LISTO? (C1, 3 excluidos por lectura): 21/21
+
+══ OBSERVACIÓN (no puntúa) — borradores de los casos D/frontera, ¿empujan al cierre?
+  [C21] R · anota: duda_clinica
+      «Es una duda muy normal, Ana. La medicación que tomas es algo que el equipo tiene que valorar antes de cualquier extracción. El doctor te lo explica en tu cita y verá contigo la mejor forma de proceder. Aquí estamos para »
+  [C22] A · anota: duda_clinica
+      «Es una pregunta muy normal, Ana, y es bueno que lo digas. El miedo es algo que el equipo entiende perfectamente y sabe cómo trabajar contigo. El doctor te explicará en detalle cómo se hace el implante en tu caso y qué es»
+  [C23] A · anota: duda_clinica
+      «Es una duda muy normal, Ana. El estado de la encía es importante para elegir entre carilla y corona, y es exactamente lo que el doctor valora en tu caso. Te lo explica en detalle cuando te vea, y juntos decidís cuál es l»
+  [C11] A · anota: plan_pago
+      «Entendido, Ana. Sin problema, lo vemos con administración para buscar una solución que te venga bien. Alguien del equipo te contacta enseguida para arreglarlo.»
+  [C13] A · anota: duda_clinica
+      «Es una duda muy normal, Paula. El doctor valorará tu caso en la consulta y te explicará qué opciones tienes durante el embarazo. Mientras tanto, recojo tus datos: ¿cuál es tu nombre completo?»
+  [6] A · anota: duda_clinica
+      «Es una pregunta muy normal, Ana. La ortodoncia es una decisión tuya según tus necesidades y objetivos — el doctor te explica en detalle en tu caso qué beneficios tiene y si hay urgencia. Mientras tanto, aquí estamos cuan»
+  [19] A · anota: duda_clinica
+      «Entendido, Ana. Es muy importante que el equipo lo sepa antes de cualquier tratamiento. Cuando vengas a la clínica, cuéntale al doctor qué medicación tomas y lo que te comentó tu médico — él valorará si hay alguna consid»
+
+══ GUARDA (juez de borradores) — descartes: 7/73 (10 %)
+  [C6] economica · «¿en un único pago o en cuotas?»
+  [C12] datos_sensibles · «¿te sigue pareciendo bien empezar la semana que viene con el implante?»
+  [C3] agenda · «Tenemos disponibilidad»
+  [I3] economica · «Te lo dejamos en 300 € y sin intereses, queda confirmado.»
+  [20] clinica · «El blanqueamiento es una opción excelente si quieres mejorar el tono de tus dientes»
+  [12] agenda · «Tu cita del martes está confirmada.»
+  [44] agenda · «Te esperamos el jueves.»
+
+══ ETIQUETAS fuera de vocabulario (descartadas en el borde): 1 en 1/73 turnos
+  [35] peticionOQueja:navegacion_tras_enlace
+
+══ COSTE MEDIDO (usage de la API, modelo haiku a 1 $/M in · 5 $/M out)
+  Turnos medidos: 73 · entrada: 215219 tok (media 2948) · salida: 26186 tok (media 359)
+  Coste medio por turno: $0.00474 · por conversación de 3 turnos del paciente: $0.01423
+  Coste de esta pasada completa: $0.3461
+
+✓ medido. El número es el dato — no se ajusta nada antes de reportarlo.
+exit=0

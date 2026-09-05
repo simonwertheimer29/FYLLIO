@@ -29,9 +29,17 @@
 //                         abierto (pendiente=0, sin presupuestos vivos,
 //                         identidad resuelta) — estado ACTUAL, que para
 //                         hechos monótonos no necesita timestamp
-//   peticion_queja      → SOLO manual (una queja atendida no deja fila)
-//   insistencia         → SOLO manual (el botón «pendiente respondido» es el
-//                         emisor natural de aplazado_resuelto, fase C)
+//   peticion_queja      → DOS hechos (decisión 2026-09-05, MEJORAS 125): una
+//                         persona contestó (saliente tras el derivado) Y la
+//                         persona volvió a escribir después de esa respuesta.
+//                         Si vuelve a quejarse, el evaluador vuelve a derivar.
+//                         Sin ninguno de los dos, rojo y envejeciendo a la vista.
+//   insistencia         → la clave que insistía se marcó RESPONDIDA
+//                         (aplazado_resuelto posterior al derivado — el botón
+//                         de la ficha); si no, rojo con su edad.
+//   no_legible          → una persona contestó (saliente posterior).
+//   Nada caduca por tiempo: caducar taparía el fallo (17-08, reafirmado
+//   el 2026-09-05).
 //
 // Los «qué está abierto» los responde `contextoDeConversacion` — la misma
 // semántica censada por QA que usa el evaluador, no una copia (§16).
@@ -184,23 +192,54 @@ function derivarDeEventos(eventos: EventoSemaforo[], hoy: string): Omit<EstadoSe
  *  inventar (decisión 2026-08-17): lo cierra `resuelto_manual`. */
 async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
   const causa = derivado.causa_derivacion;
-  if (causa === "peticion_queja" || causa === "insistencia") return false;
-
   const cliente = requireCliente("hechoCierra");
+  const dig = soloDigitos(derivado.caso_id);
+  const telMatch = sql`replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"}`;
+
+  if (causa === "peticion_queja") {
+    // MEJORAS 125 — dos hechos observables, contados por código: (1) una
+    // persona CONTESTÓ tras el derivado; (2) la persona VOLVIÓ A ESCRIBIR
+    // después de esa respuesta. Con eso el asunto está atendido; si vuelve a
+    // quejarse, el evaluador (que ya reentra) vuelve a derivar. Un solo
+    // hecho no basta: contestar sin que la persona vuelva es un hilo que se
+    // enfrió, y eso se mira, no se cierra.
+    const r = await runWithClienteDb(cliente, (trx) =>
+      sql<{ ok: number }>`select 1 as ok from mensajes_whatsapp e
+          where e.direccion = 'Entrante' and ${telMatch}
+            and e."timestamp" > (
+              select min(s."timestamp") from mensajes_whatsapp s
+               where s.direccion = 'Saliente' and s."timestamp" > ${derivado.created_at}
+                 and replace(replace(replace(coalesce(s.telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"})
+          limit 1`.execute(trx),
+    );
+    return r.rows.length > 0;
+  }
+
+  if (causa === "insistencia") {
+    // MEJORAS 125 — la clave que insistía se marcó respondida (el botón
+    // «Respondido» de la ficha, MEJORAS 121) después del derivado.
+    const r = await runWithClienteDb(cliente, (trx) =>
+      sql<{ ok: number }>`select 1 as ok from eventos_automatizacion
+          where tipo_caso = 'conversacion' and evento = 'aplazado_resuelto'
+            and created_at > ${derivado.created_at}
+            and replace(replace(replace(caso_id, ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"}
+          limit 1`.execute(trx),
+    );
+    return r.rows.length > 0;
+  }
 
   if (causa === "no_legible") {
     // 034: el asunto era «alguien tiene que mirar el audio/la foto». Una
     // persona CONTESTÓ (saliente posterior al derivado) → mirado. Sin más
     // hechos que inventar: si nadie contesta, sigue rojo y envejece a la vista.
-    const dig = soloDigitos(derivado.caso_id);
-    const r: any = await runWithClienteDb(cliente, (trx) =>
-      sql`select 1 from mensajes_whatsapp
+    const r = await runWithClienteDb(cliente, (trx) =>
+      sql<{ ok: number }>`select 1 as ok from mensajes_whatsapp
           where direccion = 'Saliente'
             and "timestamp" > ${derivado.created_at}
-            and replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"}
+            and ${telMatch}
           limit 1`.execute(trx),
     );
-    return Boolean(r.rows?.length);
+    return r.rows.length > 0;
   }
 
   const { contextoDeConversacion } = await import("../agente/contexto-conversacion");

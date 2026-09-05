@@ -66,7 +66,29 @@ export type ContextoConversacion = {
    *  agente solo contesta. `identificar` sale únicamente cuando no sabemos
    *  quién es (ni paciente ni lead activo). */
   objetivosAbiertos: EtapaObjetivo[];
+  /** MEJORAS 139 (decisión 2026-09-05) — LA GUARDA DE AMBIGÜEDAD. Un número
+   *  que casa con más de un paciente, o con un paciente y un lead que no son
+   *  la misma persona, NO identifica a nadie (mandamiento 20 con teléfono en
+   *  vez de nombre). Entonces este contexto no afirma presupuestos, pagos ni
+   *  citas de ninguno: `pacienteId` y `leadActivo` van a null, `presupuestosVivos`
+   *  vacío, `pendienteCobro` 0, y el único objetivo abierto es `identificar`.
+   *  Los nombres viajan solo para que la ficha lo declare. */
+  identidadAmbigua: { motivo: "varios_pacientes" | "paciente_y_lead"; nombres: string[] } | null;
 };
+
+/** ¿Dos nombres son razonablemente la misma persona? Normalizados; iguales,
+ *  uno prefijo del otro («María García» / «María García López»), o mismos
+ *  dos primeros tokens. Conservador a propósito: la duda es ambigüedad. */
+function mismaPersona(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+  const x = norm(a);
+  const y = norm(b);
+  if (!x || !y) return false;
+  if (x === y || x.startsWith(y + " ") || y.startsWith(x + " ")) return true;
+  const tx = x.split(" ");
+  const ty = y.split(" ");
+  return tx.length >= 2 && ty.length >= 2 && tx[0] === ty[0] && tx[1] === ty[1];
+}
 
 /** El emparejamiento del sistema: dígitos contra dígitos, como las fórmulas
  *  que ya usan webhook y repos (`buscarLeadActivoPorTelefonoPg`). */
@@ -85,7 +107,8 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   const patron = `%${digitos}%`;
 
   type Filas = {
-    paciente: { id: string; nombre: string; clinica_id: string | null } | null;
+    /** Hasta cinco: más de uno es la ambigüedad que la guarda declara. */
+    pacientes: { id: string; nombre: string; clinica_id: string | null }[];
     leads: {
       id: string;
       nombre: string;
@@ -112,16 +135,18 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   };
 
   const filas: Filas = await runWithClienteDb(cliente, async (trx) => {
-    const paciente =
-      (await trx
-        .selectFrom("pacientes")
-        .select(["id", "nombre", "clinica_id"])
-        .where(
-          sql<boolean>`replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}`,
-        )
-        .orderBy("created_at", "desc")
-        .limit(1)
-        .executeTakeFirst()) ?? null;
+    // MEJORAS 139: se traen HASTA CINCO — un `limit 1` elegía a la persona
+    // más reciente en silencio; con dos, el que decide es la guarda.
+    const pacientes = await trx
+      .selectFrom("pacientes")
+      .select(["id", "nombre", "clinica_id"])
+      .where(
+        sql<boolean>`replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}`,
+      )
+      .orderBy("created_at", "desc")
+      .limit(5)
+      .execute();
+    const paciente = pacientes.length === 1 ? pacientes[0]! : null;
 
     const leads = await trx
       .selectFrom("leads")
@@ -177,12 +202,37 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
           .executeTakeFirst()) ?? null)
       : null;
 
-    return { paciente, leads, vivos, perfil, citaFutura: citaFutura != null };
+    return { pacientes, leads, vivos, perfil, citaFutura: citaFutura != null };
   });
 
   const leadActivoFila =
     filas.leads.find((l) => l.convertido_a_paciente !== true && esLeadActivo(String(l.estado ?? ""))) ??
     null;
+
+  // ─── La guarda de ambigüedad (MEJORAS 139) ──────────────────────────────
+  let identidadAmbigua: ContextoConversacion["identidadAmbigua"] = null;
+  if (filas.pacientes.length > 1) {
+    identidadAmbigua = { motivo: "varios_pacientes", nombres: [...new Set(filas.pacientes.map((p) => p.nombre))] };
+  } else if (filas.pacientes.length === 1 && leadActivoFila && !mismaPersona(filas.pacientes[0]!.nombre, leadActivoFila.nombre)) {
+    identidadAmbigua = { motivo: "paciente_y_lead", nombres: [filas.pacientes[0]!.nombre, leadActivoFila.nombre] };
+  }
+  if (identidadAmbigua) {
+    const nombreNeutro = filas.perfil?.nombre_perfil ?? telefono;
+    return {
+      telefono,
+      nombre: nombreNeutro,
+      origenNombre: filas.perfil?.nombre_perfil ? "perfil" : "telefono",
+      pacienteId: null,
+      leadActivo: null,
+      presupuestosVivos: [],
+      pendienteCobro: 0,
+      clinicaId: filas.perfil?.clinica_id ?? filas.pacientes[0]?.clinica_id ?? leadActivoFila?.clinica_id ?? null,
+      objetivosAbiertos: ["identificar"],
+      identidadAmbigua,
+    };
+  }
+  const paciente = filas.pacientes[0] ?? null;
+
   const leadActivo: LeadActivoContexto | null = leadActivoFila
     ? {
         id: leadActivoFila.id,
@@ -204,7 +254,7 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     senalClasificador: v.requiere_persona === true || v.intencion_detectada != null,
   }));
 
-  const pendienteCobro = filas.paciente ? (await finanzasDePaciente(filas.paciente.id)).pendiente : 0;
+  const pendienteCobro = paciente ? (await finanzasDePaciente(paciente.id)).pendiente : 0;
 
   const abiertos = new Set<EtapaObjetivo>();
   if (pendienteCobro > 0) abiertos.add("cobro");
@@ -215,23 +265,23 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   // conversaba indefinidamente sin entregar. Un paciente CON cita futura no
   // la tiene abierta: no hay nada que cerrar.
   if (leadActivo) abiertos.add("cita");
-  if (filas.paciente && !filas.citaFutura) abiertos.add("cita");
+  if (paciente && !filas.citaFutura) abiertos.add("cita");
   // «identificar» = no hay NINGUNA fila que diga quién es — ni paciente ni
   // lead en ningún estado. Un lead cerrado («No interesado») no abre cita,
   // pero sabemos su nombre: preguntárselo sería absurdo. Lo destapó el censo
   // del QA: 167 hilos del DEMO salían a identificar y la mayoría eran leads
   // cerrados, no desconocidos.
   const leadCualquiera = filas.leads[0] ?? null;
-  if (!filas.paciente && !leadCualquiera) abiertos.add("identificar");
+  if (!paciente && !leadCualquiera) abiertos.add("identificar");
   const objetivosAbiertos = PRECEDENCIA_OBJETIVOS.filter((e) => abiertos.has(e));
 
   const nombre =
-    filas.paciente?.nombre ??
+    paciente?.nombre ??
     leadActivo?.nombre ??
     leadCualquiera?.nombre ??
     filas.perfil?.nombre_perfil ??
     telefono;
-  const origenNombre: ContextoConversacion["origenNombre"] = filas.paciente
+  const origenNombre: ContextoConversacion["origenNombre"] = paciente
     ? "paciente"
     : leadActivo ?? leadCualquiera
       ? "lead"
@@ -243,16 +293,17 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     telefono,
     nombre,
     origenNombre,
-    pacienteId: filas.paciente?.id ?? null,
+    pacienteId: paciente?.id ?? null,
     leadActivo,
     presupuestosVivos,
     pendienteCobro,
     clinicaId:
-      filas.paciente?.clinica_id ??
+      paciente?.clinica_id ??
       leadActivo?.clinicaId ??
       presupuestosVivos[0]?.clinicaId ??
       filas.perfil?.clinica_id ??
       null,
     objetivosAbiertos,
+    identidadAmbigua: null,
   };
 }

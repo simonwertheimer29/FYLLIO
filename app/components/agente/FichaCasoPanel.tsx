@@ -22,7 +22,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
-import { fechaClinica } from "../../lib/time";
+import { fechaClinica, hoyISO } from "../../lib/time";
 import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, Ban, ICON_STROKE } from "../icons";
 import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { AgendarLeadPanel } from "../agenda/AgendarLeadPanel";
@@ -160,7 +160,7 @@ export function FichaCasoPanel({
                 {ficha.semaforo.causa
                   ? TITULO_DERIVADO[ficha.semaforo.causa]
                   : "Derivado al equipo"}
-                {ficha.semaforo.desde ? ` — ${fechaClinica(ficha.semaforo.desde)}` : ""}.
+                {ficha.semaforo.desde ? ` — ${fechaClinica(ficha.semaforo.desde)}${edadLegible(ficha.semaforo.desde)}` : ""}.
               </span>
               {ficha.semaforo.causa === "caso_completo" && ficha.semaforo.objetivo
                 ? ` Queda ${ETIQUETA_OTRO[ficha.semaforo.objetivo] ?? ficha.semaforo.objetivo}.`
@@ -196,6 +196,18 @@ export function FichaCasoPanel({
               onHecho={alCambiar}
             />
           </div>
+        </div>
+      )}
+      {/* ── MEJORAS 139 · el número lo comparten varias personas: se declara
+          y NADA de lo de abajo habla de un expediente concreto. */}
+      {ficha.identidadAmbigua && (
+        <div className="flex gap-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-[var(--color-foreground)]">
+            <span className="font-semibold">Este número lo usan varias personas</span>
+            {`: ${ficha.identidadAmbigua.nombres.join(", ")}. `}
+            Hasta saber quién escribe, ni el agente ni esta ficha afirman presupuestos, pagos ni citas de ninguna.
+          </p>
         </div>
       )}
       {/* ── MEJORAS 135 · pidió no recibir mensajes: lo único que cambia lo
@@ -522,4 +534,15 @@ export function legibleCampo(clave: string): string {
     que_necesita: "Qué necesita",
   };
   return MAPA[clave] ?? clave.replace(/_/g, " ");
+}
+
+/** La EDAD del asunto derivado, en días de clínica (§13): la presión que
+ *  sustituye a la caducidad (MEJORAS 125 — nada caduca solo, pero envejece a
+ *  la vista). Hoy no se dice; desde ayer, sí. */
+function edadLegible(desdeISO: string): string {
+  const desde = new Date(`${hoyISO(new Date(desdeISO))}T00:00:00Z`).getTime();
+  const hoy = new Date(`${hoyISO()}T00:00:00Z`).getTime();
+  const dias = Math.max(0, Math.round((hoy - desde) / 86_400_000));
+  if (dias === 0) return "";
+  return dias === 1 ? " (hace 1 día)" : ` (hace ${dias} días)`;
 }

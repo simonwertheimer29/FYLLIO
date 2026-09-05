@@ -427,7 +427,11 @@ export function MensajeriaView() {
                     onRetry={() => abierta && cargarHilo(abierta)}
                   />
                 ) : (
-                  <HiloMensajes mensajes={hilo ?? []} telefono={abierta} />
+                  <HiloMensajes
+                    mensajes={hilo ?? []}
+                    telefono={abierta}
+                    nombresClinica={Object.fromEntries(clinicas.map((c) => [c.id, c.nombre]))}
+                  />
                 )}
               </div>
 

@@ -93,6 +93,9 @@ export type FichaCaso = {
   /** MEJORAS 135 — pidió no recibir mensajes. Lo enseña el composer y lo
    *  respetan las rutas de envío. */
   optOut: EstadoOptOut;
+  /** MEJORAS 139 — el número lo comparten varias personas: la ficha lo
+   *  declara y no afirma nada de ningún expediente. */
+  identidadAmbigua: { motivo: "varios_pacientes" | "paciente_y_lead"; nombres: string[] } | null;
 
   // ── G3 · El LEAD del teléfono, si existe y no se convirtió ──
   /** La cita del caso es la cita del lead: el modal de agendar cuelga de
@@ -306,6 +309,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     },
     agente,
     optOut,
+    identidadAmbigua: ctx.identidadAmbigua,
     lead,
   };
 }

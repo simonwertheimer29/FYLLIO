@@ -33,16 +33,19 @@ tres entradas del 2026-09-05 de [`DECISIONES.md`](DECISIONES.md); cada hallazgo,
 **Lección nueva en el skill de ingeniería (§21):** se verifica lo que el usuario VE, no lo que el
 pipeline produce. Dos veces se midió un artefacto que no era el producto.
 
-**QA en verde:** parseo · conocimiento · tipos · bandeja · ficha · turno · tanda I 4/4 ·
-casos 16/6 10/10 en cinco corridas. Gasto de modelo de la sesión: $0,08 (`evals/pasadas/GASTO.md`).
+**QA en verde:** parseo · conocimiento · tipos · bandeja · ficha · turno · semáforo · contexto ·
+entrante (siembra su propio estado) · tanda I 4/4 · casos 16/6 10/10 en cinco corridas · vara
+completa 99 %. Gasto de modelo de la sesión: $0,43 (`evals/pasadas/GASTO.md`).
 
-### Decisiones abiertas que esperan a Simon (recomendación escrita en DECISIONES 2026-09-05)
+### Las cuatro decisiones, tomadas y ejecutadas el mismo día
 
-1. **Hilo por clínica en redes** (MEJORAS 122) — recomendado: hilo único por persona, mensajes
-   etiquetados por clínica.
-2. **Rojo eterno por queja/insistencia** (125) — recomendado: cierre por dos hechos + edad visible.
-3. **Teléfono compartido** (139) — recomendado: guarda de ambigüedad, nunca `limit 1`.
-4. **Caso 49 del eval** (152) — recomendado: mantener A y retirar el R de la vara.
+Hilo único por persona con una sola regla de acceso (122) · rojo por queja cerrado con dos hechos y
+edad visible (125) · guarda de ambigüedad para el teléfono compartido (139) · 49 remapeado a A
+(152). Detalle en DECISIONES 2026-09-05.
+
+**Vara completa tras el system nuevo: 66/67 (99 %)**, desde el 95 %. Único fallo el 35, que ahora
+sigue sin anotar (S) donde la vara pide A: **decisión de vara pendiente de Simon** (remapear a S,
+como el 49).
 
 ### Lo que no se toca sin el abogado
 
@@ -52,9 +55,7 @@ menores. Una página, con lo que costaría cada respuesta.
 
 ### Pendiente de comprobar a mano
 
-- **Fluid Compute en Vercel**: el token del CLI local está caducado y no se pudo leer la
-  configuración del proyecto. `maxDuration = 60` en el webhook cubre cualquier plan; confirmar en
-  Settings → Functions.
+- **Fluid Compute**: confirmado ACTIVO por Simon en Vercel; `maxDuration = 60` se queda.
 - **Transcripción de audio** (MEJORAS 153): decisión aparte, con coste por minuto y otro proveedor
   de salud hablada.
 
@@ -73,7 +74,7 @@ menores. Una página, con lo que costaría cada respuesta.
 
 ## Próximos tres hitos
 
-1. **Las cuatro decisiones de arriba** — cada una tiene recomendación y coste; ninguna pasa de un día.
+1. **Caso 35 en la vara** — remapear a S o no; una línea en el harness.
 2. **Consulta legal** con [`CONSULTA-LEGAL-AGENTE.md`](CONSULTA-LEGAL-AGENTE.md) — bloquea el
    catálogo de Meta y el borrado.
 3. **Arranque del piloto** — condición: RB, art. 28, NDA, alta fiscal.
@@ -105,6 +106,6 @@ cualquier envío, plantillas de cobranza de RB, teléfonos del seed al rango res
 | Tipos | `tsc` en verde |
 | QA determinista | `qa:parseo` · `qa:conocimiento` en verde |
 | QA con base | `qa:bandeja` · `qa:ficha` · `qa:turno` en verde; `qa:entrante` 4/4 en el orquestador (sus 2 rojos: el interruptor del seed está encendido en DEMO y el QA espera apagado) |
-| Eval del evaluador | 95 % estable en la última pasada completa (22-08); hoy medido solo lo tocado (tanda I 4/4, 16/6 10/10). Una pasada completa cuesta ~$0,35 |
-| MEJORAS | 155 entradas · las 117-155 de la auditoría: 17 hechas 🟢 · 2 parciales · 20 abiertas 🔵 |
+| Eval del evaluador | **99 % (66/67)** en la pasada completa del 2026-09-05 con el system nuevo; el 35 es decisión de vara. Una pasada completa cuesta ~$0,35 |
+| MEJORAS | 155 entradas · las 117-155 de la auditoría: 21 hechas 🟢 · 1 parcial (136) · 17 abiertas 🔵 |
 | Lint | limpio en los archivos nuevos; los `any` que quedan en `webhooks/whatsapp` y `mensajeria.ts` son anteriores |

@@ -108,6 +108,9 @@ export type Conversacion = {
   /** MEJORAS 128 — el último mensaje del paciente NO tiene evaluación del
    *  agente aunque debería (ver el filtro `sin-evaluar`). */
   sinEvaluar: boolean;
+  /** MEJORAS 122 — todas las clínicas por las que ha pasado el hilo. Más de
+   *  una = la conversación cruza la red y el hilo etiqueta cada mensaje. */
+  clinicasDelHilo: string[];
 };
 
 /**
@@ -188,7 +191,10 @@ export async function listarConversaciones(args: {
                (array_agg(clinica_id order by "timestamp" desc)
                   filter (where clinica_id is not null))[1]     as clinica_id,
                (array_agg(nombre_perfil order by "timestamp" desc)
-                  filter (where nombre_perfil is not null and nombre_perfil <> ''))[1] as nombre_perfil
+                  filter (where nombre_perfil is not null and nombre_perfil <> ''))[1] as nombre_perfil,
+               -- MEJORAS 122: TODAS las clínicas por las que ha pasado el hilo
+               -- (el aislamiento es «cualquiera de ellas», no «la última»).
+               array_remove(array_agg(distinct clinica_id), null) as clinicas_ids
           from mensajes_whatsapp
          where telefono is not null and "timestamp" is not null
          group by telefono
@@ -241,7 +247,7 @@ export async function listarConversaciones(args: {
                   '-infinity'::timestamptz))
       )
       select u.telefono, u.contenido, u.direccion, u."timestamp", u.del_agente,
-             k.clinica_id, k.paciente_id, k.lead_id, k.presupuesto_id,
+             k.clinica_id, k.clinicas_ids, k.paciente_id, k.lead_id, k.presupuesto_id,
              coalesce(p.n, 0) as pendientes,
              (se.telefono is not null) as sin_evaluar,
              coalesce(pa.nombre, l.nombre, k.nombre_perfil) as nom,
@@ -323,10 +329,15 @@ export async function listarConversaciones(args: {
   // «sin clínica» se puede dar sin enseñar ni una línea de su contenido, que es
   // exactamente la decisión del 2026-08-11 — se declara su existencia, no su
   // contenido.
+  // MEJORAS 122 (decisión 2026-09-05): el hilo es de la persona — lo ve quien
+  // tenga acceso a CUALQUIERA de sus clínicas, y el filtro por clínica lo
+  // incluye si ha pasado por ella. Misma regla que lib/mensajeria/acceso-hilo.
+  const clinicasDe = (f: any): string[] => (Array.isArray(f.clinicas_ids) ? f.clinicas_ids.map(String) : []);
   const visibles = filas.filter((f) => {
-    if (f.clinica_id == null) return esRed;
-    if (!esRed && !args.clinicasPermitidas!.includes(String(f.clinica_id))) return false;
-    if (args.clinicaId) return String(f.clinica_id) === args.clinicaId;
+    const cls = clinicasDe(f);
+    if (cls.length === 0) return esRed;
+    if (!esRed && !cls.some((c) => args.clinicasPermitidas!.includes(c))) return false;
+    if (args.clinicaId) return cls.includes(args.clinicaId);
     return true;
   });
 
@@ -399,6 +410,7 @@ export async function listarConversaciones(args: {
       sinRespuestaDesde,
       estadoFlujo,
       sinEvaluar: f.sin_evaluar === true,
+      clinicasDelHilo: clinicasDe(f),
     })),
     sinClinica,
     sinEvaluar,

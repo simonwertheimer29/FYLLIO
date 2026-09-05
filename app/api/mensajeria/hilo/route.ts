@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { hiloDe } from "../../../lib/mensajeria/conversaciones";
+import { clinicasDeMensajes, puedeVerHilo } from "../../../lib/mensajeria/acceso-hilo";
 import { runWithCliente } from "../../../lib/airtable";
 
 export const dynamic = "force-dynamic";
@@ -30,20 +31,17 @@ export const GET = withAuth(async (session, req) => {
       return NextResponse.json({ error: "Conversación no encontrada" }, { status: 404 });
     }
 
-    // La clínica del hilo es la de su último mensaje que la tenga. Un hilo sin
-    // clínica solo lo ve quien tiene acceso de red: es la decisión del
-    // 2026-08-11 aplicada también aquí, no solo en la lista — si solo estuviera
-    // en la lista, bastaría con adivinar el teléfono para saltársela.
+    // 2026-09-05 (MEJORAS 122): el hilo es de la PERSONA — lo ve quien tenga
+    // acceso a CUALQUIERA de sus clínicas; sin clínica, solo la red. Una sola
+    // regla para todas las rutas (lib/mensajeria/acceso-hilo).
+    const clinicas = clinicasDeMensajes(mensajes);
     const clinicaDelHilo =
       [...mensajes].reverse().find((m) => m.clinicaId)?.clinicaId ?? null;
-
-    if (permitidas !== null) {
-      if (clinicaDelHilo === null || !permitidas.includes(clinicaDelHilo)) {
-        return NextResponse.json({ error: "forbidden" }, { status: 403 });
-      }
+    if (!puedeVerHilo(permitidas, clinicas)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json({ mensajes, clinicaId: clinicaDelHilo });
+    return NextResponse.json({ mensajes, clinicaId: clinicaDelHilo, clinicas });
   } catch (err) {
     console.error("[mensajeria/hilo]", err);
     return NextResponse.json({ error: "No se pudo cargar la conversación" }, { status: 500 });

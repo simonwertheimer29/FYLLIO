@@ -44,6 +44,8 @@ export type MensajeHilo = {
   /** 034 — qué es. Ausente/null = texto. */
   tipo?: string | null;
   mediaId?: string | null;
+  /** 019 — la clínica del mensaje. Con más de una en el hilo, se etiqueta. */
+  clinicaId?: string | null;
 };
 
 function etiquetaDeDia(iso: string): string {
@@ -68,8 +70,20 @@ const ICONO_TIPO: Record<string, typeof Mic> = {
   unsupported: Ban,
 };
 
-export function HiloMensajes({ mensajes, telefono }: { mensajes: MensajeHilo[]; telefono?: string | null }) {
+export function HiloMensajes({
+  mensajes,
+  telefono,
+  nombresClinica,
+}: {
+  mensajes: MensajeHilo[];
+  telefono?: string | null;
+  /** MEJORAS 122 — id → nombre, para etiquetar cada mensaje con su clínica
+   *  cuando el hilo ha pasado por más de una (hilo único por persona). */
+  nombresClinica?: Record<string, string>;
+}) {
   const finRef = useRef<HTMLDivElement>(null);
+  const clinicasEnHilo = new Set(mensajes.map((m) => m.clinicaId).filter(Boolean));
+  const multiClinica = clinicasEnHilo.size > 1;
 
   // Los mensajes se anclan ABAJO, como cualquier conversación: lo último dicho
   // es lo que importa. Antes se abría por el principio y había que bajar meses
@@ -147,6 +161,11 @@ export function HiloMensajes({ mensajes, telefono }: { mensajes: MensajeHilo[]; 
                   {m.sugeridoPorIa && (
                     <span title="Lo redactó el agente" className="mr-1 inline-flex align-middle">
                       <Sparkles size={10} strokeWidth={ICON_STROKE} aria-label="Lo redactó el agente" />
+                    </span>
+                  )}
+                  {multiClinica && m.clinicaId && (
+                    <span className="mr-1.5 rounded-sm border border-current/30 px-1 py-px text-[9px] font-semibold uppercase tracking-wide opacity-80">
+                      {nombresClinica?.[m.clinicaId] ?? "otra clínica"}
                     </span>
                   )}
                   {horaClinica(new Date(m.timestamp))}

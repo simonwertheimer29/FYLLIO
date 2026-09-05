@@ -3812,3 +3812,23 @@ retirar el R de la vara. El desgaste se decidió el 14-08 como dimensión distin
 no juzgada del tono; una causa «desconfianza» sería un juicio del modelo sobre el ánimo, justo lo
 que se prohibió. Lo que sí: que el agente, ante «opiniones de todo», ofrezca una valoración con el
 doctor (lo hace) y que el desgaste alimente la cadencia de Seguimiento cuando exista.
+
+## 2026-09-05 — Vara completa tras el system nuevo: 99 % (66/67), y las cuatro decisiones ejecutadas
+Simon dictó correr la vara entera antes de seguir («medir solo lo tocado es lo que nos ha mordido»).
+Resultado: **66/67 (99 %)** desde el 95 % del 22-08, ¿Listo? 21/21, tanda I 4/4, descartes del
+juez 7/73 (10 %, tres de ellos los FP conocidos de cita sin `diasHastaProximaCita` en las fixtures
+R1). El único fallo es el 35: la regla de código lo saca de derivar (R) y ahora sigue sin anotar
+(S); la vara pide A. Es una pregunta de vara, no de modelo: «¿con quién hablo de esto?» tras un
+enlace se contesta y no anota nada. **Pendiente de Simon: remapear 35 → S** (mismo trato que el
+49); hasta entonces se reporta como fallo. Coste $0,35; sesión $0,43.
+Las cuatro decisiones, tal como se recomendaron: **(a)** hilo único por persona — una sola regla
+de acceso (`lib/mensajeria/acceso-hilo`: cualquiera de las clínicas del hilo) en hilo, ficha,
+entrada, medir, decidir, llamada y bandeja; los mensajes se etiquetan con su clínica cuando el
+hilo cruza la red; el evaluador recibe «esta conversación es de X, también ha escrito a Y».
+**(b)** rojo por queja se cierra con dos hechos (una persona contestó Y la persona volvió a
+escribir después); insistencia, con `aplazado_resuelto` posterior; edad visible en la ficha
+(«hace N días»); nada caduca. **(c)** guarda de ambigüedad en `contextoDeConversacion`: con más
+de un paciente en el número, o paciente y lead que no son la misma persona, no se afirma nada de
+nadie, solo `identificar`; la ficha lo declara; `qa:contexto` lo censa. **(d)** 49 remapeado a A
+en la vara. Y `qa:entrante` siembra su propio estado del interruptor en vez de asumir el de la
+demo (Fluid Compute confirmado activo por Simon; `maxDuration = 60` se queda).

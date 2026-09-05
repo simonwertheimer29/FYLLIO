@@ -2057,7 +2057,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   del número que recibió. En RB, diez clínicas.
 - **Severidad:** rompe visible · **Propuesta:** config del NÚMERO (hoy) + hilo filtrado por clínica
   (decisión de producto: ver diagnóstico del 2026-09-05) · **Esfuerzo:** 1 h + 1 día ·
-  **Fecha:** 2026-09-05 · 🟢 config del número (2026-09-05, `evaluar-entrante`: `e.clinicaId ?? ctx.clinicaId`) · 🔵 hilo por clínica — decisión de producto, ver DECISIONES 2026-09-05
+  **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): config del número + hilo único por persona con una sola regla de acceso (`lib/mensajeria/acceso-hilo`), mensajes etiquetados por clínica y contexto de red al evaluador
 
 ## 123. El contador de insistencia cuenta toda la vida y todas las ráfagas
 - **Qué es:** `evaluar-entrante.ts:125-129` suma todo `aplazado` de la clave sin cortar en el último
@@ -2074,7 +2074,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 - **Qué es:** `semaforo.ts:187` solo cierra a mano. Cada paciente que se quejó una vez deja mudo al
   agente con él hasta un clic.
 - **Severidad:** degrada (crece con los meses) · **Propuesta:** ver la recomendación del
-  2026-09-05 (cierre por hecho + edad) · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🔵 decisión
+  2026-09-05 (cierre por hecho + edad) · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): queja se cierra con dos hechos (respuesta + la persona vuelve a escribir), insistencia con `aplazado_resuelto`, edad visible en la ficha; nada caduca
 
 ## 126. El semáforo carga todos los eventos del cliente en cada evaluación
 - **Qué es:** `semaforo.ts:100-110` sin WHERE por caso; matching por subcadena de dígitos (`:254`).
@@ -2152,7 +2152,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   presupuestos por teléfono O por ese paciente (`:147-155`). Mandamiento 20 con teléfono.
 - **Severidad:** rompe visible · **Propuesta:** ver diagnóstico del 2026-09-05 (guarda de
   ambigüedad: no afirmar presupuestos ni pagos cuando el número es de más de una persona) ·
-  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵 decisión
+  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): guarda de ambigüedad en `contextoDeConversacion` (hasta 5 pacientes, `mismaPersona` para paciente+lead), solo `identificar`, ficha lo declara, `qa:contexto` lo censa
 
 ## 140. Menores — el agente no lee `edad`, `fecha_nacimiento` ni `tutor_telefono`
 - **Severidad:** degrada · **Propuesta:** si el paciente casado es menor, la ficha lo dice y toda
@@ -2207,7 +2207,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 
 ## 152. Caso 49 del eval — decisión de producto
 - «Hay opiniones de todo» exige una causa «desconfianza» que no existe. Ver propuesta del
-  2026-09-05. · 🔵 decisión
+  2026-09-05. · 🟢 hecha (2026-09-05): 49 remapeado a A en la vara
 
 ## 153. Transcripción de audio — decisión aparte
 - Coste por minuto y salud hablada en otro proveedor. Se diagnostica como pieza propia cuando el

@@ -56,8 +56,9 @@ export const POST = withAuth(async (session, req) => {
           // Huérfano: la clínica del hilo (019); sin clínica resoluble → red.
           const { hiloDe } = await import("../../../lib/mensajeria/conversaciones");
           const mensajes = await hiloDe(telefono);
-          const clinicaDelHilo = [...mensajes].reverse().find((m) => m.clinicaId)?.clinicaId ?? null;
-          if (!clinicaDelHilo || !permitidas.includes(clinicaDelHilo)) {
+          // 2026-09-05 (MEJORAS 122): cualquiera de las clínicas del hilo.
+          const { clinicasDeMensajes, puedeVerHilo } = await import("../../../lib/mensajeria/acceso-hilo");
+          if (!puedeVerHilo(permitidas, clinicasDeMensajes(mensajes))) {
             return NextResponse.json({ error: "No encontrado" }, { status: 404 });
           }
         }

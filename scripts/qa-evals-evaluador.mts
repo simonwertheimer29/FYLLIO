@@ -394,6 +394,12 @@ const LISTO_EXCLUIDOS = new Set(["C14", "C15", "C19"]); // lectura distinta, ANA
 //    estético (lo caro) no está exento.
 //  · C21 (Sintrom) queda R: lo cubre `antecedente_medico` (migración 023).
 const REMAPEO_DECISION: Record<string, string> = {
+  // 2026-09-05 (decisión de Simon, DECISIONES «cuatro decisiones»): el 49
+  // («hay opiniones de todo») se queda en A. El R exigía una causa
+  // «desconfianza» que sería un juicio del modelo sobre el ánimo — justo lo
+  // que se prohibió el 14-08. El desgaste es una dimensión aparte, contada
+  // del log, no juzgada del tono.
+  "49": "A",
   "1": "A", "18": "S", "39": "S",
   C9: "S", C10: "A", C16: "A", C18: "A",
   //  · 16 → A por RETEST de Simon (2026-08-14), no anotación original: la

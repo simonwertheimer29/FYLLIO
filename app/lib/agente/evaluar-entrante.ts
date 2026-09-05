@@ -154,11 +154,18 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   const datos = await runWithClienteDb(cliente, async (trx) => {
     const hiloRows = await trx
       .selectFrom("mensajes_whatsapp")
-      .select(["direccion", "contenido", "timestamp", "tipo"])
+      .select(["direccion", "contenido", "timestamp", "tipo", "clinica_id"])
       .where("telefono", "=", e.telefono)
       .orderBy("timestamp", "desc")
       .limit(80)
       .execute();
+
+    // MEJORAS 122 — la red: por qué clínicas ha pasado el hilo, con nombre.
+    const idsClinicas = [...new Set(hiloRows.map((m) => m.clinica_id).filter((x): x is string => Boolean(x)))];
+    if (clinicaConfig && !idsClinicas.includes(clinicaConfig)) idsClinicas.push(clinicaConfig);
+    const nombresClinicas = idsClinicas.length
+      ? await trx.selectFrom("clinicas").select(["id", "nombre"]).where("id", "in", idsClinicas).execute()
+      : [];
 
     const eventos = await trx
       .selectFrom("eventos_automatizacion")
@@ -175,8 +182,14 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
           where paciente_id = ${ctx.pacienteId} and hora_inicio >= now()`.execute(trx);
       proximaCita = c.rows?.[0]?.prox ?? null;
     }
-    return { hiloRows, eventos, proximaCita };
+    return { hiloRows, eventos, proximaCita, nombresClinicas };
   });
+
+  const nombreDe = (id: string | null) => datos.nombresClinicas.find((c) => String(c.id) === id)?.nombre ?? null;
+  const otrasClinicas = [...new Set(datos.hiloRows.map((m) => m.clinica_id).filter((x): x is string => Boolean(x)))]
+    .filter((id) => id !== clinicaConfig)
+    .map((id) => nombreDe(id) ?? id);
+  const clinicasDelHilo = otrasClinicas.length ? { actual: nombreDe(clinicaConfig), otras: otrasClinicas } : null;
 
   const hilo: MensajeHilo[] = datos.hiloRows
     .reverse()
@@ -262,6 +275,8 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     cobroYaRecordado,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
     optOutVigente,
+    clinicasDelHilo,
+    identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,
   });
 
   if (!evaluacion.actuar) return;

@@ -51,6 +51,8 @@ async function limpiar() {
   const admin = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, ssl: { rejectUnauthorized: false } });
   await admin.connect();
   await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id = any($1)`, [TELS_QA]);
+  // Los mensajes que este QA inserta para el cierre por hechos (paso 4).
+  await admin.query(`delete from mensajes_whatsapp where cliente='DEMO' and notas = 'qa-semaforo'`);
   await admin.end();
 }
 
@@ -119,10 +121,35 @@ await runWithCliente("DEMO", async () => {
   await evento(TEL_HUERFANO, "espera_fijada", { hasta: fecha(-1) });
   ok("espera VENCIDA: verde (solo se levanta la pausa; nada dispara)", (await semaforoDeContacto(TEL_HUERFANO)).verde);
 
-  console.log("\n4 · peticion_queja no se cierra por hechos — manual, sin excepción");
+  console.log("\n4 · peticion_queja: DOS hechos observables (decisión 2026-09-05, MEJORAS 125) — nunca caducidad");
   await evento(TEL_HUERFANO, "derivado", { causaDerivacion: "peticion_queja", malestar: false });
   s = await semaforoDeContacto(TEL_HUERFANO);
-  ok("queja derivada sigue roja aunque no haya nada que 'hacer'", !s.verde && s.causa === "peticion_queja");
+  ok("queja derivada arranca roja", !s.verde && s.causa === "peticion_queja");
+  // Hecho 1: una persona contesta. Con uno solo, sigue rojo.
+  const insertarMensaje = async (direccion: "Entrante" | "Saliente", minutosDespues: number) => {
+    await app.query("begin");
+    await app.query("select set_config('app.cliente','DEMO',true)");
+    await app.query(
+      `insert into mensajes_whatsapp (cliente, telefono, direccion, contenido, "timestamp", fuente, tipo, notas)
+       values ('DEMO', $1, $2, $3, now() + ($4 || ' minutes')::interval, 'Modo_A_manual', 'text', 'qa-semaforo')`,
+      [TEL_HUERFANO, direccion, `qa-semaforo ${direccion}`, String(minutosDespues)],
+    );
+    await app.query("commit");
+  };
+  await insertarMensaje("Saliente", 1);
+  s = await semaforoDeContacto(TEL_HUERFANO);
+  ok("una persona contestó, la persona aún no volvió → sigue rojo (un solo hecho no basta)", !s.verde && s.causa === "peticion_queja");
+  // Hecho 2: la persona vuelve a escribir después de esa respuesta → verde.
+  await insertarMensaje("Entrante", 2);
+  ok("la persona volvió a escribir tras la respuesta → VERDE (dos hechos)", (await semaforoDeContacto(TEL_HUERFANO)).verde);
+  await evento(TEL_HUERFANO, "resuelto_manual");
+
+  console.log("\n4b · insistencia: se cierra cuando la clave se marca respondida");
+  await evento(TEL_HUERFANO, "derivado", { causaDerivacion: "insistencia" });
+  s = await semaforoDeContacto(TEL_HUERFANO);
+  ok("insistencia derivada arranca roja", !s.verde && s.causa === "insistencia");
+  await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_HUERFANO, evento: "aplazado_resuelto", claveAplazado: "plan_pago", actorNombre: "qa" });
+  ok("aplazado_resuelto posterior → VERDE", (await semaforoDeContacto(TEL_HUERFANO)).verde);
   await evento(TEL_HUERFANO, "resuelto_manual");
 
   console.log("\n5 · Urgencia + cita creada DESPUÉS del derivado → verde (hecho del sistema)");
