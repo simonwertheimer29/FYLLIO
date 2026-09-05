@@ -19,6 +19,7 @@ import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { runWithCliente } from "../../../lib/airtable";
 import { registrarEvento } from "../../../lib/automatizacion/pg";
 import type { EventoAutomatizacion, TipoCaso } from "../../../lib/automatizacion/estado";
+import { CLAVES_APLAZADO, type ClaveAplazado } from "../../../lib/automatizacion/aplazamientos";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,13 @@ const DECISIONES: readonly EventoAutomatizacion[] = [
   "soltado",
   "espera_fijada",
   "espera_levantada",
+  // MEJORAS 121 (auditoría 2026-09-05): nadie emitía `aplazado_resuelto` y
+  // los pendientes eran eternos. El botón «Respondido» de la ficha, con su
+  // clave, es el emisor que faltaba desde la fase C.
+  "aplazado_resuelto",
+  // MEJORAS 135: el opt-out también lo puede marcar (o revertir) una persona.
+  "opt_out",
+  "opt_in",
 ];
 
 /** Las del semáforo solo tienen sentido sobre el HILO (tipo conversacion). */
@@ -52,6 +60,9 @@ const SOLO_CONVERSACION: readonly EventoAutomatizacion[] = [
   "soltado",
   "espera_fijada",
   "espera_levantada",
+  "aplazado_resuelto",
+  "opt_out",
+  "opt_in",
 ];
 
 export const POST = withAuth(async (session, req) => {
@@ -80,6 +91,17 @@ export const POST = withAuth(async (session, req) => {
   // La espera manual: fecha obligatoria, futura, y NADA de texto libre en la
   // decisión — el campo de nota (motivoTexto) es para la siguiente persona,
   // el sistema solo lee la fecha. Sin tope: el de 14 días es del AGENTE.
+  // `aplazado_resuelto` exige su clave (constraint de la 021): resolver «lo
+  // de la financiación» es resolver ESA clave, no todas.
+  let claveAplazado: ClaveAplazado | null = null;
+  if (evento === "aplazado_resuelto") {
+    const cruda = typeof body?.claveAplazado === "string" ? body.claveAplazado : "";
+    if (!(CLAVES_APLAZADO as readonly string[]).includes(cruda)) {
+      return NextResponse.json({ error: "aplazado_resuelto requiere claveAplazado válida" }, { status: 400 });
+    }
+    claveAplazado = cruda as ClaveAplazado;
+  }
+
   let hasta: string | null = null;
   if (evento === "espera_fijada") {
     const cruda = typeof body?.hasta === "string" ? body.hasta : "";
@@ -128,15 +150,27 @@ export const POST = withAuth(async (session, req) => {
         }
       }
 
-      await registrarEvento({
-        tipoCaso,
-        casoId,
-        evento,
-        actorId: session.userId ?? null,
-        actorNombre: session.nombre ?? null,
-        motivoTexto,
-        hasta,
-      });
+      if (evento === "opt_out" || evento === "opt_in") {
+        // Una fuente: el opt-out se escribe donde lo leen todos (paciente +
+        // log), no como un evento suelto que solo vería esta ruta.
+        const { marcarOptOut, revertirOptOut } = await import("../../../lib/contacto/optout");
+        if (evento === "opt_out") {
+          await marcarOptOut({ telefono: casoId, frase: motivoTexto, actorNombre: session.nombre ?? "persona", actorId: session.userId ?? null });
+        } else {
+          await revertirOptOut({ telefono: casoId, actorNombre: session.nombre ?? "persona", actorId: session.userId ?? null });
+        }
+      } else {
+        await registrarEvento({
+          tipoCaso,
+          casoId,
+          evento,
+          actorId: session.userId ?? null,
+          actorNombre: session.nombre ?? null,
+          motivoTexto,
+          hasta,
+          claveAplazado,
+        });
+      }
       // El estado NO se devuelve desde aquí: se deriva en la siguiente carga, con
       // el resto de señales. Devolverlo ahora obligaría a calcularlo dos veces y
       // abriría la puerta a que el cliente y el servidor discrepen.

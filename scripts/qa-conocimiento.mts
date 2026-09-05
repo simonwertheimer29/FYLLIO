@@ -224,6 +224,37 @@ ok("anunciar al EQUIPO pasa: «el equipo te confirma la cita» no la reserva el 
 ok("nivel 2 (huecosConstan): la disponibilidad se permite, reservar-él se veta IGUAL",
   vetoAgendaDeterminista("Tenemos hueco el martes a las 16:00.", { huecosConstan: true }) == null &&
   vetoAgendaDeterminista("Te reservo el martes a las 16:00.", { huecosConstan: true }) != null);
+// MEJORAS 136 (auditoría 2026-09-05): el veto es léxico — sin firmas en
+// catalán e inglés, un hilo en otro idioma pasaba de largo.
+ok("catalán: «tenim disponibilitat dimarts» y «et reservo» → vetados",
+  veta("Tenim disponibilitat dimarts a la tarda.") && veta("Digue'm quin dia i et reservo la cita."));
+ok("inglés: «we have a slot on Tuesday» y «I'll book it for you» → vetados",
+  veta("We have a slot on Tuesday at 4pm.") && veta("Tell me a day and I'll book it for you."));
+ok("inglés/catalán: recoger disponibilidad de la persona pasa",
+  !veta("What days and times work best for you?") && !veta("Quins dies et van bé?"));
+
+// ─── F · rangos de la config (MEJORAS 137): lo absurdo no se publica ────────
+console.log("\nF · rangos: precio y horario absurdos se rechazan; lo publicado real pasa");
+{
+  const { motivoPrecioAbsurdo, esHoraValida } = await import("../app/lib/agente/conocimiento");
+  ok("«desde 35 €/mes», «600–900 € según caso» y «gratis» pasan",
+    motivoPrecioAbsurdo("desde 35 €/mes") == null && motivoPrecioAbsurdo("600–900 € según caso") == null && motivoPrecioAbsurdo("primera visita gratuita") == null);
+  ok("«0 €» y «250.000 €» se rechazan", motivoPrecioAbsurdo("0 €") != null && motivoPrecioAbsurdo("250.000 €") != null);
+  ok("«24 meses sin intereses» no es un precio (cifra pequeña sin moneda) → pasa", motivoPrecioAbsurdo("financiación 24 meses sin intereses") == null);
+  ok("hora: «25:00» y «09:60» se rechazan; «23:59» y «09:00» pasan",
+    !esHoraValida("25:00") && !esHoraValida("09:60") && esHoraValida("23:59") && esHoraValida("09:00"));
+  const conHoraMala = JSON.stringify({ plazos: { horario: {
+    lunes: { activo: true, inicio: "09:00", fin: "25:00" }, martes: { activo: false, inicio: "09:00", fin: "20:00" },
+    miercoles: { activo: false, inicio: "09:00", fin: "20:00" }, jueves: { activo: false, inicio: "09:00", fin: "20:00" },
+    viernes: { activo: false, inicio: "09:00", fin: "20:00" }, sabado: { activo: false, inicio: "09:00", fin: "20:00" },
+    domingo: { activo: false, inicio: "09:00", fin: "20:00" } } } });
+  let lanzo = false;
+  try { parseConocimiento(conHoraMala); } catch { lanzo = true; }
+  ok("el parser LANZA con «25:00» en el horario (antes pasaba la regex de formato)", lanzo);
+  let lanzoPrecio = false;
+  try { parseConocimiento(JSON.stringify({ tratamientos: [{ nombre: "Implante", precio: "0 €", nota: null }] })); } catch { lanzoPrecio = true; }
+  ok("el parser LANZA con un precio de 0 €", lanzoPrecio);
+}
 
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);

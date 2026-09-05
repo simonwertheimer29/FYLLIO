@@ -46,7 +46,14 @@ import { esLeadActivo } from "../leads/pipeline";
 //     escribiste tú y ahí se quedó. Es donde el caso se enfría solo — no
 //     reclama, no sale en Seguimiento. Una espera pactada cumple el criterio
 //     y NO se esconde: su etiqueta la explica.
-export type FiltroBandeja = "necesitan-de-mi" | "agente" | "sin-respuesta";
+//   · sin-evaluar — (auditoría 2026-09-05, MEJORAS 128) el último mensaje
+//     del paciente es legible, el evaluador está encendido para su clínica,
+//     han pasado más de tres minutos y NO hay evaluación de ese mensaje. Es
+//     el contador que faltaba: hasta hoy un fallo del agente se veía igual
+//     que un caso normal sin borrador. Excluye los hilos en manos de una
+//     persona (derivado sin resolver / asumido), donde el agente calla por
+//     diseño.
+export type FiltroBandeja = "necesitan-de-mi" | "agente" | "sin-respuesta" | "sin-evaluar";
 
 /** El orden REORDENA, no filtra (dictado): recientes (default) o antiguos
  *  primero — «lo que llevo más tiempo sin tocar». Se aplica ANTES del corte
@@ -98,6 +105,9 @@ export type Conversacion = {
   sinRespuestaDesde: string | null;
   /** La etiqueta de estado del flujo (fase C) — ver `EstadoFlujo`. */
   estadoFlujo: EstadoFlujo | null;
+  /** MEJORAS 128 — el último mensaje del paciente NO tiene evaluación del
+   *  agente aunque debería (ver el filtro `sin-evaluar`). */
+  sinEvaluar: boolean;
 };
 
 /**
@@ -128,6 +138,9 @@ export async function listarConversaciones(args: {
    *  propósito (no hay scroll infinito), pero un tope que no se declara es un
    *  tope que se lee como «esto es todo lo que hay». */
   totalDelFiltro: number;
+  /** MEJORAS 128 — hilos visibles cuyo último mensaje debería estar evaluado
+   *  y no lo está. Sobre TODO lo visible, no sobre el filtro. */
+  sinEvaluar: number;
 }> {
   const cliente = requireCliente("mensajeria/conversaciones");
   const limite = Math.min(args.limite ?? 60, 200);
@@ -189,10 +202,48 @@ export async function listarConversaciones(args: {
                    where s.telefono = m.telefono and s.direccion = 'Saliente'),
                  '-infinity'::timestamptz)
          group by m.telefono
+      ),
+      -- MEJORAS 128: el último ENTRANTE de cada hilo, para saber si el agente
+      -- lo evaluó. Solo cuenta lo legible (034), con id de Meta, con más de
+      -- tres minutos (el after() tarda), con el evaluador encendido para su
+      -- clínica, y sin nadie al mando (derivado/asumido sin cerrar).
+      ult_ent as (
+        select distinct on (telefono) telefono, waba_message_id, tipo, "timestamp"
+          from mensajes_whatsapp
+         where telefono is not null and "timestamp" is not null and direccion = 'Entrante'
+         order by telefono, "timestamp" desc
+      ),
+      sin_eval as (
+        select ue.telefono
+          from ult_ent ue
+          join caso k using (telefono)
+          left join configuracion_automatizaciones ca
+                 on ca.cliente = ${cliente} and ca.clinica_id is not distinct from k.clinica_id
+         where ue.waba_message_id is not null
+           and coalesce(ue.tipo, 'text') in ('text', 'button', 'interactive', 'reaction')
+           and ue."timestamp" < now() - interval '3 minutes'
+           and ca.evaluador_activo = true
+           and not exists (
+             select 1 from eventos_automatizacion ev
+              where ev.cliente = ${cliente} and ev.tipo_caso = 'conversacion'
+                and ev.evento in ('evaluacion', 'derivado')
+                and ev.mensaje_id = ue.waba_message_id)
+           and not exists (
+             select 1 from eventos_automatizacion d
+              where d.cliente = ${cliente} and d.tipo_caso = 'conversacion'
+                and d.caso_id = ue.telefono
+                and d.evento in ('derivado', 'asumido_manual')
+                and d.created_at > coalesce(
+                  (select max(r.created_at) from eventos_automatizacion r
+                    where r.cliente = ${cliente} and r.tipo_caso = 'conversacion'
+                      and r.caso_id = ue.telefono
+                      and r.evento in ('resuelto_manual', 'soltado')),
+                  '-infinity'::timestamptz))
       )
       select u.telefono, u.contenido, u.direccion, u."timestamp", u.del_agente,
              k.clinica_id, k.paciente_id, k.lead_id, k.presupuesto_id,
              coalesce(p.n, 0) as pendientes,
+             (se.telefono is not null) as sin_evaluar,
              coalesce(pa.nombre, l.nombre, k.nombre_perfil) as nom,
              case when pa.nombre is not null then 'paciente'
                   when l.nombre  is not null then 'lead'
@@ -213,6 +264,7 @@ export async function listarConversaciones(args: {
         left join leads     l  on l.cliente  = ${cliente} and l.id  = k.lead_id
         left join clinicas  c  on c.cliente  = ${cliente} and c.id  = k.clinica_id
         left join presupuestos pr on pr.cliente = ${cliente} and pr.id = k.presupuesto_id
+        left join sin_eval se on se.telefono = u.telefono
        order by u."timestamp" desc
     `.execute(trx);
     return r.rows as any[];
@@ -312,10 +364,16 @@ export async function listarConversaciones(args: {
         return x.agenteAlMando;
       case "sin-respuesta":
         return x.sinRespuestaDesde != null;
+      case "sin-evaluar":
+        return x.f.sin_evaluar === true;
       case null:
         return true;
     }
   });
+  // El contador de «sin evaluar» se da sobre TODO lo visible, no sobre el
+  // filtro: es una alarma, y una alarma que solo suena cuando la miras no es
+  // una alarma.
+  const sinEvaluar = derivadas.filter((x) => x.f.sin_evaluar === true).length;
 
   // El orden se aplica sobre el conjunto COMPLETO del filtro, antes del
   // corte del límite: «antiguos primero» sobre las 60 más recientes
@@ -340,8 +398,10 @@ export async function listarConversaciones(args: {
       agenteAlMando,
       sinRespuestaDesde,
       estadoFlujo,
+      sinEvaluar: f.sin_evaluar === true,
     })),
     sinClinica,
+    sinEvaluar,
   };
 }
 
@@ -352,7 +412,7 @@ export async function hiloDe(telefono: string, limite = 200) {
   return runWithClienteDb(cliente, async (trx) => {
     const r: any = await sql`
       select id, contenido, direccion, "timestamp", autor, sugerido_por_ia,
-             paciente_id, lead_id, presupuesto_id, clinica_id
+             paciente_id, lead_id, presupuesto_id, clinica_id, tipo, media_id
         from mensajes_whatsapp
        where telefono = ${telefono} and "timestamp" is not null
        order by "timestamp" asc
@@ -369,6 +429,9 @@ export async function hiloDe(telefono: string, limite = 200) {
       leadId: m.lead_id ? String(m.lead_id) : null,
       presupuestoId: m.presupuesto_id ? String(m.presupuesto_id) : null,
       clinicaId: m.clinica_id ? String(m.clinica_id) : null,
+      // 034 — qué es. NULL = texto (fila anterior a la migración).
+      tipo: m.tipo ? String(m.tipo) : null,
+      mediaId: m.media_id ? String(m.media_id) : null,
     }));
   });
 }

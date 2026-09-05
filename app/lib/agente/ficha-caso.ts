@@ -34,6 +34,8 @@ import {
 import type { EtapaObjetivo } from "../automatizacion/objetivos";
 import type { PayloadEvaluacion } from "./persistir-turno";
 import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
+import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
+import { optOutDeTelefono, type EstadoOptOut } from "../contacto/optout";
 
 export type FichaCaso = {
   telefono: string;
@@ -83,6 +85,15 @@ export type FichaCaso = {
   // ── La línea de la cola (Seguimiento): paciente · qué quiere · espera ──
   linea: { paciente: string; queQuiere: string; esperandoDesde: string | null };
 
+  // ── Auditoría 2026-09-05 ──
+  /** MEJORAS 119 — el borrador del evaluador para el ÚLTIMO entrante y si
+   *  ese entrante está evaluado. `alDia=false` = el juicio de arriba es de
+   *  un mensaje anterior: la pantalla lo dice, no lo enseña como actual. */
+  agente: EstadoBorrador;
+  /** MEJORAS 135 — pidió no recibir mensajes. Lo enseña el composer y lo
+   *  respetan las rutas de envío. */
+  optOut: EstadoOptOut;
+
   // ── G3 · El LEAD del teléfono, si existe y no se convirtió ──
   /** La cita del caso es la cita del lead: el modal de agendar cuelga de
    *  aquí. null = sin lead activo (paciente convertido o contacto suelto). */
@@ -119,6 +130,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   const cliente = requireCliente("fichaDeCaso");
   const ctx = await contextoDeConversacion(telefono);
   const sem = await semaforoDeContacto(telefono, { hoy: opts?.hoy });
+  const [agente, optOut] = await Promise.all([estadoBorradorDe(telefono), optOutDeTelefono(telefono)]);
 
   // G3 — el lead del teléfono (activo = no convertido). caída-declarada: si
   // la búsqueda falla, la ficha sigue sin el botón de agendar, no se cae.
@@ -292,6 +304,8 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
       queQuiere: queQuiere ?? (evaluado ? "(sin objetivo abierto)" : "Sin evaluar por el agente"),
       esperandoDesde,
     },
+    agente,
+    optOut,
     lead,
   };
 }

@@ -141,3 +141,49 @@ export function pendientesDeAplazados(eventos: readonly EventoAplazamiento[]): P
     motivos: vivos.get(clave)!,
   }));
 }
+
+// ─── Vueltas (034, auditoría 2026-09-05) ─────────────────────────────────────
+//
+// El contador de insistencia contaba TODOS los `aplazado` de una clave, de
+// toda la vida del hilo y uno por mensaje: una pregunta resuelta en junio
+// seguía sumando en septiembre, y una ráfaga de tres mensajes en un minuto
+// eran tres vueltas. Aquí se cuenta lo que la regla quiere decir: cuántas
+// VECES ha vuelto la persona sobre el tema DESDE el último resuelto, y una
+// ráfaga (aplazados a menos de `ventanaMs`) es una sola vuelta.
+
+export type EventoConInstante = EventoAplazamiento;
+
+export function vueltasPorClave(
+  eventos: readonly EventoAplazamiento[],
+  ventanaMs = 15 * 60_000,
+): Partial<Record<ClaveAplazado, number>> {
+  const ms = (t: string | number) => (typeof t === "number" ? t : new Date(t).getTime());
+  const ultimoResuelto = new Map<ClaveAplazado, number>();
+  for (const e of eventos) {
+    if (e.evento !== "aplazado_resuelto") continue;
+    const t = ms(e.createdAt);
+    const previo = ultimoResuelto.get(e.clave);
+    if (previo === undefined || t > previo) ultimoResuelto.set(e.clave, t);
+  }
+  const porClave = new Map<ClaveAplazado, number[]>();
+  for (const e of eventos) {
+    if (e.evento !== "aplazado") continue;
+    const t = ms(e.createdAt);
+    if (!Number.isFinite(t)) continue;
+    const corte = ultimoResuelto.get(e.clave);
+    if (corte !== undefined && t <= corte) continue;
+    (porClave.get(e.clave) ?? porClave.set(e.clave, []).get(e.clave)!).push(t);
+  }
+  const out: Partial<Record<ClaveAplazado, number>> = {};
+  for (const [clave, tiempos] of porClave) {
+    tiempos.sort((a, b) => a - b);
+    let vueltas = 0;
+    let ultimo = -Infinity;
+    for (const t of tiempos) {
+      if (t - ultimo > ventanaMs) vueltas++;
+      ultimo = t;
+    }
+    out[clave] = vueltas;
+  }
+  return out;
+}

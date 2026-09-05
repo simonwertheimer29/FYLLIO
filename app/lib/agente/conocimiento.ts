@@ -212,6 +212,46 @@ function esTratamientoValido(t: unknown): t is TratamientoPublicado {
   return esTextoNoVacio(x["nombre"]) && esTextoONull(x["precio"] ?? null) && esTextoONull(x["nota"] ?? null);
 }
 
+// ─── Rangos (MEJORAS 137, auditoría 2026-09-05) ─────────────────────────────
+//
+// El agente afirma lo publicado «tal cual»: un precio de 12 € en vez de
+// 1.200 € o un horario de 25:00 se decían con la misma seguridad. Los rangos
+// son ANCHOS a propósito — no es el sistema decidiendo precios, es el sistema
+// negándose a publicar lo que no puede ser un precio de dentista. Se aplica
+// al guardar Y al leer (mismo parser): una config vieja con un absurdo deja
+// de leerse — y ahora eso se ve (MEJORAS 128), no muere en consola.
+
+export const PRECIO_MIN_EUR = 1;
+export const PRECIO_MAX_EUR = 100_000;
+
+/** Devuelve el motivo si el precio publicado no puede serlo; null si vale.
+ *  Texto sin cifra («según caso», «gratis», «consultar») vale. */
+export function motivoPrecioAbsurdo(texto: string): string | null {
+  const cifras = texto.match(/\d[\d.\s]*(?:,\d+)?/g) ?? [];
+  const conMoneda = /€|euros?\b|eur\b/i.test(texto);
+  for (const c of cifras) {
+    const n = Number(c.replace(/[.\s]/g, "").replace(",", "."));
+    if (!Number.isFinite(n)) continue;
+    // Sin símbolo de moneda solo se juzgan cifras claramente de dinero (≥ 3
+    // dígitos): «24 meses» o «3 sesiones» no son precios.
+    if (!conMoneda && n < 100) continue;
+    if (n < PRECIO_MIN_EUR) return `precio «${texto.trim()}» por debajo de ${PRECIO_MIN_EUR} €`;
+    if (n > PRECIO_MAX_EUR) return `precio «${texto.trim()}» por encima de ${PRECIO_MAX_EUR.toLocaleString("es-ES")} €`;
+  }
+  return null;
+}
+
+/** HH:MM real: 00–23 y 00–59. La regex de formato dejaba pasar «25:00». */
+export function esHoraValida(hhmm: string): boolean {
+  const m = /^(\d{2}):(\d{2})$/.exec(hhmm);
+  if (!m) return false;
+  return Number(m[1]) <= 23 && Number(m[2]) <= 59;
+}
+
+const TOPE_PRESENTACION = 400;
+const TOPE_POLITICA = 800;
+const TOPE_NOMBRE_TRATAMIENTO = 80;
+
 function esPoliticaValida(p: unknown): p is PoliticaPublicada {
   if (typeof p !== "object" || p === null) return false;
   const x = p as Record<string, unknown>;
@@ -246,8 +286,20 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
   if (!Array.isArray(tratamientos) || !tratamientos.every(esTratamientoValido)) {
     throw new ConocimientoIlegibleError("tratamientos no válidos", raw);
   }
+  for (const t of tratamientos) {
+    if (t.nombre.trim().length > TOPE_NOMBRE_TRATAMIENTO) {
+      throw new ConocimientoIlegibleError(`nombre de tratamiento demasiado largo (> ${TOPE_NOMBRE_TRATAMIENTO})`, raw);
+    }
+    const absurdo = t.precio ? motivoPrecioAbsurdo(t.precio) : null;
+    if (absurdo) throw new ConocimientoIlegibleError(absurdo, raw);
+  }
   if (!Array.isArray(politicas) || !politicas.every(esPoliticaValida)) {
     throw new ConocimientoIlegibleError("políticas no válidas", raw);
+  }
+  for (const p of politicas) {
+    if (p.texto.trim().length > TOPE_POLITICA) {
+      throw new ConocimientoIlegibleError(`política «${p.titulo.trim()}» demasiado larga (> ${TOPE_POLITICA})`, raw);
+    }
   }
   if (!Array.isArray(enlaces) || !enlaces.every(esEnlaceValido)) {
     throw new ConocimientoIlegibleError("enlaces no válidos", raw);
@@ -267,6 +319,9 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
   }
   if (!esTextoONull(qsRaw["presentacion"] ?? null)) {
     throw new ConocimientoIlegibleError("presentación no válida", raw);
+  }
+  if (typeof qsRaw["presentacion"] === "string" && qsRaw["presentacion"].trim().length > TOPE_PRESENTACION) {
+    throw new ConocimientoIlegibleError(`presentación demasiado larga (> ${TOPE_PRESENTACION})`, raw);
   }
   const trato = qsRaw["trato"] ?? null;
   if (trato !== null && trato !== "tu" && trato !== "usted") {
@@ -351,10 +406,10 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
       if (
         typeof d !== "object" || d === null ||
         typeof (d as Record<string, unknown>)["activo"] !== "boolean" ||
-        !/^\d{2}:\d{2}$/.test(String((d as Record<string, unknown>)["inicio"])) ||
-        !/^\d{2}:\d{2}$/.test(String((d as Record<string, unknown>)["fin"]))
+        !esHoraValida(String((d as Record<string, unknown>)["inicio"])) ||
+        !esHoraValida(String((d as Record<string, unknown>)["fin"]))
       ) {
-        throw new ConocimientoIlegibleError(`horario laboral: ${dia} no válido`, raw);
+        throw new ConocimientoIlegibleError(`horario laboral: ${dia} no válido (HH:MM entre 00:00 y 23:59)`, raw);
       }
       const dd = d as { activo: boolean; inicio: string; fin: string };
       if (dd.activo && dd.fin <= dd.inicio) {

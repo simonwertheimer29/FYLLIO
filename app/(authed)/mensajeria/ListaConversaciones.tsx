@@ -64,6 +64,14 @@ export const FILTROS: Array<{
     Icono: Hourglass,
     ayuda: "Escribiste tú y el paciente no ha contestado",
   },
+  // MEJORAS 128 (auditoría 2026-09-05): la alarma que faltaba — el agente
+  // debía evaluar el último mensaje y no lo hizo (modelo caído, config rota…).
+  {
+    id: "sin-evaluar",
+    label: "Sin evaluar",
+    Icono: AlertTriangle,
+    ayuda: "El agente debía evaluar el último mensaje y no lo hizo",
+  },
 ];
 
 /** Como WhatsApp: hora si es de hoy, fecha si no. El «hoy» es el DÍA DE LA
@@ -214,6 +222,7 @@ export function ListaConversaciones({
         const señales =
           c.estadoFlujo != null ||
           c.agenteAlMando ||
+          c.sinEvaluar ||
           (diasSinRespuesta != null && diasSinRespuesta >= 1) ||
           c.origenNombre === "perfil" ||
           c.origenNombre === "telefono";
@@ -267,6 +276,11 @@ export function ListaConversaciones({
                         está el caso, sin abrir la conversación. Mismas
                         palabras que Seguimiento cuando es una cohorte. */}
                     {c.estadoFlujo && <MarcaFlujo flujo={c.estadoFlujo} />}
+                    {c.sinEvaluar && (
+                      <Marca tono="warning" Icono={AlertTriangle}>
+                        Sin evaluar
+                      </Marca>
+                    )}
                     {c.agenteAlMando && (
                       <Marca tono="accent" Icono={Sparkles}>
                         Agente
@@ -373,6 +387,43 @@ export function BandaSinAsignar({ n, accesoDeRed }: { n: number; accesoDeRed: bo
           ? "De alguien que no está en ningún caso todavía. Ábrelas para decir quién es."
           : "Solo visibles con acceso de red: sin clínica asignada no se puede saber si son de una de las tuyas."}
       </p>
+    </div>
+  );
+}
+
+/** MEJORAS 128 — la alarma del agente. No es un filtro escondido: cuando hay
+ *  mensajes sin evaluar, se dice arriba de la lista, con el número, y un clic
+ *  lleva al filtro. Cero = ni una línea. */
+export function BandaSinEvaluar({
+  n,
+  activo,
+  onVer,
+}: {
+  n: number;
+  activo: boolean;
+  onVer: () => void;
+}) {
+  if (n === 0) return null;
+  return (
+    <div className="mx-3 mb-2 flex items-start gap-2 rounded-xl border border-[color-mix(in_srgb,var(--color-warning)_35%,transparent)] bg-[var(--color-warning-soft)] px-3 py-2.5">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-[12.5px] font-semibold text-[var(--color-foreground)]">
+          {n} {n === 1 ? "mensaje sin evaluar por el agente" : "mensajes sin evaluar por el agente"}
+        </p>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--color-muted)]">
+          Debía evaluarlos y no lo hizo. Mira los avisos de la campana para el motivo; mientras, se contestan a mano.
+        </p>
+        {!activo && (
+          <button
+            type="button"
+            onClick={onVer}
+            className="mt-1.5 text-[12px] font-semibold text-[var(--color-accent)] hover:underline"
+          >
+            Ver cuáles
+          </button>
+        )}
+      </div>
     </div>
   );
 }

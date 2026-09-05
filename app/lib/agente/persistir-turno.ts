@@ -55,6 +55,10 @@ export type PayloadEvaluacion = {
    *  anteriores no lo tienen: la pantalla dice «desde el día X». */
   usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
   modelo?: string;
+  /** Aditivo (2026-09-05, MEJORAS 136) — idioma del último mensaje. */
+  idioma?: string | null;
+  /** Aditivo (2026-09-05, MEJORAS 135) — pidió no recibir más mensajes. */
+  pideNoContacto?: boolean;
 };
 
 export type TurnoAPersistir = {
@@ -90,6 +94,40 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
   let nuevos = 0;
   let repetidos = 0;
   const cuenta = (r: { insertado: boolean }) => (r.insertado ? nuevos++ : repetidos++);
+
+  // 034 — SIN JUICIO (mensaje no legible): se persiste SOLO el derivado. Un
+  // `evaluacion` vacío contaminaría «qué recogió» y la ficha seguiría
+  // enseñando el último juicio real, que es lo correcto.
+  if (ev.sinJuicio) {
+    if (ev.decision === "deriva" && ev.causa) {
+      cuenta(
+        await registrarEventoIdempotente({
+          tipoCaso: "conversacion",
+          casoId: t.telefono,
+          evento: "derivado",
+          causaDerivacion: ev.causa,
+          malestar: null,
+          objetivoActivo: ev.objetivoActivo,
+          motivoTexto: ev.motivoDerivacion ?? null,
+          actorNombre: "agente",
+          mensajeId: t.mensajeId,
+        }),
+      );
+      if (ev.esperaLevantar) {
+        cuenta(
+          await registrarEventoIdempotente({
+            tipoCaso: "conversacion",
+            casoId: t.telefono,
+            evento: "espera_levantada",
+            motivoTexto: "el caso pasa a una persona",
+            actorNombre: "agente",
+            mensajeId: t.mensajeId,
+          }),
+        );
+      }
+    }
+    return { eventosNuevos: nuevos, reentrega: nuevos === 0 && repetidos > 0 };
+  }
 
   // 1 · Aplazados — dedupe por clave dentro del turno (el modelo puede traer
   //     la misma clave como nueva y como re-pregunta; una emisión por clave).
@@ -182,6 +220,8 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     presupuestoReferidoId: ev.presupuestoReferidoId ?? null,
     usage: ev.usage,
     modelo: ev.modelo,
+    idioma: ev.idioma ?? null,
+    pideNoContacto: ev.pideNoContacto === true ? true : undefined,
   };
   cuenta(
     await registrarEventoIdempotente({

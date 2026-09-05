@@ -348,6 +348,25 @@ molestia de UX. Reglas:
 > tabla Maxima porque su payload no llevaba `pacienteId` — el arreglo no fue mejorar el matcher,
 > fue hacer viajar el id.
 
+### 21. Se verifica lo que el usuario VE, no lo que el pipeline produce
+Un pipeline puede producir el artefacto perfecto —juzgado, vetado, medido— y que el usuario
+esté mirando otro. Lo que se mide, se prueba y se revisa es **el artefacto que llega a la
+pantalla o al paciente**, y se comprueba abriendo esa pantalla (o ese mensaje), no leyendo el
+código que lo genera. Corolarios: **(a)** toda vara, eval o QA de un texto declara desde QUÉ
+pantalla lo lee el usuario, y si el camino de la pantalla no es el del eval, el eval mide otra
+cosa; **(b)** dos generadores para el mismo hueco son un bug aunque los dos funcionen — el que
+no se enseña es trabajo muerto y el que se enseña va sin las guardas del otro; **(c)** antes de
+declarar «esto está protegido por X», seguir el camino desde el clic hasta el texto y encontrar
+X en él.
+> **Nos lo enseñó:** DOS veces. El servidor de 31 días (2026-08-31): un `next start` sirviendo
+> chunks de julio mientras cada build reescribía `.next` debajo — un mes revisando pantallas
+> que no existían, porque se miraba el build y no la pantalla. Y la auditoría del agente
+> (2026-09-05, MEJORAS 119): el evaluador juzgaba, vetaba y medía un borrador que **ningún
+> composer enseñaba**; la coordinadora veía OTRO, generado por el borrador de entrada, sin el
+> veto determinista de agenda — el fallo que «volvió tres veces» estaba blindado en el texto
+> que nadie enviaba. El eval llevaba semanas al 95 % midiendo un artefacto que no era el
+> producto.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -373,6 +392,7 @@ molestia de UX. Reglas:
 - [ ] Si escribí una migración, ¿la tabla o la columna está **declarada en los tipos**? (`npm run qa:tipos`) ¿Y estoy metiendo trabajo a mano en un archivo que un script reescribe? (§18)
 - [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
 - [ ] Si enlazo o resuelvo a una **persona**, ¿viaja su **id** en el payload? ¿Hay algún match por nombre que elija solo? (§20)
+- [ ] Lo que estoy midiendo o protegiendo, ¿es **lo que el usuario ve**? ¿He seguido el camino desde la pantalla hasta el texto? ¿Hay un segundo generador para el mismo hueco? (§21)
 
 ## Cómo crece este skill
 

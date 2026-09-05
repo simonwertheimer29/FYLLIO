@@ -37,6 +37,7 @@ import type {
 import {
   ListaConversaciones,
   BandaSinAsignar,
+  BandaSinEvaluar,
   FiltrosBandeja,
   Buscador,
   filtrarPorBusqueda,
@@ -45,6 +46,7 @@ import {
 import { ContextoConversacion } from "./ContextoConversacion";
 import { ComposerConversacion } from "./ComposerConversacion";
 import { useCasoDeConversacion } from "./useCasoDeConversacion";
+import { useFichaDeCaso } from "./useFichaDeCaso";
 import { toast } from "sonner";
 import { Phone } from "../../components/icons";
 import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
@@ -54,6 +56,8 @@ type RespuestaLista = {
   sinClinica: number;
   accesoDeRed: boolean;
   totalDelFiltro: number;
+  /** MEJORAS 128 — hilos cuyo último mensaje debería estar evaluado y no lo está. */
+  sinEvaluar: number;
 };
 
 export function MensajeriaView() {
@@ -184,6 +188,10 @@ export function MensajeriaView() {
     recargar: recargarCaso,
   } = useCasoDeConversacion(conversacion);
 
+  // MEJORAS 119: la ficha, UNA vez, repartida entre el composer (borrador del
+  // evaluador, opt-out) y la columna derecha.
+  const { ficha, recargar: recargarFicha } = useFichaDeCaso(abierta);
+
   // Llamar es una acción sobre la PERSONA, así que vive en la cabecera de la
   // conversación, no en el cuerpo. Se registra por el camino central de
   // siempre — el mismo `registrar-respuesta` que usa el panel de Seguimiento —
@@ -294,6 +302,11 @@ export function MensajeriaView() {
               </div>
             ) : (
               <>
+                <BandaSinEvaluar
+                  n={lista?.sinEvaluar ?? 0}
+                  activo={filtro === "sin-evaluar"}
+                  onVer={() => setFiltro("sin-evaluar")}
+                />
                 <BandaSinAsignar
                   n={lista?.sinClinica ?? 0}
                   accesoDeRed={lista?.accesoDeRed ?? false}
@@ -310,7 +323,9 @@ export function MensajeriaView() {
                               ? "El agente no lleva ninguna conversación ahora"
                               : filtro === "sin-respuesta"
                                 ? "Nada tuyo sin contestar"
-                                : "No hay conversaciones aquí"
+                                : filtro === "sin-evaluar"
+                              ? "El agente está al día"
+                              : "No hay conversaciones aquí"
                       }
                       hint={
                         busqueda.trim()
@@ -321,6 +336,8 @@ export function MensajeriaView() {
                               ? "Aparecerán las conversaciones donde la última respuesta la redactó el agente."
                               : filtro === "sin-respuesta"
                                 ? "Aparecerán las conversaciones donde escribiste tú y el paciente aún no ha respondido."
+                                : filtro === "sin-evaluar"
+                                ? "Aparecerán las conversaciones cuyo último mensaje el agente debía evaluar y no evaluó."
                                 : "Cuando entre o salga un mensaje, aparecerá en esta lista."
                       }
                     />
@@ -410,7 +427,7 @@ export function MensajeriaView() {
                     onRetry={() => abierta && cargarHilo(abierta)}
                   />
                 ) : (
-                  <HiloMensajes mensajes={hilo ?? []} />
+                  <HiloMensajes mensajes={hilo ?? []} telefono={abierta} />
                 )}
               </div>
 
@@ -423,7 +440,12 @@ export function MensajeriaView() {
                   conversacion={conversacion}
                   caso={caso}
                   recargarCaso={recargarCaso}
-                  onEnviado={cargarLista}
+                  ficha={ficha}
+                  recargarFicha={recargarFicha}
+                  onEnviado={() => {
+                    cargarLista();
+                    if (abierta) void cargarHilo(abierta);
+                  }}
                   ultimoEntrante={
                     [...(hilo ?? [])].reverse().find((m) => m.direccion === "Entrante")
                       ?.contenido ?? null
@@ -440,6 +462,8 @@ export function MensajeriaView() {
               clasificador sigue alimentando SOLO al compositor (borrador). */}
           <ContextoConversacion
             conversacion={conversacion}
+            ficha={ficha}
+            onRecargarFicha={recargarFicha}
             onCambio={() => {
               recargarCaso();
               void cargarLista();

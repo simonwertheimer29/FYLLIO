@@ -162,8 +162,17 @@ export async function ultimoEntranteTextoPorLeadPg(): Promise<Record<string, str
   return out;
 }
 
-/** Inserta un registro de mensaje y devuelve el shape mínimo que leen los callers ({ id }). */
-export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): Promise<{ id: string }> {
+/** Inserta un registro de mensaje y devuelve { id, insertado }.
+ *
+ *  034 (auditoría 2026-09-05): con `WABA_message_id` el insert es
+ *  ON CONFLICT DO NOTHING sobre el UNIQUE (cliente, waba_message_id) — el
+ *  dedup real vive AQUÍ, atómico, no en un KV consultado-y-luego-marcado
+ *  (§2). `insertado: false` = ya existía: el caller no evalúa dos veces ni
+ *  cuenta dos entrantes. Sin id de Meta (registro manual) no hay conflicto
+ *  posible y se inserta tal cual. */
+export async function createMensajeWhatsAppPg(
+  fields: Record<string, unknown>,
+): Promise<{ id: string; insertado: boolean }> {
   const leadLink = fields["Lead_Link"];
   const row = {
     cliente: cli(),
@@ -189,8 +198,11 @@ export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): 
     // 019 — la clínica se escribe al recibir o enviar. Si el caller no la sabe
     // queda NULL, que la bandeja lee como «todavía no se sabe», no como «todas».
     clinica_id: refOrNull(fields["Clinica_id"]),
+    // 034 — qué es (texto, audio, foto…) y el id del archivo en Meta.
+    tipo: refOrNull(fields["Tipo"]),
+    media_id: refOrNull(fields["Media_id"]),
   };
-  const inserted = await runWithClienteDb(cli(), async (trx) => {
+  return runWithClienteDb(cli(), async (trx) => {
     // ─── Completar el caso ANTES de insertar (§6) ─────────────────────
     //
     // «Registrar respuesta» manda solo presupuesto_id; el webhook, según el
@@ -217,9 +229,27 @@ export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): 
         .executeTakeFirst();
       if (lead) row.clinica_id = lead.clinica_id ?? null;
     }
-    return trx.insertInto("mensajes_whatsapp").values(row as any).returning("id").executeTakeFirstOrThrow();
+    if (row.waba_message_id) {
+      const ins = await trx
+        .insertInto("mensajes_whatsapp")
+        .values(row as any)
+        .onConflict((oc) =>
+          oc.columns(["cliente", "waba_message_id"]).where("waba_message_id", "is not", null).doNothing(),
+        )
+        .returning("id")
+        .executeTakeFirst();
+      if (ins) return { id: String((ins as any).id), insertado: true };
+      const ya = await trx
+        .selectFrom("mensajes_whatsapp")
+        .select("id")
+        .where("waba_message_id", "=", row.waba_message_id)
+        .executeTakeFirst();
+      if (!ya) throw new Error("[mensajeria-pg] conflicto sin fila existente — imposible con el UNIQUE de la 034");
+      return { id: String(ya.id), insertado: false };
+    }
+    const ins = await trx.insertInto("mensajes_whatsapp").values(row as any).returning("id").executeTakeFirstOrThrow();
+    return { id: String((ins as any).id), insertado: true };
   });
-  return { id: (inserted as any).id };
 }
 
 /** ¿Existe ya un entrante idéntico y reciente en este hilo? (§2 — dedup del

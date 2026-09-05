@@ -155,7 +155,10 @@ async function optoutBloquea(pacienteId: string | null): Promise<boolean> {
     const { getPaciente } = await import("../pacientes/pacientes");
     const p = await getPaciente(pacienteId);
     if (p == null) return true;
-    return p.optoutAutomatizaciones;
+    // MEJORAS 135 — una fuente: la misma lib que leen el webhook, el
+    // evaluador y el composer (los dos flags del paciente + el log del hilo).
+    const { optOutDePaciente } = await import("../contacto/optout");
+    return await optOutDePaciente(pacienteId);
   } catch (err) {
     console.error("[generar-cola] opt-out NO comprobable — candidato bloqueado (RGPD fail-closed):", err instanceof Error ? err.message : err);
     return true;

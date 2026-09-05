@@ -16,6 +16,21 @@ import { medirYRegistrarEnvio } from "../../../../lib/automatizacion/medir-envio
 
 export const dynamic = "force-dynamic";
 
+// ─── MEJORAS 135 — opt-out: una fuente, todos los lectores ──────────────────
+// Con opt-out vigente solo se puede RESPONDER (el último mensaje es suyo).
+// Si la comprobación falla, se degrada con log y se deja enviar: es una
+// defensa auxiliar, no la puerta principal (§3, matiz).
+async function bloqueadoPorOptOut(telefono: string): Promise<boolean> {
+  try {
+    const { envioBloqueadoPorOptOut } = await import("../../../../lib/contacto/optout");
+    return (await envioBloqueadoPorOptOut(telefono)).bloqueado;
+  } catch (err) {
+    console.error("[envio] opt-out no comprobable:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+const ERROR_OPT_OUT = "Esta persona pidió no recibir mensajes. Solo se le puede contestar cuando escribe ella.";
+
 export const POST = withAuth(async (session, req) => {
   const body = await req.json().catch(() => null);
   const leadId = body?.leadId as string | undefined;
@@ -40,16 +55,25 @@ export const POST = withAuth(async (session, req) => {
     }
   }
 
+  if (await bloqueadoPorOptOut(telefono)) {
+    return NextResponse.json({ error: ERROR_OPT_OUT }, { status: 409 });
+  }
+
   try {
     const servicio = getServicioMensajeria("manual");
     const result = await servicio.enviarMensaje({ leadId, telefono, contenido, autor: "persona", sugeridoPorIa });
 
-    // Coincidencia agente-humano (fase 1). El sugerido sale del lead ya cargado
-    // arriba — de la base, no del cuerpo de la petición. Nunca lanza.
-    await medirYRegistrarEnvio({
+    // Coincidencia agente-humano (fase 1). El sugerido es el BORRADOR DEL
+    // EVALUADOR para el último entrante (MEJORAS 119) — de la base, no del
+    // cuerpo de la petición; el del lead queda de reserva. Nunca lanza.
+    const { borradorAgenteDe } = await import("../../../../lib/agente/borrador-agente");
+    // Si el texto nació del borrador de ENTRADA, lo mide /api/agente/entrada/medir
+    // contra ese original; medirlo aquí contra el del evaluador sería comparar
+    // dos textos distintos.
+    if (body?.borradorDe !== "entrada") await medirYRegistrarEnvio({
       tipoCaso: "lead",
       casoId: leadId,
-      sugerido: lead.mensajeSugerido ?? null,
+      sugerido: (await borradorAgenteDe(telefono)) ?? lead.mensajeSugerido ?? null,
       enviado: contenido,
       actorId: session.userId ?? null,
       actorNombre: session.nombre ?? null,

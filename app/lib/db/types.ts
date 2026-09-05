@@ -24,6 +24,7 @@
 // crudo y un `any`.
 
 import type { Generated } from "kysely";
+import type { TipoMensaje } from "../mensajeria/tipos-mensaje";
 import type {
   DBGenerado,
   Tabla_alertas_enviadas,
@@ -105,7 +106,10 @@ export interface Tabla_eventos_automatizacion {
     /** 026 — sin contacto hasta `hasta`. Suspende agente Y cadencias. */
     | "espera_fijada"
     /** 026 — levanta la espera antes de la fecha. */
-    | "espera_levantada";
+    | "espera_levantada"
+    /** 034 — la persona pidió no recibir mensajes; `opt_in` lo revierte. */
+    | "opt_out"
+    | "opt_in";
   actor_id: string | null;
   actor_nombre: string | null;
   motivo_texto: string | null;
@@ -127,6 +131,8 @@ export interface Tabla_eventos_automatizacion {
     | "garantia_condiciones"
     | "dato_presupuesto"
     | "agenda_disponibilidad"
+    /** 030 — dato de SU cita ya programada (faltaba en los tipos). */
+    | "dato_cita"
     | "duda_clinica"
     | "otro"
     | null;
@@ -139,6 +145,8 @@ export interface Tabla_eventos_automatizacion {
     | "urgencia"
     | "caso_completo"
     | "antecedente_medico"
+    /** 034 — mandó algo que el agente no puede leer (audio, foto…). */
+    | "no_legible"
     | null;
   /** 022 — juicio del modelo al derivar por peticion_queja (¿hay malestar?).
    *  Se guarda el hecho, no la cola, para recalibrar sin perder histórico. */
@@ -252,6 +260,12 @@ type ExtraMensajesWhatsApp = {
    *  significa «todas»: significa «todavía no se sabe», y la bandeja lo trata
    *  como tal (no se enseña a quien tiene acceso limitado). */
   clinica_id: string | null;
+  /** 034 — tipo del mensaje según Meta (vocabulario en
+   *  lib/mensajeria/tipos-mensaje). NULL = anterior a la 034: texto. */
+  tipo: TipoMensaje | null;
+  /** 034 — id del archivo en Meta para audio/imagen/vídeo/documento/sticker.
+   *  No se descarga hoy; se guarda para poder hacerlo. */
+  media_id: string | null;
 };
 
 /** 019 — el número de WhatsApp de esta clínica, para saber a qué clínica llega

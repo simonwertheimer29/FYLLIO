@@ -73,3 +73,37 @@ export async function isDuplicateMessage(messageSid: string): Promise<boolean> {
     return false;
   }
 }
+
+// ── 034 (auditoría 2026-09-05): LEER y MARCAR por separado ──────────────────
+// `isDuplicateMessage` marca-y-comprueba en UN paso, y eso obliga a marcar
+// ANTES de persistir: si el insert fallaba, el reintento de Meta caía en «ya
+// visto» y el mensaje se perdía para siempre (MEJORAS 117). El webhook usa
+// ahora las dos mitades: `esMensajeVisto` como atajo de lectura, el UNIQUE de
+// la base como dedup real (ON CONFLICT), y `marcarMensajeVisto` DESPUÉS de
+// persistir. Un fallo entre medias deja el id sin marcar y Meta lo reintenta.
+
+export async function esMensajeVisto(messageSid: string): Promise<boolean> {
+  if (!messageSid) return false;
+  if (process.env.NODE_ENV !== "production") return localSeen.has(messageSid);
+  try {
+    return Boolean(await kv.get<string>(PREFIX + messageSid));
+  } catch (err) {
+    console.warn("[idempotency] KV get failed (esMensajeVisto), fallback to memory", err);
+    return localSeen.has(messageSid);
+  }
+}
+
+export async function marcarMensajeVisto(messageSid: string): Promise<void> {
+  if (!messageSid) return;
+  if (process.env.NODE_ENV !== "production") {
+    localSeen.add(messageSid);
+    return;
+  }
+  try {
+    await kv.set(PREFIX + messageSid, "1", { ex: 24 * 60 * 60 });
+  } catch (err) {
+    // El atajo falla; el UNIQUE de la base sigue protegiendo. Se ve (§9).
+    console.warn("[idempotency] KV set failed (marcarMensajeVisto), fallback to memory", err);
+    localSeen.add(messageSid);
+  }
+}

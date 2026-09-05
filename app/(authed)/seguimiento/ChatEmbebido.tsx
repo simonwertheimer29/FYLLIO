@@ -8,14 +8,20 @@
 //
 // Solo leads y presupuestos tienen ruta de envío con IDOR propia; un caso de
 // conversación (huérfano) se responde en Mensajería — botón, no compositor.
+//
+// UN SOLO BORRADOR (auditoría 2026-09-05, MEJORAS 119): la caja PRECARGA el
+// borrador del evaluador cuando está al día — el que se juzga, se veta y se
+// mide — y el botón «Redactar entrada» aparece SOLO en el relevo. Para eso
+// pide la ficha (el mismo endpoint que la columna de al lado).
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { HiloMensajes, type MensajeHilo } from "../mensajeria/HiloMensajes";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
-import { Send, Sparkles, ICON_STROKE } from "../../components/icons";
+import { Send, Sparkles, Ban, ICON_STROKE } from "../../components/icons";
 import { ErrorState } from "../../components/ui/Feedback";
+import type { FichaCaso } from "../../lib/agente/ficha-caso";
 
 export function ChatEmbebido({
   telefono,
@@ -27,21 +33,22 @@ export function ChatEmbebido({
   tipo: "lead" | "presupuesto" | "conversacion";
   /** Id desnudo del caso (sin el prefijo `tipo:`). */
   casoId: string;
-  /** B3: el agente evaluó este hilo → hay botón «Redactar entrada». Sin
-   *  evaluación NO hay botón (confirmado): no hay nada de lo que partir.
-   *  (21-08: la PRECARGA automática murió — venía de la columna del
-   *  clasificador viejo y pisaba al borrador de entrada con texto genérico.
-   *  El único generador de esta caja es el botón.) */
+  /** B3: el agente evaluó este hilo (lo dice la cola). La ficha lo confirma. */
   evaluado?: boolean;
 }) {
   const [hilo, setHilo] = useState<MensajeHilo[] | null>(null);
   const [errorHilo, setErrorHilo] = useState<string | null>(null);
+  const [ficha, setFicha] = useState<FichaCaso | null>(null);
   const [texto, setTexto] = useState("");
   const [textoDeIA, setTextoDeIA] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [redactando, setRedactando] = useState(false);
-  // El original del borrador de entrada — al enviar, la edición se MIDE.
+  // El original del borrador de ENTRADA — al enviar, la edición se MIDE
+  // contra él en /api/agente/entrada/medir (la ruta de envío no lo remide).
   const entradaOriginal = useRef<string | null>(null);
+  const precargadoPara = useRef<string | null>(null);
+  const textoRef = useRef("");
+  textoRef.current = texto;
   const scrollRef = useRef<HTMLDivElement>(null);
   const cajaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,29 +80,62 @@ export function ChatEmbebido({
     }
   }, [telefono]);
 
+  const cargarFicha = useCallback(async () => {
+    try {
+      setFicha(await cargarJSON<FichaCaso>(`/api/agente/ficha?telefono=${encodeURIComponent(telefono)}`));
+    } catch (e) {
+      // Sin ficha se puede escribir a mano; lo que se pierde es la precarga
+      // y el relevo. Se dice en consola, no se inventa.
+      console.error("[chat-embebido] ficha no disponible:", mensajeDeError(e));
+    }
+  }, [telefono]);
+
   useEffect(() => {
     void cargarHilo();
-  }, [cargarHilo]);
+    void cargarFicha();
+  }, [cargarHilo, cargarFicha]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [hilo]);
 
+  const borrador = ficha?.agente.alDia ? ficha.agente.borrador : null;
+  const relevo =
+    ficha?.semaforo.motivo === "derivado_sin_resolver" || ficha?.semaforo.motivo === "hilo_asumido";
+  const optOut = ficha?.optOut.activo === true;
+  const ultimoEsEntrante = hilo != null && hilo.length > 0 && hilo[hilo.length - 1]!.direccion === "Entrante";
+  const bloqueadoPorOptOut = optOut && !ultimoEsEntrante;
+
+  // La PRECARGA del borrador del evaluador: una vez por mensaje evaluado, y
+  // nunca encima de algo escrito a mano.
+  useEffect(() => {
+    const t = borrador?.texto ?? null;
+    const clave = borrador?.mensajeId ?? null;
+    if (!t || !clave || precargadoPara.current === clave) return;
+    if (textoRef.current !== "") return;
+    setTexto(t);
+    setTextoDeIA(true);
+    precargadoPara.current = clave;
+  }, [borrador?.mensajeId, borrador?.texto]);
+
   async function enviar() {
     const contenido = texto.trim();
-    if (!contenido || enviando || tipo === "conversacion") return;
+    if (!contenido || enviando || tipo === "conversacion" || bloqueadoPorOptOut) return;
     setEnviando(true);
     try {
       const ruta = tipo === "presupuesto"
         ? "/api/presupuestos/intervencion/enviar-manual"
         : "/api/leads/intervencion/enviar-manual";
       const cuerpo = tipo === "presupuesto" ? { presupuestoId: casoId } : { leadId: casoId };
+      const deEntrada = entradaOriginal.current != null;
       const data = await cargarJSON<{ urlWhatsApp?: string }>(ruta, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // sugeridoPorIa = el texto NACIÓ del borrador del motor (aunque se
         // edite): es lo que separa «qué dice el agente» de lo escrito a mano.
-        body: JSON.stringify({ ...cuerpo, telefono, contenido, sugeridoPorIa: textoDeIA }),
+        // borradorDe: la ruta mide contra el borrador del evaluador salvo que
+        // el texto venga del de ENTRADA (ese lo mide entrada/medir).
+        body: JSON.stringify({ ...cuerpo, telefono, contenido, sugeridoPorIa: textoDeIA, borradorDe: deEntrada ? "entrada" : undefined }),
       });
       setTexto("");
       setTextoDeIA(false);
@@ -117,6 +157,7 @@ export function ChatEmbebido({
         toast.success("Mensaje enviado");
       }
       await cargarHilo();
+      await cargarFicha();
     } catch (e) {
       // No se limpia el campo: lo escrito no se pierde por un fallo de red.
       toast.error(mensajeDeError(e));
@@ -143,7 +184,7 @@ export function ChatEmbebido({
             Aún no hay conversación con este contacto — este mensaje será el primero.
           </p>
         ) : (
-          <HiloMensajes mensajes={hilo} />
+          <HiloMensajes mensajes={hilo} telefono={telefono} />
         )}
       </div>
       {tipo === "conversacion" ? (
@@ -157,12 +198,21 @@ export function ChatEmbebido({
         </div>
       ) : (
         <div className="border-t border-[var(--color-border)] p-3">
-          {/* B3 — solo con evaluación: la presentación de quien retoma. */}
-          {evaluado && (
+          {optOut && (
+            <div className="mb-2 flex items-start gap-2 rounded-lg bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px] text-[var(--color-foreground)]">
+              <Ban size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
+              <span>
+                <span className="font-semibold">Pidió no recibir mensajes.</span>{" "}
+                {bloqueadoPorOptOut ? "El último mensaje es tuyo: escribirle ahora sería contactarle. Bloqueado." : "Puedes contestar a lo que acaba de escribir; nada más."}
+              </span>
+            </div>
+          )}
+          {/* B3 — el borrador de ENTRADA, solo en el relevo y con evaluación. */}
+          {relevo && (evaluado || ficha?.evaluado) && (
             <button
               onClick={async () => {
                 if (redactando) return;
-                if (texto.trim() && texto !== entradaOriginal.current) {
+                if (texto.trim() && texto !== entradaOriginal.current && texto !== (borrador?.texto ?? null)) {
                   toast.error("Hay un texto escrito — bórralo antes de redactar la entrada");
                   return;
                 }
@@ -222,12 +272,13 @@ export function ChatEmbebido({
               }
             }}
             rows={2}
-            placeholder="Escribe la respuesta…"
-            className="max-h-[200px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            placeholder={bloqueadoPorOptOut ? "Pidió no recibir mensajes" : "Escribe la respuesta…"}
+            disabled={bloqueadoPorOptOut}
+            className="max-h-[200px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] disabled:opacity-50"
           />
           <button
             onClick={enviar}
-            disabled={enviando || !texto.trim()}
+            disabled={enviando || !texto.trim() || bloqueadoPorOptOut}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             <Send size={14} strokeWidth={ICON_STROKE} />

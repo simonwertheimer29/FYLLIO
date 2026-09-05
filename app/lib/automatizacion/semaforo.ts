@@ -187,6 +187,22 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
   if (causa === "peticion_queja" || causa === "insistencia") return false;
 
   const cliente = requireCliente("hechoCierra");
+
+  if (causa === "no_legible") {
+    // 034: el asunto era «alguien tiene que mirar el audio/la foto». Una
+    // persona CONTESTÓ (saliente posterior al derivado) → mirado. Sin más
+    // hechos que inventar: si nadie contesta, sigue rojo y envejece a la vista.
+    const dig = soloDigitos(derivado.caso_id);
+    const r: any = await runWithClienteDb(cliente, (trx) =>
+      sql`select 1 from mensajes_whatsapp
+          where direccion = 'Saliente'
+            and "timestamp" > ${derivado.created_at}
+            and replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"}
+          limit 1`.execute(trx),
+    );
+    return Boolean(r.rows?.length);
+  }
+
   const { contextoDeConversacion } = await import("../agente/contexto-conversacion");
   const ctx = await contextoDeConversacion(derivado.caso_id);
 

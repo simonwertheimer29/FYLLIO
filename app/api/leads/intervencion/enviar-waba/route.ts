@@ -45,6 +45,20 @@ export const POST = withAuth(async (session, req) => {
     .digest("hex")
     .slice(0, 16)}`;
 
+  // MEJORAS 135 — opt-out: una fuente, todos los lectores. Con opt-out solo
+  // se puede RESPONDER; si la comprobación falla se degrada con log (§3).
+  try {
+    const { envioBloqueadoPorOptOut } = await import("../../../../lib/contacto/optout");
+    if ((await envioBloqueadoPorOptOut(telefono)).bloqueado) {
+      return NextResponse.json(
+        { error: "Esta persona pidió no recibir mensajes. Solo se le puede contestar cuando escribe ella." },
+        { status: 409 },
+      );
+    }
+  } catch (err) {
+    console.error("[leads/enviar-waba] opt-out no comprobable:", err instanceof Error ? err.message : err);
+  }
+
   let result;
   try {
     const servicio = getServicioMensajeria("waba");
@@ -73,6 +87,24 @@ export const POST = withAuth(async (session, req) => {
     await appendLeadLog(leadId, "WhatsApp enviado (WABA)");
   } catch (e) {
     console.error("[leads/enviar-waba] appendLeadLog:", e instanceof Error ? e.message : e);
+  }
+  // MEJORAS 119: la rama WABA no medía la coincidencia. Contra el borrador
+  // del evaluador (de la base); el del lead, de reserva. Nunca lanza.
+  if (body?.borradorDe !== "entrada") {
+    try {
+      const { borradorAgenteDe } = await import("../../../../lib/agente/borrador-agente");
+      const { medirYRegistrarEnvio } = await import("../../../../lib/automatizacion/medir-envio");
+      await medirYRegistrarEnvio({
+        tipoCaso: "lead",
+        casoId: leadId,
+        sugerido: (await borradorAgenteDe(telefono)) ?? lead.mensajeSugerido ?? null,
+        enviado: contenido,
+        actorId: session.userId ?? null,
+        actorNombre: session.nombre ?? null,
+      });
+    } catch (e) {
+      console.error("[leads/enviar-waba] no se pudo medir la coincidencia de", leadId, e instanceof Error ? e.message : e);
+    }
   }
   // Sprint 10 C — Acciones_Lead.
   logAccionLead({

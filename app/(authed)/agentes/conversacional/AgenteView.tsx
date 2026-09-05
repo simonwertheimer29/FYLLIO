@@ -14,6 +14,7 @@ import { useClinic } from "../../../lib/context/ClinicContext";
 import { Sparkles, ICON_STROKE } from "../../../components/icons";
 import { AgenteConfigView } from "./AgenteConfigView";
 import { BancoPruebasView } from "./BancoPruebasView";
+import { DescartesJuezPanel } from "../../../components/agente/DescartesJuezPanel";
 
 export function AgenteView() {
   const { session } = useClinic();
@@ -62,7 +63,12 @@ export function AgenteView() {
         ))}
       </div>
       {tab === "configuracion" ? (
-        <AgenteConfigView />
+        <div className="space-y-6">
+          <AgenteConfigView />
+          {/* MEJORAS 151: el termómetro del generador, junto a la config que
+              lo mueve. */}
+          <DescartesJuezPanel />
+        </div>
       ) : (
         <div className="space-y-4">
           <header>

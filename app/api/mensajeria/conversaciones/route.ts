@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 // Fase C: tres lentes sobre la lista completa; sin filtro = todo. El nombre
 // viejo `necesita-persona` se acepta y se remapea — hay enlaces guardados.
-const FILTROS: FiltroBandeja[] = ["necesitan-de-mi", "agente", "sin-respuesta"];
+const FILTROS: FiltroBandeja[] = ["necesitan-de-mi", "agente", "sin-respuesta", "sin-evaluar"];
 
 export const GET = withAuth(async (session, req) => {
   if (!session.cliente) {
@@ -53,6 +53,7 @@ export const GET = withAuth(async (session, req) => {
       conversaciones: out.conversaciones,
       sinClinica: out.sinClinica,
       totalDelFiltro: out.totalDelFiltro,
+      sinEvaluar: out.sinEvaluar,
       // Que la UI sepa si puede enseñar la banda o solo declararla.
       accesoDeRed: clinicasPermitidas === null,
     });

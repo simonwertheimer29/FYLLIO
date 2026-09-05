@@ -10,6 +10,21 @@ import { verificarPresupuestoPermitido } from "../../../../lib/presupuestos/clin
 
 export const dynamic = "force-dynamic";
 
+// ─── MEJORAS 135 — opt-out: una fuente, todos los lectores ──────────────────
+// Con opt-out vigente solo se puede RESPONDER (el último mensaje es suyo).
+// Si la comprobación falla, se degrada con log y se deja enviar: es una
+// defensa auxiliar, no la puerta principal (§3, matiz).
+async function bloqueadoPorOptOut(telefono: string): Promise<boolean> {
+  try {
+    const { envioBloqueadoPorOptOut } = await import("../../../../lib/contacto/optout");
+    return (await envioBloqueadoPorOptOut(telefono)).bloqueado;
+  } catch (err) {
+    console.error("[envio] opt-out no comprobable:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+const ERROR_OPT_OUT = "Esta persona pidió no recibir mensajes. Solo se le puede contestar cuando escribe ella.";
+
 export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const body = await req.json().catch(() => null);
   const presupuestoId = body?.presupuestoId as string | undefined;
@@ -41,6 +56,10 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     .digest("hex")
     .slice(0, 16)}`;
 
+  if (await bloqueadoPorOptOut(telefono)) {
+    return NextResponse.json({ error: ERROR_OPT_OUT }, { status: 409 });
+  }
+
   try {
     const servicio = getServicioMensajeria("waba");
     const result = await servicio.enviarMensaje({
@@ -51,6 +70,12 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       autor: "persona",
       sugeridoPorIa,
     });
+    // MEJORAS 119: la rama WABA no medía la coincidencia. Misma función que
+    // la manual, contra el borrador del evaluador. Best-effort.
+    if (presupuestoId && body?.borradorDe !== "entrada") {
+      const { medirEnvioDePresupuesto } = await import("../enviar-manual/route");
+      await medirEnvioDePresupuesto(presupuestoId, telefono, contenido, session);
+    }
     return NextResponse.json({
       ok: true,
       mensajeId: result.mensajeId,

@@ -14,19 +14,41 @@
 // que era un botón para llegar a donde ya estás. «Llamar» subió a la cabecera,
 // que es donde van las acciones sobre la persona.
 //
-// La regla está en el estándar visual. Es lo que evita que dentro de dos meses
-// esta columna vuelva a llenarse de recuadros.
+// ─── UN SOLO BORRADOR (auditoría 2026-09-05, MEJORAS 119) ───────────────────
+//
+// El evaluador juzga, veta y mide UN borrador por turno y lo persiste. Hasta
+// hoy esta caja no lo enseñaba: generaba OTRO con el borrador de entrada, que
+// ni pasaba por el veto de agenda. Ahora la caja PRECARGA el del evaluador
+// cuando está al día (es el texto que se mide en el eval y en la tasa de
+// coincidencia), y el botón de «Redactar entrada» aparece SOLO en el relevo
+// —cuando el caso está en manos de una persona— que es para lo que nació.
+//
+// Las dos excepciones de esta pantalla a «todo aviso va a la derecha» son las
+// que cambian si PUEDES enviar: el opt-out (MEJORAS 135) y el descarte del
+// revisor sobre el borrador que tienes delante.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   Composer,
   type PlantillaComposer,
 } from "../../components/shared/panel-accion-ui";
+import { Ban, AlertTriangle, ICON_STROKE } from "../../components/icons";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
+import { fechaClinica } from "../../lib/time";
 import type { Conversacion } from "../../lib/mensajeria/conversaciones";
-import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
+import type { FichaCaso } from "../../lib/agente/ficha-caso";
 import type { CasoDeConversacion } from "./useCasoDeConversacion";
+
+const MOTIVO_DESCARTE: Record<string, string> = {
+  clinica: "afirmaba un hecho clínico",
+  economica: "prometía condiciones económicas que no constan",
+  datos_sensibles: "volcaba un dato de salud que la persona no pidió",
+  promesa: "prometía algo sin entregar el caso",
+  agenda: "afirmaba huecos o reservaba por su cuenta",
+  sin_categoria: "infringía una regla",
+  juez_no_respondio: "el revisor no respondió a tiempo",
+};
 
 export function ComposerConversacion({
   conversacion,
@@ -34,22 +56,24 @@ export function ComposerConversacion({
   recargarCaso,
   onEnviado,
   ultimoEntrante,
+  ficha,
+  recargarFicha,
 }: {
   conversacion: Conversacion;
-  /** El último mensaje DEL PACIENTE en el hilo que se está viendo. La
-   *  generación con IA clasifica ESTO — antes mandaba
-   *  `item.ultimaRespuestaPaciente`, que es lo que el caso tenga persistido y
-   *  puede ir por detrás del hilo que el usuario tiene delante. */
+  /** El último mensaje DEL PACIENTE en el hilo que se está viendo. */
   ultimoEntrante: string | null;
-  /** El caso lo pide la pantalla UNA vez y lo comparten las dos columnas: la
-   *  derecha para contar qué pasa, esta para el borrador y el envío. Pedirlo
-   *  dos veces sería dos verdades sobre el mismo caso. */
+  /** El caso lo pide la pantalla UNA vez y lo comparten las dos columnas. */
   caso: CasoDeConversacion | null;
   recargarCaso: () => void;
   onEnviado: () => void;
+  /** La ficha, pedida UNA vez por la pantalla (useFichaDeCaso). De aquí
+   *  salen el borrador del evaluador, el relevo y el opt-out. */
+  ficha: FichaCaso | null;
+  recargarFicha: () => void;
 }) {
-  const item = caso?.item ?? null;
   const recargar = recargarCaso;
+  void caso;
+  void ultimoEntrante;
 
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -58,11 +82,46 @@ export function ComposerConversacion({
   const [generandoIA, setGenerandoIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaComposer[]>([]);
   const [wabaActivo, setWabaActivo] = useState<boolean | null>(null);
+  // Lo que el agente propuso, tal cual, para no pisar lo escrito a mano y para
+  // saber que lo que hay en la caja NACIÓ del agente aunque se edite.
+  const sugeridoRef = useRef<string | null>(null);
+  /** De dónde salió lo que hay en la caja: el evaluador (se mide en la ruta
+   *  de envío contra la base) o el borrador de entrada (se mide aparte). */
+  const origenIA = useRef<"evaluador" | "entrada" | null>(null);
+  const textoRef = useRef("");
+  const precargadoPara = useRef<string | null>(null);
+  textoRef.current = texto;
 
-  // (21-08: aquí se PRECARGABA item.mensajeSugerido — la columna del
-  // clasificador viejo, texto de reactivación genérico que pisaba al borrador
-  // del agente. La precarga automática MURIÓ en las dos pantallas: el único
-  // generador de esta caja es el botón, que va por /api/agente/entrada.)
+  const borrador = ficha?.agente.alDia ? ficha.agente.borrador : null;
+  const relevo =
+    ficha?.semaforo.motivo === "derivado_sin_resolver" || ficha?.semaforo.motivo === "hilo_asumido";
+  const optOut = ficha?.optOut.activo === true;
+  const bloqueadoPorOptOut = optOut && conversacion.ultimoEs !== "Entrante";
+
+  // Cambiar de conversación vacía la caja: un borrador de otra persona en la
+  // caja es el fallo más caro que puede tener un composer.
+  useEffect(() => {
+    setTexto("");
+    setTextoDeIA(false);
+    setError(null);
+    sugeridoRef.current = null;
+    precargadoPara.current = null;
+  }, [conversacion.telefono]);
+
+  // La PRECARGA del borrador del evaluador: una vez por mensaje evaluado, y
+  // nunca encima de algo escrito a mano.
+  useEffect(() => {
+    const textoAgente = borrador?.texto ?? null;
+    const clave = borrador?.mensajeId ?? null;
+    if (!textoAgente || !clave || precargadoPara.current === clave) return;
+    const actual = textoRef.current;
+    if (actual !== "" && actual !== sugeridoRef.current) return;
+    setTexto(textoAgente);
+    setTextoDeIA(true);
+    sugeridoRef.current = textoAgente;
+    origenIA.current = "evaluador";
+    precargadoPara.current = clave;
+  }, [borrador?.mensajeId, borrador?.texto]);
 
   // ─── Cómo se envía ────────────────────────────────────────────────────
   //
@@ -87,16 +146,8 @@ export function ComposerConversacion({
   }, [clinicaNombre]);
 
   // Las plantillas, del editor ÚNICO: `/api/plantillas`, por categoría.
-  //
-  // La primera versión pedía `/api/presupuestos/plantillas`, que **se borró el
-  // 10 de agosto** al unificar los dos editores — era la ruta del editor
-  // duplicado. Daba 404 en cada apertura de conversación y no se veía, porque
-  // el catch lo convertía en «no hay plantillas». Es el §9 en mi propio código:
-  // un fallo sistemático escondido en un catch mudo.
-  //
   // La categoría es `lead_seguimiento` porque es donde vive el seguimiento de
-  // presupuesto tras la migración 017. Cuando la conversación sea de cobros
-  // habrá que elegir la suya; hoy no hay de dónde deducirlo sin adivinar.
+  // presupuesto tras la migración 017.
   const clinicaId = conversacion.clinicaId;
   useEffect(() => {
     let cancelado = false;
@@ -109,7 +160,7 @@ export function ComposerConversacion({
       .catch((e) => {
         if (cancelado) return;
         // Sin plantillas se puede escribir a mano —es una comodidad, no la
-        // vía— pero el fallo se DICE. Callarlo fue lo que escondió el 404.
+        // vía— pero el fallo se DICE. Callarlo fue lo que escondió un 404.
         console.error("[mensajeria] no se pudieron cargar las plantillas:", e);
         setPlantillas([]);
       });
@@ -120,15 +171,12 @@ export function ComposerConversacion({
 
   const sinCaso = !conversacion.presupuestoId && !conversacion.leadId;
 
-  const generarConIA = useCallback(async () => {
+  // El borrador de ENTRADA (B3): solo en el relevo — quien retoma se presenta.
+  const redactarEntrada = useCallback(async () => {
     if (generandoIA) return;
     setGenerandoIA(true);
     setError(null);
     try {
-      // 21-08 (dictado): UNA sola pieza para los dos sitios — el mismo camino
-      // que el botón de Seguimiento (sale de la ficha, pasa por el juez, no
-      // repregunta lo recogido). Aquí generaba el clasificador VIEJO, el que
-      // inventaba condiciones de financiación y no pasaba por el juez.
       const d = await cargarJSON<{ borrador: string }>("/api/agente/entrada", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -136,6 +184,8 @@ export function ComposerConversacion({
       });
       setTextoDeIA(true);
       setTexto(d.borrador);
+      sugeridoRef.current = d.borrador;
+      origenIA.current = "entrada";
       recargar();
     } catch (e) {
       // Los motivos honestos de la ruta (sin evaluación, descartado por el
@@ -148,7 +198,7 @@ export function ComposerConversacion({
 
   async function enviar() {
     const contenido = texto.trim();
-    if (!contenido || enviando) return;
+    if (!contenido || enviando || bloqueadoPorOptOut) return;
     setEnviando(true);
     setError(null);
     try {
@@ -160,6 +210,10 @@ export function ComposerConversacion({
         ? { presupuestoId: conversacion.presupuestoId }
         : { leadId: conversacion.leadId };
 
+      // La coincidencia agente-humano se mide en el SERVIDOR contra el borrador
+      // leído de la base (borradorAgenteDe), no contra lo que mande el cliente.
+      const deEntrada = textoDeIA && origenIA.current === "entrada";
+      const entradaOriginal = deEntrada ? sugeridoRef.current : null;
       const res = await fetch(ruta, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -168,6 +222,7 @@ export function ComposerConversacion({
           telefono: conversacion.telefono,
           contenido,
           sugeridoPorIa: textoDeIA,
+          borradorDe: deEntrada ? "entrada" : undefined,
         }),
       });
       if (!res.ok) {
@@ -177,6 +232,17 @@ export function ComposerConversacion({
       const data = await res.json().catch(() => ({}));
       setTexto("");
       setTextoDeIA(false);
+      sugeridoRef.current = null;
+      origenIA.current = null;
+      // B3: el borrador de ENTRADA se mide contra su original (la ruta de
+      // envío no lo remide: mediría contra el del evaluador, otro texto).
+      if (entradaOriginal) {
+        cargarJSON("/api/agente/entrada/medir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ telefono: conversacion.telefono, sugerido: entradaOriginal, enviado: contenido }),
+        }).catch((e) => console.error("[entrada/medir]", e));
+      }
       if (data?.urlWhatsApp) {
         window.open(data.urlWhatsApp, "_blank");
         toast.success("Mensaje preparado — termina de enviarlo en WhatsApp");
@@ -185,6 +251,7 @@ export function ComposerConversacion({
       }
       onEnviado();
       recargar();
+      recargarFicha();
     } catch (e) {
       // No se limpia el campo: lo escrito no se pierde por un fallo de red.
       setError(mensajeDeError(e));
@@ -195,24 +262,44 @@ export function ComposerConversacion({
 
   return (
     <div className="border-t border-[var(--color-border)] pt-2">
+      {optOut && (
+        <div className="mb-1.5 flex items-start gap-2 rounded-md bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px] text-[var(--color-foreground)]">
+          <Ban size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          <span>
+            <span className="font-semibold">Pidió no recibir mensajes</span>
+            {ficha?.optOut.desde ? ` el ${fechaClinica(ficha.optOut.desde)}` : ""}.{" "}
+            {bloqueadoPorOptOut
+              ? "El último mensaje es tuyo: escribirle ahora sería contactarle. Bloqueado."
+              : "Puedes contestar a lo que acaba de escribir; nada más."}
+          </span>
+        </div>
+      )}
+      {textoDeIA && borrador?.descartado && texto === sugeridoRef.current && (
+        <p className="mb-1.5 flex items-start gap-1.5 text-[11.5px] text-[var(--color-muted)]">
+          <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          El revisor descartó lo que el agente había escrito ({MOTIVO_DESCARTE[borrador.descartado.motivo] ?? borrador.descartado.motivo}
+          {borrador.descartado.frase ? `: «${borrador.descartado.frase}»` : ""}). Esto es la respuesta neutra.
+        </p>
+      )}
       <Composer
         value={texto}
         onChange={(v) => {
           setTexto(v);
           setError(null);
-          setTextoDeIA(false);
+          // Editar no borra la autoría: el texto NACIÓ del agente (018). Solo
+          // vaciarlo la retira.
+          if (v.trim() === "") setTextoDeIA(false);
         }}
         onEnviar={enviar}
         enviando={enviando}
-        // Sin caso no hay a quién clasificar, así que tampoco botón de IA.
-        // 21-08: el camino nuevo (ficha→juez) vale para CUALQUIER hilo
-        // evaluado — leads y huérfanos incluidos; los motivos de no-poder
-        // llegan honestos de la ruta (409/422/503).
-        onIA={generarConIA}
+        // El botón de IA es el borrador de ENTRADA y solo tiene sentido en el
+        // relevo: fuera de él, lo que hay que enviar YA está en la caja.
+        onIA={relevo && ficha?.evaluado ? redactarEntrada : undefined}
         textoDeIA={textoDeIA}
         onDescartarIA={() => {
           setTexto("");
           setTextoDeIA(false);
+          sugeridoRef.current = null;
         }}
         generandoIA={generandoIA}
         plantillas={plantillas.map((p) => ({ id: p.id, nombre: p.nombre }))}
@@ -224,11 +311,16 @@ export function ComposerConversacion({
             setTexto(p.contenido);
             // Una plantilla la escribió una persona, no el agente.
             setTextoDeIA(false);
+            sugeridoRef.current = null;
           }
         }}
-        disabled={sinCaso || wabaActivo === null}
+        disabled={sinCaso || wabaActivo === null || bloqueadoPorOptOut}
         disabledTitle={
-          sinCaso ? "Sin paciente ni lead asociado" : "Comprobando cómo enviar…"
+          bloqueadoPorOptOut
+            ? "Pidió no recibir mensajes: solo se le contesta cuando escribe"
+            : sinCaso
+              ? "Sin paciente ni lead asociado"
+              : "Comprobando cómo enviar…"
         }
         modoManual={wabaActivo === false}
         error={error}

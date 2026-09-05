@@ -73,7 +73,12 @@ export type EventoAutomatizacion =
   | "resuelto_manual"
   | "soltado"
   | "espera_fijada"
-  | "espera_levantada";
+  | "espera_levantada"
+  /** 034 — la persona pidió no recibir mensajes (lo detectó el agente o lo
+   *  marcó una persona); `opt_in` lo revierte. Append-only: la vigencia es
+   *  «último opt_out sin opt_in posterior», la resuelve lib/contacto/optout. */
+  | "opt_out"
+  | "opt_in";
 
 /** Por qué el agente entregó el caso (022 + 023). Nada más deriva — lo demás
  *  se anota y la conversación sigue. `antecedente_medico` (023, caso Sintrom):
@@ -84,7 +89,11 @@ export type CausaDerivacion =
   | "insistencia"
   | "urgencia"
   | "caso_completo"
-  | "antecedente_medico";
+  | "antecedente_medico"
+  /** 034 — la persona mandó algo que el agente NO puede leer (audio, foto,
+   *  documento, ubicación…): no responde ni inventa, entrega. Se cierra
+   *  cuando una persona contesta (hecho del sistema: saliente posterior). */
+  | "no_legible";
 
 /** La cola se DERIVA del hecho, no se persiste: si mañana cambia la política,
  *  el histórico (causa + malestar) no se pierde. */

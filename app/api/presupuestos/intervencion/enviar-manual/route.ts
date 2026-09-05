@@ -15,17 +15,40 @@ import type { UserSession } from "../../../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
 
+// ─── MEJORAS 135 — opt-out: una fuente, todos los lectores ──────────────────
+// Con opt-out vigente solo se puede RESPONDER (el último mensaje es suyo).
+// Si la comprobación falla, se degrada con log y se deja enviar: es una
+// defensa auxiliar, no la puerta principal (§3, matiz).
+async function bloqueadoPorOptOut(telefono: string): Promise<boolean> {
+  try {
+    const { envioBloqueadoPorOptOut } = await import("../../../../lib/contacto/optout");
+    return (await envioBloqueadoPorOptOut(telefono)).bloqueado;
+  } catch (err) {
+    console.error("[envio] opt-out no comprobable:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+const ERROR_OPT_OUT = "Esta persona pidió no recibir mensajes. Solo se le puede contestar cuando escribe ella.";
+
 /**
  * Lee el sugerido de la BASE (no del cuerpo de la petición) y registra la
  * medida. Aislado en una función para que el fallo de la métrica no pueda
  * arrastrar al envío: todo lo de aquí es best-effort y logueado.
+ *
+ * MEJORAS 119 (auditoría 2026-09-05): el sugerido es EL BORRADOR DEL
+ * EVALUADOR para el último entrante (borradorAgenteDe) — el texto que la
+ * persona tenía delante. El `Mensaje_sugerido` del clasificador viejo queda
+ * de reserva hasta B5.
  */
-async function medirEnvioDePresupuesto(
+export async function medirEnvioDePresupuesto(
   presupuestoId: string,
+  telefono: string,
   enviado: string,
   session: UserSession,
 ): Promise<void> {
   try {
+    const { borradorAgenteDe } = await import("../../../../lib/agente/borrador-agente");
+    const delAgente = await borradorAgenteDe(telefono);
     const { selectPresupuestosRaw } = await import("../../../../lib/presupuestos/repo");
     const recs = await selectPresupuestosRaw({
       filterByFormula: `RECORD_ID()='${presupuestoId}'`,
@@ -33,7 +56,7 @@ async function medirEnvioDePresupuesto(
       maxRecords: 1,
     });
     const campos = recs[0]?.fields as Record<string, unknown> | undefined;
-    const sugerido = campos?.["Mensaje_sugerido"];
+    const sugerido = delAgente ?? campos?.["Mensaje_sugerido"];
     const intencion = campos?.["Intencion_detectada"];
     await medirYRegistrarEnvio({
       tipoCaso: "presupuesto",
@@ -75,6 +98,10 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     }
   }
 
+  if (await bloqueadoPorOptOut(telefono)) {
+    return NextResponse.json({ error: ERROR_OPT_OUT }, { status: 409 });
+  }
+
   try {
     const servicio = getServicioMensajeria("manual");
     const result = await servicio.enviarMensaje({ presupuestoId, telefono, contenido, autor: "persona", sugeridoPorIa });
@@ -82,8 +109,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     // Coincidencia agente-humano (fase 1). Se mide DESPUÉS del envío y con el
     // sugerido leído de la base, no del cuerpo de la petición: si el cliente
     // mandara "esto me propusiste", la métrica mediría al cliente. Nunca lanza.
-    if (presupuestoId) {
-      await medirEnvioDePresupuesto(presupuestoId, contenido, session);
+    if (presupuestoId && body?.borradorDe !== "entrada") {
+      await medirEnvioDePresupuesto(presupuestoId, telefono, contenido, session);
     }
 
     return NextResponse.json({

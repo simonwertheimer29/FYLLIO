@@ -11,10 +11,28 @@
 // toque dos casos. Es la decisión del 2026-08-11: lo que se elige es qué CASO
 // manda en el panel y en la recomendación, no qué mensajes se enseñan. Partir
 // el hilo por casos sería enseñarle a la coordinadora media conversación.
+//
+// 034 (auditoría 2026-09-05): lo que no es texto —audio, foto, documento,
+// ubicación— se ve como lo que es, con su icono y un enlace para abrirlo en
+// WhatsApp: el archivo vive en Meta y hoy no se descarga (MEJORAS 153).
 
 import { useEffect, useRef } from "react";
 import { fechaClinica, horaClinica, hoyISO } from "../../lib/time";
-import { Sparkles, ICON_STROKE } from "../../components/icons";
+import {
+  Sparkles,
+  Mic,
+  ImageIcon,
+  Film,
+  Paperclip,
+  MapPin,
+  Contact,
+  Smile,
+  Info,
+  Ban,
+  ExternalLink,
+  ICON_STROKE,
+} from "../../components/icons";
+import { esLegible, enlaceWhatsApp } from "../../lib/mensajeria/tipos-mensaje";
 
 export type MensajeHilo = {
   id: string;
@@ -23,6 +41,9 @@ export type MensajeHilo = {
   timestamp: string;
   autor: string | null;
   sugeridoPorIa: boolean;
+  /** 034 — qué es. Ausente/null = texto. */
+  tipo?: string | null;
+  mediaId?: string | null;
 };
 
 function etiquetaDeDia(iso: string): string {
@@ -35,7 +56,19 @@ function etiquetaDeDia(iso: string): string {
   return fechaClinica(iso, { diaSemana: true });
 }
 
-export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
+const ICONO_TIPO: Record<string, typeof Mic> = {
+  audio: Mic,
+  image: ImageIcon,
+  video: Film,
+  document: Paperclip,
+  location: MapPin,
+  contacts: Contact,
+  sticker: Smile,
+  system: Info,
+  unsupported: Ban,
+};
+
+export function HiloMensajes({ mensajes, telefono }: { mensajes: MensajeHilo[]; telefono?: string | null }) {
   const finRef = useRef<HTMLDivElement>(null);
 
   // Los mensajes se anclan ABAJO, como cualquier conversación: lo último dicho
@@ -54,6 +87,10 @@ export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
         const nuevoDia = dia !== ultimoDia;
         ultimoDia = dia;
         const mio = m.direccion === "Saliente";
+        // Un archivo o un gesto: se enseña con su icono, nunca fingiendo texto.
+        const esArchivo = !mio && m.tipo != null && (!esLegible(m.tipo) || m.tipo === "sticker" || m.tipo === "system");
+        const Icono = esArchivo ? (ICONO_TIPO[m.tipo!] ?? Ban) : null;
+        const abrible = esArchivo && m.tipo !== "system" && Boolean(telefono);
         return (
           <div key={m.id}>
             {nuevoDia && (
@@ -75,10 +112,30 @@ export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
                     : "rounded-bl-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-foreground)]"
                 }`}
               >
-                {/* TEXTO, siempre. Lo escribió un paciente. */}
-                <p className="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">
-                  {m.contenido}
-                </p>
+                {esArchivo && Icono ? (
+                  <div>
+                    <p className="flex items-center gap-2 text-[13.5px] leading-relaxed">
+                      <Icono size={15} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-muted)]" aria-hidden />
+                      <span className="break-words font-medium">{m.contenido}</span>
+                    </p>
+                    {abrible && (
+                      <a
+                        href={enlaceWhatsApp(telefono!)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-[var(--color-accent)] hover:underline"
+                      >
+                        Abrir en WhatsApp
+                        <ExternalLink size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                      </a>
+                    )}
+                  </div>
+                ) : (
+                  /* TEXTO, siempre. Lo escribió un paciente. */
+                  <p className="whitespace-pre-wrap break-words text-[13.5px] leading-relaxed">
+                    {m.contenido}
+                  </p>
+                )}
                 <p
                   className={`mt-1 text-right text-[10px] tabular-nums ${
                     mio ? "text-[var(--color-on-accent)]/70" : "text-[var(--color-muted)]"

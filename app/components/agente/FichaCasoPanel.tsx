@@ -23,7 +23,8 @@ import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica } from "../../lib/time";
-import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, ICON_STROKE } from "../icons";
+import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, Ban, ICON_STROKE } from "../icons";
+import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { AgendarLeadPanel } from "../agenda/AgendarLeadPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import { eur as eurUI } from "../shared/Cifra";
@@ -47,6 +48,7 @@ const TITULO_DERIVADO: Record<CausaDerivacion, string> = {
   antecedente_medico: "Mencionó una medicación o condición médica",
   caso_completo: "El agente terminó su parte — queda cerrarlo",
   insistencia: "Insistió varias veces — el agente no le resuelve",
+  no_legible: "Envió un audio, foto o archivo que el agente no puede leer — ábrelo en WhatsApp",
 };
 /** Rojo para lo que exige atención inmediata (el mismo criterio que la cola
  *  prioritaria de la derivación); el resto informa sin alarmar. */
@@ -60,6 +62,8 @@ export function FichaCasoPanel({
   telefono,
   modo,
   onCambio,
+  ficha: fichaExterna,
+  onRecargar,
 }: {
   telefono: string;
   /** «mensajeria»: la conversación está al lado — sin enlace al hilo.
@@ -69,31 +73,43 @@ export function FichaCasoPanel({
    *  ficha ya se recarga sola, pero la cola/bandeja del caller también
    *  cambió — este callback es su aviso. */
   onCambio?: () => void;
+  /** MEJORAS 119 — si la pantalla YA tiene la ficha (Mensajería la pide una
+   *  vez y la reparte entre el composer y esta columna), se pasa aquí y el
+   *  panel no la vuelve a pedir; recargar es `onRecargar`. */
+  ficha?: FichaCaso | null;
+  onRecargar?: () => void;
 }) {
-  const [ficha, setFicha] = useState<FichaCaso | null>(null);
+  const externa = fichaExterna !== undefined;
+  const [fichaPropia, setFichaPropia] = useState<FichaCaso | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
   // G3 — el panel de agendar, montado desde la ficha misma.
   const [agendando, setAgendando] = useState(false);
 
   const cargar = useCallback(async () => {
+    if (externa) {
+      onRecargar?.();
+      return;
+    }
     setCargando(true);
     setError(null);
     try {
       const d = await cargarJSON<FichaCaso>(
         `/api/agente/ficha?telefono=${encodeURIComponent(telefono)}`,
       );
-      setFicha(d);
+      setFichaPropia(d);
     } catch (e) {
       setError(mensajeDeError(e));
     } finally {
       setCargando(false);
     }
-  }, [telefono]);
+  }, [telefono, externa, onRecargar]);
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (!externa) cargar();
+  }, [cargar, externa]);
+
+  const ficha = externa ? fichaExterna : fichaPropia;
 
   // Tras una decisión: la ficha se recarga (el estado que enseñaba cambió) y
   // se avisa al caller — la cola de Seguimiento o la bandeja también cambiaron.
@@ -182,6 +198,29 @@ export function FichaCasoPanel({
           </div>
         </div>
       )}
+      {/* ── MEJORAS 135 · pidió no recibir mensajes: lo único que cambia lo
+          que la coordinadora hará ahora mismo (no escribirle si no escribe
+          él). Revertir es de una persona y queda en el log con su nombre. */}
+      {ficha.optOut.activo && (
+        <div className="flex gap-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2.5">
+          <Ban className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] leading-snug text-[var(--color-foreground)]">
+              <span className="font-semibold">Pidió no recibir mensajes</span>
+              {ficha.optOut.desde ? ` — ${fechaClinica(ficha.optOut.desde)}` : ""}
+              {ficha.optOut.frase ? `: ${ficha.optOut.frase}` : "."}
+              {" Solo se le contesta si escribe él; ningún envío automático."}
+            </p>
+            <BotonSemaforo
+              telefono={ficha.telefono}
+              evento="opt_in"
+              etiqueta="Revertir (lo ha pedido él)"
+              hecho="Opt-out revertido — vuelve a recibir mensajes"
+              onHecho={alCambiar}
+            />
+          </div>
+        </div>
+      )}
       <p className="flex items-center gap-1.5 text-[12px] text-[var(--color-muted)]">
         <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
         {ficha.intentos.salientes === 0
@@ -224,6 +263,14 @@ export function FichaCasoPanel({
           <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-[var(--color-foreground)]">
             {ficha.queQuiere ?? "Sin objetivo abierto — solo conversación."}
           </p>
+          {/* MEJORAS 119/128: si el ÚLTIMO mensaje no tiene evaluación, lo de
+              arriba es del anterior — se dice, no se enseña como actual. */}
+          {!ficha.agente.alDia && (
+            <p className="mt-1 flex items-start gap-1.5 text-[12px] leading-snug text-[var(--color-warning)]">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+              El último mensaje de la persona no tiene evaluación del agente: esto es de un mensaje anterior.
+            </p>
+          )}
           {ficha.otrosObjetivos.length > 0 && (
             <p className="mt-1 text-[12px] text-[var(--color-muted)]">
               Además: {ficha.otrosObjetivos.map((o) => ETIQUETA_OTRO[o] ?? o).join(" · ")}
@@ -314,10 +361,26 @@ export function FichaCasoPanel({
           </p>
           <ol className="mt-1.5 space-y-1.5">
             {ficha.pendientes.map((p, i) => (
-              <li key={`${p.clave}-${i}`} className="text-[12.5px] leading-snug text-[var(--color-foreground)]">
-                <span className="tabular-nums text-[var(--color-muted)]">{i + 1}.</span>{" "}
-                <span className="font-medium">{p.etiqueta}</span>
-                <span className="text-[var(--color-muted)]"> — «{p.frase}»</span>
+              <li key={`${p.clave}-${i}`} className="flex items-start justify-between gap-2 text-[12.5px] leading-snug text-[var(--color-foreground)]">
+                <span className="min-w-0">
+                  <span className="tabular-nums text-[var(--color-muted)]">{i + 1}.</span>{" "}
+                  <span className="font-medium">{p.etiqueta}</span>
+                  <span className="text-[var(--color-muted)]"> — «{p.frase}»</span>
+                </span>
+                {/* MEJORAS 121: el emisor de `aplazado_resuelto` que faltaba.
+                    Resolver una clave resuelve TODAS sus frases (regla de
+                    pendientes de la 021). Solo se enseña una vez por clave. */}
+                {ficha.pendientes.findIndex((q) => q.clave === p.clave) === i && (
+                  <BotonSemaforo
+                    telefono={ficha.telefono}
+                    evento="aplazado_resuelto"
+                    claveAplazado={p.clave}
+                    etiqueta="Respondido"
+                    hecho={`«${p.etiqueta}» marcado como respondido`}
+                    onHecho={alCambiar}
+                    sinMargen
+                  />
+                )}
               </li>
             ))}
           </ol>
@@ -374,9 +437,12 @@ function BotonSemaforo({
   hecho,
   onHecho,
   sinMargen = false,
+  claveAplazado,
 }: {
   telefono: string;
-  evento: "resuelto_manual" | "soltado" | "espera_levantada";
+  evento: "resuelto_manual" | "soltado" | "espera_levantada" | "aplazado_resuelto" | "opt_in";
+  /** Solo con `aplazado_resuelto`: qué clave se resuelve (MEJORAS 121). */
+  claveAplazado?: ClaveAplazado;
   etiqueta: string;
   /** El toast de éxito: dice qué pasó, no «hecho». */
   hecho: string;
@@ -403,7 +469,7 @@ function BotonSemaforo({
       await cargarJSON("/api/automatizacion/decidir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tipoCaso: "conversacion", casoId: telefono, evento }),
+        body: JSON.stringify({ tipoCaso: "conversacion", casoId: telefono, evento, claveAplazado }),
       });
       toast.success(hecho);
       onHecho();

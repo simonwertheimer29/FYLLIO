@@ -12,13 +12,16 @@ import type {
   IntencionDetectada,
 } from "./types";
 import { getWABACredentials, normalizarTelefono } from "./waba-credentials";
+import type { TipoMensaje } from "../mensajeria/tipos-mensaje";
 import { checkRateLimit } from "./rate-limit";
 import { getIdempotentResult, setIdempotentResult } from "../scheduler/idempotency";
 
 // ─── Acceso al LOG Mensajes_WhatsApp (delegado a Postgres por flag) ──────────
 // Solo el REGISTRO del mensaje. Idempotencia (KV), envío a Meta (WABA),
 // rate-limit y telemetría son ortogonales y NO pasan por aquí.
-async function crearMensajeWhatsAppRecord(fields: Record<string, unknown>): Promise<{ id: string }> {
+async function crearMensajeWhatsAppRecord(
+  fields: Record<string, unknown>,
+): Promise<{ id: string; insertado: boolean }> {
   const pg = await import("./mensajeria-pg");
   return pg.createMensajeWhatsAppPg(fields);
   
@@ -136,11 +139,18 @@ export interface RecibirMensajeParams {
   /** Clínica del NÚMERO que recibió el mensaje (migración 019). `null` = no se
    *  sabe; nunca «todas». */
   clinicaId?: string | null;
+  /** 034 — qué es (texto, audio, foto, botón…). Ausente = texto. */
+  tipo?: TipoMensaje | null;
+  /** 034 — id del archivo en Meta (audio/imagen/vídeo/documento/sticker). */
+  mediaId?: string | null;
 }
 
 export interface RecibirMensajeResult {
   ok: boolean;
   mensajeId: string;
+  /** 034 — false ⇔ el mensaje YA estaba (misma entrega de Meta repetida): el
+   *  caller no evalúa ni cuenta dos veces. Ausente = insertado. */
+  insertado?: boolean;
   clasificacion?: ClasificacionIA;
 }
 
@@ -264,6 +274,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Procesado_por_IA: false,
       Autor: params.autor,
       Sugerido_por_IA: params.sugeridoPorIa ?? false,
+      Tipo: "text",
     };
     if (params.leadId) fields.Lead_Link = [params.leadId];
     const record = await crearMensajeWhatsAppRecord(fields);
@@ -307,6 +318,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Procesado_por_IA: false,
       Nombre_perfil: params.nombrePerfil ?? null,
       Clinica_id: params.clinicaId ?? null,
+      Tipo: "text",
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;
@@ -391,6 +403,12 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
       Timestamp: now,
       Fuente: params.fuente ?? "Modo_B_WABA",
       Procesado_por_IA: false,
+      // MEJORAS 131 (auditoría 2026-09-05): la rama WABA no persistía quién
+      // pulsó enviar ni si el texto era del agente — en modo B real la tasa
+      // de coincidencia y «las lleva el agente» nacían muertas.
+      Autor: params.autor,
+      Sugerido_por_IA: params.sugeridoPorIa ?? false,
+      Tipo: "text",
     };
     if (params.leadId) fields.Lead_Link = [params.leadId];
     if (wabaMessageId) fields.WABA_message_id = wabaMessageId;
@@ -430,6 +448,9 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
       Procesado_por_IA: false,
       Nombre_perfil: params.nombrePerfil ?? null,
       Clinica_id: params.clinicaId ?? null,
+      // 034 — todo lo que entra se guarda con lo que es; texto si no se dice.
+      Tipo: params.tipo ?? "text",
+      Media_id: params.mediaId ?? null,
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;
@@ -442,7 +463,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_recibido").catch(() => {});
 
-    return { ok: true, mensajeId: record.id as string };
+    return { ok: true, mensajeId: record.id as string, insertado: record.insertado };
   }
 
   async getHistorialConversacion(params: HistorialParams): Promise<MensajeWhatsApp[]> {
