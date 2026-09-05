@@ -44,7 +44,7 @@ export async function optOutDeTelefono(telefono: string): Promise<EstadoOptOut> 
   if (dig.length < 7) return SIN;
   return runWithClienteDb(cliente, async (trx) => {
     // 1 · El log de la conversación: último opt_out / opt_in.
-    const ev: any = await sql`
+    const ev = await sql<{ evento: string; motivo_texto: string | null; created_at: Date }>`
       select evento, motivo_texto, created_at
         from eventos_automatizacion
        where tipo_caso = 'conversacion'
@@ -65,7 +65,7 @@ export async function optOutDeTelefono(telefono: string): Promise<EstadoOptOut> 
     // pudo quedarse marcado por Twilio hace meses.
     if (ultimo?.evento === "opt_in") return SIN;
     // 2 · La ficha del paciente (cualquiera de los dos flags heredados).
-    const pa: any = await sql`
+    const pa = await sql<{ ok: number }>`
       select 1 from pacientes
        where (optout_automatizaciones = true or opt_out = true)
          and replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"}
@@ -162,8 +162,8 @@ export async function envioBloqueadoPorOptOut(
   if (!estado.activo) return { bloqueado: false, estado };
   const cliente = requireCliente("envioBloqueadoPorOptOut");
   const dig = soloDigitos(telefono);
-  const ultimo: any = await runWithClienteDb(cliente, (trx) =>
-    sql`select direccion from mensajes_whatsapp
+  const ultimo = await runWithClienteDb(cliente, (trx) =>
+    sql<{ direccion: string | null }>`select direccion from mensajes_whatsapp
          where replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"}
            and "timestamp" is not null
          order by "timestamp" desc limit 1`.execute(trx),

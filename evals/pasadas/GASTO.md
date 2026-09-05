@@ -25,3 +25,9 @@ de esta carpeta. Pendiente al reabrir crédito: vara del evaluador post-equilibr
   verificación del cierre de raíz de agenda (veto determinista + matiz regla 5) · ac. **$1,90**
   (anunciado $0,15 con el repro; el repro con modelo NO se corrió — el veto es código y
   qa:conocimiento prueba la frase LITERAL de la captura sin gastar)
+
+## Sesión 2026-09-05 (resolución de la auditoría del agente)
+- qa:evals-evaluador --solo I (tanda de inyección, 4 turnos) · **$0,02 medido** · MEJORAS 138: el texto delimitado y el juez frente a órdenes en el mensaje → 4/4, el juez cazó I3 (económica) · ac. $0,02
+- qa:evals-evaluador --casos 16,6 × 5 corridas (10 turnos) · **$0,05 medido** ($0,0105 × 5) · fijar la banda de los «moneda al aire» con el prompt nuevo → 10/10, cero alternancia en cinco corridas · ac. $0,07
+- qa:entrante (2 llamadas) · **~$0,01** · orquestador de punta a punta con tipo/señales/opt-out → 4/4 en la parte del orquestador (los 2 «fallos» son el interruptor del seed, que está encendido en DEMO y el QA espera apagado; no es del cambio) · ac. **$0,08**
+  (anunciado $0,12; el 16/6 salió más barato de lo estimado)

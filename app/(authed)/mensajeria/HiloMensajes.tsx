@@ -78,14 +78,17 @@ export function HiloMensajes({ mensajes, telefono }: { mensajes: MensajeHilo[]; 
     finRef.current?.scrollIntoView({ block: "end" });
   }, [mensajes]);
 
-  let ultimoDia = "";
+  // Los separadores de día se calculan en una pasada PREVIA: reasignar una
+  // variable dentro del render es lo que la regla de inmutabilidad prohíbe.
+  const conDia = mensajes.map((m, i) => {
+    const dia = hoyISO(new Date(m.timestamp));
+    const previo = i > 0 ? hoyISO(new Date(mensajes[i - 1]!.timestamp)) : "";
+    return { m, nuevoDia: dia !== previo };
+  });
 
   return (
     <div className="flex min-h-full flex-col justify-end gap-1.5 px-4 py-4">
-      {mensajes.map((m) => {
-        const dia = hoyISO(new Date(m.timestamp));
-        const nuevoDia = dia !== ultimoDia;
-        ultimoDia = dia;
+      {conDia.map(({ m, nuevoDia }) => {
         const mio = m.direccion === "Saliente";
         // Un archivo o un gesto: se enseña con su icono, nunca fingiendo texto.
         const esArchivo = !mio && m.tipo != null && (!esLegible(m.tipo) || m.tipo === "sticker" || m.tipo === "system");

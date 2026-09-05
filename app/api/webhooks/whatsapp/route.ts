@@ -62,7 +62,7 @@ import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
 // coincide con el WABA configurado (RB) → PILOT_CLIENTE; cualquier otro número →
 // null (fail-closed, NO asume RB). Al entrar el 2º cliente: mapear su número.
 function resolveClienteFromWebhook(payload: unknown): Cliente | null {
-  const value = (payload as any)?.entry?.[0]?.changes?.[0]?.value;
+  const value = (payload as { entry?: Array<{ changes?: Array<{ value?: ValorCambio }> }> })?.entry?.[0]?.changes?.[0]?.value;
   const incomingPhoneNumberId = String(value?.metadata?.phone_number_id ?? "");
   if (!incomingPhoneNumberId) return null;
   let rbPhoneNumberId = "";
@@ -286,6 +286,14 @@ function cuerpoDe(msg: WABAWebhookMessage, tipo: TipoMensaje): { cuerpo: CuerpoE
   }
 }
 
+/** La forma del `value` de un change de Meta: solo lo que se lee. */
+type ValorCambio = {
+  statuses?: unknown[];
+  messages?: WABAWebhookMessage[];
+  contacts?: WABAWebhookContact[];
+  metadata?: { phone_number_id?: string };
+};
+
 /** Un entrante ya persistido de este lote, con lo que la evaluación necesita. */
 type EntrantePersistido = {
   telefono: string;
@@ -299,7 +307,8 @@ type EntrantePersistido = {
 };
 
 async function processIncomingPayload(body: unknown): Promise<void> {
-  const entries: any[] = Array.isArray((body as any)?.entry) ? (body as any).entry : [];
+  const cuerpo = (body ?? {}) as { entry?: unknown };
+  const entries: unknown[] = Array.isArray(cuerpo.entry) ? cuerpo.entry : [];
   const persistidos: EntrantePersistido[] = [];
   let statuses = 0;
   // La clínica de cada número se resuelve UNA vez por lote (misma consulta
@@ -307,9 +316,9 @@ async function processIncomingPayload(body: unknown): Promise<void> {
   const clinicaPorNumero = new Map<string, string | null>();
 
   for (const entry of entries) {
-    const changes: any[] = Array.isArray(entry?.changes) ? entry.changes : [];
+    const changes: unknown[] = Array.isArray((entry as { changes?: unknown })?.changes) ? ((entry as { changes: unknown[] }).changes) : [];
     for (const change of changes) {
-      const value = change?.value;
+      const value = (change as { value?: ValorCambio })?.value;
       if (Array.isArray(value?.statuses)) statuses += value.statuses.length;
       const messages: WABAWebhookMessage[] = Array.isArray(value?.messages) ? value.messages : [];
       if (messages.length === 0) continue;
@@ -589,7 +598,7 @@ async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promis
   if (recs.length === 0) return null;
 
   const r = recs[0];
-  const f = r.fields as any;
+  const f = r.fields as Record<string, unknown>;
 
   const nombre = f["Paciente_nombre"];
   const patientName = Array.isArray(nombre) ? String(nombre[0] ?? "") : String(nombre ?? "");

@@ -42,7 +42,7 @@ export const GET = withAuth(async (session, req) => {
     const filas = await runWithCliente(session.cliente, async () => {
       const cliente = requireCliente("agente/descartes");
       return runWithClienteDb(cliente, async (trx) => {
-        const r: any = await sql`
+        const r = await sql<{ clinica_id: string | null; clinica_nombre: string | null; motivo: string; n: number }>`
           with ev as (
             select e.caso_id,
                    (e.evaluacion_json::jsonb -> 'borradorDescartado' ->> 'motivo') as motivo
@@ -66,7 +66,7 @@ export const GET = withAuth(async (session, req) => {
             left join clinicas c on c.cliente = ${cliente} and c.id = cl.clinica_id
            group by 1, 2, 3
            order by 2 nulls last, 3`.execute(trx);
-        return (r.rows ?? []) as { clinica_id: string | null; clinica_nombre: string | null; motivo: string; n: number }[];
+        return r.rows;
       });
     });
 

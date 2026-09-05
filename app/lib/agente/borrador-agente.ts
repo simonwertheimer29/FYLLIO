@@ -50,7 +50,7 @@ export type EstadoBorrador = {
 export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador> {
   const cliente = requireCliente("estadoBorradorDe");
   return runWithClienteDb(cliente, async (trx) => {
-    const ue: any = await sql`
+    const ue = await sql<{ timestamp: Date | string; waba_message_id: string | null; tipo: string | null }>`
       select "timestamp", waba_message_id, tipo
         from mensajes_whatsapp
        where telefono = ${telefono} and direccion = 'Entrante' and "timestamp" is not null
@@ -69,14 +69,15 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
 
     // La evaluación PROPIA del último entrante: por mensaje_id si lo hay
     // (webhook), o la posterior al entrante si es un registro manual sin id.
-    const ev: any = ultimoEntrante.wabaMessageId
-      ? await sql`
+    type FilaEv = { mensaje_id: string | null; evaluacion_json: string | null; created_at: Date };
+    const ev = ultimoEntrante.wabaMessageId
+      ? await sql<FilaEv>`
           select mensaje_id, evaluacion_json, created_at
             from eventos_automatizacion
            where tipo_caso = 'conversacion' and caso_id = ${telefono}
              and evento = 'evaluacion' and mensaje_id = ${ultimoEntrante.wabaMessageId}
            order by created_at desc limit 1`.execute(trx)
-      : await sql`
+      : await sql<FilaEv>`
           select mensaje_id, evaluacion_json, created_at
             from eventos_automatizacion
            where tipo_caso = 'conversacion' and caso_id = ${telefono}

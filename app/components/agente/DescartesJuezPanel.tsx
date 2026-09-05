@@ -28,18 +28,26 @@ export function DescartesJuezPanel() {
   const [datos, setDatos] = useState<{ dias: number; clinicas: DescartesClinica[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const cargar = useCallback(async () => {
-    setError(null);
-    try {
-      setDatos(await cargarJSON<{ dias: number; clinicas: DescartesClinica[] }>("/api/agente/descartes?dias=30"));
-    } catch (e) {
-      setError(mensajeDeError(e));
-    }
-  }, []);
+  // `intento` es el disparador de la recarga: el efecto suscribe la petición
+  // y actualiza estado en sus callbacks, no de forma síncrona en su cuerpo.
+  const [intento, setIntento] = useState(0);
+  const cargar = useCallback(() => setIntento((n) => n + 1), []);
 
   useEffect(() => {
-    void cargar();
-  }, [cargar]);
+    let vivo = true;
+    cargarJSON<{ dias: number; clinicas: DescartesClinica[] }>("/api/agente/descartes?dias=30")
+      .then((d) => {
+        if (!vivo) return;
+        setDatos(d);
+        setError(null);
+      })
+      .catch((e) => {
+        if (vivo) setError(mensajeDeError(e));
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [intento]);
 
   return (
     <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">

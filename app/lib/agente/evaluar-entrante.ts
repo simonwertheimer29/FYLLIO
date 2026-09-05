@@ -171,7 +171,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
 
     let proximaCita: Date | null = null;
     if (ctx.pacienteId) {
-      const c: any = await sql`select min(hora_inicio) as prox from citas
+      const c = await sql<{ prox: Date | null }>`select min(hora_inicio) as prox from citas
           where paciente_id = ${ctx.pacienteId} and hora_inicio >= now()`.execute(trx);
       proximaCita = c.rows?.[0]?.prox ?? null;
     }

@@ -3754,3 +3754,61 @@ usa la misma función (dictado: matarla ahora, no después). Los informes guarda
 formatos y se leen etiquetados («definición anterior»), jamás recalculados. Copy: «se cierran» →
 «del € presentado se aceptó». La cohorte por número de /red y Pacientes queda como definición
 declarada aparte (pendiente decidir si también pasa a euros).
+
+## 2026-09-05 — Auditoría profunda del agente: lo que el seed no provocaba
+Lectura de punta a punta (webhook → contexto → evaluador → juez → veto → persistencia → cola →
+entrega) como si fuera a producción mañana. Trece hallazgos propios antes de las ocho secciones
+pedidas; todos en MEJORAS 117-155 con severidad y esfuerzo. Los tres que más pesaban: **(1)** el
+dedup del webhook marcaba el KV ANTES de persistir — un fallo del insert convertía el reintento de
+Meta en «ya visto» y el mensaje se perdía para siempre; **(2)** solo se procesaba `messages[0]` y
+solo texto: audios, fotos, documentos y respuestas de botón no dejaban rastro; **(3)** el borrador
+que el evaluador juzgaba, vetaba y medía **no lo enseñaba ningún composer** — la coordinadora veía
+otro, generado por el borrador de entrada, sin el veto determinista de agenda. El eval llevaba
+semanas al 95 % midiendo un artefacto que no era el producto (lección 21 del skill). Vercel: el
+token del CLI está caducado y **Fluid Compute queda sin verificar** — `maxDuration = 60` en el
+webhook lo cubre en cualquier plan; comprobar en el dashboard.
+
+## 2026-09-05 — Resolución de la auditoría (puntos 0-8 del encargo, en un día)
+Migración 034 (`tipo`, `media_id`, UNIQUE por id de Meta, causa `no_legible`, eventos
+`opt_out`/`opt_in`). Webhook: lote entero, todos los tipos, ON CONFLICT en base, KV después de
+persistir, una evaluación por hilo y lote; lo no legible deriva sin modelo y se cierra cuando una
+persona contesta. Un solo borrador: `borradorAgenteDe` es la fuente; composer y chat embebido lo
+precargan; el de entrada solo en relevo; veto determinista en los dos; las cuatro rutas de envío
+miden la coincidencia contra ese texto (y no remiden el de entrada). Estados: coletilla del cobro
+una vez (contada del hilo + el prompt lo sabe), botón «Respondido» → `aplazado_resuelto`,
+insistencia desde el último resuelto con ráfaga = una vuelta, espera fuera de tope como pendiente
+visible. Fallos: `avisarFalloAgente` (campana, uno por hora/motivo/clínica) + filtro y banda «Sin
+evaluar». Opt-out: `lib/contacto/optout` (paciente + log), juicio `pideNoContacto` con respuesta
+por código, leído por composer, chat, cola y las cuatro rutas de envío (409 si es proactivo).
+Idioma: juicio + instrucción + veto en/ca + plantillas ca/en. Config: rangos de precio (1–100.000
+€) y hora real. Inyección: texto del paciente entre `<paciente>…</paciente>` en los tres prompts +
+tanda I del eval (4/4, el juez cazó la económica). Caso 35 a código. Señales del hilo al prompt.
+Panel de descartes del juez por clínica. QA: parseo, conocimiento, tipos, bandeja, ficha, turno en
+verde; 16/6 **10/10 en cinco corridas** con el prompt nuevo (antes «moneda al aire»); qa:entrante
+4/4 en el orquestador (sus 2 rojos son el interruptor del seed encendido en DEMO). Gasto $0,08.
+Legal: `CONSULTA-LEGAL-AGENTE.md`, una página, cuatro puntos, para antes de RB.
+
+## 2026-09-05 — Cuatro decisiones de producto abiertas tras la auditoría (con recomendación)
+**(a) Hilo por clínica en redes (MEJORAS 122).** Hoy el hilo es el teléfono y la config ya sale
+del número que recibió. Falta decidir qué ve la coordinadora de la clínica B cuando el paciente
+escribió antes a la A. Recomendación: **hilo único por persona, mensajes etiquetados con su
+clínica**, visible entero para quien tenga acceso a CUALQUIERA de las clínicas del hilo, y el
+evaluador contextualiza con «también ha escrito a X». Partirlo por clínica esconde media
+conversación a quien la necesita; en una red el paciente es uno. Coste: un día.
+**(b) Rojo eterno por queja/insistencia (MEJORAS 125).** Recomendación: **cierre por hecho + edad
+visible, sin caducidad muda**: `peticion_queja` se cierra cuando una persona ha contestado Y el
+paciente ha vuelto a escribir sin volver a quejarse (dos hechos observables, contados por código);
+`insistencia`, cuando la clave que insistía se marca respondida (el botón de hoy). Lo que no cumpla
+ninguno sigue rojo y envejece en el censo. Caducar por tiempo se descartó el 17-08 y sigue siendo
+mala idea: tapa el fallo. Coste: medio día.
+**(c) Teléfono compartido (MEJORAS 139).** Recomendación: **guarda determinista de ambigüedad**:
+si el número casa con más de un paciente, o con un paciente y un lead de nombre distinto, el
+contexto no afirma presupuestos ni pagos (los enseña como «hay varios expedientes con este número»)
+y la ficha lo declara; y el prompt pide el nombre completo antes de nada. No se elige `limit 1`
+nunca (mandamiento 20). Identidad fiable de verdad exige un dato más (DNI, fecha de nacimiento)
+que hoy no se pide por WhatsApp: eso es decisión de producto y legal a la vez. Coste: 3 h.
+**(d) Caso 49 del eval («hay opiniones de todo»).** Recomendación: **mantener A (no deriva)** y
+retirar el R de la vara. El desgaste se decidió el 14-08 como dimensión distinta contada del log,
+no juzgada del tono; una causa «desconfianza» sería un juicio del modelo sobre el ánimo, justo lo
+que se prohibió. Lo que sí: que el agente, ante «opiniones de todo», ofrezca una valoración con el
+doctor (lo hace) y que el desgaste alimente la cadencia de Seguimiento cuando exista.

@@ -42,8 +42,8 @@ export async function avisarFalloAgente(args: {
   if (!cliente) return; // sin contexto no hay campana que tocar; el log ya salió
   try {
     const titulo = TITULO[args.motivo];
-    const reciente: any = await runWithClienteDb(cliente, (trx) =>
-      sql`select 1 from notificaciones
+    const reciente = await runWithClienteDb(cliente, (trx) =>
+      sql<{ ok: number }>`select 1 from notificaciones
           where tipo = 'Sistema' and titulo = ${titulo}
             and coalesce(mensaje, '') like ${`%[${args.clinicaId ?? "global"}]%`}
             and fecha_creacion > now() - make_interval(mins => ${VENTANA_MIN})

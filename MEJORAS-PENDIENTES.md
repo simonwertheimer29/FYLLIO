@@ -2023,14 +2023,14 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   devolvemos 500, Meta reintenta, el reintento cae en «ya visto» y responde 200: nadie lo vuelve a
   intentar. Es S1 con otra forma. Además el KV es get-y-luego-set (race) y sin UNIQUE en base.
 - **Severidad:** rompe silencioso · **Propuesta:** UNIQUE (cliente, waba_message_id) + ON CONFLICT;
-  el KV se marca DESPUÉS de persistir · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅
+  el KV se marca DESPUÉS de persistir · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): UNIQUE (cliente, waba_message_id) + ON CONFLICT en `createMensajeWhatsAppPg`; el KV se marca después de persistir
 
 ## 118. Webhook — solo `messages[0]` y solo texto
 - **Qué es:** del lote de Meta se procesa el primer mensaje (`route.ts:194`) y solo si es `text`
   (`:195`). Audios, fotos, documentos, ubicaciones y respuestas de botón no se guardan ni dejan rastro.
 - **Severidad:** rompe silencioso · **Propuesta:** lote entero + todos los tipos persistidos con
   `tipo`; en el hilo se ven como lo que son; el agente deriva lo que no puede leer sin inventar ·
-  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · ✅
+  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): lote entero y todos los tipos (034 `tipo`/`media_id`); lo no legible deriva por `no_legible` sin modelo; sticker/system no exigen respuesta
 
 ## 119. Un solo borrador — el composer no enseña el del evaluador
 - **Qué es:** el borrador que juzga, veta y mide el evaluador solo lo lee el banco. El composer
@@ -2038,18 +2038,18 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   determinista de agenda. Dos veces se midió un artefacto que no era el producto.
 - **Severidad:** rompe visible · **Propuesta:** el composer precarga el del evaluador (al día), el de
   entrada solo en el relevo, veto en los dos, y la coincidencia se mide contra ese texto ·
-  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · ✅
+  **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `borradorAgenteDe` es la única fuente; composer y chat embebido lo precargan; entrada solo en relevo; veto en los dos; las 4 rutas de envío miden contra él
 
 ## 120. La coletilla del pago pendiente se pega en cada turno
 - **Qué es:** `evaluador.ts:945-952` la añade sin memoria de turnos previos, y el prompt también.
 - **Severidad:** rompe visible (tono) · **Propuesta:** una vez por conversación, contado del hilo ·
-  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `cobroYaRecordado` contado del hilo + el prompt lo sabe
 
 ## 121. Nadie emite `aplazado_resuelto`
 - **Qué es:** ni la ruta de decisiones ni ningún botón lo escriben: los pendientes son eternos y el
   agente re-aplaza y deriva por insistencia sobre lo ya contestado a mano.
 - **Severidad:** rompe visible · **Propuesta:** botón «Respondido» por pendiente en la ficha ·
-  **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅
+  **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): botón «Respondido» por clave en la ficha → `aplazado_resuelto`
 
 ## 122. Red de clínicas — el hilo no distingue clínica y la config es la de la ficha
 - **Qué es:** hilo por teléfono sin `clinica_id` (`evaluar-entrante.ts:81-87`); objetivos y
@@ -2057,18 +2057,18 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   del número que recibió. En RB, diez clínicas.
 - **Severidad:** rompe visible · **Propuesta:** config del NÚMERO (hoy) + hilo filtrado por clínica
   (decisión de producto: ver diagnóstico del 2026-09-05) · **Esfuerzo:** 1 h + 1 día ·
-  **Fecha:** 2026-09-05 · ✅ config del número · 🔵 hilo por clínica
+  **Fecha:** 2026-09-05 · 🟢 config del número (2026-09-05, `evaluar-entrante`: `e.clinicaId ?? ctx.clinicaId`) · 🔵 hilo por clínica — decisión de producto, ver DECISIONES 2026-09-05
 
 ## 123. El contador de insistencia cuenta toda la vida y todas las ráfagas
 - **Qué es:** `evaluar-entrante.ts:125-129` suma todo `aplazado` de la clave sin cortar en el último
   resuelto ni agrupar una ráfaga.
 - **Severidad:** degrada · **Propuesta:** vueltas desde el último resuelto, ráfaga = una vuelta ·
-  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `vueltasPorClave` — desde el último resuelto, ráfaga de 15 min = una vuelta
 
 ## 124. Una espera de más de 14 días se pierde sin rastro
 - **Qué es:** `evaluador.ts:770-778` la descarta sin anotar ni contar.
 - **Severidad:** rompe silencioso · **Propuesta:** pendiente visible «pide no ser contactado hasta X
-  (la fija una persona)» · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+  (la fija una persona)» · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): pendiente visible clave `otro` + contado en descartes
 
 ## 125. Rojo eterno por queja o insistencia
 - **Qué es:** `semaforo.ts:187` solo cierra a mano. Cada paciente que se quejó una vez deja mudo al
@@ -2090,13 +2090,13 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 - **Qué es:** config ilegible, contexto roto y API caída → `console.error` y nada más
   (`evaluar-entrante.ts:71`, `route.ts:309`). La bandeja no distingue «sin evaluar».
 - **Severidad:** rompe silencioso · **Propuesta:** aviso en la campana (uno por hora y motivo) +
-  contador «sin evaluar» por clínica en la bandeja · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · ✅
+  contador «sin evaluar» por clínica en la bandeja · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `avisarFalloAgente` (campana, uno por hora/motivo/clínica) + filtro y banda «Sin evaluar» en la bandeja
 
 ## 129. El webhook no declara `maxDuration`
 - **Qué es:** evaluador (20 s) + juez (10 s) + semáforo dentro de un `after()` sin tope declarado. Si
   el proyecto no está en Fluid Compute, el default de 10-15 s mata la evaluación en silencio.
 - **Severidad:** rompe silencioso · **Propuesta:** `maxDuration = 60` + verificar Fluid en el
-  dashboard (el token del CLI local está caducado) · **Esfuerzo:** 10 min · **Fecha:** 2026-09-05 · ✅
+  dashboard (el token del CLI local está caducado) · **Esfuerzo:** 10 min · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `maxDuration = 60` en el webhook. Fluid Compute SIN verificar (token del CLI caducado): comprobar en Vercel → Settings → Functions
 
 ## 130. Modo manual — el saliente se inserta antes de que nadie lo envíe
 - **Qué es:** `mensajeria.ts:256-274` registra y luego abre wa.me; si no se completa, el hilo dice
@@ -2106,7 +2106,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 
 ## 131. La rama WABA no persiste `autor` ni `sugerido_por_ia`
 - **Qué es:** `mensajeria.ts:385-396`. En modo B real la tasa de coincidencia y «las lleva el
-  agente» nacen muertas. · **Severidad:** degrada · **Esfuerzo:** 15 min · **Fecha:** 2026-09-05 · ✅
+  agente» nacen muertas. · **Severidad:** degrada · **Esfuerzo:** 15 min · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05)
 
 ## 132. Los webhooks de estado de Meta se descartan
 - **Qué es:** `route.ts:192`. Sin columna de entrega; un `failed` posterior no lo ve nadie; el
@@ -2130,22 +2130,22 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
   llamadas; NO el webhook, ni el evaluador, ni el composer, ni el envío WABA. Solo lo escribe el STOP
   legacy de Twilio. «No me escribáis más» no existe como juicio.
 - **Severidad:** rompe silencioso · **Propuesta:** una lib por teléfono, todos los lectores, juicio
-  `pideNoContacto` + evento `opt_out` · **Esfuerzo:** 4 h · **Fecha:** 2026-09-05 · ✅
+  `pideNoContacto` + evento `opt_out` · **Esfuerzo:** 4 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `lib/contacto/optout.ts` (paciente + log), juicio `pideNoContacto` + respuesta por código, composer/chat/4 rutas de envío/cola lo leen
 
 ## 136. Idioma — sin instrucción; vetos y plantillas solo en español
 - **Qué es:** el evaluador no fija idioma; el veto determinista (`juez-borrador.ts:210-218`), la
   coletilla y las preguntas seguras son español puro.
 - **Severidad:** degrada · **Propuesta:** instrucción + juicio `idioma` + firmas en en/ca; plantillas
-  en otros idiomas, decisión aparte · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅ parcial
+  en otros idiomas, decisión aparte · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🟢 parcial (2026-09-05): instrucción de idioma, juicio `idioma`, veto en/ca, plantillas neutras y de entrega en ca/en · 🔵 preguntas seguras y coletillas en otros idiomas
 
 ## 137. Config — precio y horario absurdos se afirman tal cual
 - **Qué es:** precios texto libre sin rango (`conocimiento.ts:15-17`); «25:00» pasa la regex de
-  horario (`:354-356`). · **Severidad:** degrada · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+  horario (`:354-356`). · **Severidad:** degrada · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `motivoPrecioAbsurdo` (1–100.000 €) + `esHoraValida` + topes de longitud, en el mismo parser de guardar y leer
 
 ## 138. Inyección — texto del paciente sin delimitar; cero casos en el eval
 - **Qué es:** `evaluador.ts:423`, `juez-borrador.ts:141`. · **Severidad:** degrada ·
   **Propuesta:** delimitar con etiquetas + regla en el system + tanda I del eval · **Esfuerzo:** 2 h ·
-  **Fecha:** 2026-09-05 · ✅
+  **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `<paciente>…</paciente>` en evaluador, juez y entrada + regla en los tres system + tanda I del eval (4/4)
 
 ## 139. Teléfono compartido — mezcla presupuestos de madre e hijo en el mismo prompt
 - **Qué es:** paciente por `LIKE %dígitos%` con `limit 1` (`contexto-conversacion.ts:115-124`);
@@ -2196,14 +2196,14 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 
 ## 149. Caso 35 del eval a regla de código
 - «¿Con quién hablo de esto?» tras un enlace no es pedir persona. · **Esfuerzo:** 30 min ·
-  **Fecha:** 2026-09-05 · ✅
+  **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): regla en `evaluarTurno` — «¿con quién hablo?» tras un enlace no es pedir persona
 
 ## 150. Señales del log que el prompt no ve
 - Tiempo desde el último saliente y el entrante previo, hora contra el horario, salientes sin
-  respuesta: tres líneas contadas por código. · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · ✅
+  respuesta: tres líneas contadas por código. · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `senalesDelHilo` → línea SEÑALES DEL HILO en el contexto
 
 ## 151. El motivo de descarte del juez está persistido y nadie lo mira
-- Panel por clínica y motivo (30 días). · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · ✅
+- Panel por clínica y motivo (30 días). · **Esfuerzo:** 2 h · **Fecha:** 2026-09-05 · 🟢 hecha (2026-09-05): `/api/agente/descartes` + `DescartesJuezPanel` en la pestaña Configuración de /agente
 
 ## 152. Caso 49 del eval — decisión de producto
 - «Hay opiniones de todo» exige una causa «desconfianza» que no existe. Ver propuesta del
