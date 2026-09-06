@@ -281,7 +281,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   (toca query param + estado del modal; sin cambio de datos). Impacto medio: quita un paso
   del cierre de cita, el momento de mayor valor.
 - **Esfuerzo:** horas.
-- **Fecha:** 2026-07-22 · 🔵
+- **Fecha:** 2026-07-22 · 🔵 **Verificada el 2026-09-06: SIGUE ABIERTA** — `Paciente360View.tsx:684` manda a `/no-shows?tab=agenda` (zona congelada) sin el paciente. Arreglo: reutilizar `AgendarLeadPanel` (G3) desde la ficha del paciente con el paciente preseleccionado. **Fase 2** (2.9: pantalla de demo) · 3-4 h
 
 ## 16. La "siguiente acción" vive en varios sitios
 - **Zona:** ficha (`derivarSituacion`, cliente) · panel de lead (`situacionLead` — usa los
@@ -569,7 +569,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** toggle de densidad (cómodo/compacto) en la cabecera de Actuar, recordado por
   usuario. Candidata a evaluar con el feedback del piloto.
 - **Impacto:** medio en facilidad para redes con muchos vencidos.
-- **Fecha:** 2026-07-24 · 🔵 (anotada por Simon en el checkpoint de la revisión visual;
+- **Fecha:** 2026-07-24 · ⚪ **DESCARTADA el 2026-09-06** (decisión de Simon: la cola por impacto —NBA, MEJORAS 186— sustituye al tablero; mantenerla viva era deuda) · (anotada por Simon en el checkpoint de la revisión visual;
   post-piloto)
 
 ## 37. Leads · sin fecha de cierre persistida (conversión / no interés)
@@ -641,7 +641,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   ampliar el vocabulario (nº 42) y después sembrarlo.
 - **Impacto:** alto en credibilidad de demo, bajo en producción (las bases piloto están
   vacías de leads).
-- **Fecha:** 2026-07-27 · 🔵
+- **Fecha:** 2026-07-27 · (ya cerrada el mismo día — ver la línea siguiente; el censo del 06-09 la contó abierta por el emoji de esta línea)
 - **2026-07-27 · 🟢 CERRADA**: el hilo conserva las narrativas, la columna guarda el valor
   válido; añadida la narrativa "no asistió" (con cita en el pasado) para que ese grupo exista
   en la demo. Reseed: 127 Rechazo_Producto + 31 No_Asistio, cero fuera del enum.
@@ -879,7 +879,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   /kpis, así que el control existía para esta pantalla pero no la afectaba.
 - **Impacto:** alto — el dashboard del manager no podía responder "¿cómo va ESTA
   clínica?" sin salir a otra pantalla.
-- **Fecha:** 2026-07-27 · 🔵
+- **Fecha:** 2026-07-27 · ✅ **CERRADA el 2026-09-06** — /red murió el 04-09 (redirige a /inicio) e Inicio filtra por el alcance de la sesión
 - **2026-07-27 · 🟢 CERRADA**: decisión de Simon — /red sigue al selector. Con una
   clínica elegida se filtra la pantalla entera, el titular pasa a ser su nombre (con
   "Ver toda la red"), "Tus clínicas" se retira (compararía una fila consigo misma) y
@@ -951,7 +951,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** ordenar cada columna por el criterio del motor de cohortes que ya existe, en
   vez de por fecha de creación. Cero criterio nuevo: reutilizar el de /seguimiento.
 - **Impacto:** medio-alto en pérdida evitada, bajo en coste — el motor ya está escrito.
-- **Fecha:** 2026-07-27 · 🔵
+- **Fecha:** 2026-07-27 · ⚪ **DESCARTADA el 2026-09-06** (decisión de Simon: la cola por impacto —NBA, MEJORAS 186— sustituye al tablero; mantenerla viva era deuda) ·
 
 ## 54. Leads en móvil: 12.000 px de scroll y lo urgente en cuarta posición
 - **Zona:** `app/(authed)/leads/LeadsView.tsx` (layout del tablero)
@@ -962,7 +962,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   la columna con trabajo del día. **Fuera del alcance de la pasada visual del 2026-07-27**:
   toca la estructura del tablero, que Simon dejó explícitamente sin tocar.
 - **Impacto:** alto en uso real de móvil.
-- **Fecha:** 2026-07-27 · 🔵
+- **Fecha:** 2026-07-27 · ⚪ **DESCARTADA el 2026-09-06** (decisión de Simon: la cola por impacto —NBA, MEJORAS 186— sustituye al tablero; mantenerla viva era deuda) ·
 
 ## 55. La cabecera de Leads cuenta la pantalla, no el negocio
 - **Zona:** `app/(authed)/leads/LeadsView.tsx` (cabecera)
@@ -983,7 +983,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** en No Interesado, que el pie ofrezca solo los reactivables ("Ver 23 que se
   pueden retomar") en vez del volcado completo.
 - **Impacto:** bajo-medio.
-- **Fecha:** 2026-07-27 · 🔵
+- **Fecha:** 2026-07-27 · ⚪ **DESCARTADA el 2026-09-06** (decisión de Simon: la cola por impacto —NBA, MEJORAS 186— sustituye al tablero; mantenerla viva era deuda) ·
 
 ## 57. ✅ CERRADA — El portal del paciente, probado de punta a punta (19/19)
 - **Zona:** `app/api/presupuestos/[id]/generar-portal/route.ts`, `app/api/portal/[token]/route.ts`,
@@ -1187,7 +1187,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   contrato: añadir el id y enlazar a `/pacientes/[id]` directamente.
 - **Impacto:** medio (abrir la ficha equivocada de un paciente es grave, aunque
   sea raro).
-- **Fecha:** 2026-07-29 · 🔵
+- **Fecha:** 2026-07-29 · ✅ **CERRADA el 2026-09-06** — resuelta el 31-08 (§20): Maxima enlaza por pacienteId y no queda ningún link por nombre (censo 06-09)
 
 ## 69. Higiene de la zona de Presupuestos
 - **Zona:** varios
@@ -1214,7 +1214,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   columna con trabajo del día. Fuera del alcance de la pasada visual: toca la
   estructura del tablero.
 - **Impacto:** alto en uso real de móvil.
-- **Fecha:** 2026-07-29 · 🔵
+- **Fecha:** 2026-07-29 · ⚪ **DESCARTADA el 2026-09-06** (decisión de Simon: la cola por impacto —NBA, MEJORAS 186— sustituye al tablero; mantenerla viva era deuda) ·
 
 ## 71. ✅ CERRADA — El rango gobierna las DOS vistas y el selector no desaparece
 - **Zona:** `PresupuestosShell.tsx` (`RangoTemporal` solo se renderiza en la vista
@@ -1450,7 +1450,7 @@ verdad: un editor, un vocabulario, un renderizador.
   deuda de la demo, no del producto — pero deja la tasa de contactación de la
   demo en 12/58, que se enseña.
 - **Impacto:** bajo en producto, medio en demo (es un KPI de la pantalla).
-- **Fecha:** 2026-07-30 · 🔵
+- **Fecha:** 2026-07-30 · ✅ **APROBADA el 2026-09-06** — tanda «seed honesto», fase 2 (Simon: la demo es hoy el peor argumento de venta) ·
 
 ## 83. Las plantillas de WhatsApp nombran tratamiento e importe en el mismo mensaje
 - **Zona:** `scripts/db-seed-demo-rico.mjs:1164` (plantilla de ejemplo) ·
@@ -1669,7 +1669,7 @@ verdad: un editor, un vocabulario, un renderizador.
   desde dos preguntas distintas.
 - **Impacto:** medio hoy, **alto** en la fase 3: dos de las once plantillas del catálogo necesitan
   estos datos como variables.
-- **Fecha:** 2026-08-06 · 🔵
+- **Fecha:** 2026-08-06 · ✅ **CERRADA el 2026-09-06** — cubierta por la fase D (conocimiento.politicas, «Vías de pago»): la clínica publica su plan estándar y el agente lo lee; un plan A MEDIDA sigue siendo aplazado (§17)
 
 ## 91. `001_esquema_negocio.sql` lleva meses sin regenerarse y ya no dice lo que crea
 - **Detectado:** 2026-08-07, al separar el generador de tipos de lo escrito a mano.
@@ -1774,7 +1774,7 @@ verdad: un editor, un vocabulario, un renderizador.
   «¿quién viene esta semana?» — se contesta con una **agenda**, que hoy no existe como vista.
 - **Decisión (Simon, 2026-08-18):** feature anotada como **dependiente del nivel de integración de
   cada clínica (nivel 2, lectura)**. No es parte de la fase B.
-- **Fecha:** 2026-08-18
+- **Fecha:** 2026-08-18 · ✅ **CERRADA el 2026-09-06** — /agenda existe desde G2 (28-08): semana, doctor, crear y mover
 
 ## 98. No-shows: integración futura a la cola única de envíos (B6)
 - **Qué es:** el módulo de no-shows existe pero está desactualizado y no es prioridad. Cuando se
@@ -1932,7 +1932,7 @@ verdad: un editor, un vocabulario, un renderizador.
   censo de fase F.
 - **Decisión pendiente:** si el motor viejo muere en fase F/B5, el arreglo es borrar el seed de
   reglas, no corregirlo.
-- **Fecha:** 2026-08-23
+- **Fecha:** 2026-08-23 · **Fase 2** · ✅ **APROBADA el 2026-09-06** — tanda «seed honesto» (Simon: la demo es hoy el peor argumento de venta)
 
 ## 111. El reloj de la cola está anclado a mediodía — la escalada a Fuera de plazo solo cambia una vez al día
 - **Qué es:** `colaDeSeguimiento` fija su «ahora» a las `T12:00Z` del día (14:00 Madrid) — el ancla
@@ -1958,7 +1958,7 @@ verdad: un editor, un vocabulario, un renderizador.
   demo. Mitigado en la UI: el filtro de /tablas/presupuestos lista el enum ∪ los valores presentes
   (también cubre datos legacy reales), y la celda enseña el texto tal cual.
 - **El arreglo:** demo-seed escribe el enum (y la invariante del seed lo comprueba, §15).
-- **Fecha:** 2026-08-24
+- **Fecha:** 2026-08-24 · **Fase 2** · ✅ **APROBADA el 2026-09-06** — tanda «seed honesto» (Simon: la demo es hoy el peor argumento de venta)
 
 ## 113. Sillones como restricción de agenda — PREGUNTA ABIERTA (validar con RB antes de modelar)
 - **Qué es:** decisión de diseño de la agenda (2026-08-27, dictada): los sillones quedan FUERA del

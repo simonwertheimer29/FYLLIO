@@ -80,7 +80,8 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | 2.6 | Antes/después por clínica con n y ventana igual | 181 |
 | 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 |
 | 2.8 | «Ver por qué» por mensaje (inspector de decisiones) | 183 |
-| 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73 |
+| 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita + pantallas de demo | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73, 15 |
+| 2.10 | **Tanda «seed honesto»** (aprobada 6-sep, se adelanta a la fase 0 por la demo): el seed respeta el vocabulario real y lo comprueba con una invariante (§15) | 41, 82, 110, 112 |
 
 **Deja lista** la NBA: impacto y urgencia por caso ya existen.
 
@@ -194,8 +195,8 @@ Nuevas hoy: 162–205 (44), todas con fase. Reparto de las abiertas anteriores:
 | Fase 4 | 27, 58, 77, 92, 113 | 5 |
 | Fase 5 | 84 | 1 |
 | Bloqueadas por Simon (legal o decisión) | 108, 127, 140, 148, 153, 87 | 6 |
-| **Verificar si ya están hechas** (probablemente cerradas por G2/G3/F4/§20) | 15, 49, 68, 90, 97 | 5 |
-| **Fuera del plan — matar o decidir** | ver abajo | 9 |
+| Verificadas el 6-sep | 49, 68, 90, 97 **cerradas** (ya resueltas por F4, §20, fase D y G2) · 15 ver nota abajo | 5 |
+| Fuera del plan — **decididas el 6-sep** | 36, 53, 54, 56, 70 **muertas** a favor de la NBA (186) · 41, 82, 110, 112 → tanda «seed honesto» en 2.9 | 9 |
 
 **Las nueve que llevan semanas anotadas y no entran en ninguna fase.** Propuesta, pendiente de OK:
 
@@ -204,6 +205,14 @@ Nuevas hoy: 162–205 (44), todas con fase. Reparto de las abiertas anteriores:
 | 36 | Cobros · vista compacta / toggle de densidad | 24-jul | **Matar**: UI menor; si RB lo pide, renace |
 | 41, 82, 110, 112 | El seed escribe fuera del vocabulario (motivos, acciones antes del lead, reglas decorativas, motivo_perdida libre) | jul–ago | **Una tanda «seed honesto» de un día antes de la próxima demo**, o matar si no hay demo a la vista; hoy engañan a quien mide sobre DEMO |
 | 53, 54, 56, 70 | Leads y Presupuestos en móvil, tablero sin prioridad, «ver 151 anteriores» | 27-jul | **Matar a favor de 3.1**: la NBA sustituye al tablero como cola; rehacer el tablero hoy es trabajo doble |
+
+**Decidido por Simon el 6-sep:** 36 y 53/54/56/70 muertas (⚪ en MEJORAS); 41/82/110/112 entran como
+tanda «seed honesto» de un día (2.10), adelantada porque la demo con tres clínicas a cero y el bullet
+plano es hoy el peor argumento de venta. Las cinco «a verificar»: 49, 68, 90 y 97 cerradas con la
+evidencia en su entrada; **15 sigue abierta** (el botón Agendar de la ficha del paciente manda a
+`/no-shows?tab=agenda`, zona congelada, sin preseleccionar a nadie) y pasa a 2.9. Corrección del
+censo: 41 ya estaba cerrada desde el 27-07 (el emoji de su primera línea engañó al recuento); la
+tanda «seed honesto» es 82, 110 y 112.
 
 ---
 
