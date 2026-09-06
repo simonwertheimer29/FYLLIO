@@ -2180,7 +2180,11 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 
 ## 145. Sin tope de coste ni de mensajes por conversación en producción
 - **Qué es:** el banco tiene 100/día; el camino real, nada. · **Severidad:** degrada ·
-  **Propuesta:** tope por conversación/día con aviso · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 · 🔵
+  **Propuesta:** tope por conversación/día con aviso · **Esfuerzo:** 1 h · **Fecha:** 2026-09-05 ·
+  **Fase 0** · 🟢 **HECHA el 2026-09-06** — `topeTurnos24h()` en `evaluar-entrante` (50 por
+  conversación en 24 h rodantes, `AGENTE_TOPE_TURNOS_24H`); al superarlo no se llama al modelo, el
+  caso queda «Sin evaluar» y suena la campana (`tope_turnos`, uno por hora); el barrido lo reintenta
+  sin coste cuando baja.
 
 ## 146. Crons sin heartbeat ni registro de última ejecución
 - **Severidad:** rompe silencioso (cola de envíos, no-shows, llamadas Vapi) · **Propuesta:** fila
@@ -2188,7 +2192,14 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 
 ## 147. Retención y borrado de mensajes y eventos del agente
 - **Qué es:** `evaluacion_json` y `motivo_texto` guardan salud en claro; ningún camino de borrado;
-  borrar paciente no los toca (van por teléfono). Va al resumen legal. · **Fecha:** 2026-09-05 · 🔵
+  borrar paciente no los toca (van por teléfono). Va al resumen legal. · **Fecha:** 2026-09-05 ·
+  **Fase 0** · 🟢 **HECHA el 2026-09-06 (mecanismo)** — migración 039 `supresiones` + grant delete
+  sobre el log; `lib/contacto/supresion` borra por teléfono en una transacción y anota hash, motivo,
+  actor y recuentos (nunca contenido); `POST /api/admin/supresion` (admin, confirma si el número es
+  compartido) y `DELETE /api/pacientes/[id]` (solo si el número es exclusivo); retención por plazo en
+  `/api/cron/retencion` y en el cron diario **solo con `RETENCION_CONVERSACIONES_DIAS`** — sin plazo
+  no borra. `qa:supresion`. **Del abogado queda el plazo** (bloqueante de Simon). Sin botón en la ficha
+  todavía: el camino es la ruta admin.
 
 ## 148. Transparencia de IA — ver 108
 - Censo del 2026-09-05: primer mensaje de cada hilo, reanudación por plantilla, relevo persona-agente.
@@ -2220,7 +2231,8 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 ## 155. Un error transitorio en `evaluadorActivo` manda el mensaje al clasificador viejo
 - Dos comportamientos para la misma clínica según un hipo de base. · **Severidad:** degrada ·
   **Propuesta:** con B5 muere el camino viejo; hasta entonces, reintento único · **Esfuerzo:** 30 min ·
-  **Fecha:** 2026-09-05 · 🔵
+  **Fecha:** 2026-09-05 · **Fase 0** · 🟢 **HECHA el 2026-09-06** — `evaluadorActivo` reintenta una
+  vez (250 ms) antes de degradar a apagado, con el intento en el log. El camino viejo muere en B5 (94).
 
 ## 156. Inicio · «Conversión» de la tabla de clínicas enseña 0 % de una cohorte 100 % abierta
 - La primera semana de cada mes (no solo en la demo) todas las sedes salen a «0 %». El bloque

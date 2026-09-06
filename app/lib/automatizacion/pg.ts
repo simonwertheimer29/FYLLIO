@@ -195,18 +195,25 @@ export async function toquesAntesDeAgotar(clinicaId?: string | null): Promise<nu
  */
 export async function evaluadorActivo(clinicaId?: string | null): Promise<boolean> {
   const cliente = requireCliente("evaluadorActivo");
-  try {
-    const r: any = await runWithClienteDb(cliente, (trx) =>
-      sql`select evaluador_activo
-          from configuracion_automatizaciones
-          where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
-          limit 1`.execute(trx),
-    );
-    return r.rows?.[0]?.evaluador_activo === true;
-  } catch (err) {
-    console.error("[automatizacion] evaluadorActivo:", err instanceof Error ? err.message : err);
-    return false;
+  // MEJORAS 155 — un hipo de base no puede mandar el mensaje al camino viejo
+  // (dos comportamientos para la misma clínica según la suerte): reintento
+  // único antes de degradar, y el motivo en el log con el número de intento.
+  for (let intento = 1; intento <= 2; intento++) {
+    try {
+      const r: any = await runWithClienteDb(cliente, (trx) =>
+        sql`select evaluador_activo
+            from configuracion_automatizaciones
+            where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
+            limit 1`.execute(trx),
+      );
+      return r.rows?.[0]?.evaluador_activo === true;
+    } catch (err) {
+      console.error(`[automatizacion] evaluadorActivo (intento ${intento}/2):`, err instanceof Error ? err.message : err);
+      if (intento === 2) return false;
+      await new Promise((res) => setTimeout(res, 250));
+    }
   }
+  return false;
 }
 
 /**

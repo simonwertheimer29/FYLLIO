@@ -20,10 +20,23 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 **Hoy (6 sep): el plan maestro gobierna.** Diagnóstico estratégico aprobado (22,5/50 en diez
 áreas) → [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md) (fases 0-5 con estado, bloqueantes de Simon, Gesden
 sin RB, censo de MEJORAS) y [`MARCADOR-MISION.md`](MARCADOR-MISION.md) (cada nota con su historia).
-**Fases 0 y 1 en curso a la vez**: las tres que duelen con RB (reintento del turno + cola de
-trabajos · una sola salida automática, bloqueada por Meta y declarada · borrado, retención,
-consentimiento y log de configuración) y las dos irrecuperables (eslabón acción→resultado por id,
-entrada renderizada + hash del prompt). Tareas: MEJORAS 162-205, cada una con su fase.
+**Fases 0 y 1 en curso a la vez.** Hecho el 6-sep (migraciones 037-039 aplicadas, cinco commits):
+versión + entrada renderizada + señales en cada turno y el eslabón saliente→entrante (168-171);
+barrido de reevaluación con QA (163); historial de configuración (167); envío de logs inerte hasta
+destino (162); derecho de supresión, retención con plazo declarado y registro de consentimiento
+(147, 166); tope de turnos y reintento del interruptor (145, 155).
+
+| Queda en fase 0 | Quién |
+|---|---|
+| 164 cola de trabajos (QStash) | Simon crea la cuenta; luego ingeniería (1 sem) |
+| 165 una sola salida automática | **Bloqueada por el catálogo de Meta** — declarada, no olvidada |
+| 130, 134 (camino manual y composer) | Ingeniería, siguiente sesión |
+| Plazo de retención · forma del consentimiento · destino de logs | **Simon** (abogado · abogado · cuenta Axiom/Better Stack + `LOG_DRAIN_URL`) |
+
+Fase 1 pendiente: 172 (`metricas_diarias`, abre la fase 2), 173 (jsonb: los lectores hacen
+`JSON.parse(String(...))` y hay que migrarlos a la vez), 174, 175 (verificar si `after()` ya
+paraleliza). Censo y fases: [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md). Nueve MEJORAS fuera del plan
+esperan decisión (matar o tanda «seed honesto»).
 
 ### Lo anterior (5 sep)
 

@@ -17,13 +17,16 @@ export type MotivoFalloAgente =
   | "modelo_no_disponible"
   | "configuracion_ilegible"
   | "contexto_no_disponible"
-  | "error_inesperado";
+  | "error_inesperado"
+  /** MEJORAS 145 — la conversación superó el tope de turnos en 24 h. */
+  | "tope_turnos";
 
 const TITULO: Record<MotivoFalloAgente, string> = {
   modelo_no_disponible: "El agente no está evaluando: el modelo no responde",
   configuracion_ilegible: "El agente no está evaluando: la configuración no se puede leer",
   contexto_no_disponible: "El agente no está evaluando: no pudo cargar el caso",
   error_inesperado: "El agente no está evaluando: error inesperado",
+  tope_turnos: "El agente ha parado en una conversación: superó el tope de turnos en 24 h",
 };
 
 const VENTANA_MIN = 60;

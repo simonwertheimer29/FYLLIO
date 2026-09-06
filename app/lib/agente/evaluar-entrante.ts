@@ -70,6 +70,15 @@ export type EntranteAEvaluar = {
 
 const FRASE_RECUERDO_COBRO = /pago pendiente|pendiente de pago|pago que tienes pendiente|tienes un pago/i;
 
+/** MEJORAS 145 — tope de turnos por conversación en 24 h. El banco de pruebas
+ *  tenía 100/día; el camino real, nada: un bucle (dos bots, un número que
+ *  reenvía) quemaría modelo sin límite. Configurable por entorno. */
+const TOPE_TURNOS_24H_DEFAULT = 50;
+export function topeTurnos24h(): number {
+  const v = Number(process.env["AGENTE_TOPE_TURNOS_24H"]);
+  return Number.isInteger(v) && v > 0 ? v : TOPE_TURNOS_24H_DEFAULT;
+}
+
 /** Las señales del hilo (MEJORAS 150), contadas por código. */
 function senalesDelHilo(
   hilo: readonly MensajeHilo[],
@@ -149,6 +158,8 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     .map((etapa) => objetivosConfig.find((o) => o.etapa === etapa))
     .filter((o): o is ObjetivoAgente => o != null);
 
+  const ahora = e.ahora ?? new Date();
+
   // 3 · Hilo, log de aplazamientos, no-reversión y próxima cita — todo del
   //     borde, contado por código.
   const datos = await runWithClienteDb(cliente, async (trx) => {
@@ -182,8 +193,27 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
           where paciente_id = ${ctx.pacienteId} and hora_inicio >= now()`.execute(trx);
       proximaCita = c.rows?.[0]?.prox ?? null;
     }
-    return { hiloRows, eventos, proximaCita, nombresClinicas };
+    // MEJORAS 145 — cuántos turnos ha consumido ESTA conversación en las
+    // últimas 24 h (rodante a propósito: guarda técnica, no umbral de negocio).
+    const t24 = await sql<{ n: number }>`select count(*)::int as n from eventos_automatizacion
+        where tipo_caso = 'conversacion' and caso_id = ${e.telefono} and evento = 'evaluacion'
+          and created_at > ${ahora}::timestamptz - interval '24 hours'`.execute(trx);
+    const turnos24h = Number(t24.rows?.[0]?.n ?? 0);
+    return { hiloRows, eventos, proximaCita, nombresClinicas, turnos24h };
   });
+
+  // MEJORAS 145 — el tope. El caso queda VISIBLE como «Sin evaluar» y con
+  // aviso en la campana (uno por hora); el barrido lo reintenta sin coste
+  // hasta que la ventana baje del tope.
+  if (datos.turnos24h >= topeTurnos24h()) {
+    await avisarFalloAgente({
+      motivo: "tope_turnos",
+      detalle: `${datos.turnos24h} turnos en 24 h (tope ${topeTurnos24h()})`,
+      clinicaId: clinicaConfig,
+      telefono: e.telefono,
+    });
+    return;
+  }
 
   const nombreDe = (id: string | null) => datos.nombresClinicas.find((c) => String(c.id) === id)?.nombre ?? null;
   const otrasClinicas = [...new Set(datos.hiloRows.map((m) => m.clinica_id).filter((x): x is string => Boolean(x)))]
@@ -248,8 +278,6 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   } catch (err) {
     console.error("[evaluar-entrante] opt-out no comprobable:", err instanceof Error ? err.message : err);
   }
-
-  const ahora = e.ahora ?? new Date();
 
   // 4 · Evaluar y persistir.
   const evaluacion = await evaluarTurno({

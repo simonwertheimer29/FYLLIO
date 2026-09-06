@@ -3917,6 +3917,17 @@ las tres columnas en leads, `lib/contacto/consentimiento` con tres estados (NULL
 «no») y la ficha del caso lo enseña; el bloqueo del envío proactivo queda detrás de
 `CONSENTIMIENTO_WHATSAPP_OBLIGATORIO` sin cablear hasta la consulta legal.
 
+## 2026-09-06 — Fase 0.5: tope de turnos por conversación y reintento del interruptor
+Dos guardas del mismo camino. **145:** el camino real no tenía tope (el banco sí, 100/día): un
+bucle entre dos bots o un número que reenvía quemaría modelo sin límite. Ahora `evaluar-entrante`
+cuenta los turnos de ESA conversación en 24 h rodantes (guarda técnica, no umbral de negocio: por eso
+no va en días de clínica) y al superar 50 (`AGENTE_TOPE_TURNOS_24H`) no llama al modelo, deja el
+caso visible en «Sin evaluar» y avisa por la campana; el barrido lo reintenta sin coste cuando baja.
+**155:** `evaluadorActivo` reintenta una vez antes de degradar a apagado — un hipo de base mandaba el
+mensaje al clasificador viejo, dos comportamientos para la misma clínica según la suerte. Pendientes
+de la fase 0.5: 130 (el saliente manual se registra antes de enviarse) y 134 (el composer pisa el
+error), que son camino manual y composer, no el del agente.
+
 ## 2026-09-06 — be26b8e rompió el build de Vercel: `tsc` limpio, `next build` no
 `InicioView` (cliente) importó `BASE_MINIMA_COHORTE` y `UMBRAL_COHORTE_ABIERTA` como valor desde
 `dashboard-red.ts`; antes solo había un `import type`, que se borra al compilar. La constante
