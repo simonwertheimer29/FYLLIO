@@ -186,6 +186,7 @@ export function InicioView() {
             {data ? (
               <p className="mt-1 text-[13px] text-[var(--color-muted)]" data-desde-ayer>
                 <span className="font-medium text-[var(--color-foreground)]">Desde el {fechaHoraLegible(data.desdeAyer.desdeISO).toLowerCase()}</span>
+                <span className="text-[11.5px]"> (último cierre de jornada)</span>
                 {" · "}
                 <Link href="/mensajeria?filtro=agente" className="hover:underline">
                   <b className="font-semibold text-[var(--color-foreground)] tabular-nums">{data.desdeAyer.atendidas}</b> conversación{s(data.desdeAyer.atendidas) ? "es" : ""} atendida{s(data.desdeAyer.atendidas)} por el agente
@@ -718,13 +719,15 @@ function TablaClinicas({ filas, onClinica }: { filas: ClinicaInicio[]; onClinica
                 )}
               </div>
               <div>
-                <p className={CLASE_EYEBROW}>El agente por sede, este mes</p>
+                <p className={CLASE_EYEBROW}>El agente por sede · todo el mes</p>
                 <ul className="mt-1">
                   {porAgente.map((c) => (
                     <FilaBarra key={c.id} etiqueta={c.nombre} valor={c.agenteAtendidas} max={maxAgente} texto={`${c.agenteAtendidas} atendida${s(c.agenteAtendidas)} · ${c.agenteEntregadas} entregada${s(c.agenteEntregadas)}`} />
                   ))}
                 </ul>
-                <p className="mt-1 text-[11px]">Conversaciones que el agente evaluó y casos que entregó completos. La sede es la del último mensaje del hilo.</p>
+                <p className="mt-1 text-[11px]">
+                  Conversaciones evaluadas y casos entregados completos desde el día 1. La línea de arriba («Desde el…») cuenta solo desde el último cierre de jornada: por eso sus cifras son menores. La sede es la del último mensaje del hilo.
+                </p>
               </div>
             </div>
           )}

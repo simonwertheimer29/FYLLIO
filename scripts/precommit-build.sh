@@ -32,8 +32,10 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 # cercano hacia arriba —el proyecto— y así el enlace a node_modules queda
 # dentro de su raíz. Fuera del proyecto revienta: «Symlink node_modules is
 # invalid, it points out of the filesystem root».
-tmp="$PWD/.precommit-build"
-rm -rf "$tmp"; mkdir -p "$tmp" || exit 0
+# Directorio ÚNICO por ejecución: dos sesiones commiteando a la vez
+# compartían .precommit-build/ y una borraba el build de la otra a medias
+# (ENOENT en pages-manifest.json, 06-09).
+tmp=$(mktemp -d "$PWD/.precommit-build.XXXXXX") || exit 0
 log="$tmp.log"
 limpiar() { rm -rf "$tmp" "$log"; }
 tree=$(git write-tree 2>/dev/null) || { limpiar; exit 0; }

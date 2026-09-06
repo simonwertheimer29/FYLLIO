@@ -2102,7 +2102,15 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 - **Qué es:** `mensajeria.ts:256-274` registra y luego abre wa.me; si no se completa, el hilo dice
   «Clínica:» sobre algo que nunca salió y el evaluador lo lee.
 - **Severidad:** rompe silencioso · **Propuesta:** registrar al confirmar («ya lo envié») o marcar
-  el saliente como `pendiente_confirmar` · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵
+  el saliente como `pendiente_confirmar` · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵 · **Fase 0.5**
+  · **Diseño fijado el 2026-09-06 (para ejecutar en frío):** NO se deja de insertar (si la persona
+  cierra la pestaña tras abrir wa.me, un mensaje enviado sin registro es perder un dato, §1). Se
+  inserta con `fuente = 'Modo_A_manual_pendiente'`; `POST /api/mensajeria/confirmar-envio {mensajeId}`
+  lo pasa a `Modo_A_manual` («ya lo envié», con `actualizarUna`); y los lectores que deciden con el
+  saliente lo EXCLUYEN mientras esté pendiente — el hilo del evaluador (`evaluar-entrante`), el
+  «saliente posterior» del barrido y del semáforo (queja, no_legible), `intentos` de la ficha y
+  `sinRespuestaDesde` de la bandeja — enseñándolo en gris como «pendiente de confirmar». Cinco
+  lectores: por eso son 3 h y no 30 min.
 
 ## 131. La rama WABA no persiste `autor` ni `sugerido_por_ia`
 - **Qué es:** `mensajeria.ts:385-396`. En modo B real la tasa de coincidencia y «las lleva el
@@ -2558,7 +2566,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - El director fija una meta; la plataforma propone y ejecuta palancas dentro de límites (188). ·
   **Esfuerzo:** 6-12 meses · **Fase 5** · **Fecha:** 2026-09-06 · 🔵
 
-## 162. Demo · la serie de 30 días del total parado sale PLANA (17.000 € todos los días)
+## 206. Demo · la serie de 30 días del total parado sale PLANA (17.000 € todos los días)
 - Las fotos derivadas (`calcularDashboardRed({ahora})` con el reloj movido) dan el mismo total de
   presupuestos parados los 30 días: la pertenencia a las líneas «cierre» y «reactivables» no
   depende del instante como debería, o el seed no mueve nada en ese eje. Las líneas de vencidos sí
@@ -2566,4 +2574,4 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   la demo; en producción las fotos son reales y no pasa. · **Propuesta:** revisar qué de la cola
   depende de `ahora` y que el seed mueva casos entre semanas; si no, que el desplegable diga
   «sin variación en 30 días» en vez de pintar una recta. · **Severidad:** afea la demo ·
-  **Esfuerzo:** 1-2 h · **Fecha:** 2026-09-06 · 🔵
+  **Esfuerzo:** 1-2 h · **Fecha:** 2026-09-06 · 🟢 hecha (2026-09-06: la cola excluye casos cuyo último toque es posterior a `ahora`; las fotos derivadas ya se mueven: 0 → 3.800 → 20.800 €)

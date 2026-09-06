@@ -3952,3 +3952,19 @@ arrastró el módulo entero —`db/context`, `kysely`, `pg`— al bundle del nav
 importa del módulo puro. Barrido del repo: era la única cadena cliente→servidor. **Automatizado:**
 hook de pre-commit del repo (`scripts/precommit-build.sh` vía `.claude/settings.json`) que corre
 `tsc` + `next build` (~20 s) y bloquea el commit si falla. Mandamiento §22 en el skill de ingeniería.
+
+## 2026-09-06 — Cierre del dashboard: la demo cierra, el bullet se mueve, las ventanas se dicen
+Cuatro correcciones tras la revisión de Simon. **(1) Red que cierra:** el seed siembra la cohorte
+del mes POR SEDE (Centro y Norte 4 aceptados, Sur cae de 4/5 a 2/9, Este pequeña a propósito) y
+la presentación nunca sale del mes de su cierre, también en el mes anterior — así el «mismo
+tramo» compara algo y Sur sale como «cayó» con muestra suficiente. **(2) Bullet plano (antes 162,
+ahora 206):** la cola devolvía igual con el reloj movido porque un caso cuyo último toque era
+POSTERIOR a `ahora` contaba con `paradoDias` 0; ahora se excluye (margen de un minuto; con `ahora`
+real no cambia nada) y las fotos derivadas van de 0 a 20.800 €. **(3) Ventanas:** la línea
+«Desde el…» dice «(último cierre de jornada)» y el desplegable del agente por sede dice «todo el
+mes» y explica por qué sus cifras son mayores. **(4) Coste «medido desde el 2 abr»:** era el
+primer hilo del histórico sembrado; el seed solo pone `usage` a los turnos del último mes →
+«desde el 7 ago». **La sede que cayó no se resaltaba porque la regla exige muestra ≥ 5 en los
+dos tramos**; con un presupuesto de base, −100 % es ruido y el diseño lo calla a propósito.
+Nota: la otra sesión (eddde3b) commiteó de paso los cambios del seed de esta tanda; quedan aquí
+los de la cola y la pantalla.

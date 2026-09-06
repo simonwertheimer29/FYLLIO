@@ -601,6 +601,13 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     if (!r) return null; // no es cola de trabajo (Mensajería / Envíos / Tablas)
     const ultimoToque = [men.entrante, men.saliente].filter(Boolean).sort().pop() ?? null;
     const desde = ultimoToque ?? (args.creadoAt ? new Date(args.creadoAt).toISOString() : null);
+    // Un caso cuyo último toque es POSTERIOR a `ahora` no existía así en ese
+    // instante: con el reloj movido hacia atrás (las fotos derivadas de
+    // Inicio, `guardarFotoInicio({ahora})`) contaba igual que hoy, y la serie
+    // de 30 días salía plana (MEJORAS 162). Con `ahora` = ahora de verdad no
+    // cambia nada: un minuto de margen cubre el mensaje que entra mientras se
+    // calcula la cola.
+    if (desde && new Date(desde).getTime() > ahora.getTime() + 60_000) return null;
     const paradoDias = desde ? Math.max(0, diasDeClinicaEntre(new Date(desde), ahora)) : 0;
     return { ...r, paradoDias, enEspera: agente?.enEspera ?? false, conversacion };
   };
