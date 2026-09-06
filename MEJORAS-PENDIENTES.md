@@ -1450,7 +1450,7 @@ verdad: un editor, un vocabulario, un renderizador.
   deuda de la demo, no del producto — pero deja la tasa de contactación de la
   demo en 12/58, que se enseña.
 - **Impacto:** bajo en producto, medio en demo (es un KPI de la pantalla).
-- **Fecha:** 2026-07-30 · ✅ **APROBADA el 2026-09-06** — tanda «seed honesto», fase 2 (Simon: la demo es hoy el peor argumento de venta) ·
+- **Fecha:** 2026-07-30 · 🟢 **HECHA el 2026-09-06** (el lead rico nace 1 h antes de su primera acción o mensaje; un «Nuevo» sin hilo, hace 3 h; invariante: cero acciones ni mensajes anteriores al alta) · — tanda «seed honesto», fase 2 (Simon: la demo es hoy el peor argumento de venta) ·
 
 ## 83. Las plantillas de WhatsApp nombran tratamiento e importe en el mismo mensaje
 - **Zona:** `scripts/db-seed-demo-rico.mjs:1164` (plantilla de ejemplo) ·
@@ -1932,7 +1932,7 @@ verdad: un editor, un vocabulario, un renderizador.
   censo de fase F.
 - **Decisión pendiente:** si el motor viejo muere en fase F/B5, el arreglo es borrar el seed de
   reglas, no corregirlo.
-- **Fecha:** 2026-08-23 · **Fase 2** · ✅ **APROBADA el 2026-09-06** — tanda «seed honesto» (Simon: la demo es hoy el peor argumento de venta)
+- **Fecha:** 2026-08-23 · **Fase 2** · 🟢 **HECHA el 2026-09-06** (trigger_tipo del TriggerTipo real, condiciones «[]», acciones JSON de Accion[]; siguen inertes por el triple candado; invariante) · — tanda «seed honesto» (Simon: la demo es hoy el peor argumento de venta)
 
 ## 111. El reloj de la cola está anclado a mediodía — la escalada a Fuera de plazo solo cambia una vez al día
 - **Qué es:** `colaDeSeguimiento` fija su «ahora» a las `T12:00Z` del día (14:00 Madrid) — el ancla
@@ -1958,7 +1958,7 @@ verdad: un editor, un vocabulario, un renderizador.
   demo. Mitigado en la UI: el filtro de /tablas/presupuestos lista el enum ∪ los valores presentes
   (también cubre datos legacy reales), y la celda enseña el texto tal cual.
 - **El arreglo:** demo-seed escribe el enum (y la invariante del seed lo comprueba, §15).
-- **Fecha:** 2026-08-24 · **Fase 2** · ✅ **APROBADA el 2026-09-06** — tanda «seed honesto» (Simon: la demo es hoy el peor argumento de venta)
+- **Fecha:** 2026-08-24 · **Fase 2** · 🟢 **HECHA el 2026-09-06** (MOTIVO_PERD_ENUM: precio_alto · otra_clinica · no_responde · sin_urgencia; la narrativa sigue en el hilo y en motivo_perdida_texto; invariante) · — tanda «seed honesto» (Simon: la demo es hoy el peor argumento de venta)
 
 ## 113. Sillones como restricción de agenda — PREGUNTA ABIERTA (validar con RB antes de modelar)
 - **Qué es:** decisión de diseño de la agenda (2026-08-27, dictada): los sillones quedan FUERA del

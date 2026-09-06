@@ -312,7 +312,15 @@ try {
     const salientes = guion.filter((m) => m.dir === "Saliente");
     const lastEnt = [...guion].reverse().find((m) => m.dir === "Entrante") ?? null;
     const lastSal = salientes[salientes.length - 1] ?? null;
+    // MEJORAS 82 (tanda «seed honesto», 06-09) — el lead NACE antes de su
+    // primera acción o mensaje: sin created_at explícito la fila se creaba
+    // «ahora» y 30 de 58 leads tenían acciones anteriores a su alta (tiempo
+    // de respuesta negativo). Un «Nuevo» sin hilo nace hace 3 h: sin gestionar
+    // de verdad. La invariante del final lo comprueba.
+    const primerTs = [...guion.map((m) => m.ts), ...acciones.map((a) => a.ts)].sort()[0] ?? null;
+    const creadoLead = primerTs ? new Date(new Date(primerTs).getTime() - 3600_000).toISOString() : hAgo(3);
     const lid = await ins("leads", {
+      created_at: creadoLead,
       nombre, telefono: telLead, email: null, tratamiento_interes: trat,
       canal_captacion: CANALES[i % CANALES.length], estado: est, clinica_id: cid,
       doctor_asignado_id: docEn(cid).id, tipo_visita: "Primera visita",
@@ -359,6 +367,16 @@ try {
     ["Endodoncia molar", 480], ["Blanqueamiento LED", 300], ["Implante unitario", 4200], ["Férula de descarga", 220],
     ["Limpieza dental", 90], ["Ortodoncia invisible", 3800], ["Corona sobre implante", 1200]];
   const MOTIVOS_PERD = ["Precio", "Se fue a otra clínica", "Sin respuesta tras 3 contactos", "Cambió de opinión"];
+  // MEJORAS 112 (tanda «seed honesto», 06-09) — la NARRATIVA sigue en el hilo y
+  // en motivo_perdida_texto; la COLUMNA guarda el enum real del modal
+  // (lib/presupuestos/types.ts → MotivoPerdida). Mismo patrón que la 41 con
+  // los leads. La invariante del final revienta si algo se sale del enum.
+  const MOTIVO_PERD_ENUM = {
+    Precio: "precio_alto",
+    "Se fue a otra clínica": "otra_clinica",
+    "Sin respuesta tras 3 contactos": "no_responde",
+    "Cambió de opinión": "sin_urgencia",
+  };
   const RECHAZO_PRES = {
     Precio: "Lo he pensado y ahora mismo es demasiado caro para mí. Lo siento.",
     "Se fue a otra clínica": "Al final me lo hago en otra clínica, gracias por todo.",
@@ -595,7 +613,7 @@ try {
         fecha_aceptado: fechaAceptado,
         doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
         paciente_telefono: pac.tel, contact_count: salientes.length,
-        motivo_perdida: motivoPerd, motivo_perdida_texto: motivoPerdTexto,
+        motivo_perdida: motivoPerd ? MOTIVO_PERD_ENUM[motivoPerd] : null, motivo_perdida_texto: motivoPerdTexto,
         fase_seguimiento: cerrado ? "Cerrado" : (lastMsg.dir === "Entrante" ? "En intervención" : "Esperando respuesta"),
         ultima_accion_registrada: lastMsg.ts, ultimo_contacto: lastMsg.ts.slice(0, 10),
         tipo_ultima_accion: lastMsg.dir === "Saliente" ? "WhatsApp enviado" : "Mensaje recibido",
@@ -717,7 +735,7 @@ try {
       importe: 700, fecha_alta: iso(antes, 9).slice(0, 10), fecha: iso(antes, 9).slice(0, 10),
       doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
       paciente_telefono: pac.tel, contact_count: 2,
-      motivo_perdida: "Precio", motivo_perdida_texto: "Lo he pensado y ahora mismo es demasiado caro para mí. Lo siento.",
+      motivo_perdida: "precio_alto", motivo_perdida_texto: "Lo he pensado y ahora mismo es demasiado caro para mí. Lo siento.",
       fase_seguimiento: "Cerrado",
       ultima_accion_registrada: guion[2].ts, ultimo_contacto: guion[2].ts.slice(0, 10),
       tipo_ultima_accion: "WhatsApp enviado",
@@ -1071,12 +1089,42 @@ try {
     // Abiertos recientes (en espera <48h — no ensucian "pendiente_responder").
     [1200, 2600, 800, 1750].forEach((imp, i) => espec.push({ tipo: "abierto", base: dPlus(-1), importe: imp, horas: 8 + i * 7 }));
 
+    // ── RED QUE CIERRA (06-09) — la cohorte del mes POR SEDE ─────────────
+    // Una red que funciona: aceptados repartidos, una sede claramente mejor
+    // (Centro) y otra que cae (Sur), para que «Tus clínicas» compare algo.
+    // Por sede: [aceptados, abiertos] presentados en el TRAMO (días 1..ayer)
+    // de este mes · [aceptados, perdidos] en el mismo tramo del mes anterior.
+    // Sur presenta 5 y 5 (la base mínima) y pasa de 4 aceptados a 1: es la
+    // que «cayó» y la única con muestra suficiente para llevar la señal. Este
+    // se queda pequeña a propósito: muestra corta, sin señal — un −100 % con
+    // un presupuesto de base es ruido con autoridad.
+    const TRAMO_POR_SEDE = { Centro: [[4, 2], [2, 3]], Norte: [[2, 3], [2, 3]], Sur: [[1, 4], [4, 1]], Este: [[0, 2], [1, 1]] };
+    const IMP_TRAMO = [1900, 2600, 1450, 3200, 2200, 1750];
+    const diaTramo = (mesesAtras, k) => {
+      const x = new Date(HOY); x.setDate(1); x.setMonth(x.getMonth() - mesesAtras);
+      x.setDate(1 + ((k * 2) % Math.max(1, HOY.getDate() - 1)));
+      return aHoraClinica(x, 10);
+    };
+    const sedeId = new Map(clinicas.map((c) => [c.nombre.replace(/^Clínica Demo /, ""), c.id]));
+    let kTramo = 0;
+    for (const [sede, [[acepAct, abAct], [acepPrev, perdPrev]]] of Object.entries(TRAMO_POR_SEDE)) {
+      const cid = sedeId.get(sede);
+      if (!cid) continue;
+      const pool = pacsVol.filter((x) => x.cid === cid);
+      let j = 0;
+      const pacDe = () => pool[(j++) % pool.length];
+      for (let k = 0; k < acepAct; k++) espec.push({ tipo: "liquidado", base: diaTramo(0, kTramo++), importe: jit(IMP_TRAMO[kTramo % IMP_TRAMO.length], 400), pct: 0.4, pac: pacDe() });
+      for (let k = 0; k < abAct; k++) espec.push({ tipo: "abierto", base: diaTramo(0, kTramo++), importe: jit(IMP_TRAMO[kTramo % IMP_TRAMO.length], 400), pac: pacDe() });
+      for (let k = 0; k < acepPrev; k++) espec.push({ tipo: "liquidado", base: diaTramo(1, kTramo++), importe: jit(IMP_TRAMO[kTramo % IMP_TRAMO.length], 400), pct: 1, pac: pacDe() });
+      for (let k = 0; k < perdPrev; k++) espec.push({ tipo: "perdido", base: diaTramo(1, kTramo++), importe: jit(IMP_TRAMO[kTramo % IMP_TRAMO.length], 400), pac: pacDe() });
+    }
+
     // Motivos de pérdida del volumen: SOLO los que tienen frase de rechazo
     // (el hilo y el motivo registrado no pueden contradecirse).
     const MOTIVOS_PERD_VOL = ["Precio", "Se fue a otra clínica", "Cambió de opinión"];
     const presVolRows = []; const presVolMeta = [];
     for (const e of espec) {
-      const pac = pacVolNext();
+      const pac = e.pac ?? pacVolNext(); // la sede fijada (red que cierra) o el reparto de siempre
       const primer = pac.nombre.split(" ")[0];
       const [tnom] = TRAT_PRES[(presVolRows.length * 3) % TRAT_PRES.length];
       const tratLow = tnom.toLowerCase();
@@ -1091,15 +1139,16 @@ try {
       // días 1-3 se presentaban en el mes anterior. Resultado (05-09-2026): las
       // cuatro clínicas a «0 %» toda la primera semana de cada mes. Un
       // presupuesto presentado el día 1 y aceptado el día 1 o el 3 es normal.
-      // Hereda las 09:00 de HOY a propósito: `iso10` recorta en UTC y la
-      // medianoche local del día 1 es todavía el 31 en UTC (lo hizo).
-      const primeroDeMes = new Date(HOY); primeroDeMes.setDate(1);
-      const alta = aceptado && e.base >= primeroDeMes
-        ? new Date(Math.max(diasAntes(e.base, 2).getTime(), primeroDeMes.getTime()))
-        : diasAntes(e.base, 2);
+      // Generalizado el 06-09 a TODOS los meses y tipos: la presentación no
+      // sale nunca del mes de `base`, porque la cohorte de Inicio se cuenta
+      // por mes de presentación (también la del mes anterior, «mismo tramo»).
+      // `base` conserva las 10:00 de la clínica: `iso10` recorta en UTC y la
+      // medianoche local del día 1 sería todavía el 31 (lo hizo).
+      const primeroDelMes = new Date(e.base); primeroDelMes.setDate(1);
+      const alta = new Date(Math.max(diasAntes(e.base, 2).getTime(), primeroDelMes.getTime()));
       const motivoPerd = perdido ? MOTIVOS_PERD_VOL[presVolRows.length % MOTIVOS_PERD_VOL.length] : null;
       const guion = abierto
-        ? [{ dir: "Saliente", ts: hAgo(e.horas), txt: `Hola ${primer}, aquí tienes el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas 😊` }]
+        ? [{ dir: "Saliente", ts: e.horas != null ? hAgo(e.horas) : enHora(alta, 10), txt: `Hola ${primer}, aquí tienes el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas 😊` }]
         : perdido
           ? [
               { dir: "Saliente", ts: enHora(diasAntes(e.base, 1), 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de ${tratLow} (${impTxt})?` },
@@ -1122,7 +1171,7 @@ try {
         fecha_aceptado: fechaAceptado, doctor: docEn(pac.cid).nombre,
         tipo_paciente: "Nuevo", tipo_visita: "Primera visita", paciente_telefono: pac.tel,
         contact_count: salientes.length,
-        motivo_perdida: motivoPerd, motivo_perdida_texto: perdido ? lastEnt?.txt ?? null : null,
+        motivo_perdida: motivoPerd ? MOTIVO_PERD_ENUM[motivoPerd] : null, motivo_perdida_texto: perdido ? lastEnt?.txt ?? null : null,
         fase_seguimiento: abierto ? "Esperando respuesta" : "Cerrado",
         ultima_accion_registrada: lastMsg.ts, ultimo_contacto: lastMsg.ts.slice(0, 10),
         tipo_ultima_accion: lastMsg.dir === "Saliente" ? "WhatsApp enviado" : "Mensaje recibido",
@@ -1233,12 +1282,18 @@ try {
 
   // ── AUTOMATIZACIONES — TRIPLE CANDADO de no-envío ────────────────────
   const PACIENTE_TEST_INEXISTENTE = "recTESTNOEXISTE0000"; // no existe → modo_test nunca coincide
+  // MEJORAS 110 (tanda «seed honesto», 06-09) — trigger_tipo del VOCABULARIO
+  // REAL (lib/automatizaciones/types.ts → TriggerTipo), condiciones como array
+  // y acciones como JSON de Accion[]: antes eran valores inventados
+  // («cita_proxima», «paciente_inactivo»), «{}» y un string plano que el motor
+  // jamás encontraba. Siguen inertes por el triple candado (modo_test +
+  // paciente inexistente); la invariante del final lo comprueba.
   const reglasDef = [
-    ["cita_24h", "Recordatorio 24h antes de la cita", "cita_proxima", 41],
-    ["presupuesto_estancado_7d", "Reactivar presupuesto estancado >7 días", "presupuesto_estancado", 23],
-    ["lead_inactivo_3d", "Seguimiento de lead sin respuesta", "lead_inactivo", 17],
+    ["cita_24h", "Recordatorio 24h antes de la cita", "cita_confirmada_24h_antes", 41],
+    ["presupuesto_estancado_7d", "Reactivar presupuesto estancado >7 días", "presupuesto_estancado_7d", 23],
+    ["lead_inactivo_3d", "Seguimiento de lead sin respuesta", "lead_inactivo_n_dias", 17],
     ["bienvenida_lead", "Mensaje de bienvenida a lead nuevo", "lead_creado", 34],
-    ["reactivacion_60d", "Reactivación de paciente inactivo 60 días", "paciente_inactivo", 8],
+    ["presupuesto_presentado", "Aviso a coordinación al presentar un presupuesto", "presupuesto_presentado", 8],
   ];
   const reglas = [];
   for (const [codigo, nombre, trigger, veces] of reglasDef) {
@@ -1246,7 +1301,9 @@ try {
       codigo, nombre, descripcion: `Automatización: ${nombre.toLowerCase()}.`, trigger_tipo: trigger,
       clinica_id: CENTRO, activa: true, veces_disparada: veces, ultima_disparada_at: dISO(-(veces % 5) - 1),
       modo_test: true, paciente_test_id: PACIENTE_TEST_INEXISTENTE, resumen: nombre,
-      condiciones: "{}", acciones: "enviar_whatsapp_template", updated_at: dISO(-1),
+      condiciones: "[]",
+      acciones: JSON.stringify([{ tipo: "crear_alerta_coordinadora", params: { titulo: nombre } }]),
+      updated_at: dISO(-1),
     });
     reglas.push(rid);
     // historial de disparos (display "veces disparada"), en el pasado, ya ejecutados
@@ -1497,6 +1554,11 @@ try {
           usage: { inputTokens: 1600 + (entrantesVistos * 137) % 900, outputTokens: 180 + (i * 31) % 160, cacheEscritura: 0, cacheLectura: 1200 },
           modelo: MODELO,
         };
+        // El coste se mide desde que el agente se encendió en la demo, hace
+        // un mes: los turnos anteriores van SIN usage, y así «medido desde el»
+        // dice una fecha creíble y no el primer hilo del histórico de abril
+        // (06-09). Se quita la clave entera: la consulta busca '"usage"'.
+        if (new Date(m.ts).getTime() < HOY.getTime() - 30 * 86_400_000) delete payload.usage;
         await evento({ caso_id: telefono, evento: "evaluacion", evaluacion_json: JSON.stringify(payload), mensaje_id: m.id, created_at: seg(m.ts, 2) });
         nEval++; evaluado = true;
         if (aplazar) {
@@ -1613,6 +1675,38 @@ try {
           `o variables de una sola llave, que el renderizador no sustituye: ` +
           malas.map((m) => m.nombre).join(", "),
       );
+    }
+  }
+
+  // INVARIANTES de la tanda «seed honesto» (§15, 06-09 — MEJORAS 82, 110, 112):
+  // el vocabulario se declara A MANO aquí a propósito, para que cambiar un
+  // enum sin pensar en el seed reviente en el próximo demo:reset.
+  {
+    const VOCAB_MOTIVO_PERDIDA = new Set(["precio_alto", "otra_clinica", "sin_urgencia", "necesita_financiacion", "miedo_tratamiento", "no_responde", "otro"]);
+    const mp = await db.query(
+      `select motivo_perdida, count(*)::int n from presupuestos where cliente = 'DEMO' and motivo_perdida is not null group by 1`,
+    );
+    const fueraMotivo = mp.rows.filter((r) => !VOCAB_MOTIVO_PERDIDA.has(r.motivo_perdida));
+    if (fueraMotivo.length) {
+      throw new Error(`[seed] motivo_perdida fuera del enum (112): ` + fueraMotivo.map((f) => `${f.motivo_perdida} (${f.n})`).join(", "));
+    }
+    const VOCAB_TRIGGER = new Set(["lead_creado", "cita_confirmada_24h_antes", "presupuesto_presentado", "presupuesto_estancado_7d", "lead_inactivo_n_dias"]);
+    const rg = await db.query(`select trigger_tipo, count(*)::int n from reglas_automatizacion where cliente = 'DEMO' group by 1`);
+    const fueraTrigger = rg.rows.filter((r) => !VOCAB_TRIGGER.has(r.trigger_tipo));
+    if (fueraTrigger.length) {
+      throw new Error(`[seed] reglas con trigger_tipo fuera del vocabulario (110): ` + fueraTrigger.map((f) => `${f.trigger_tipo} (${f.n})`).join(", "));
+    }
+    const ac = await db.query(
+      `select count(*)::int n from acciones_lead a join leads l on l.id = a.lead_id where l.cliente = 'DEMO' and a."timestamp" < l.created_at`,
+    );
+    if (Number(ac.rows[0].n) > 0) {
+      throw new Error(`[seed] ${ac.rows[0].n} acción(es) de lead anteriores al alta del lead (82): el tiempo de respuesta saldría negativo`);
+    }
+    const mg = await db.query(
+      `select count(*)::int n from mensajes_whatsapp m join leads l on l.id = m.lead_id where l.cliente = 'DEMO' and m."timestamp" < l.created_at`,
+    );
+    if (Number(mg.rows[0].n) > 0) {
+      throw new Error(`[seed] ${mg.rows[0].n} mensaje(s) de lead anteriores al alta del lead (82)`);
     }
   }
 

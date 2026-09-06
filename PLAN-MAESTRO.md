@@ -81,7 +81,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 |
 | 2.8 | «Ver por qué» por mensaje (inspector de decisiones) | 183 |
 | 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita + pantallas de demo | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73, 15 |
-| 2.10 | **Tanda «seed honesto»** (aprobada 6-sep, se adelanta a la fase 0 por la demo): el seed respeta el vocabulario real y lo comprueba con una invariante (§15) | 41, 82, 110, 112 |
+| 2.10 | **Tanda «seed honesto»** (aprobada 6-sep, adelantada por la demo): el seed respeta el vocabulario real y lo comprueba con invariantes (§15) | 82, 110, 112 · ✅ 6-sep (demo:reset en verde con cuatro invariantes nuevas) |
 
 **Deja lista** la NBA: impacto y urgencia por caso ya existen.
 
@@ -225,3 +225,6 @@ tanda «seed honesto» es 82, 110 y 112.
 - **2026-09-06** — Segundo bloque: 147 (borrado, retención con plazo declarado) y 166 (registro de
   consentimiento) en la migración 039. Fase 0 pendiente: 164 (cola), 165 (salida, Meta),
   130/134/145/155, y el cableado del bloqueo por consentimiento cuando el abogado fije la forma.
+- **2026-09-06** — 145 y 155 hechas. Simon decide las nueve fuera del plan: cinco muertas a favor
+  de la NBA, tanda «seed honesto» (82, 110, 112) hecha el mismo día; 49/68/90/97 cerradas, 15 a 2.9.
+  Simon asume: cuenta Upstash, destino de logs, catálogo de Meta, consulta legal y RB.

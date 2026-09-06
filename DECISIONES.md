@@ -3928,6 +3928,20 @@ mensaje al clasificador viejo, dos comportamientos para la misma clínica según
 de la fase 0.5: 130 (el saliente manual se registra antes de enviarse) y 134 (el composer pisa el
 error), que son camino manual y composer, no el del agente.
 
+## 2026-09-06 — Las nueve fuera del plan, decididas; y la tanda «seed honesto» hecha el mismo día
+Simon: 36 y 53/54/56/70 mueren a favor de la cola por impacto (NBA, 186) — «mantenerlas vivas es
+deuda que alguien intentará arreglar»; 82/110/112 entran como tanda de un día porque «la demo es hoy
+nuestro peor argumento de venta». Verificadas en código las cinco en limbo: 49 (/red murió), 68
+(§20, sin links por nombre), 90 (conocimiento.politicas) y 97 (/agenda) cerradas; **15 sigue
+abierta** — `Paciente360View:684` manda Agendar a `/no-shows?tab=agenda`, zona congelada — y pasa a
+2.9. Corrección del censo: 41 ya estaba cerrada desde julio; el emoji de su primera línea engañó al
+recuento. La tanda: el lead rico nace una hora antes de su primera acción (antes nacía «ahora» y 30
+de 58 tenían acciones previas al alta), las cinco reglas demo llevan `trigger_tipo` del `TriggerTipo`
+real con condiciones y acciones bien formadas (siguen inertes por el triple candado), y
+`motivo_perdida` guarda el enum del modal mientras la narrativa vive en el hilo y en el texto. Cuatro
+invariantes nuevas al final del seed (§15): motivo fuera del enum, trigger fuera del vocabulario, y
+acciones o mensajes anteriores al alta del lead revientan el `demo:reset`. Pasado en verde.
+
 ## 2026-09-06 — be26b8e rompió el build de Vercel: `tsc` limpio, `next build` no
 `InicioView` (cliente) importó `BASE_MINIMA_COHORTE` y `UMBRAL_COHORTE_ABIERTA` como valor desde
 `dashboard-red.ts`; antes solo había un `import type`, que se borra al compilar. La constante
