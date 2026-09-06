@@ -79,6 +79,14 @@ export async function borrarConversacion(args: {
 
   return runWithClienteDb(cliente, async (trx) => {
     const n = async (q: ReturnType<typeof sql<{ n: number }>>) => Number((await q.execute(trx)).rows?.[0]?.n ?? 0);
+    // Las incidencias referencian mensajes por id (MEJORAS 207): se borran
+    // ANTES que los mensajes, mientras la referencia todavía resuelve.
+    const incidencias = await n(sql<{ n: number }>`with d as (
+        delete from incidencias
+         where referencia in (
+           select coalesce(waba_message_id, id) from mensajes_whatsapp
+            where replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron})
+         returning 1) select count(*)::int as n from d`);
     const mensajes = await n(sql<{ n: number }>`with d as (
         delete from mensajes_whatsapp
          where replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}
@@ -101,7 +109,7 @@ export async function borrarConversacion(args: {
         delete from secuencias_automaticas
          where replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}
          returning 1) select count(*)::int as n from d`);
-    const otros = { seguimiento_vistos: vistos, cola_envios: cola, secuencias_automaticas: secuencias };
+    const otros = { seguimiento_vistos: vistos, cola_envios: cola, secuencias_automaticas: secuencias, incidencias };
     await trx
       .insertInto("supresiones")
       .values({

@@ -33,10 +33,10 @@ Estados: ⬜ abierta · 🟠 en curso · ✅ cerrada (con fecha y línea en el m
 
 | # | Qué | MEJORAS | Estado |
 |---|---|---|---|
-| 0.1 | El turno perdido no se reintenta → barrido de reevaluación + **cola de trabajos** (decisión: QStash, push, sin worker, funciona en Hobby) | 163, 164, 146 | 🟠 barrido ✅ 6-sep (webhook + `/api/cron/reevaluar` + suelo diario) · cola 164 ⬜ |
+| 0.1 | El turno perdido no se reintenta → barrido de reevaluación + **cola de trabajos** (decisión: QStash, push, sin worker, funciona en Hobby) | 163, 164, 146 | 🟠 barrido ✅ 6-sep (webhook + `/api/cron/reevaluar` + suelo diario) · cola 164 ✅ 6-sep (QStash: el turno del evaluador; `/api/cola/*` firmado; agotados los reintentos → `incidencias` + campana; `cola:programar` pone el disparador de 10 min) |
 | 0.2 | Nada sale solo → **una sola salida** (`cola_envios` → WABA) con dedup, semáforo, opt-out y ventana de 24 h; el motor 16b deja de «enviar» | 165, 9, 10, 11, 24, 39, 74, 83, 98, 115, 132, 133, 154 | ⬜ **Bloqueada por Meta** (ver bloqueantes) — se construye hasta donde no dependa del catálogo y queda **declarada aplazada**, no olvidada |
 | 0.3 | Borrado, retención y consentimiento + **log de cambios de configuración** | 147, 166, 167 | ✅ 6-sep en código: 167 (038) · 147 (039: borrado por teléfono desde admin y al dar de baja una ficha, retención SOLO con plazo declarado) · 166 (registro con fecha y origen; el bloqueo detrás de flag) · **del abogado quedan el plazo y la forma del consentimiento** |
-| 0.4 | **Log drain** (Vercel Hobby no tiene drains: envío desde `lib/log-drain` a un destino externo, o plan Pro) | 162 | ✅ 6-sep en código · **inerte hasta `LOG_DRAIN_URL`** (bloqueante de Simon) |
+| 0.4 | **Log drain** (Vercel Hobby no tiene drains: envío desde `lib/log-drain` a un destino externo, o plan Pro) | 162, 207 | ✅ 6-sep · **los fallos viven en `incidencias` (207), en nuestra base, sin contenido, visibles en Ajustes › Incidencias; el drenaje (162) se aplaza a clientes reales — decisión de Simon** · drenaje inerte hasta `LOG_DRAIN_URL` (bloqueante de Simon) |
 | 0.5 | Pequeños de fiabilidad del mismo camino | 130, 134, 145, 155 | 🟠 145 y 155 ✅ 6-sep · 130 y 134 ⬜ (camino manual y composer, siguiente sesión) |
 
 **Cierra cuando:** un entrante sin evaluar se reevalúa solo en menos de 10 minutos; existe un camino
@@ -248,3 +248,7 @@ tanda «seed honesto» es 82, 110 y 112.
 - **2026-09-06** — 145 y 155 hechas. Simon decide las nueve fuera del plan: cinco muertas a favor
   de la NBA, tanda «seed honesto» (82, 110, 112) hecha el mismo día; 49/68/90/97 cerradas, 15 a 2.9.
   Simon asume: cuenta Upstash, destino de logs, catálogo de Meta, consulta legal y RB.
+- **2026-09-06** — 164 hecha (QStash: el turno del evaluador; el resto se queda en `after()` a
+  propósito) y 207 nueva y hecha: los fallos en nuestra base, sin contenido, visibles en Ajustes ›
+  Incidencias. Decisión de Simon: el drenaje (162) se aplaza a clientes reales. Migración 040.
+  Fase 0 pendiente: 165 (Meta), 130, el cableado del consentimiento y el plazo (abogado).

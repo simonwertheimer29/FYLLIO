@@ -2301,6 +2301,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — `lib/log-drain` envuelve `console.error/warn`
   desde `instrumentation.ts`; declarado en `lib/entorno`. **Inerte hasta que Simon cree el destino y
   ponga `LOG_DRAIN_URL` (+ `LOG_DRAIN_TOKEN`) en Vercel** — bloqueante suyo, no de código.
+  **Decisión 6-sep (Simon): el drenaje queda anotado para cuando haya clientes reales**, no ahora
+  — otro proveedor recibiendo registros con contenido es otra superficie que justificar ante el
+  abogado. Lo capturable desde nuestro código va a `incidencias` (207); esto cubre solo lo que
+  muere fuera de él.
 
 ## 163. Fase 0 · Barrido de reevaluación — el turno perdido no se reintenta
 - Modelo caído o timeout de 20 s → turno perdido; el caso queda en «Sin evaluar» hasta que alguien
@@ -2317,7 +2321,17 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   mensajes diferidos, sin worker, funciona en Hobby) o equivalente; primer uso: la evaluación del
   turno y el barrido 163; después cadencias a la hora correcta, retención, recálculo de NBA. Cierra
   146 (heartbeat) de paso. · **Severidad:** bloquea 0.1 y 0.2 · **Esfuerzo:** 1 semana ·
-  **Fase 0** · **Fecha:** 2026-09-06 · 🔵
+  **Fase 0** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** (QStash). Qué se mueve a la cola
+  HOY: **solo el turno del evaluador** (`evaluar_entrante`, desde el webhook, encolado antes de
+  responder a Meta). Qué se queda en `after()` a propósito: el barrido al final de cada lote
+  (barato, idempotente, con suelo en el cron), el flujo viejo de clasificación (muere con 165), la
+  foto de Inicio y el sync de agendas (tienen su propio estado persistido). Firma de QStash
+  verificada en `/api/cola/*` (fail-closed: sin clave rechaza todo); idempotencia en dos capas
+  (`deduplicationId` + `turnoYaEvaluado` antes de gastar modelo); 3 reintentos y, agotados, el
+  callback deja el turno en `incidencias` (207) con aviso en la campana. `lib/cola/qstash` ·
+  `qa:cola-trabajos` (firma, malformado, reentrega, callback). Activa sola en producción (URL de
+  Vercel); el disparador cada 10 min de `/api/cron/reevaluar` se crea con `npm run cola:programar`
+  (necesita `COLA_URL_BASE`). Queda para otro día: el barrido y la retención como trabajos con hora.
 
 ## 165. Fase 0 · UNA sola salida automática hacia el paciente
 - Hoy nada sale solo: Twilio apagado, `engine.ts` no envía (skeleton), `cola_envios` se genera por
@@ -2575,3 +2589,30 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   depende de `ahora` y que el seed mueva casos entre semanas; si no, que el desplegable diga
   «sin variación en 30 días» en vez de pintar una recta. · **Severidad:** afea la demo ·
   **Esfuerzo:** 1-2 h · **Fecha:** 2026-09-06 · 🟢 hecha (2026-09-06: la cola excluye casos cuyo último toque es posterior a `ahora`; las fotos derivadas ya se mueven: 0 → 3.800 → 20.800 €)
+
+## 207. Fase 0 · Los fallos, en nuestra base — no en un servicio externo
+- Decisión de Simon (6-sep): los fallos se guardan en Fyllio, no en un drenaje externo (otra
+  superficie con contenido que justificar ante el abogado), y se enseñan en el producto.
+  **Diagnóstico previo:** (a) de los 273 `console.error`, 161 están en rutas de API (70 justo
+  antes de un 500: capturables), 84 en `lib` (catches que loguean y siguen: capturables), 21 en
+  componentes cliente (ocurren en el navegador: NO capturables desde el servidor) y 7 en scripts;
+  lo que ocurre FUERA de nuestro código —timeout de la función, error del framework antes del
+  handler, cold start, la plataforma— no pasa por ningún catch nuestro. (b) Tabla `incidencias`:
+  cliente, clínica, tipo, motivo (código), origen, referencia (id, nunca teléfono), `detalle`
+  jsonb con escalares técnicos REDACTADOS (entrecomillados, correos y tiras de dígitos fuera; ≤160
+  caracteres), veces, primera/última vez, cubo por hora, reintentable. Crecimiento acotado: cubo
+  por hora (la misma referencia N veces = una fila), tope de 300 filas por cliente y hora (pasado,
+  una sola fila `sistema/tope_incidencias`), caducidad diaria con `INCIDENCIAS_RETENCION_DIAS`
+  (90 por defecto, nunca por encima del plazo de conversaciones cuando el abogado lo fije) y borrado
+  con el derecho de supresión (la referencia no sobrevive al mensaje). (c) Producto: la campana
+  se toca SIEMPRE para lo que es decisión o está roto por definición (tope de turnos, config
+  ilegible, reintentos agotados) y solo cuando es SISTEMÁTICO (≥ 3 casos distintos de la misma
+  clínica, tipo y motivo en una hora) para lo que la cola reintenta sola; **Ajustes › Incidencias**
+  enseña lo que arde ahora y todo lo de 24 h / 7 días agrupado, con enlace al hilo (el teléfono se
+  resuelve al leer, bajo RLS). (d) NO cubre y seguiría exigiendo el drenaje: lo que muere antes
+  del handler, los errores del navegador, los `console.error` sin cliente en contexto (quedan en
+  consola), y el texto técnico completo de un error (aquí va redactado). · **Severidad:** ciega ·
+  **Esfuerzo:** 1 día · **Fase 0** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** —
+  migración 040, `lib/incidencias`, `avisos.ts` registra ahí, `/api/admin/incidencias`,
+  `qa:incidencias` (redacción, cubo, umbral, caducidad, sin contexto). Pendiente de cablear en los
+  demás catches (envíos, crons, integraciones): hoy registran el agente y la cola.

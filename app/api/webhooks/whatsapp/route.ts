@@ -44,6 +44,7 @@ import { esMensajeVisto, marcarMensajeVisto } from "../../../lib/scheduler/idemp
 import { evaluadorActivo } from "../../../lib/automatizacion/pg";
 import { evaluarEntranteConversacion } from "../../../lib/agente/evaluar-entrante";
 import { avisarFalloAgente } from "../../../lib/agente/avisos";
+import { encolar } from "../../../lib/cola/qstash";
 import { buscarLeadActivoPorTelefono } from "../../../lib/leads/leads";
 import { runWithCliente, currentCliente, type Cliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
@@ -410,6 +411,16 @@ async function processIncomingPayload(body: unknown): Promise<void> {
         presupuestoId: ultimo.presupuestoInfo?.id ?? null,
         clinicaId: ultimo.clinicaId,
       };
+      // Plan maestro 0.1 (MEJORAS 164): el turno va a la cola de trabajos —
+      // reintento solo y, si agota, incidencia VISIBLE. Se encola ANTES de
+      // responder a Meta (una llamada HTTP corta; el mensaje ya está
+      // persistido). Si la cola no está configurada (el portátil) o no acepta
+      // el trabajo, el camino de siempre: after(), que el barrido (163) cubre
+      // si muere. Idempotente por mensaje_id en las dos capas.
+      if (clienteEval) {
+        const enc = await encolar({ tipo: "evaluar_entrante", cliente: clienteEval, entrada });
+        if (enc.encolado) continue;
+      }
       after(async () => {
         if (!clienteEval) return;
         await runWithCliente(clienteEval, async () => {
@@ -423,6 +434,7 @@ async function processIncomingPayload(body: unknown): Promise<void> {
               detalle: sanitizeError(err),
               clinicaId: entrada.clinicaId,
               telefono,
+              mensajeId: entrada.mensajeId,
             });
           }
         });

@@ -3978,3 +3978,31 @@ primer hilo del histórico sembrado; el seed solo pone `usage` a los turnos del 
 dos tramos**; con un presupuesto de base, −100 % es ruido y el diseño lo calla a propósito.
 Nota: la otra sesión (eddde3b) commiteó de paso los cambios del seed de esta tanda; quedan aquí
 los de la cola y la pantalla.
+
+## 2026-09-06 · La cola de trabajos (164) y los fallos en nuestra base (207)
+
+**Cola:** QStash, y solo el turno del evaluador entra hoy. Se encola ANTES de responder a Meta
+(el mensaje ya está persistido; encolar es una llamada corta); si la cola no está configurada o
+no acepta, el camino de siempre (`after()` + barrido). Contrato con QStash: 2xx = hecho, 5xx =
+reintenta; por eso `evaluarEntranteConversacion` devuelve ahora un resultado tipado y solo un
+`fallo` REINTENTABLE responde 503. El modelo caído NO es reintentable: el turno ya se persistió
+como fallback (derivado) y reintentar sería evaluar dos veces. Idempotencia en dos capas: el
+`deduplicationId` de QStash y `turnoYaEvaluado` antes de gastar modelo (la persistencia ya lo
+era al escribir). Firma verificada fail-closed en `/api/cola/*`: sin clave, 401 a todo.
+Lo que se queda en `after()` a propósito: el barrido por lote (idempotente, con suelo diario),
+el flujo viejo de clasificación (muere con 165), la foto de Inicio y el sync de agendas.
+
+**Fallos:** decisión de Simon — en nuestra base, no en un drenaje externo (otra superficie con
+contenido que justificar ante el abogado). Regla dura cumplida por construcción: `incidencias`
+guarda tipo, motivo, origen, referencia (id) y escalares técnicos REDACTADOS (entrecomillados,
+correos y tiras de dígitos fuera); el teléfono va solo a la consola. Crece acotado (cubo por hora,
+tope por hora, caducidad a 90 días o el plazo del abogado si es menor, borrado con la supresión).
+**Cambio de comportamiento de la campana:** los fallos que la cola reintenta sola (modelo,
+contexto, error inesperado) ya no la tocan al primer caso, sino al tercero distinto en una hora;
+el tope de turnos, la config ilegible y los reintentos agotados la tocan siempre. Lo que NO
+cubre y seguiría exigiendo el drenaje de Vercel: lo que muere antes del handler, el navegador y
+los errores sin cliente en contexto. El drenaje (162) queda para clientes reales.
+
+**Lección:** una cola que reintenta obliga a que la función distinga «fallé y no toqué nada» de
+«fallé pero ya persistí un resultado». Sin ese resultado tipado, el reintento evalúa dos veces
+o insiste contra un tope.

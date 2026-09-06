@@ -28,10 +28,10 @@ destino (162); derecho de supresión, retención con plazo declarado y registro 
 
 | Queda en fase 0 | Quién |
 |---|---|
-| 164 cola de trabajos (QStash) | Simon crea la cuenta; luego ingeniería (1 sem) |
+| 164 cola ✅ 6-sep (QStash: el turno del evaluador; fallos agotados → `incidencias` + campana) · 207 incidencias ✅ 6-sep (Ajustes › Incidencias) | Simon: `COLA_URL_BASE` en `.env.local` y `npm run cola:programar` (disparador de 10 min del barrido) |
 | 165 una sola salida automática | **Bloqueada por el catálogo de Meta** — declarada, no olvidada |
 | 134 composer ✅ 6-sep · 130 saliente manual pendiente de confirmar (diseño fijado en su entrada) | Ingeniería, siguiente sesión |
-| Plazo de retención · forma del consentimiento · destino de logs | **Simon** (abogado · abogado · cuenta Axiom/Better Stack + `LOG_DRAIN_URL`) |
+| Plazo de retención · forma del consentimiento | **Simon** (abogado). El destino de logs (162) se aplaza a clientes reales: lo capturable va a `incidencias` |
 
 Fase 1 pendiente: 172 (`metricas_diarias`, abre la fase 2; **especificada en PLAN-MAESTRO fase 1**),
 173 (jsonb: los lectores hacen `JSON.parse(String(...))` y hay que migrarlos a la vez), 174, 175
@@ -126,7 +126,7 @@ cualquier envío, plantillas de cobranza de RB, teléfonos del seed al rango res
 | | |
 |---|---|
 | Rama | `main`, limpia y al día |
-| Migraciones | hasta la **034** aplicadas; `qa:tipos` al día (21 tablas declaradas) |
+| Migraciones | hasta la **040** aplicadas; `qa:tipos` al día (24 tablas declaradas) |
 | Tipos | `tsc` en verde |
 | QA determinista | `qa:parseo` · `qa:conocimiento` en verde |
 | QA con base | `qa:bandeja` · `qa:ficha` · `qa:turno` en verde; `qa:entrante` 4/4 en el orquestador (sus 2 rojos: el interruptor del seed está encendido en DEMO y el QA espera apagado) |

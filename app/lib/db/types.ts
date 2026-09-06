@@ -232,6 +232,26 @@ export interface Tabla_supresiones {
   created_at: Generated<Date>;
 }
 
+/** 040 — los fallos capturados, en nuestra base (MEJORAS 207). Sin contenido
+ *  de conversación ni teléfono: tipo, motivo, origen, referencia (id) y
+ *  escalares técnicos redactados en `detalle`. Cubo por hora: la misma
+ *  (clínica, tipo, motivo, referencia, hora) es una fila y `veces` cuenta. */
+export interface Tabla_incidencias {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string | null;
+  tipo: "agente" | "cola" | "envio" | "cron" | "integracion" | "entrada" | "sistema";
+  motivo: string;
+  origen: string;
+  referencia: string | null;
+  detalle: unknown | null;
+  veces: Generated<number>;
+  primera_vez: Generated<Date>;
+  ultima_vez: Generated<Date>;
+  hora: Date;
+  reintentable: Generated<boolean>;
+}
+
 /** 014 — cuántos toques antes de dar la cadencia por agotada.
  *  020 — `objetivos`: definición de «caso listo» por etapa, JSON-string con la
  *  forma de `lib/automatizacion/objetivos.ts` (valida al leer, cae al default
@@ -492,6 +512,7 @@ export interface DB
   uso_banco_pruebas: Tabla_uso_banco_pruebas;
   configuracion_historial: Tabla_configuracion_historial;
   supresiones: Tabla_supresiones;
+  incidencias: Tabla_incidencias;
   seguimiento_vistos: Tabla_seguimiento_vistos;
   eventos_automatizacion: Tabla_eventos_automatizacion;
   sugerencias_categoria: Tabla_sugerencias_categoria;

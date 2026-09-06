@@ -75,6 +75,18 @@ export const CONTRATO: Requisito[] = [
     nivel: "funcional",
   },
   {
+    nombre: "QSTASH_TOKEN",
+    rompe:
+      "La cola de trabajos (MEJORAS 164): sin ella cada turno del agente corre dentro de after() del webhook, sin reintento — el que muere por timeout solo lo recupera el barrido (163). Con el token hacen falta también QSTASH_CURRENT_SIGNING_KEY (y NEXT) y una URL pública: COLA_URL_BASE, o la de producción que Vercel expone.",
+    nivel: "funcional",
+  },
+  {
+    nombre: "QSTASH_CURRENT_SIGNING_KEY",
+    rompe:
+      "La verificación de firma de /api/cola/*: sin ella la ruta rechaza TODO (fail-closed) y cada trabajo de la cola acaba en incidencias como reintentos agotados.",
+    nivel: "funcional",
+  },
+  {
     nombre: "GOOGLE_SERVICE_ACCOUNT_JSON",
     rompe:
       "La lectura de agendas externas (nivel 2, Google Calendar): las conectadas dejan de refrescarse y lo dicen.",

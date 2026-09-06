@@ -51,6 +51,9 @@
     "postbuild": "node scripts/reiniciar-servidor-local.mjs",
     "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts",
     "qa:barrido": "tsx scripts/qa-barrido.mts",
+    "qa:incidencias": "tsx scripts/qa-incidencias.mts",
+    "qa:cola-trabajos": "tsx scripts/qa-cola-trabajos.mts",
+    "cola:programar": "tsx scripts/cola-programar.mts",
     "qa:supresion": "tsx scripts/qa-supresion.mts"
   },
   "dependencies": {
@@ -66,6 +69,7 @@
     "@react-pdf/renderer": "^4.3.2",
     "@supabase/supabase-js": "^2.106.2",
     "@types/papaparse": "^5.5.2",
+    "@upstash/qstash": "^2.11.3",
     "@vercel/kv": "^3.0.0",
     "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",

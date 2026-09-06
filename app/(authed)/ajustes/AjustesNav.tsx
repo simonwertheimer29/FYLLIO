@@ -28,6 +28,7 @@ const SECCIONES = [
   { href: "/ajustes/configuracion", label: "Configuración" },
   { href: "/ajustes/whatsapp", label: "WhatsApp" },
   { href: "/ajustes/notificaciones", label: "Notificaciones" },
+  { href: "/ajustes/incidencias", label: "Incidencias" },
   { href: "/ajustes/clinica-equipo", label: "Clínica y equipo" },
 ];
 

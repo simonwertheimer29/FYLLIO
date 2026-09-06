@@ -418,11 +418,32 @@ async function runDailyCron(): Promise<NextResponse> {
     }
   }
 
+  // Plan maestro 0.4 (MEJORAS 207): las incidencias caducan con plazo
+  // declarado (INCIDENCIAS_RETENCION_DIAS, 90 por defecto; nunca por encima
+  // del plazo de conversaciones si existe). Sin contenido personal, así que
+  // no espera al abogado — pero entra en la misma política.
+  let incidencias: { plazoDias: number; borradas: number } | { error: string } | { truncado: true };
+  if (overBudget()) {
+    incidencias = { truncado: true };
+    truncated.push("incidencias");
+  } else {
+    try {
+      const { plazoRetencionIncidencias, retencionIncidencias } = await import("../../../lib/incidencias");
+      const plazo = plazoRetencionIncidencias();
+      const r = await retencionIncidencias({ dias: plazo });
+      incidencias = { plazoDias: plazo, borradas: r.borradas };
+    } catch (e) {
+      incidencias = { error: motivoFallo(e) };
+      errors.push(`incidencias: ${motivoFallo(e)}`);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     date: now.toISODate(),
     reevaluacion,
     retencion,
+    incidencias,
     reminders: { sent: remindersSent, total: tomorrowAppts.length },
     confirmations: { sent: confirmsSent, total: tomorrowAppts.length },
     feedback: { sent: feedbackSent, total: yesterdayAppts.length },

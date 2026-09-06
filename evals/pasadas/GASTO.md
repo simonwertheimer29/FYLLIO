@@ -32,3 +32,4 @@ de esta carpeta. Pendiente al reabrir crédito: vara del evaluador post-equilibr
 - qa:entrante (2 llamadas) · **~$0,01** · orquestador de punta a punta con tipo/señales/opt-out → 4/4 en la parte del orquestador (los 2 «fallos» son el interruptor del seed, que está encendido en DEMO y el QA espera apagado; no es del cambio) · ac. **$0,08**
   (anunciado $0,12; el 16/6 salió más barato de lo estimado)
 - qa:evals-evaluador COMPLETA (73 turnos) · **$0,35 medido** ($0,3461) · dictada por Simon: el system cambió y medir solo lo tocado es lo que mordió antes → **66/67 (99 %)**, ¿Listo? 21/21, descartes del juez 7/73 (10 %); único fallo el 35 (R→S, la vara pide A). Salida en `2026-09-05-evaluador-post-auditoria.txt` · ac. **$0,43**
+- qa:entrante (2 llamadas) · **~/bin/bash,01** · regresión tras la guarda de idempotencia y los resultados tipados del evaluador (MEJORAS 164) → 8/8, la reentrega se salta sin gastar modelo (6-sep)

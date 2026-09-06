@@ -44,7 +44,7 @@ import {
 import type { ObjetivoAgente } from "../automatizacion/objetivos";
 import { hoyISO, horaClinica } from "../time";
 import { esLegible, etiquetaDeTipo, type TipoMensaje } from "../mensajeria/tipos-mensaje";
-import { avisarFalloAgente } from "./avisos";
+import { avisarFalloAgente, falloReintentable, type MotivoFalloAgente } from "./avisos";
 import { optOutDeTelefono, marcarOptOut } from "../contacto/optout";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
 
@@ -114,8 +114,37 @@ function senalesDelHilo(
   };
 }
 
-export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<void> {
+/** Lo que devuelve un turno. Los callers de siempre lo ignoran; la cola de
+ *  trabajos (MEJORAS 164) decide con él si pide reintento: solo un `fallo`
+ *  reintentable merece un 5xx. */
+export type ResultadoTurno =
+  | { estado: "evaluado" }
+  | { estado: "saltado"; motivo: "ya_evaluado" | "sin_actuar" }
+  | { estado: "fallo"; motivo: MotivoFalloAgente; reintentable: boolean };
+
+const fallo = (motivo: MotivoFalloAgente): ResultadoTurno => ({ estado: "fallo", motivo, reintentable: falloReintentable(motivo) });
+
+/** ¿Este entrante ya tiene su turno persistido? La clave de idempotencia del
+ *  turno es el mensaje_id (waba). Un reintento de la cola, una reentrega de
+ *  Meta o el barrido llegando tarde no gastan modelo ni duplican nada. */
+export async function turnoYaEvaluado(mensajeId: string): Promise<boolean> {
+  const cliente = requireCliente("turnoYaEvaluado");
+  const r = await runWithClienteDb(cliente, (trx) =>
+    sql<{ ok: number }>`select 1 as ok from eventos_automatizacion
+        where tipo_caso = 'conversacion' and mensaje_id = ${mensajeId}
+          and evento in ('evaluacion', 'derivado')
+        limit 1`.execute(trx),
+  );
+  return (r.rows?.length ?? 0) > 0;
+}
+
+export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<ResultadoTurno> {
   const cliente = requireCliente("evaluarEntranteConversacion");
+
+  // 0 · Idempotencia por mensaje (MEJORAS 164): si el turno ya está, no se
+  //     vuelve a evaluar. Antes la persistencia lo deduplicaba al escribir;
+  //     ahora tampoco se gasta el modelo.
+  if (await turnoYaEvaluado(e.mensajeId)) return { estado: "saltado", motivo: "ya_evaluado" };
 
   // 1 · Contexto determinista. Un fallo de datos NO evalúa sobre un contexto
   //     inventado — y desde hoy se AVISA (MEJORAS 128), no solo se loguea.
@@ -128,8 +157,9 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       detalle: err instanceof Error ? err.message : String(err),
       clinicaId: e.clinicaId ?? null,
       telefono: e.telefono,
+      mensajeId: e.mensajeId,
     });
-    return;
+    return fallo("contexto_no_disponible");
   }
 
   // 2 · Objetivos y conocimiento de la clínica DEL NÚMERO que recibió
@@ -151,8 +181,9 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       detalle: err instanceof Error ? err.message : String(err),
       clinicaId: clinicaConfig,
       telefono: e.telefono,
+      mensajeId: e.mensajeId,
     });
-    return;
+    return fallo("configuracion_ilegible");
   }
   const objetivosAbiertos = ctx.objetivosAbiertos
     .map((etapa) => objetivosConfig.find((o) => o.etapa === etapa))
@@ -211,8 +242,9 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       detalle: `${datos.turnos24h} turnos en 24 h (tope ${topeTurnos24h()})`,
       clinicaId: clinicaConfig,
       telefono: e.telefono,
+      mensajeId: e.mensajeId,
     });
-    return;
+    return fallo("tope_turnos");
   }
 
   const nombreDe = (id: string | null) => datos.nombresClinicas.find((c) => String(c.id) === id)?.nombre ?? null;
@@ -307,7 +339,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,
   });
 
-  if (!evaluacion.actuar) return;
+  if (!evaluacion.actuar) return { estado: "saltado", motivo: "sin_actuar" };
 
   await persistirTurno({
     telefono: e.telefono,
@@ -322,8 +354,10 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       detalle: MOTIVO_FALLBACK_EVALUADOR,
       clinicaId: clinicaConfig,
       telefono: e.telefono,
+      mensajeId: e.mensajeId,
     });
-    return;
+    // No reintentable: el turno YA está persistido como fallback (derivado).
+    return fallo("modelo_no_disponible");
   }
 
   // MEJORAS 135: la persona pidió no recibir mensajes → se marca en la
@@ -338,6 +372,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
         detalle: `opt-out no marcado: ${err instanceof Error ? err.message : String(err)}`,
         clinicaId: clinicaConfig,
         telefono: e.telefono,
+        mensajeId: e.mensajeId,
       });
     }
   }
@@ -358,4 +393,5 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       console.error("[evaluar-entrante] notificación:", err instanceof Error ? err.message : err);
     }
   }
+  return { estado: "evaluado" };
 }
