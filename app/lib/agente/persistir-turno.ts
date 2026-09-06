@@ -55,6 +55,8 @@ export type PayloadEvaluacion = {
    *  anteriores no lo tienen: la pantalla dice «desde el día X». */
   usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
   modelo?: string;
+  /** MEJORAS 174 — milisegundos de la llamada al modelo (solo la llamada). */
+  latenciaMs?: number;
   /** Aditivo (2026-09-05, MEJORAS 136) — idioma del último mensaje. */
   idioma?: string | null;
   /** Aditivo (2026-09-05, MEJORAS 135) — pidió no recibir más mensajes. */
@@ -229,6 +231,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     presupuestoReferidoId: ev.presupuestoReferidoId ?? null,
     usage: ev.usage,
     modelo: ev.modelo,
+    latenciaMs: ev.latenciaMs,
     idioma: ev.idioma ?? null,
     pideNoContacto: ev.pideNoContacto === true ? true : undefined,
     version: ev.version,
@@ -250,4 +253,21 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
   //  con las pantallas ya leyendo del log — ver la cabecera del archivo.)
 
   return { eventosNuevos: nuevos, reentrega: nuevos === 0 && repetidos > 0 };
+}
+
+/** MEJORAS 173 — el ÚNICO camino para leer `evaluacion_json`. Desde la 042 la
+ *  columna es jsonb y el driver devuelve un objeto; antes era texto. Acepta
+ *  las dos formas y devuelve null ante cualquier cosa ilegible: un payload
+ *  roto no rompe la ficha ni las métricas, y tampoco se inventa. */
+export function leerPayloadEvaluacion(raw: unknown): PayloadEvaluacion | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    try {
+      const p = JSON.parse(raw) as unknown;
+      return p && typeof p === "object" ? (p as PayloadEvaluacion) : null;
+    } catch {
+      return null;
+    }
+  }
+  return typeof raw === "object" ? (raw as PayloadEvaluacion) : null;
 }

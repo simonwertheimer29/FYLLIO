@@ -116,7 +116,7 @@ await runWithCliente("DEMO", async () => {
   let rows = await eventos();
   ok("en la base hay exactamente 4", rows.length === 4, `hay=${rows.length}`);
   const evalRow = rows.find((r) => r.evento === "evaluacion");
-  const payload = evalRow ? JSON.parse(evalRow.evaluacion_json) : null;
+  const payload = evalRow ? (typeof evalRow.evaluacion_json === "string" ? JSON.parse(evalRow.evaluacion_json) : evalRow.evaluacion_json) : null;
   ok("payload: juicios íntegros", payload?.tema === "presupuesto" && payload?.malestar === true && payload?.hiloTruncado === true);
   ok("payload: campos recogidos y borrador descartado viajan", payload?.camposRecogidos?.presupuesto?.decision === "se lo piensa" && payload?.borradorDescartado?.motivo === "clinica");
   ok("payload: la respuesta (borrador) viaja — la necesita la fase C", payload?.respuesta?.includes("asesor"));

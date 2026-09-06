@@ -388,7 +388,7 @@ async function agregadosInicio(
          from eventos_automatizacion e
         where e.evento = 'evaluacion' and e.created_at >= date_trunc('month', (${ahora}::timestamptz at time zone 'Europe/Madrid')) at time zone 'Europe/Madrid' and ${enScope("e")}) as turnos,
       (select min(e.created_at) from eventos_automatizacion e
-        where e.evento = 'evaluacion' and e.evaluacion_json like '%"usage"%') as coste_desde,
+        where e.evento = 'evaluacion' and e.evaluacion_json ? 'usage') as coste_desde,
       -- ── 3 · el agente por sede, este mes (desplegable de «Tus clínicas») ──
       -- La sede de un hilo es la del último mensaje con clínica: un hilo que
       -- cruza la red cuenta en la sede donde está ahora, no en las dos.

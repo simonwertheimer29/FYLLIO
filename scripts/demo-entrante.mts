@@ -392,7 +392,7 @@ await runWithCliente("DEMO", async () => {
     salida = 0;
     return;
   }
-  const p = JSON.parse(evalRow.evaluacion_json) as PayloadEvaluacion;
+  const p = (typeof evalRow.evaluacion_json === "string" ? JSON.parse(evalRow.evaluacion_json) : evalRow.evaluacion_json) as PayloadEvaluacion;
   const derivado = evs.find((e) => e.evento === "derivado");
   const aplazados = evs.filter((e) => e.evento === "aplazado");
 

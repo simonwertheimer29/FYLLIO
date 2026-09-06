@@ -235,7 +235,7 @@ async function correr(r: Recorrido): Promise<boolean> {
   ).rows;
   const derivados = evs.filter((e) => e.evento === "derivado");
   const evaluaciones = evs.filter((e) => e.evento === "evaluacion");
-  const payloads: PayloadEvaluacion[] = evaluaciones.map((e) => JSON.parse(e.evaluacion_json));
+  const payloads: PayloadEvaluacion[] = evaluaciones.map((e) => (typeof e.evaluacion_json === "string" ? JSON.parse(e.evaluacion_json) : e.evaluacion_json));
   const fijadas = evs.filter((e) => e.evento === "espera_fijada").length;
   const levantadas = evs.filter((e) => e.evento === "espera_levantada").length;
   const sem = await semaforoDeContacto(r.tel, { hoy });

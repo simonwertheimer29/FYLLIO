@@ -23,12 +23,18 @@
 //     respuesta al día siguiente y se recalcula.
 //   entrantes / salientes / salientes_del_agente · mensajes del día; los
 //     salientes pendientes de confirmar (130) no cuentan.
-//   leads_nuevos · leads creados ese día. (leads_citados NO está en v1: nadie
-//     registra el cambio de estado con fecha; entrará cuando exista.)
+//   leads_nuevos · leads creados ese día. leads_citados · leads distintos con
+//     una cita AGENDADA ese día (citas.lead_id + agendada_en: la fecha real de
+//     «citado» es la de la cita, no la del estado). leads_convertidos · leads
+//     en Convertido con `fecha_cierre` ese día (MEJORAS 37, cerrada en julio).
 //   presupuestos_presentados_n/eur · por `fecha` del presupuesto.
 //   aceptados_n/eur · por `fecha_aceptado`. perdidos_n · cambio_estado→PERDIDO
 //     del historial, por fecha del cambio.
-//   pagos_eur · SOLO a nivel de red: pagos_paciente no lleva clínica.
+//   pagos_eur · por `fecha_pago`; la clínica es la del PACIENTE (pagos_paciente
+//     no la lleva; pacientes sí). Un pago de un paciente sin clínica solo
+//     cuenta en la red.
+//   modelo_latencia_mediana_ms · mediana de `latenciaMs` de los turnos del día
+//     (solo la llamada al modelo); n = turnos con latencia.
 //   evaluaciones / derivaciones / derivaciones_caso_completo / aplazados ·
 //     eventos del agente del día; por clínica, la del mensaje evaluado (los
 //     eventos sin mensaje_id solo cuentan en la red).
@@ -43,6 +49,7 @@ import { currentCliente, type Cliente } from "../airtable";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
 import { minutosLaborablesEntre } from "../seguimiento/tiempo-laborable";
 import { costeUsdDeTurno } from "../agente/coste";
+import { leerPayloadEvaluacion } from "../agente/persistir-turno";
 import { TZ_CLINICA } from "../time";
 
 export const DEFINICION_V = 1;
@@ -53,6 +60,8 @@ export const METRICAS_V1 = [
   "salientes",
   "salientes_del_agente",
   "leads_nuevos",
+  "leads_citados",
+  "leads_convertidos",
   "presupuestos_presentados_n",
   "presupuestos_presentados_eur",
   "aceptados_n",
@@ -66,6 +75,7 @@ export const METRICAS_V1 = [
   "coste_usd",
   "modelo_errores",
   "descartes_juez",
+  "modelo_latencia_mediana_ms",
 ] as const;
 export type Metrica = (typeof METRICAS_V1)[number];
 export type ValorMetrica = { valor: number; n: number };
@@ -162,6 +172,20 @@ export async function calcularDia(args: {
          and (${c}::text is null or clinica_id = ${c})`.execute(trx);
     out.leads_nuevos = { valor: Number(leads.rows[0]?.n ?? 0), n: Number(leads.rows[0]?.n ?? 0) };
 
+    const citados = await sql<{ n: number }>`
+      select count(distinct lead_id)::int as n from citas
+       where lead_id is not null
+         and (agendada_en at time zone ${tz})::date = ${args.dia}::date
+         and (${c}::text is null or clinica_id = ${c})`.execute(trx);
+    out.leads_citados = { valor: Number(citados.rows[0]?.n ?? 0), n: Number(citados.rows[0]?.n ?? 0) };
+
+    const convertidos = await sql<{ n: number }>`
+      select count(*)::int as n from leads
+       where estado = 'Convertido' and fecha_cierre is not null
+         and (fecha_cierre at time zone ${tz})::date = ${args.dia}::date
+         and (${c}::text is null or clinica_id = ${c})`.execute(trx);
+    out.leads_convertidos = { valor: Number(convertidos.rows[0]?.n ?? 0), n: Number(convertidos.rows[0]?.n ?? 0) };
+
     const pres = await sql<{ pn: number; pe: number; an: number; ae: number }>`
       select count(*) filter (where fecha = ${args.dia}::date)::int as pn,
              coalesce(sum(importe) filter (where fecha = ${args.dia}::date), 0)::float8 as pe,
@@ -182,14 +206,15 @@ export async function calcularDia(args: {
          and (${c}::text is null or clinica_id = ${c})`.execute(trx);
     out.perdidos_n = { valor: Number(perd.rows[0]?.n ?? 0), n: Number(perd.rows[0]?.n ?? 0) };
 
-    if (c == null) {
-      const pagos = await sql<{ n: number; eur: number }>`
-        select count(*)::int as n, coalesce(sum(importe), 0)::float8 as eur
-          from pagos_paciente where fecha_pago = ${args.dia}::date`.execute(trx);
-      out.pagos_eur = { valor: Number(pagos.rows[0]?.eur ?? 0), n: Number(pagos.rows[0]?.n ?? 0) };
-    }
+    const pagos = await sql<{ n: number; eur: number }>`
+      select count(*)::int as n, coalesce(sum(pg.importe), 0)::float8 as eur
+        from pagos_paciente pg
+        left join pacientes pa on pa.id = pg.paciente_id
+       where pg.fecha_pago = ${args.dia}::date
+         and (${c}::text is null or pa.clinica_id = ${c})`.execute(trx);
+    out.pagos_eur = { valor: Number(pagos.rows[0]?.eur ?? 0), n: Number(pagos.rows[0]?.n ?? 0) };
 
-    const evs = await sql<{ evento: string; causa: string | null; json: string | null }>`
+    const evs = await sql<{ evento: string; causa: string | null; json: unknown }>`
       select e.evento, e.causa_derivacion as causa, e.evaluacion_json as json
         from eventos_automatizacion e
         left join mensajes_whatsapp m on m.waba_message_id = e.mensaje_id
@@ -197,6 +222,7 @@ export async function calcularDia(args: {
          and (e.created_at at time zone ${tz})::date = ${args.dia}::date
          and (${c}::text is null or m.clinica_id = ${c})`.execute(trx);
     let evaluaciones = 0, derivaciones = 0, casoCompleto = 0, aplazados = 0, coste = 0, conUsage = 0, descartes = 0;
+    const latencias: number[] = [];
     for (const e of evs.rows) {
       if (e.evento === "derivado") {
         derivaciones++;
@@ -208,19 +234,18 @@ export async function calcularDia(args: {
         continue;
       }
       evaluaciones++;
-      if (!e.json) continue;
-      try {
-        const p = JSON.parse(e.json) as { usage?: Parameters<typeof costeUsdDeTurno>[0]; modelo?: string | null; borradorDescartado?: unknown };
-        const usd = costeUsdDeTurno(p.usage, p.modelo);
-        if (usd != null) {
-          coste += usd;
-          conUsage++;
-        }
-        if (p.borradorDescartado) descartes++;
-      } catch {
-        /* un json ilegible no cuenta ni rompe el día */
+      // 173: jsonb → objeto (texto solo en filas anteriores a la migración).
+      const p = leerPayloadEvaluacion(e.json);
+      if (!p) continue;
+      const usd = costeUsdDeTurno(p.usage, p.modelo);
+      if (usd != null) {
+        coste += usd;
+        conUsage++;
       }
+      if (p.borradorDescartado) descartes++;
+      if (typeof p.latenciaMs === "number" && Number.isFinite(p.latenciaMs)) latencias.push(p.latenciaMs);
     }
+    out.modelo_latencia_mediana_ms = { valor: Math.round(mediana(latencias)), n: latencias.length };
     out.evaluaciones = { valor: evaluaciones, n: evaluaciones };
     out.derivaciones = { valor: derivaciones, n: derivaciones };
     out.derivaciones_caso_completo = { valor: casoCompleto, n: derivaciones };

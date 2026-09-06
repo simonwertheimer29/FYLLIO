@@ -4036,3 +4036,20 @@ desde hoy también a la huérfana (+34611999002) que el QA usaba como «cero eva
 fabrica ahora ese estado (borra sus eventos al arrancar) en vez de heredarlo. Lección conocida: un
 QA que depende de un estado del seed que nadie declaró como invariante se rompe cuando el seed
 mejora.
+
+## 2026-09-06 · Cierre de la fase 1 (173, 174, 175 y las dos ausencias de 172)
+
+**Decisión de Simon:** no se abre la fase 2 con la 1 a medias; el marcador solo sube con cosas
+cerradas. **173:** `evaluacion_json` a jsonb con GIN; `objetivos` y `conocimiento` se quedan en
+text a propósito (no se agregan; el historial de configuración compara su texto). Un único
+lector, `leerPayloadEvaluacion`, para objeto o texto. **Lección nueva, pagada por `qa:ficha`:**
+jsonb normaliza el orden de las claves, y la ficha componía «qué quiere» con `Object.values` del
+payload — la frase cambió de orden sin que nadie tocara la ficha. El orden es DATO: si importa,
+se declara (ahora, por la definición del objetivo). Va al skill de ingeniería como §23.
+**174:** la latencia se mide alrededor de la llamada y viaja en el payload; en la serie, mediana
+por día con su n. **175:** cerrada por verificación — Next 16 ejecuta los `after()` con p-queue
+sin límite, en paralelo; la premisa «en serie» era falsa, y con la cola cada hilo es un trabajo.
+Verificar antes de construir ahorró dos horas. **172, ausencias:** `leads_citados` sale de la
+cita agendada (`citas.lead_id` + `agendada_en`), que es la fecha real de «citado»; 37 llevaba
+cerrada desde julio (`fecha_cierre`) y da `leads_convertidos`; los pagos toman la clínica del
+paciente. La serie compara sedes, que es el argumento entero de la fase 2.

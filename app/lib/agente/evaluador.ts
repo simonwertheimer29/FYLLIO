@@ -211,6 +211,8 @@ export type EvaluacionTurno = {
    *  aditivos y opcionales; los precios son distintos (1.25× / 0.1×) y sin
    *  separarlos la medición de coste del plan de negocio saldría inflada. */
   usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
+  /** MEJORAS 174 — milisegundos de la llamada al modelo (solo la llamada). */
+  latenciaMs?: number;
   /** Id del modelo con el que se tarifa `usage` (31-08). El juez suma sus
    *  tokens aquí y va siempre en haiku: se tarifa todo al modelo del
    *  evaluador — con sonnet sobreestima un poco el juez, nunca al revés. */
@@ -814,7 +816,10 @@ export async function evaluarTurno(
   }
 
   const { texto: entradaRenderizada, truncado } = renderEntrada(e);
+  // MEJORAS 174: la latencia de la llamada (solo la llamada) viaja en el payload.
+  const t0Modelo = Date.now();
   const { juicio, descartes, usage } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
+  const latenciaMs = Date.now() - t0Modelo;
 
   if (!juicio) {
     // Fail-closed compat: «no pude evaluar» no es una causa de derivación —
@@ -835,6 +840,7 @@ export async function evaluarTurno(
       hiloTruncado: truncado,
       fallback: true,
       usage,
+      latenciaMs,
       modelo: MODELOS[opts?.modelo ?? "haiku"].id,
     };
   }
@@ -994,6 +1000,7 @@ export async function evaluarTurno(
     hiloTruncado: truncado,
     fallback: false as const,
     usage,
+    latenciaMs,
     modelo: MODELOS[opts?.modelo ?? "haiku"].id,
     idioma: juicio.idioma,
     pideNoContacto: juicio.pideNoContacto,

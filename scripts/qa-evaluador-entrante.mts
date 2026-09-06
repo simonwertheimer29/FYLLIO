@@ -111,7 +111,7 @@ await runWithCliente("DEMO", async () => {
     )).rows;
     const evalRow = evs.find((r) => r.evento === "evaluacion");
     ok("el turno queda persistido (evento evaluacion)", evalRow != null, `eventos=${evs.map((e) => e.evento).join(",")}`);
-    const payload = evalRow ? JSON.parse(evalRow.evaluacion_json) : null;
+    const payload = evalRow ? (typeof evalRow.evaluacion_json === "string" ? JSON.parse(evalRow.evaluacion_json) : evalRow.evaluacion_json) : null;
     ok("el payload trae juicios y borrador", typeof payload?.tema === "string" && typeof payload?.respuesta === "string");
     ok("precio sin presupuesto emitido NO se aplaza (regla P1)", !evs.some((r) => r.evento === "aplazado"),
       evs.filter((r) => r.evento === "aplazado").length ? "se aplazó algo" : "");

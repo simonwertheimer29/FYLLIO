@@ -31,8 +31,8 @@ import {
   type ClaveAplazado,
   type EventoAplazamiento,
 } from "../automatizacion/aplazamientos";
-import type { EtapaObjetivo } from "../automatizacion/objetivos";
-import type { PayloadEvaluacion } from "./persistir-turno";
+import { OBJETIVOS_POR_DEFECTO, type EtapaObjetivo } from "../automatizacion/objetivos";
+import { leerPayloadEvaluacion, type PayloadEvaluacion } from "./persistir-turno";
 import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
 import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
 import { optOutDeTelefono, type EstadoOptOut } from "../contacto/optout";
@@ -127,7 +127,17 @@ function componerQueQuiere(
   objetivo: EtapaObjetivo,
   campos: Record<string, string | null> | undefined,
 ): string {
-  const valores = Object.values(campos ?? {})
+  // MEJORAS 173 — el ORDEN es dato: jsonb normaliza el orden de las claves del
+  // payload, así que la frase no puede depender de él. Se ordena por la
+  // definición del objetivo (las claves que no estén, al final, por nombre).
+  const orden = OBJETIVOS_POR_DEFECTO.find((o) => o.etapa === objetivo)?.campos.map((c) => c.clave) ?? [];
+  const pos = (clave: string) => {
+    const i = orden.indexOf(clave);
+    return i === -1 ? orden.length : i;
+  };
+  const valores = Object.entries(campos ?? {})
+    .sort(([a], [b]) => pos(a) - pos(b) || a.localeCompare(b))
+    .map(([, v]) => v)
     .filter((v): v is string => v != null && v.trim() !== "" && v !== "no_aplica")
     .map((v) => v.trim());
   return valores.length ? `${ETIQUETA_OBJETIVO[objetivo]} — ${valores.join(" · ")}` : ETIQUETA_OBJETIVO[objetivo];
@@ -222,9 +232,8 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   // El último juicio persistido — la verdad de «qué recogió».
   const filasEvaluacion = datos.eventos.filter((x) => x.evento === "evaluacion");
   const ultimaEvaluacion = filasEvaluacion[filasEvaluacion.length - 1] ?? null;
-  const payload: PayloadEvaluacion | null = ultimaEvaluacion?.evaluacion_json
-    ? (JSON.parse(ultimaEvaluacion.evaluacion_json) as PayloadEvaluacion)
-    : null;
+  // MEJORAS 173: jsonb → objeto; el helper acepta las dos formas.
+  const payload: PayloadEvaluacion | null = leerPayloadEvaluacion(ultimaEvaluacion?.evaluacion_json);
   const evaluado = payload != null;
 
   // El último juicio que identificó de QUÉ presupuesto se habla (un turno
@@ -234,8 +243,8 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     const raw = filasEvaluacion[i]?.evaluacion_json;
     if (!raw) continue;
     try {
-      const pj = JSON.parse(String(raw)) as PayloadEvaluacion;
-      if (pj.presupuestoReferidoId) {
+      const pj = leerPayloadEvaluacion(raw);
+      if (pj?.presupuestoReferidoId) {
         presupuestoReferidoId = pj.presupuestoReferidoId;
         break;
       }

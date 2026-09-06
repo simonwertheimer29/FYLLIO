@@ -412,6 +412,20 @@ de dar algo por hecho, y no es un ruego: el hook de pre-commit del repo (`script
 
 ## Cómo crece este skill
 
+### 23. El orden de un JSON no es dato hasta que se declara
+`jsonb` normaliza el orden de las claves (por longitud y luego alfabético); un `text` lo conserva.
+Cualquier código que recorra un objeto persistido con `Object.values`/`Object.entries` y
+componga algo visible con ese orden (una frase, una lista, una prioridad) cambia de resultado al
+migrar la columna, sin que nadie toque ese código. Si el orden importa, se declara en el código
+(una lista canónica, la definición del objetivo) y se ordena por ella; si no importa, se ordena
+por algo estable (nombre) para que dos lecturas den lo mismo. Y todo lector de una columna JSON
+pasa por UN helper que acepta objeto y texto (`leerPayloadEvaluacion`): `JSON.parse(String(x))`
+sobre un objeto devuelve `[object Object]` y rompe justo después de la migración.
+> **Nos lo enseñó:** la migración 042 (`evaluacion_json` a jsonb) cambió la frase «Quiere cita —
+> empezar su tratamiento · sin prisa · tardes» a «… sin prisa · tardes · empezar su tratamiento» en
+> la ficha, porque `componerQueQuiere` recorría `camposRecogidos` en el orden del payload. Lo cazó
+> `qa:ficha` el mismo día; sin él habría sido un «la ficha lo dice raro» semanas después.
+
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo
 debe cumplir, se añade aquí como mandamiento con su línea de "Nos lo enseñó". Las

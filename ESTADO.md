@@ -33,14 +33,15 @@ destino (162); derecho de supresión, retención con plazo declarado y registro 
 | 134 composer ✅ 6-sep · 130 saliente manual pendiente de confirmar ✅ 6-sep (`qa:modo-manual`) | — |
 | Plazo de retención · forma del consentimiento | **Simon** (abogado). El destino de logs (162) se aplaza a clientes reales: lo capturable va a `incidencias` |
 
-**172 hecha (6-sep):** `metricas_diarias` con 18 métricas v1, cron diario y backfill por rango
-(`qa:metricas` 20/20; migración 041). Fase 1 pendiente: 173 (jsonb: los lectores hacen
-`JSON.parse(String(...))` y hay que migrarlos a la vez), 174 (queda la latencia del modelo), 175
-(verificar si `after()` ya paraleliza). Las nueve fuera del plan están decididas; las cinco en limbo,
-cerradas o con fase (15 → 2.9). Censo y fases: [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md).
-**Siguiente sesión, en frío:** fase 2 por 2.6 (antes/después con `serie()`) y 2.5; o 173/175 si se
-prefiere cerrar la fase 1. Simon: `COLA_URL_BASE` + `npm run cola:programar`, protección de
-despliegues de Vercel, backfill histórico de métricas (`/api/cron/metricas?desde=&hasta=`).
+**FASE 1 CERRADA (6-sep).** `metricas_diarias` con 21 métricas v1 (incluidas `leads_citados`,
+`leads_convertidos`, pagos por clínica y latencia del modelo; migración 041), `evaluacion_json` en
+jsonb con GIN (042) y lectores migrados, `after()` verificado en paralelo. `qa:metricas`,
+`qa:ficha`, `qa:turno`, `qa:entrante` en verde. Marcador: 22,5 → 28,5
+([`MARCADOR-MISION.md`](MARCADOR-MISION.md)). Fase 0 sigue abierta SOLO por bloqueantes externos
+(165 Meta; consentimiento y plazo, abogado). Censo y fases: [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md).
+**Siguiente sesión, en frío: fase 2 por 2.6** (antes/después por clínica con `serie()`).
+Simon: `COLA_URL_BASE` + `npm run cola:programar`, protección de despliegues de Vercel, backfill
+histórico de métricas (`/api/cron/metricas?desde=&hasta=`, 31 días por llamada).
 
 ### Lo anterior (5 sep)
 
@@ -129,7 +130,7 @@ cualquier envío, plantillas de cobranza de RB, teléfonos del seed al rango res
 | | |
 |---|---|
 | Rama | `main`, limpia y al día |
-| Migraciones | hasta la **041** aplicadas; `qa:tipos` al día (25 tablas declaradas) |
+| Migraciones | hasta la **042** aplicadas; `qa:tipos` al día (25 tablas declaradas) |
 | Tipos | `tsc` en verde |
 | QA determinista | `qa:parseo` · `qa:conocimiento` en verde |
 | QA con base | `qa:bandeja` · `qa:ficha` · `qa:turno` en verde; `qa:entrante` 4/4 en el orquestador (sus 2 rojos: el interruptor del seed está encendido en DEMO y el QA espera apagado) |

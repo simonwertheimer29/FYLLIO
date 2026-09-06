@@ -23,7 +23,7 @@
 // (016) estuvo tres días sin tipo y nadie se enteró porque se usaba con `sql`
 // crudo y un `any`.
 
-import type { Generated } from "kysely";
+import type { ColumnType, Generated } from "kysely";
 import type { TipoMensaje } from "../mensajeria/tipos-mensaje";
 import type {
   DBGenerado,
@@ -154,7 +154,10 @@ export interface Tabla_eventos_automatizacion {
   malestar: boolean | null;
   /** 024 — solo en evento='evaluacion': los juicios del turno (JSON-string,
    *  forma en lib/agente/persistir-turno.ts). */
-  evaluacion_json: string | null;
+  /** 042 — jsonb: al LEER llega un objeto (nunca `JSON.parse(String(x))`:
+   *  usa `leerPayloadEvaluacion`); al ESCRIBIR se sigue pasando el JSON como
+   *  texto y Postgres lo valida. */
+  evaluacion_json: ColumnType<unknown, string | null, string | null>;
   /** 024 — waba_message_id del mensaje evaluado. Con el índice parcial único
    *  hace imposible que una doble entrega duplique aplazados. */
   mensaje_id: string | null;

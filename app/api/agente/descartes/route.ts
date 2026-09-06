@@ -45,12 +45,12 @@ export const GET = withAuth(async (session, req) => {
         const r = await sql<{ clinica_id: string | null; clinica_nombre: string | null; motivo: string; n: number }>`
           with ev as (
             select e.caso_id,
-                   (e.evaluacion_json::jsonb -> 'borradorDescartado' ->> 'motivo') as motivo
+                   (e.evaluacion_json -> 'borradorDescartado' ->> 'motivo') as motivo
               from eventos_automatizacion e
              where e.tipo_caso = 'conversacion' and e.evento = 'evaluacion'
                and e.created_at > now() - make_interval(days => ${dias})
                and e.evaluacion_json is not null
-               and e.evaluacion_json ~ '^\\s*\\{'
+               and jsonb_typeof(e.evaluacion_json) = 'object'
           ),
           cl as (
             select telefono,

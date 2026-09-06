@@ -17,7 +17,7 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
-import type { PayloadEvaluacion } from "./persistir-turno";
+import { leerPayloadEvaluacion, type PayloadEvaluacion } from "./persistir-turno";
 import { esLegible } from "../mensajeria/tipos-mensaje";
 
 export type UltimoEntrante = {
@@ -69,7 +69,7 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
 
     // La evaluación PROPIA del último entrante: por mensaje_id si lo hay
     // (webhook), o la posterior al entrante si es un registro manual sin id.
-    type FilaEv = { mensaje_id: string | null; evaluacion_json: string | null; created_at: Date };
+    type FilaEv = { mensaje_id: string | null; evaluacion_json: unknown; created_at: Date };
     const ev = ultimoEntrante.wabaMessageId
       ? await sql<FilaEv>`
           select mensaje_id, evaluacion_json, created_at
@@ -85,12 +85,9 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
            order by created_at desc limit 1`.execute(trx);
     const e = ev.rows?.[0];
     if (!e?.evaluacion_json) return { ultimoEntrante, alDia: false, borrador: null };
-    let payload: PayloadEvaluacion | null = null;
-    try {
-      payload = JSON.parse(String(e.evaluacion_json)) as PayloadEvaluacion;
-    } catch {
-      return { ultimoEntrante, alDia: false, borrador: null };
-    }
+    // MEJORAS 173: jsonb → objeto; el helper acepta las dos formas.
+    const payload: PayloadEvaluacion | null = leerPayloadEvaluacion(e.evaluacion_json);
+    if (!payload) return { ultimoEntrante, alDia: false, borrador: null };
     const texto = (payload.respuesta ?? "").trim();
     return {
       ultimoEntrante,

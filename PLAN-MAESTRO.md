@@ -16,8 +16,8 @@ va primero aunque no duela hoy.
 
 | Fase | Qué es | Estado | Abierta | Cerrada |
 |---|---|---|---|---|
-| **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** | 2026-09-06 | — |
-| **1** | Cimientos baratos de la visión — dos irrecuperables | 🟠 **En curso** (va dentro de la 0) | 2026-09-06 | — |
+| **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** — hecho todo lo de ingeniería; quedan 165 (catálogo de Meta) y el cableado de consentimiento y plazo (abogado): bloqueantes externos, declarados | 2026-09-06 | — |
+| **1** | Cimientos baratos de la visión — dos irrecuperables | ✅ **Cerrada** (168-175 hechas; 175 por verificación) | 2026-09-06 | 2026-09-06 |
 | **2** | Inteligencia visible sin gastar modelo | ⬜ Abierta | — | — |
 | **3** | Decidir y ejecutar dentro de reglas | ⬜ Abierta | — | — |
 | **4** | El ERP y la infraestructura que ya se usa | ⬜ Abierta · parte independiente puede adelantarse | — | — |
@@ -55,9 +55,9 @@ irrecuperables — cada turno que pasa sin ellas es histórico perdido.
 | 1.3 | `respuesta_a_mensaje_id` en salientes: el eslabón acción→resultado | 170 |
 | 1.4 | Señales del hilo persistidas | 171 |
 | 1.5 | `metricas_diarias` con `definicion_v` y backfill desde datos crudos | 172, 37 | ✅ 172 6-sep (18 métricas v1, `qa:metricas`, cron diario + `/api/cron/metricas`); 37 sigue abierta y bloquea `leads_citados` |
-| 1.6 | JSON en `text` → `jsonb` con índice | 173 |
-| 1.7 | Métricas del modelo por día (latencia, errores, fallback) | 174 |
-| 1.8 | Paralelismo del lote en `after()` con tope, o vía cola | 175 |
+| 1.6 | JSON en `text` → `jsonb` con índice | 173 | ✅ 6-sep (042; lectores por `leerPayloadEvaluacion`; el orden de claves cambió y la ficha ahora ordena por definición) |
+| 1.7 | Métricas del modelo por día (latencia, errores, fallback) | 174 | ✅ 6-sep (coste, errores, descartes y latencia mediana en `metricas_diarias`) |
+| 1.8 | Paralelismo del lote en `after()` con tope, o vía cola | 175 | ✅ 6-sep por verificación: Next 16 ya ejecuta los `after()` en paralelo; con 164, un trabajo por hilo |
 | 1.9 | Deuda que estorba a lo anterior | 35, 63, 65, 66, 72, 80, 91, 126, 136, 142, 144, 161 |
 
 **Estado (6-sep):** 1.1, 1.2, 1.4 ✅ y 1.3 ✅ en su mitad irrecuperable (migración 037); quedan
@@ -258,3 +258,8 @@ tanda «seed honesto» es 82, 110 y 112.
   pendiente: 173 (jsonb), 174 (métricas del modelo: coste, errores y descartes ya salen en 172;
   falta la latencia), 175 (`after()` en paralelo). Fase 2 puede empezar por 2.6 (antes/después) y 2.5
   (tiempo de respuesta por cola), que leen de `serie()`.
+- **2026-09-06 · FASE 1 CERRADA.** 173 (jsonb + GIN, lectores migrados), 174 (latencia en el
+  payload y en las métricas), 175 (verificado: Next ya paraleliza), y las dos ausencias de 172
+  cubiertas — `leads_citados` por la cita agendada (37 llevaba cerrada desde julio con
+  `fecha_cierre`, que da `leads_convertidos`) y pagos por clínica vía la clínica del paciente. La
+  serie compara sedes. Marcador actualizado (22,5 → 28,5). Siguiente: fase 2 por 2.6.

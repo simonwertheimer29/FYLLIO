@@ -2423,17 +2423,36 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 ## 173. Fase 1 · JSON en columnas `text` → `jsonb` con índice
 - `objetivos`, `conocimiento`, `evaluacion_json` son texto; Inicio castea `::jsonb` en caliente en
   cada agregación. · **Propuesta:** migración a jsonb + índice GIN antes de que el log crezca. ·
-  **Severidad:** deuda que se encarece · **Esfuerzo:** medio día · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+  **Severidad:** deuda que se encarece · **Esfuerzo:** medio día · **Fase 1** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-06** — migración 042: `evaluacion_json` a jsonb con índice GIN (la conversión
+  falla si una fila no es JSON válido; ninguna lo era). Lectores migrados a la vez por el único
+  camino `leerPayloadEvaluacion` (objeto o texto): ficha, borrador del agente, métricas, Inicio
+  (`like '%"usage"%'` → `? 'usage'`), descartes del juez (`~ '^\s*\{'` → `jsonb_typeof`), y los
+  cuatro scripts que hacían `JSON.parse`. `objetivos` y `conocimiento` se quedan en text a
+  propósito (se leen una vez por turno, no se agregan, y el historial 038 compara su texto).
+  **Sorpresa que pagó el QA:** jsonb normaliza el ORDEN de las claves; la ficha componía «qué
+  quiere» con `Object.values(camposRecogidos)` y cambió de frase. Ahora ordena por la definición
+  del objetivo. El orden es dato: si importa, se declara.
 
 ## 174. Fase 1 · Métricas del modelo por día
 - Latencia, errores HTTP, fallbacks y descartes del juez solo existen en consola. · **Propuesta:**
   contadores diarios en 172 (métricas `modelo_*`). · **Severidad:** ciega · **Esfuerzo:** 1 día ·
-  **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+  **Fase 1** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — en `metricas_diarias`:
+  `coste_usd` (n = turnos con usage), `modelo_errores` (incidencias agente/modelo_no_disponible,
+  veces), `descartes_juez`, y `modelo_latencia_mediana_ms` (nuevo: `latenciaMs` medido alrededor
+  de la llamada en `evaluarTurno` y persistido en el payload; n = turnos con latencia). Los
+  errores HTTP del modelo son el fallback y ya cuentan como `modelo_no_disponible`.
 
 ## 175. Fase 1 · Los hilos del lote se evalúan en serie dentro de `after()`
 - 20 s + 10 s por hilo; con 3-4 pacientes a la vez se agotan los 60 s. · **Propuesta:** encolar un
   trabajo por hilo (164) o `Promise.all` con tope de 3. · **Severidad:** pierde turnos bajo carga ·
-  **Esfuerzo:** 2 h · **Fase 1** · **Fecha:** 2026-09-06 · 🔵
+  **Esfuerzo:** 2 h · **Fase 1** · **Fecha:** 2026-09-06 · ✅ **CERRADA el 2026-09-06 por
+  verificación, sin código.** Next 16.0.8 ejecuta los `after()` de una petición con `p-queue` SIN
+  límite de concurrencia (`node_modules/next/dist/server/after/after-context.js:30`,
+  `new PQueue()` = concurrencia infinita): los hilos del lote ya corrían en PARALELO, no en serie —
+  la premisa de la entrada era falsa. Y con 164 cada hilo es un trabajo propio de la cola, con
+  su propio timeout. Lo que sí sigue siendo cierto: el `after()` de respaldo (cola inactiva)
+  comparte los 60 s de la función entre todos los hilos del lote; el barrido lo cubre.
 
 ## 176. Fase 2 · Inteligencia de conversación agregada
 - `camposRecogidos` (qué le frena, motivo de rechazo, cuándo retomar, urgencia, tratamiento) y los
