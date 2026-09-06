@@ -34,7 +34,7 @@ import {
   type PlantillaComposer,
 } from "../../components/shared/panel-accion-ui";
 import { Ban, AlertTriangle, ICON_STROKE } from "../../components/icons";
-import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
+import { cargarJSON, mensajeDeError, ErrorDeCarga } from "../../lib/fetch-json";
 import { fechaClinica } from "../../lib/time";
 import type { Conversacion } from "../../lib/mensajeria/conversaciones";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
@@ -214,20 +214,31 @@ export function ComposerConversacion({
       // leído de la base (borradorAgenteDe), no contra lo que mande el cliente.
       const deEntrada = textoDeIA && origenIA.current === "entrada";
       const entradaOriginal = deEntrada ? sugeridoRef.current : null;
-      const res = await fetch(ruta, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...cuerpo,
-          telefono: conversacion.telefono,
-          contenido,
-          sugeridoPorIa: textoDeIA,
-          borradorDe: deEntrada ? "entrada" : undefined,
-        }),
-      });
+      let res: Response;
+      try {
+        res = await fetch(ruta, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...cuerpo,
+            telefono: conversacion.telefono,
+            contenido,
+            sugeridoPorIa: textoDeIA,
+            borradorDe: deEntrada ? "entrada" : undefined,
+          }),
+        });
+      } catch {
+        throw new ErrorDeCarga("Sin conexión con el servidor");
+      }
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d?.error ?? `El servidor respondió ${res.status}`);
+        // MEJORAS 134 — ErrorDeCarga, no Error: mensajeDeError pisa cualquier
+        // otra cosa con «No se pudo cargar», y el 409 del opt-out («pidió no
+        // recibir mensajes») o el 404 de permiso llegaban a la persona como eso.
+        throw new ErrorDeCarga(
+          typeof d?.error === "string" ? d.error : `El servidor respondió ${res.status}`,
+          res.status,
+        );
       }
       const data = await res.json().catch(() => ({}));
       setTexto("");

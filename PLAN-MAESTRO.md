@@ -63,6 +63,26 @@ irrecuperables — cada turno que pasa sin ellas es histórico perdido.
 **Estado (6-sep):** 1.1, 1.2, 1.4 ✅ y 1.3 ✅ en su mitad irrecuperable (migración 037); quedan
 1.5–1.9 (la serie 172 es la que abre la fase 2).
 
+**Especificación de 172 (`metricas_diarias`), para arrancar en frío:**
+- Tabla (migración 040): `cliente, clinica_id (null = red), dia date, metrica text, valor numeric,
+  n integer, definicion_v smallint, calculado_en`, única por `(cliente, clinica_id, dia, metrica)`,
+  RLS como las demás. Se escribe por upsert; nunca se recalcula «hacia atrás» sin subir
+  `definicion_v` (cambiar la definición sin versión es comparar peras con manzanas).
+- Métricas v1, todas derivables de datos crudos con timestamp (por eso admiten backfill):
+  `tiempo_respuesta_mediana_min` (entrante → primer saliente del hilo, minutos laborables del horario
+  de la clínica), `entrantes`, `salientes`, `salientes_del_agente` (`sugerido_por_ia`),
+  `leads_nuevos`, `leads_citados`, `presupuestos_presentados_n/eur`, `aceptados_n/eur`
+  (por `fecha_aceptado`), `perdidos_n` (historial `cambio_estado→PERDIDO`), `pagos_eur`,
+  `evaluaciones`, `derivaciones` (+ `derivaciones_caso_completo`), `aplazados`, `coste_usd`,
+  `modelo_errores` (fallbacks, 174), `descartes_juez`.
+- Cálculo: `lib/metricas/diarias.ts` → `calcularDia(cliente, clinicaId, dia)` puro sobre consultas
+  agregadas por día; `backfill(desde, hasta)` recorre días; ruta `/api/cron/metricas` (CRON_SECRET,
+  todos los clientes, `?dia=`) y suelo en el cron diario. Con la cola (164), un trabajo por día y
+  clínica.
+- Lectura: `serie(clinicaId, metrica, desde, hasta)` para 181 (antes/después con la marca de 167),
+  158 (detalles de Inicio) y 203 (anomalías). QA `qa:metricas`: un día sembrado con reloj inyectado
+  (§14) contra valores contados a mano.
+
 **Valor visible al cerrar:** «ver por qué» en cada mensaje, sparkline de 30 días de dinero parado,
 tiempo de respuesta por clínica.
 

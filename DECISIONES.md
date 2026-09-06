@@ -3942,6 +3942,16 @@ real con condiciones y acciones bien formadas (siguen inertes por el triple cand
 invariantes nuevas al final del seed (§15): motivo fuera del enum, trigger fuera del vocabulario, y
 acciones o mensajes anteriores al alta del lead revientan el `demo:reset`. Pasado en verde.
 
+## 2026-09-06 — 134 hecha; 130 y 172 especificadas para arrancar en frío
+**134:** el composer lanzaba `Error` con el texto del servidor y `mensajeDeError` solo respeta
+`ErrorDeCarga` — el 409 del opt-out («pidió no recibir mensajes») llegaba a la coordinadora como «No
+se pudo cargar». Ahora lanza `ErrorDeCarga` (y «Sin conexión» si el fetch cae). **130 y 172 no se
+ejecutan hoy a propósito:** la sesión lleva más de 500k tokens de contexto y las dos tocan cinco
+lectores (130) o una tabla nueva con backfill y QA (172) — es justo donde se cometen errores. Quedan
+ESPECIFICADAS en su entrada (130) y en `PLAN-MAESTRO.md` fase 1 (172: tabla, métricas v1 derivables
+de datos con timestamp, cálculo puro por día, cron, lectura para 181/158/203, QA con reloj inyectado),
+para que la siguiente sesión arranque en frío sin releer nada.
+
 ## 2026-09-06 — be26b8e rompió el build de Vercel: `tsc` limpio, `next build` no
 `InicioView` (cliente) importó `BASE_MINIMA_COHORTE` y `UMBRAL_COHORTE_ABIERTA` como valor desde
 `dashboard-red.ts`; antes solo había un `import type`, que se borra al compilar. La constante

@@ -2131,7 +2131,7 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 
 ## 134. El composer pisa cualquier error de envío con «No se pudo cargar»
 - **Qué es:** `ComposerConversacion.tsx:175,190` + `fetch-json.ts:92-95`.
-- **Severidad:** rompe visible · **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · 🔵
+- **Severidad:** rompe visible · **Esfuerzo:** 30 min · **Fecha:** 2026-09-05 · **Fase 0.5** · 🟢 **HECHA el 2026-09-06** — el composer lanza `ErrorDeCarga` con el texto del servidor (y «Sin conexión» si el fetch cae); `mensajeDeError` ya no lo pisa
 
 ## 135. Opt-out — una fuente, la mitad de los lectores, y sin detección conversacional
 - **Qué es:** `pacientes.optout_automatizaciones` lo respetan cola, recordatorios, engine, no-shows y

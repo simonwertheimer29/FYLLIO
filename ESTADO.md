@@ -30,13 +30,14 @@ destino (162); derecho de supresión, retención con plazo declarado y registro 
 |---|---|
 | 164 cola de trabajos (QStash) | Simon crea la cuenta; luego ingeniería (1 sem) |
 | 165 una sola salida automática | **Bloqueada por el catálogo de Meta** — declarada, no olvidada |
-| 130, 134 (camino manual y composer) | Ingeniería, siguiente sesión |
+| 134 composer ✅ 6-sep · 130 saliente manual pendiente de confirmar (diseño fijado en su entrada) | Ingeniería, siguiente sesión |
 | Plazo de retención · forma del consentimiento · destino de logs | **Simon** (abogado · abogado · cuenta Axiom/Better Stack + `LOG_DRAIN_URL`) |
 
-Fase 1 pendiente: 172 (`metricas_diarias`, abre la fase 2), 173 (jsonb: los lectores hacen
-`JSON.parse(String(...))` y hay que migrarlos a la vez), 174, 175 (verificar si `after()` ya
-paraleliza). Censo y fases: [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md). Nueve MEJORAS fuera del plan
-esperan decisión (matar o tanda «seed honesto»).
+Fase 1 pendiente: 172 (`metricas_diarias`, abre la fase 2; **especificada en PLAN-MAESTRO fase 1**),
+173 (jsonb: los lectores hacen `JSON.parse(String(...))` y hay que migrarlos a la vez), 174, 175
+(verificar si `after()` ya paraleliza). Las nueve fuera del plan están decididas (cinco muertas, tanda
+«seed honesto» hecha); las cinco en limbo, cerradas o con fase (15 → 2.9). Censo y fases:
+[`PLAN-MAESTRO.md`](PLAN-MAESTRO.md). **Siguiente sesión, en frío:** 130 y 172.
 
 ### Lo anterior (5 sep)
 
