@@ -47,10 +47,13 @@ function unauthorized() {
   return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }
 
-function logErr(scope: string, err: unknown) {
-  const msg = err instanceof Error ? err.message : String(err);
+async function logErr(scope: string, err: unknown): Promise<void> {
   const stack = err instanceof Error ? err.stack : undefined;
-  console.error(`[cron/automatizaciones ${scope}]`, msg, stack ?? "");
+  if (stack) console.error(`[cron/automatizaciones ${scope}] stack:`, stack);
+  // MEJORAS 207: el motivo es el primer token del scope (código); el scope
+  // entero, en el detalle.
+  const { registrarIncidencia } = await import("../../../lib/incidencias");
+  await registrarIncidencia({ tipo: "cron", motivo: `${scope.split(" ")[0]}_fallo`, origen: "cron/automatizaciones-evaluar", error: err, detalle: { scope }, cliente: PILOT_CLIENTE, reintentable: true });
 }
 
 export async function GET(req: Request) {
@@ -61,7 +64,7 @@ export async function GET(req: Request) {
   } catch (err) {
     // Safety net: cualquier excepción no capturada por safeTrigger acaba
     // aquí y devuelve JSON con detalle. Pre-fix devolvía 500 vacío.
-    logErr("handler", err);
+    await logErr("handler", err);
     return NextResponse.json(
       {
         error: "internal_error",
@@ -148,7 +151,7 @@ async function safeTrigger(
     );
     return r;
   } catch (err) {
-    logErr(scope, err);
+    await logErr(scope, err);
     return {
       evaluados: 0,
       matches: 0,
@@ -195,7 +198,7 @@ async function evaluarTriggerCita24h(): Promise<TriggerResult> {
       try {
         await evaluarRegla(regla, evento);
       } catch (err) {
-        logErr(`cita_24h regla=${regla.codigo}`, err);
+        await logErr(`cita_24h regla=${regla.codigo}`, err);
       }
     }
   }

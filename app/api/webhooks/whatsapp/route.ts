@@ -160,7 +160,10 @@ export async function POST(req: Request) {
   try {
     await runWithCliente(cliente, () => processIncomingPayload(payload));
   } catch (err) {
-    console.error("[waba webhook] processIncomingPayload error:", sanitizeError(err));
+    // Un lote que no se procesó es entrada en riesgo (Meta reintenta, pero
+    // hay que verlo): incidencia y campana siempre (207).
+    const { registrarIncidencia } = await import("../../../lib/incidencias");
+    await registrarIncidencia({ tipo: "entrada", motivo: "lote_no_procesado", origen: "webhooks/whatsapp", error: err, cliente, avisar: "siempre", reintentable: true });
     return NextResponse.json({ error: "processing failed" }, { status: 500 });
   }
 
@@ -359,7 +362,8 @@ async function processIncomingPayload(body: unknown): Promise<void> {
         const r = await runWithCliente(clienteBarrido, () => barridoReevaluacion({ tope: 3, excluir: enEsteLote }));
         if (r.reevaluados > 0) console.log(`[waba webhook] barrido: ${r.reevaluados} hilo(s) reevaluado(s) de ${r.candidatos} candidato(s)`);
       } catch (err) {
-        console.error("[waba webhook] barrido de reevaluación:", sanitizeError(err));
+        const { registrarIncidencia } = await import("../../../lib/incidencias");
+        await registrarIncidencia({ tipo: "agente", motivo: "barrido_lote_fallo", origen: "webhooks/whatsapp", error: err, cliente: clienteBarrido, reintentable: true });
       }
     });
   }
@@ -388,12 +392,15 @@ async function processIncomingPayload(body: unknown): Promise<void> {
           const { logAccionLead } = await import("../../../lib/leads/acciones");
           await logAccionLead({ leadId: p.leadId, tipo: "WhatsApp_Entrante", timestamp: p.timestamp, detalles: p.contenido.slice(0, 500) });
         } catch (err) {
-          console.error("[waba webhook] registro de lead:", sanitizeError(err));
+          const { registrarIncidencia } = await import("../../../lib/incidencias");
+          await registrarIncidencia({ tipo: "entrada", motivo: "lead_no_registrado", origen: "webhooks/whatsapp", referencia: p.leadId, error: err, clinicaId: p.clinicaId ?? null });
         }
       }
       if (p.presupuestoInfo) {
-        await preGuardarRespuesta(p.presupuestoInfo.id, p.contenido).catch((err) => {
-          console.error("[waba webhook] preGuardarRespuesta:", sanitizeError(err));
+        const presupuestoId = p.presupuestoInfo.id;
+        await preGuardarRespuesta(presupuestoId, p.contenido).catch(async (err) => {
+          const { registrarIncidencia } = await import("../../../lib/incidencias");
+          await registrarIncidencia({ tipo: "entrada", motivo: "pre_guardar_fallo", origen: "webhooks/whatsapp", referencia: presupuestoId, error: err, clinicaId: p.clinicaId ?? null });
         });
       }
     }

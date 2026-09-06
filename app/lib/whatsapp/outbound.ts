@@ -58,7 +58,8 @@ async function sendMetaTemplate(
 
   if (!res.ok) {
     const text = await res.text();
-    console.error("[outbound] Meta API error", res.status, text);
+    const { registrarIncidencia } = await import("../incidencias");
+    await registrarIncidencia({ tipo: "envio", motivo: "meta_api_error", origen: "whatsapp/outbound", error: text, detalle: { status: res.status, plantilla: templateName }, reintentable: res.status >= 500 || res.status === 429, soloLog: `to=${to}` });
   } else {
     console.log("[outbound] Meta template sent", templateName, "to", to);
   }

@@ -105,7 +105,8 @@ export async function POST(req: Request) {
       }
     });
   } catch (err) {
-    console.error("[webhooks/vapi] error procesando evento:", err);
+    const { registrarIncidencia } = await import("../../../lib/incidencias");
+    await registrarIncidencia({ tipo: "integracion", motivo: "evento_vapi_no_procesado", origen: "webhooks/vapi", error: err, avisar: "siempre" });
     // Devolvemos 200 para que Vapi no reintente eternamente. El error
     // está logueado y el next ciclo del cron / consultarLlamada
     // permitirá reconciliar.
@@ -220,7 +221,8 @@ async function aplicarSideEffects(args: {
       // FASE 1 migración: escritura via repo del dominio Agenda.
       await updateCitaEstado(citaId, "Confirmada", { typecast: true, confirmadaPor: "agente_voz" });
     } catch (err) {
-      console.error("[webhooks/vapi] update cita Confirmada:", err);
+      const { registrarIncidencia } = await import("../../../lib/incidencias");
+      await registrarIncidencia({ tipo: "integracion", motivo: "cita_no_confirmada", origen: "webhooks/vapi", referencia: citaId, error: err, avisar: "siempre" });
     }
   } else if (resultado === "cancelada" && citaId) {
     try {
@@ -228,7 +230,8 @@ async function aplicarSideEffects(args: {
       // sido una fila fantasma que ningún filtro veía; ahora el CHECK lo veta.
       await updateCitaEstado(citaId, "Cancelado", { typecast: true });
     } catch (err) {
-      console.error("[webhooks/vapi] update cita Cancelada:", err);
+      const { registrarIncidencia } = await import("../../../lib/incidencias");
+      await registrarIncidencia({ tipo: "integracion", motivo: "cita_no_cancelada", origen: "webhooks/vapi", referencia: citaId, error: err, avisar: "siempre" });
     }
     await crearAlertaCoord({
       tipo: "cita_cancelada_via_ia",
@@ -264,7 +267,8 @@ async function crearAlertaCoord(input: {
       Created_At: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("[webhooks/vapi] crearAlertaCoord:", err);
+    const { registrarIncidencia } = await import("../../../lib/incidencias");
+    await registrarIncidencia({ tipo: "integracion", motivo: "alerta_no_creada", origen: "webhooks/vapi", error: err, detalle: { tipo_alerta: input.tipo } });
   }
 }
 

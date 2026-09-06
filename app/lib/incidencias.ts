@@ -163,9 +163,12 @@ export async function registrarIncidencia(r: RegistroIncidencia): Promise<{ vece
     ...(r.error !== undefined ? resumirError(r.error) : {}),
     ...limpiarDetalle(r.detalle),
   };
-  // La línea de consola lleva lo técnico entero para Vercel; la tabla, lo redactado.
+  // La línea de consola lleva lo técnico ENTERO (es la consola de Vercel, no
+  // la tabla); la tabla, lo redactado.
+  const crudo =
+    r.error instanceof Error ? r.error.message : typeof r.error === "string" ? r.error : r.error !== undefined ? detalle.error_resumen : "";
   console.error(
-    `[incidencia] ${r.tipo}/${r.motivo} ${r.origen}${r.clinicaId ? ` clinica=${r.clinicaId}` : ""}${r.referencia ? ` ref=${r.referencia}` : ""}${r.soloLog ? ` ${r.soloLog}` : ""}${detalle.error_resumen ? `: ${detalle.error_resumen}` : ""}`,
+    `[incidencia] ${r.tipo}/${r.motivo} ${r.origen}${r.clinicaId ? ` clinica=${r.clinicaId}` : ""}${r.referencia ? ` ref=${r.referencia}` : ""}${r.soloLog ? ` ${r.soloLog}` : ""}${crudo ? `: ${String(crudo).slice(0, 600)}` : ""}`,
   );
   if (!cliente) return null; // sin contexto no hay fila RLS que escribir; la consola ya lo tiene
 

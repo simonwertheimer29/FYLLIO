@@ -184,7 +184,8 @@ export async function generarRecordatoriosDeCita(opts?: {
       });
       res.generados++;
     } catch (err) {
-      console.error(`[recordatorios-cita] error creando envío para cita ${cita.id}:`, err instanceof Error ? err.message : err);
+      const { registrarIncidencia } = await import("../incidencias");
+      await registrarIncidencia({ tipo: "envio", motivo: "crear_envio_fallo", origen: "envios/recordatorios-cita", referencia: cita.id, error: err, detalle: { plantilla: plantilla.nombre }, reintentable: true });
       res.errores++;
     }
   }

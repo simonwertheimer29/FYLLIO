@@ -4006,3 +4006,11 @@ los errores sin cliente en contexto. El drenaje (162) queda para clientes reales
 **Lección:** una cola que reintenta obliga a que la función distinga «fallé y no toqué nada» de
 «fallé pero ya persistí un resultado». Sin ese resultado tipado, el reintento evalúa dos veces
 o insiste contra un tope.
+
+**Tanda de cableado (mismo día):** ~25 catches de envíos, crons, integraciones y entrada pasan por
+`registrarIncidencia` (censo en MEJORAS 207). El del cron diario se hace en UNA llamada al final
+sobre el array `errors` que ya llevaba cada paso: menos edición, misma cobertura. Simon mantiene el
+resumen técnico redactado (sin él una incidencia de base de datos no se investiga) y va a la
+consulta legal como pregunta (5), no como problema. La protección de despliegues de Vercel no se
+pudo comprobar desde aquí (token de la CLI caducado, `fyllio.vercel.app` es de otro): lo mira
+Simon en Settings › Deployment Protection antes del próximo deploy.

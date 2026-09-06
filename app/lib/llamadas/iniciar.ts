@@ -293,7 +293,8 @@ export async function iniciarLlamada(args: IniciarArgs): Promise<IniciarResult> 
       },
     });
   } catch (err: any) {
-    console.error("[llamadas iniciar] vapi error:", err);
+    const { registrarIncidencia } = await import("../incidencias");
+    await registrarIncidencia({ tipo: "integracion", motivo: "vapi_error", origen: "llamadas/iniciar", referencia: args.citaId, error: err, reintentable: true });
     return {
       ok: false,
       motivo: "vapi_error",

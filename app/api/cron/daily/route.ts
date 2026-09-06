@@ -438,6 +438,21 @@ async function runDailyCron(): Promise<NextResponse> {
     }
   }
 
+  // MEJORAS 207: cada error del cron, en incidencias (una llamada al final:
+  // los pasos ya lo apuntan en `errors` con la forma `paso:referencia: motivo`
+  // o `paso: motivo`). Envíos y voz con su tipo; el resto, `cron`.
+  if (errors.length) {
+    const { registrarIncidencia } = await import("../../../lib/incidencias");
+    for (const linea of errors.slice(0, 50)) {
+      const m = /^([a-z_]+):(?:([^:\s][^:]*):)?\s*([\s\S]*)$/.exec(linea);
+      const paso = m?.[1] ?? "desconocido";
+      const referencia = m?.[2]?.trim() || null;
+      const motivoTexto = m?.[3] ?? linea;
+      const tipo = paso === "reminder" || paso === "confirm" || paso === "feedback" ? "envio" : paso === "voice" ? "integracion" : "cron";
+      await registrarIncidencia({ tipo, motivo: `${paso}_fallo`, origen: "cron/daily", referencia, error: motivoTexto, cliente: PILOT_CLIENTE, reintentable: true });
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     date: now.toISODate(),

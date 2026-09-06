@@ -40,7 +40,8 @@ export async function GET(req: Request) {
       porCliente[cliente] = { candidatos: r.candidatos.length, borrados: r.borrados.length };
     } catch (err) {
       porCliente[cliente] = { error: err instanceof Error ? err.message : String(err) };
-      console.error("[cron/retencion]", cliente, err instanceof Error ? err.message : err);
+      const { registrarIncidencia } = await import("../../../lib/incidencias");
+      await registrarIncidencia({ tipo: "cron", motivo: "retencion_fallo", origen: "cron/retencion", error: err, cliente, reintentable: true });
     }
   }
   return NextResponse.json({ ok: true, plazoDias: plazo, dry, porCliente });

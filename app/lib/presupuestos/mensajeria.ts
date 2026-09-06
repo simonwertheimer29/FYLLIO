@@ -422,10 +422,9 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     } catch (persistErr) {
       // El mensaje se envió pero no se pudo registrar en Airtable. Lo logueamos
       // (para reconciliación) pero NO lanzamos: evitar el doble envío es prioritario.
-      console.error(
-        "[waba] mensaje enviado pero fallo al registrar en Airtable:",
-        persistErr instanceof Error ? persistErr.message : persistErr,
-      );
+      // Enviado y no registrado es un dato perdido: incidencia y campana (207).
+      const { registrarIncidencia } = await import("../incidencias");
+      await registrarIncidencia({ tipo: "envio", motivo: "enviado_sin_registrar", origen: "presupuestos/mensajeria", referencia: params.presupuestoId ?? null, error: persistErr, avisar: "siempre" });
     }
 
     const clinica = await getClinicaForMensaje(params);
@@ -547,10 +546,8 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
         await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
       }
     } catch (persistErr) {
-      console.error(
-        "[waba] plantilla enviada pero fallo al registrar en Airtable:",
-        persistErr instanceof Error ? persistErr.message : persistErr,
-      );
+      const { registrarIncidencia } = await import("../incidencias");
+      await registrarIncidencia({ tipo: "envio", motivo: "plantilla_enviada_sin_registrar", origen: "presupuestos/mensajeria", referencia: params.presupuestoId ?? null, error: persistErr, avisar: "siempre" });
     }
 
     const clinica = await getClinicaForMensaje(params);

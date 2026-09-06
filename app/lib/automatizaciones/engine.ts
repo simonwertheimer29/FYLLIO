@@ -51,7 +51,8 @@ export async function emitirEvento(evento: EventoSistema): Promise<void> {
       payload: evento.payload,
     });
   } catch (err) {
-    console.error("[automatizaciones] emitirEventoRow falló:", err);
+    const { registrarIncidencia } = await import("../incidencias");
+    await registrarIncidencia({ tipo: "cron", motivo: "evento_no_emitido", origen: "automatizaciones/engine", referencia: evento.entidadId ?? null, error: err, detalle: { evento: evento.tipo } });
   }
   await evaluarReglasParaEvento(evento);
 }
@@ -490,20 +491,16 @@ async function getOptoutPaciente(
     if (p == null) {
       // Sin ficha no hay consentimiento comprobable (getPaciente devuelve
       // null tanto si no existe como si su consulta falló por dentro).
-      console.error(
-        `[engine] opt-out NO comprobable (paciente ${pacienteId} sin ficha o consulta fallida) — envío bloqueado (RGPD fail-closed)`,
-      );
+      const { registrarIncidencia } = await import("../incidencias");
+      await registrarIncidencia({ tipo: "cron", motivo: "optout_no_comprobable", origen: "automatizaciones/engine", referencia: pacienteId, error: "paciente sin ficha o consulta fallida; envío bloqueado (fail-closed)" });
       return { bloquear: true, motivo: "optout_no_comprobable" };
     }
     return p.optoutAutomatizaciones
       ? { bloquear: true, motivo: "paciente_optout" }
       : { bloquear: false, motivo: null };
   } catch (err) {
-    console.error(
-      "[engine] opt-out NO comprobable:",
-      err instanceof Error ? err.message : err,
-      "— envío bloqueado (RGPD fail-closed)",
-    );
+    const { registrarIncidencia } = await import("../incidencias");
+    await registrarIncidencia({ tipo: "cron", motivo: "optout_no_comprobable", origen: "automatizaciones/engine", referencia: pacienteId, error: err, soloLog: "envío bloqueado (fail-closed)" });
     return { bloquear: true, motivo: "optout_no_comprobable" };
   }
 }

@@ -119,7 +119,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       urlWhatsApp: result.urlWhatsApp,
     });
   } catch (err) {
-    console.error("[presupuestos/enviar-manual]", err instanceof Error ? err.message : err);
+    const { registrarIncidencia } = await import("../../../../lib/incidencias");
+    await registrarIncidencia({ tipo: "envio", motivo: "registro_manual_fallo", origen: "presupuestos/enviar-manual", referencia: presupuestoId ?? null, error: err, reintentable: true });
     return NextResponse.json({ error: "Error al registrar el mensaje" }, { status: 500 });
   }
 });

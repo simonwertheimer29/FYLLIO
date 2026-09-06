@@ -89,7 +89,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
         { status: 429 },
       );
     }
-    console.error("[enviar-waba]", anyErr?.message ?? err);
+    const { registrarIncidencia } = await import("../../../../lib/incidencias");
+    await registrarIncidencia({ tipo: "envio", motivo: "envio_waba_fallo", origen: "presupuestos/enviar-waba", referencia: presupuestoId ?? null, error: err, reintentable: true });
     return NextResponse.json({ error: "Error al enviar mensaje" }, { status: 500 });
   }
 });

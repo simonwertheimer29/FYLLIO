@@ -48,6 +48,16 @@ paciente + N años? ¿los juicios del agente, menos?) y **quién** ejecuta la su
 auditoría), un cron de caducidad con el plazo que se decida, y la anotación de la supresión
 sin el contenido. Diseñarlo sin el plazo es diseñarlo dos veces.
 
+**Añadido el 6-sep (pregunta, no problema): el registro de incidencias.** Desde hoy los fallos
+técnicos se guardan en nuestra base (`incidencias`): tipo, motivo, origen, el id del mensaje o
+cita afectado (nunca el teléfono ni el texto) y un **resumen técnico del error, redactado**: se
+eliminan los fragmentos entrecomillados, los correos y las tiras de dígitos, y se trunca a 160
+caracteres («invalid input syntax for type integer: "…"», «connect ETIMEDOUT»). Sin ese resumen
+una incidencia de base de datos no se puede investigar. Caducan a los 90 días (o al plazo de
+conversaciones si es menor) y se borran con el derecho de supresión. **Pregunta:** ¿ese resumen
+redactado, unido a un id de mensaje, se considera dato personal y exige algo más que la
+caducidad y el borrado ya previstos?
+
 ## 3 · Transparencia: decir que es un sistema automático
 
 **Hoy.** Ningún texto que llega al paciente identifica un sistema automático. El agente
@@ -87,4 +97,5 @@ que tratarlo distinto.
 
 **Lo que necesito de vuelta, en orden:** (1) la fórmula y el momento de la transparencia
 (bloquea el catálogo de Meta); (2) el plazo de retención (bloquea el borrado); (3) si se exige
-seudonimizar o retención cero con Anthropic; (4) consentimiento y menores.
+seudonimizar o retención cero con Anthropic; (4) consentimiento y menores; (5) si el resumen
+técnico redactado de `incidencias` (§2, añadido el 6-sep) necesita algo más que caducidad y borrado.

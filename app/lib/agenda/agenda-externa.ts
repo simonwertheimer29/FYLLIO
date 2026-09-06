@@ -179,7 +179,10 @@ async function sincronizarUna(
 }
 
 async function persistirError(cliente: "RB" | "INDEP" | "DEMO", agendaId: string, motivo: string): Promise<void> {
-  console.error(`[agenda-externa] sync ${agendaId}:`, motivo);
+  // El estado vive en agendas_externas.ultimo_error (lo enseña la pantalla);
+  // la incidencia (MEJORAS 207) es lo que hace visible que es SISTEMÁTICO.
+  const { registrarIncidencia } = await import("../incidencias");
+  await registrarIncidencia({ tipo: "integracion", motivo: "sync_agenda_fallo", origen: "agenda/agenda-externa", referencia: agendaId, error: motivo, cliente, reintentable: true });
   await runWithClienteDb(cliente, (trx) =>
     trx
       .updateTable("agendas_externas")

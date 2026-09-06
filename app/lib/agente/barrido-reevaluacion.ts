@@ -132,7 +132,8 @@ export async function barridoReevaluacion(opts?: {
       // El orquestador ya avisa por la campana de lo sistemático; aquí solo
       // se cuenta y se sigue con el siguiente hilo.
       out.saltados.error++;
-      console.error("[barrido-reevaluacion]", c.telefono, err instanceof Error ? err.message : err);
+      const { registrarIncidencia } = await import("../incidencias");
+      await registrarIncidencia({ tipo: "agente", motivo: "barrido_hilo_fallo", origen: "agente/barrido-reevaluacion", referencia: c.waba_message_id, clinicaId: c.clinica_id ?? null, error: err, reintentable: true, soloLog: `tel=${c.telefono}` });
     }
   }
   return out;

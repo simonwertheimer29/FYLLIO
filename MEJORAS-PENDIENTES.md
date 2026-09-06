@@ -2614,5 +2614,14 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   consola), y el texto técnico completo de un error (aquí va redactado). · **Severidad:** ciega ·
   **Esfuerzo:** 1 día · **Fase 0** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** —
   migración 040, `lib/incidencias`, `avisos.ts` registra ahí, `/api/admin/incidencias`,
-  `qa:incidencias` (redacción, cubo, umbral, caducidad, sin contexto). Pendiente de cablear en los
-  demás catches (envíos, crons, integraciones): hoy registran el agente y la cola.
+  `qa:incidencias` (redacción, cubo, umbral, caducidad, sin contexto). **Cableado el mismo día:**
+  envíos (Meta API en `whatsapp/outbound`, enviar-waba, enviar-manual, recordatorios de cita, y
+  «enviado pero no registrado» en `presupuestos/mensajeria` con campana siempre), crons (todos los
+  pasos del diario en una sola llamada al final sobre `errors`, `automatizaciones-evaluar`,
+  `reevaluar`, `retencion`, el motor de automatizaciones y su opt-out no comprobable), integraciones
+  (sync de agendas externas, Vapi al iniciar y en su webhook) y entrada (lote no procesado con
+  campana siempre, lead no registrado, pre-guardado). Fuera a propósito: `push/sender` (Airtable,
+  legado), el flujo viejo de clasificación (muere con 165) y los `console.error` de lectura en
+  `llamadas/repo-pg` (no son fallos que actuar, son consultas que devuelven vacío: MEJORAS §10).
+  El texto técnico redactado se mantiene (decisión de Simon, 6-sep) y entra en la consulta legal
+  como pregunta (5).

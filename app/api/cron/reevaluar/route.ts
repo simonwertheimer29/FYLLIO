@@ -42,7 +42,8 @@ export async function GET(req: Request) {
       porCliente[cliente] = await runWithCliente(cliente, () => barridoReevaluacion({ tope }));
     } catch (err) {
       porCliente[cliente] = { error: err instanceof Error ? err.message : String(err) };
-      console.error("[cron/reevaluar]", cliente, err instanceof Error ? err.message : err);
+      const { registrarIncidencia } = await import("../../../lib/incidencias");
+      await registrarIncidencia({ tipo: "cron", motivo: "barrido_fallo", origen: "cron/reevaluar", error: err, cliente, reintentable: true });
     }
   }
   return NextResponse.json({ ok: true, elapsedMs: Date.now() - inicio, porCliente });
