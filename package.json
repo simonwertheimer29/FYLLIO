@@ -53,6 +53,8 @@
     "qa:barrido": "tsx scripts/qa-barrido.mts",
     "qa:incidencias": "tsx scripts/qa-incidencias.mts",
     "qa:cola-trabajos": "tsx scripts/qa-cola-trabajos.mts",
+    "qa:metricas": "tsx scripts/qa-metricas.mts",
+    "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",
     "cola:programar": "tsx scripts/cola-programar.mts",
     "qa:supresion": "tsx scripts/qa-supresion.mts"
   },

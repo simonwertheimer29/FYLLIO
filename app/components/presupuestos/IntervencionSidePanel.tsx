@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { preguntarSiSeEnvio } from "../../lib/mensajeria/confirmar-envio-cliente";
 import {
   situacionPresupuesto,
   type SituacionPresupuesto,
@@ -284,7 +285,11 @@ export default function IntervencionSidePanel({
         setMensajes((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, id: data.mensajeId ?? tempId } : m)),
         );
-        if (data.urlWhatsApp) window.open(data.urlWhatsApp, "_blank");
+        if (data.urlWhatsApp) {
+          window.open(data.urlWhatsApp, "_blank");
+          // MEJORAS 130: pendiente hasta que alguien diga que salió.
+          preguntarSiSeEnvio(typeof data.mensajeId === "string" ? data.mensajeId : null);
+        }
         // Registro del contacto por el camino existente (contadores/score).
         fetch("/api/presupuestos/intervencion/registrar-respuesta", {
           method: "POST",

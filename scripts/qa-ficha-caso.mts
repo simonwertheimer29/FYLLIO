@@ -64,6 +64,9 @@ async function limpiar() {
   const admin = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, ssl: { rejectUnauthorized: false } });
   await admin.connect();
   await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id=$1`, [TEL_FICHA]);
+  // Desde el 6-sep el seed diario (8f622a4) evalúa también a la huérfana: el
+  // caso «cero evaluación» lo fabrica este QA, no lo hereda del seed.
+  await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id=$1`, [TEL_SIN_EVAL]);
   await admin.end();
   const pacs = await q(`select id from pacientes where telefono=$1`, [TEL_FICHA]);
   for (const p of pacs.rows) {

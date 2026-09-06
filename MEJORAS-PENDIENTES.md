@@ -2102,7 +2102,14 @@ del 2026-09-05 (se marca 🟢 al cerrarse) · 🔵 = pendiente de decisión o fu
 - **Qué es:** `mensajeria.ts:256-274` registra y luego abre wa.me; si no se completa, el hilo dice
   «Clínica:» sobre algo que nunca salió y el evaluador lo lee.
 - **Severidad:** rompe silencioso · **Propuesta:** registrar al confirmar («ya lo envié») o marcar
-  el saliente como `pendiente_confirmar` · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🔵 · **Fase 0.5**
+  el saliente como `pendiente_confirmar` · **Esfuerzo:** 3 h · **Fecha:** 2026-09-05 · 🟢 **HECHA el
+  2026-09-06** tal como se diseñó: `Modo_A_manual_pendiente` al insertar, `POST /api/mensajeria/confirmar-envio`
+  con `actualizarUna` (409 si ya estaba), los cinco lectores lo excluyen (hilo del evaluador, barrido,
+  semáforo ×2, `intentos` de la ficha, `ultimo`/`ult_sal`/`pend` de la bandeja), el hilo lo pinta en gris
+  a trazos con «Sí, lo envié», y tras abrir wa.me un toast con acción pregunta lo mismo en los tres
+  sitios que abren WhatsApp (composer, intervención, lead). La cola de envíos (`Plantilla_automatica`)
+  queda fuera a propósito: su `fuente` es la plantilla y confirmar la pisaría. `qa:modo-manual` 11/11 ·
+  **Fase 0.5**
   · **Diseño fijado el 2026-09-06 (para ejecutar en frío):** NO se deja de insertar (si la persona
   cierra la pestaña tras abrir wa.me, un mensaje enviado sin registro es perder un dato, §1). Se
   inserta con `fuente = 'Modo_A_manual_pendiente'`; `POST /api/mensajeria/confirmar-envio {mensajeId}`
@@ -2403,7 +2410,15 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   alimentada por la cola; backfill desde datos crudos con timestamp (tiempo de respuesta,
   aceptación, pérdida, lead→cita). Necesita 37 (fecha de cierre de leads). · **Severidad:** sin
   esto no hay comparación contra uno mismo · **Esfuerzo:** 2-3 días · **Fase 1** ·
-  **Fecha:** 2026-09-06 · 🔵
+  **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-06** — migración 041 `metricas_diarias` (única por
+  cliente, clínica o red, día y métrica; `definicion_v`; `n` junto al valor), `lib/metricas/diarias`
+  con 18 métricas v1 definidas en la cabecera del archivo, `calcularDia`/`guardarDia` (upsert),
+  `calcularDiaCliente` (red + cada clínica activa), `backfill` por rango (31 días por llamada),
+  `serie()` para 181/158/203, `/api/cron/metricas` (`?dia=`, `?desde=&hasta=`, `?cliente=`) y suelo
+  diario en el cron (ayer, todos los clientes). `qa:metricas` 20/20 con un día de 2020 contado a mano.
+  **Lo que no está y por qué:** `leads_citados` (nadie registra el cambio de estado con fecha — es 37,
+  no una fórmula), pagos por clínica (`pagos_paciente` no lleva clínica). El backfill histórico se
+  lanza a mano: `curl -H "x-cron-secret: …" "/api/cron/metricas?desde=2026-06-01&hasta=2026-06-30"`.
 
 ## 173. Fase 1 · JSON en columnas `text` → `jsonb` con índice
 - `objetivos`, `conocimiento`, `evaluacion_json` son texto; Inicio castea `::jsonb` en caliente en

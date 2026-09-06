@@ -209,6 +209,7 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
             and e."timestamp" > (
               select min(s."timestamp") from mensajes_whatsapp s
                where s.direccion = 'Saliente' and s."timestamp" > ${derivado.created_at}
+                 and coalesce(s.fuente, '') <> 'Modo_A_manual_pendiente'
                  and replace(replace(replace(coalesce(s.telefono,''), ' ', ''), '+', ''), '-', '') like ${"%" + dig + "%"})
           limit 1`.execute(trx),
     );
@@ -235,6 +236,7 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
     const r = await runWithClienteDb(cliente, (trx) =>
       sql<{ ok: number }>`select 1 as ok from mensajes_whatsapp
           where direccion = 'Saliente'
+            and coalesce(fuente, '') <> 'Modo_A_manual_pendiente'
             and "timestamp" > ${derivado.created_at}
             and ${telMatch}
           limit 1`.execute(trx),

@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { preguntarSiSeEnvio } from "../../lib/mensajeria/confirmar-envio-cliente";
 import type { Lead } from "../../(authed)/pipeline/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import {
@@ -511,7 +512,11 @@ export function LeadAccionPanel({
         setMensajes((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, id: data.mensajeId ?? tempId } : m)),
         );
-        if (data.urlWhatsApp) window.open(data.urlWhatsApp, "_blank");
+        if (data.urlWhatsApp) {
+          window.open(data.urlWhatsApp, "_blank");
+          // MEJORAS 130: pendiente hasta que alguien diga que salió.
+          preguntarSiSeEnvio(typeof data.mensajeId === "string" ? data.mensajeId : null);
+        }
         // Bookkeeping (contadores/acciones) por el camino existente.
         fetch("/api/leads/intervencion/registrar-respuesta", {
           method: "POST",

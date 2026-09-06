@@ -4014,3 +4014,25 @@ resumen técnico redactado (sin él una incidencia de base de datos no se invest
 consulta legal como pregunta (5), no como problema. La protección de despliegues de Vercel no se
 pudo comprobar desde aquí (token de la CLI caducado, `fyllio.vercel.app` es de otro): lo mira
 Simon en Settings › Deployment Protection antes del próximo deploy.
+
+## 2026-09-06 · 130 (saliente manual pendiente) y 172 (métricas por día)
+
+**130.** El modo manual insertaba el saliente y abría wa.me; si nadie enviaba, el hilo decía
+«Clínica: …» sobre algo que nunca salió y el evaluador lo leía. Decisión: se sigue insertando
+(perder un dato es peor) pero como `Modo_A_manual_pendiente`, y **cinco lectores lo excluyen** hasta
+que alguien dice «sí, lo envié» (toast con acción tras abrir WhatsApp + botón en el hilo, en gris a
+trazos). Lección: cuando un dato nace antes del hecho que representa, hay que nombrar su estado y
+censar a quién le miente. Cinco lectores: por eso eran 3 h y no 30 min.
+
+**172.** `metricas_diarias`: 18 métricas v1 con definición versionada, día de la clínica (nunca UTC),
+`n` junto a cada valor, backfill por rango (31 días por llamada). Dos definiciones honestas que
+conviene saber: el tiempo de respuesta cuenta por turno que EMPIEZA ese día y solo los contestados
+(el valor de ayer baja cuando llega la respuesta hoy y se recalcula); `leads_citados` no está en v1
+porque nadie registra el cambio de estado con fecha, y los pagos solo existen a nivel de red porque
+`pagos_paciente` no lleva clínica. Ambas son datos que faltan, no fórmulas que inventar.
+
+**`qa:ficha` en rojo por el seed, no por el código:** el cron diario del seed (8f622a4) evalúa
+desde hoy también a la huérfana (+34611999002) que el QA usaba como «cero evaluación». El QA
+fabrica ahora ese estado (borra sus eventos al arrancar) en vez de heredarlo. Lección conocida: un
+QA que depende de un estado del seed que nadie declaró como invariante se rompe cuando el seed
+mejora.

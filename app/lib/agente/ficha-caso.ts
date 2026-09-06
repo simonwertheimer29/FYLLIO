@@ -172,8 +172,8 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   const datos = await runWithClienteDb(cliente, async (trx) => {
     // Intentos: salientes contados del hilo, y el último de cada dirección.
     const m: any = await sql`select
-        count(*) filter (where direccion = 'Saliente')::int as salientes,
-        max("timestamp") filter (where direccion = 'Saliente') as ultimo_saliente,
+        count(*) filter (where direccion = 'Saliente' and coalesce(fuente, '') <> 'Modo_A_manual_pendiente')::int as salientes,
+        max("timestamp") filter (where direccion = 'Saliente' and coalesce(fuente, '') <> 'Modo_A_manual_pendiente') as ultimo_saliente,
         max("timestamp") filter (where direccion = 'Entrante') as ultimo_entrante
       from mensajes_whatsapp where telefono = ${telefono}`.execute(trx);
 

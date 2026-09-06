@@ -270,7 +270,11 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Direccion: "Saliente",
       Contenido: params.contenido,
       Timestamp: now,
-      Fuente: params.fuente ?? "Modo_A_manual",
+      // MEJORAS 130: se inserta SIEMPRE (cerrar la pestaña tras abrir wa.me
+      // sin registro sería perder un dato, §1), pero como PENDIENTE: nadie
+      // ha dicho aún que salió. `POST /api/mensajeria/confirmar-envio` lo
+      // pasa a Modo_A_manual; hasta entonces los lectores lo excluyen.
+      Fuente: params.fuente ?? "Modo_A_manual_pendiente",
       Procesado_por_IA: false,
       Autor: params.autor,
       Sugerido_por_IA: params.sugeridoPorIa ?? false,

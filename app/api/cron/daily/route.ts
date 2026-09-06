@@ -438,6 +438,28 @@ async function runDailyCron(): Promise<NextResponse> {
     }
   }
 
+  // MEJORAS 172: las métricas de AYER (día de la clínica) para cada cliente —
+  // el suelo diario; el backfill y los días sueltos van por /api/cron/metricas.
+  let metricas: { dia: string; porCliente: Record<string, { clinicas: number; escritas: number } | { error: string }> } | { truncado: true };
+  if (overBudget()) {
+    metricas = { truncado: true };
+    truncated.push("metricas");
+  } else {
+    const { calcularDiaCliente, ayerISO } = await import("../../../lib/metricas/diarias");
+    const { runWithCliente: conCliente } = await import("../../../lib/airtable");
+    const dia = ayerISO();
+    const porCliente: Record<string, { clinicas: number; escritas: number } | { error: string }> = {};
+    for (const c of ["RB", "INDEP", "DEMO"] as const) {
+      try {
+        porCliente[c] = await conCliente(c, () => calcularDiaCliente({ cliente: c, dia }));
+      } catch (e) {
+        porCliente[c] = { error: motivoFallo(e) };
+        errors.push(`metricas:${c}: ${motivoFallo(e)}`);
+      }
+    }
+    metricas = { dia, porCliente };
+  }
+
   // MEJORAS 207: cada error del cron, en incidencias (una llamada al final:
   // los pasos ya lo apuntan en `errors` con la forma `paso:referencia: motivo`
   // o `paso: motivo`). Envíos y voz con su tipo; el resto, `cron`.
@@ -459,6 +481,7 @@ async function runDailyCron(): Promise<NextResponse> {
     reevaluacion,
     retencion,
     incidencias,
+    metricas,
     reminders: { sent: remindersSent, total: tomorrowAppts.length },
     confirmations: { sent: confirmsSent, total: tomorrowAppts.length },
     feedback: { sent: feedbackSent, total: yesterdayAppts.length },

@@ -29,6 +29,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { preguntarSiSeEnvio } from "../../lib/mensajeria/confirmar-envio-cliente";
 import {
   Composer,
   type PlantillaComposer,
@@ -256,7 +257,12 @@ export function ComposerConversacion({
       }
       if (data?.urlWhatsApp) {
         window.open(data.urlWhatsApp, "_blank");
-        toast.success("Mensaje preparado — termina de enviarlo en WhatsApp");
+        // MEJORAS 130: el saliente queda PENDIENTE hasta que alguien diga
+        // que salió; la pregunta se hace aquí y el hilo la repite en gris.
+        preguntarSiSeEnvio(typeof data?.mensajeId === "string" ? data.mensajeId : null, () => {
+          onEnviado();
+          recargar();
+        });
       } else {
         toast.success("Mensaje enviado");
       }

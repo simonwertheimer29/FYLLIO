@@ -302,7 +302,12 @@ export interface ConfiguracionAutomatizacion {
 
 // ─── Mensajería WhatsApp ─────────────────────────────────────────────────────
 
-export type FuenteMensaje = "Modo_A_manual" | "Modo_B_WABA" | "Plantilla_automatica" | "Respuesta_IA";
+/** `Modo_A_manual_pendiente` (MEJORAS 130): el saliente se registró y se abrió
+ *  wa.me, pero nadie ha dicho «ya lo envié». Los lectores que deciden con el
+ *  saliente lo EXCLUYEN hasta que se confirme (pasa a `Modo_A_manual`). */
+export type FuenteMensaje = "Modo_A_manual" | "Modo_A_manual_pendiente" | "Modo_B_WABA" | "Plantilla_automatica" | "Respuesta_IA";
+
+export const FUENTE_PENDIENTE_CONFIRMAR: FuenteMensaje = "Modo_A_manual_pendiente";
 export type DireccionMensaje = "Entrante" | "Saliente";
 export type ModoWhatsApp = "manual" | "waba";
 

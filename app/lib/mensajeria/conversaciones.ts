@@ -157,6 +157,9 @@ export async function listarConversaciones(args: {
                (autor = 'agente' or sugerido_por_ia is true) as del_agente
           from mensajes_whatsapp
          where telefono is not null and "timestamp" is not null
+           -- MEJORAS 130: un saliente pendiente de confirmar no cuenta como
+           -- último mensaje — nadie ha dicho que saliera.
+           and coalesce(fuente, '') <> 'Modo_A_manual_pendiente'
          order by telefono, "timestamp" desc
       ),
       -- El último SALIENTE, aparte del último mensaje (fase C): la señal
@@ -170,6 +173,7 @@ export async function listarConversaciones(args: {
           from mensajes_whatsapp
          where telefono is not null and "timestamp" is not null
            and direccion = 'Saliente'
+           and coalesce(fuente, '') <> 'Modo_A_manual_pendiente'
          order by telefono, "timestamp" desc
       ),
       -- ─── El CASO del hilo: el último valor NO NULO de cada campo ─────
@@ -205,7 +209,8 @@ export async function listarConversaciones(args: {
          where m.direccion = 'Entrante' and m."timestamp" is not null
            and m."timestamp" > coalesce(
                  (select max(s."timestamp") from mensajes_whatsapp s
-                   where s.telefono = m.telefono and s.direccion = 'Saliente'),
+                   where s.telefono = m.telefono and s.direccion = 'Saliente'
+                     and coalesce(s.fuente, '') <> 'Modo_A_manual_pendiente'),
                  '-infinity'::timestamptz)
          group by m.telefono
       ),
@@ -424,7 +429,7 @@ export async function hiloDe(telefono: string, limite = 200) {
   return runWithClienteDb(cliente, async (trx) => {
     const r: any = await sql`
       select id, contenido, direccion, "timestamp", autor, sugerido_por_ia,
-             paciente_id, lead_id, presupuesto_id, clinica_id, tipo, media_id
+             paciente_id, lead_id, presupuesto_id, clinica_id, tipo, media_id, fuente
         from mensajes_whatsapp
        where telefono = ${telefono} and "timestamp" is not null
        order by "timestamp" asc
@@ -437,6 +442,8 @@ export async function hiloDe(telefono: string, limite = 200) {
       timestamp: new Date(m.timestamp).toISOString(),
       autor: m.autor ? String(m.autor) : null,
       sugeridoPorIa: m.sugerido_por_ia === true,
+      /** MEJORAS 130 — registrado y abierto en wa.me, sin confirmar que salió. */
+      pendienteConfirmar: m.fuente === "Modo_A_manual_pendiente",
       pacienteId: m.paciente_id ? String(m.paciente_id) : null,
       leadId: m.lead_id ? String(m.lead_id) : null,
       presupuestoId: m.presupuesto_id ? String(m.presupuesto_id) : null,

@@ -41,6 +41,8 @@ export type MensajeHilo = {
   timestamp: string;
   autor: string | null;
   sugeridoPorIa: boolean;
+  /** MEJORAS 130 — registrado y abierto en wa.me, sin confirmar que salió. */
+  pendienteConfirmar?: boolean;
   /** 034 — qué es. Ausente/null = texto. */
   tipo?: string | null;
   mediaId?: string | null;
@@ -74,9 +76,12 @@ export function HiloMensajes({
   mensajes,
   telefono,
   nombresClinica,
+  onConfirmarEnvio,
 }: {
   mensajes: MensajeHilo[];
   telefono?: string | null;
+  /** MEJORAS 130 — «sí, lo envié» sobre un saliente pendiente de confirmar. */
+  onConfirmarEnvio?: (mensajeId: string) => Promise<void> | void;
   /** MEJORAS 122 — id → nombre, para etiquetar cada mensaje con su clínica
    *  cuando el hilo ha pasado por más de una (hilo único por persona). */
   nombresClinica?: Record<string, string>;
@@ -124,9 +129,12 @@ export function HiloMensajes({
                   conversación, se lee como un documento. */}
               <div
                 className={`max-w-[min(34rem,78%)] rounded-xl px-3.5 py-2.5 ${
-                  mio
-                    ? "rounded-br-md bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-                    : "rounded-bl-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-foreground)]"
+                  m.pendienteConfirmar
+                    ? /* MEJORAS 130: en gris y a trazos — no se da por enviado */
+                      "rounded-br-md border border-dashed border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]"
+                    : mio
+                      ? "rounded-br-md bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                      : "rounded-bl-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-foreground)]"
                 }`}
               >
                 {esArchivo && Icono ? (
@@ -153,9 +161,23 @@ export function HiloMensajes({
                     {m.contenido}
                   </p>
                 )}
+                {m.pendienteConfirmar && (
+                  <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
+                    <span>Pendiente de confirmar: se abrió en WhatsApp y nadie ha dicho que saliera.</span>
+                    {onConfirmarEnvio && (
+                      <button
+                        type="button"
+                        onClick={() => void onConfirmarEnvio(m.id)}
+                        className="shrink-0 rounded-md border border-[var(--color-accent)] px-2 py-0.5 font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+                      >
+                        Sí, lo envié
+                      </button>
+                    )}
+                  </div>
+                )}
                 <p
                   className={`mt-1 text-right text-[10px] tabular-nums ${
-                    mio ? "text-[var(--color-on-accent)]/70" : "text-[var(--color-muted)]"
+                    mio && !m.pendienteConfirmar ? "text-[var(--color-on-accent)]/70" : "text-[var(--color-muted)]"
                   }`}
                 >
                   {m.sugeridoPorIa && (

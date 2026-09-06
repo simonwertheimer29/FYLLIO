@@ -37,7 +37,7 @@ Estados: ⬜ abierta · 🟠 en curso · ✅ cerrada (con fecha y línea en el m
 | 0.2 | Nada sale solo → **una sola salida** (`cola_envios` → WABA) con dedup, semáforo, opt-out y ventana de 24 h; el motor 16b deja de «enviar» | 165, 9, 10, 11, 24, 39, 74, 83, 98, 115, 132, 133, 154 | ⬜ **Bloqueada por Meta** (ver bloqueantes) — se construye hasta donde no dependa del catálogo y queda **declarada aplazada**, no olvidada |
 | 0.3 | Borrado, retención y consentimiento + **log de cambios de configuración** | 147, 166, 167 | ✅ 6-sep en código: 167 (038) · 147 (039: borrado por teléfono desde admin y al dar de baja una ficha, retención SOLO con plazo declarado) · 166 (registro con fecha y origen; el bloqueo detrás de flag) · **del abogado quedan el plazo y la forma del consentimiento** |
 | 0.4 | **Log drain** (Vercel Hobby no tiene drains: envío desde `lib/log-drain` a un destino externo, o plan Pro) | 162, 207 | ✅ 6-sep · **los fallos viven en `incidencias` (207), en nuestra base, sin contenido, visibles en Ajustes › Incidencias; el drenaje (162) se aplaza a clientes reales — decisión de Simon** · drenaje inerte hasta `LOG_DRAIN_URL` (bloqueante de Simon) |
-| 0.5 | Pequeños de fiabilidad del mismo camino | 130, 134, 145, 155 | 🟠 145 y 155 ✅ 6-sep · 130 y 134 ⬜ (camino manual y composer, siguiente sesión) |
+| 0.5 | Pequeños de fiabilidad del mismo camino | 130, 134, 145, 155 | ✅ 6-sep los cuatro (130: saliente manual pendiente de confirmar, cinco lectores lo excluyen) (camino manual y composer, siguiente sesión) |
 
 **Cierra cuando:** un entrante sin evaluar se reevalúa solo en menos de 10 minutos; existe un camino
 de borrado por teléfono probado; los errores de producción se pueden leer una semana después; la
@@ -54,7 +54,7 @@ irrecuperables — cada turno que pasa sin ellas es histórico perdido.
 | 1.2 | Entrada renderizada persistida (replay de cualquier decisión) | 169 |
 | 1.3 | `respuesta_a_mensaje_id` en salientes: el eslabón acción→resultado | 170 |
 | 1.4 | Señales del hilo persistidas | 171 |
-| 1.5 | `metricas_diarias` con `definicion_v` y backfill desde datos crudos | 172, 37 |
+| 1.5 | `metricas_diarias` con `definicion_v` y backfill desde datos crudos | 172, 37 | ✅ 172 6-sep (18 métricas v1, `qa:metricas`, cron diario + `/api/cron/metricas`); 37 sigue abierta y bloquea `leads_citados` |
 | 1.6 | JSON en `text` → `jsonb` con índice | 173 |
 | 1.7 | Métricas del modelo por día (latencia, errores, fallback) | 174 |
 | 1.8 | Paralelismo del lote en `after()` con tope, o vía cola | 175 |
@@ -252,3 +252,9 @@ tanda «seed honesto» es 82, 110 y 112.
   propósito) y 207 nueva y hecha: los fallos en nuestra base, sin contenido, visibles en Ajustes ›
   Incidencias. Decisión de Simon: el drenaje (162) se aplaza a clientes reales. Migración 040.
   Fase 0 pendiente: 165 (Meta), 130, el cableado del consentimiento y el plazo (abogado).
+- **2026-09-06** — tanda de cableado a incidencias (envíos, crons, integraciones, entrada). 130 hecha
+  (saliente manual pendiente de confirmar) y 172 hecha (`metricas_diarias`, migración 041): **la
+  fase 2 tiene ya la serie que necesitaba.** Fase 0 pendiente: 165 (Meta) y lo del abogado. Fase 1
+  pendiente: 173 (jsonb), 174 (métricas del modelo: coste, errores y descartes ya salen en 172;
+  falta la latencia), 175 (`after()` en paralelo). Fase 2 puede empezar por 2.6 (antes/después) y 2.5
+  (tiempo de respuesta por cola), que leen de `serie()`.

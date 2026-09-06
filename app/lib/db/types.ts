@@ -252,6 +252,20 @@ export interface Tabla_incidencias {
   reintentable: Generated<boolean>;
 }
 
+/** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o
+ *  red = null, día, métrica); `definicion_v` versiona la definición. */
+export interface Tabla_metricas_diarias {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string | null;
+  dia: string;
+  metrica: string;
+  valor: number;
+  n: Generated<number>;
+  definicion_v: Generated<number>;
+  calculado_en: Generated<Date>;
+}
+
 /** 014 — cuántos toques antes de dar la cadencia por agotada.
  *  020 — `objetivos`: definición de «caso listo» por etapa, JSON-string con la
  *  forma de `lib/automatizacion/objetivos.ts` (valida al leer, cae al default
@@ -513,6 +527,7 @@ export interface DB
   configuracion_historial: Tabla_configuracion_historial;
   supresiones: Tabla_supresiones;
   incidencias: Tabla_incidencias;
+  metricas_diarias: Tabla_metricas_diarias;
   seguimiento_vistos: Tabla_seguimiento_vistos;
   eventos_automatizacion: Tabla_eventos_automatizacion;
   sugerencias_categoria: Tabla_sugerencias_categoria;

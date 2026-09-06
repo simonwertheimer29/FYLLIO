@@ -81,7 +81,8 @@ export async function barridoReevaluacion(opts?: {
        where u."timestamp" <= ${ahora}::timestamptz - make_interval(mins => ${minutosMin})
          and not exists (
            select 1 from mensajes_whatsapp s
-            where s.telefono = u.telefono and s.direccion = 'Saliente' and s."timestamp" > u."timestamp")
+            where s.telefono = u.telefono and s.direccion = 'Saliente' and s."timestamp" > u."timestamp"
+              and coalesce(s.fuente, '') <> 'Modo_A_manual_pendiente')
          and not exists (
            select 1 from eventos_automatizacion e
             where e.tipo_caso = 'conversacion' and e.caso_id = u.telefono

@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { confirmarEnvio } from "../../lib/mensajeria/confirmar-envio-cliente";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
@@ -431,6 +432,13 @@ export function MensajeriaView() {
                     mensajes={hilo ?? []}
                     telefono={abierta}
                     nombresClinica={Object.fromEntries(clinicas.map((c) => [c.id, c.nombre]))}
+                    onConfirmarEnvio={async (mensajeId) => {
+                      // MEJORAS 130: «sí, lo envié» desde el hilo.
+                      if (await confirmarEnvio(mensajeId)) {
+                        cargarLista();
+                        if (abierta) void cargarHilo(abierta);
+                      }
+                    }}
                   />
                 )}
               </div>

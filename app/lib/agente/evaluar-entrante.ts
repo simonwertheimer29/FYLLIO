@@ -198,6 +198,9 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       .selectFrom("mensajes_whatsapp")
       .select(["direccion", "contenido", "timestamp", "tipo", "clinica_id"])
       .where("telefono", "=", e.telefono)
+      // MEJORAS 130: un saliente pendiente de confirmar no está en el hilo que
+      // lee el modelo — leería «Clínica: …» sobre algo que quizá nunca salió.
+      .where(sql<boolean>`coalesce(fuente, '') <> 'Modo_A_manual_pendiente'`)
       .orderBy("timestamp", "desc")
       .limit(80)
       .execute();
