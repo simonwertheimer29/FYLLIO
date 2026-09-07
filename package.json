@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "prebuild": "node scripts/qa-sin-fallbacks.mjs",
+    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts",
+    "qa:frontera": "tsx scripts/qa-frontera-cliente.mts",
     "start": "next start",
     "lint": "eslint",
     "clean": "rm -rf .next",

@@ -11,7 +11,9 @@ import { ErrorState } from "../../../components/ui/Feedback";
 import { AlertTriangle, RefreshCw, TrendingUp, TrendingDown, Minus, ICON_STROKE } from "../../../components/icons";
 import { cargarJSON, mensajeDeError } from "../../../lib/fetch-json";
 import { deDiccionario } from "../../../lib/diccionario";
-import { ETIQUETA_METRICA, SENTIDO, UNIDAD, type Metrica } from "../../../lib/metricas/diarias";
+// Del módulo PURO, nunca de `diarias.ts`: aquello arrastraría pg al navegador
+// (a583fb1 rompió el build de Vercel por esto).
+import { ETIQUETA_METRICA, SENTIDO, UNIDAD, type Metrica } from "../../../lib/metricas/definiciones";
 
 type Ventana = { desde: string; hasta: string; dias: number; diasConDato: number; valor: number | null; n: number };
 type Comparacion = {

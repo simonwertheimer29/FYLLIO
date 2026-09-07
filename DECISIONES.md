@@ -4070,3 +4070,29 @@ configuración (167) traducido a palabras («Agente encendido»), o la pone la p
 pooler a ~100 ms. Con una sentencia por día y alcance (no 21), horarios cargados una vez y tres
 días en paralelo, 7 días = 9 s. Lección conocida (§coste-sesión, pero en la base): el coste es el
 número de idas y vueltas, no el de filas. `demo:reset` regenera la serie entera en un minuto.
+
+## 2026-09-08 · a583fb1 rompió el build de Vercel CON el hook puesto — el gate miró el árbol equivocado
+
+**Qué pasó.** `CompararView.tsx` («use client») importaba `AGREGACION`/`UNIDAD`/`SENTIDO` de
+`lib/metricas/diarias.ts`, que importa `db/context` → `pg`. Turbopack: nueve «Can't resolve»
+(dns, fs, net, tls…). El mismo fallo que be26b8e el 6-sep. **El build también fallaba en
+local**: reproducido el 8-sep en 10 s.
+
+**Por qué el hook no lo paró — verificado, no supuesto.** El hook de pre-commit corrió. Es un
+PreToolUse de Bash que exporta EL ÍNDICE (`git write-tree`) y construye ahí, ANTES de ejecutar
+el comando. El comando era `git add -A && git commit …` en una sola llamada: en el momento del
+hook el índice era HEAD (verde) → construyó verde → dio paso → y el comando añadió y commiteó
+lo roto. Prueba: al lanzar hoy cualquier comando con «git commit» sobre el índice actual
+(= a583fb1) el hook lo DENIEGA con los nueve errores. El gate funcionaba; miraba el árbol
+equivocado por cómo lo invoqué. Es mi error de operación, y del diseño del hook por permitirlo.
+
+**Arreglo por la vía correcta.** `lib/metricas/definiciones.ts`, PURO (métricas, agregación,
+unidades, sentido, etiquetas), que `diarias.ts` re-exporta; el componente importa de ahí.
+Ni alias vacío ni «use server».
+
+**La guarda, por construcción.** `qa:frontera` recorre el grafo de imports de valor de cada
+«use client» (los `import type` no cuentan; los `import()` sí) y falla con la cadena entera si
+alcanza `app/lib/db/`, un builtin de Node o un paquete solo-servidor. Probado: caza la fuga de
+a583fb1 en un segundo. Va en `prebuild` y en el hook, antes de tsc y del build. Y el hook cierra
+sus dos agujeros: deniega `git add … && git commit …` en el mismo comando y `commit -a`
+(construiría HEAD), y deniega si falta `jq` en vez de pasar en silencio. Lección §24 del skill.

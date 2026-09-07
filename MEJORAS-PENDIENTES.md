@@ -2669,3 +2669,14 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `llamadas/repo-pg` (no son fallos que actuar, son consultas que devuelven vacío: MEJORAS §10).
   El texto técnico redactado se mantiene (decisión de Simon, 6-sep) y entra en la consulta legal
   como pregunta (5).
+
+## 208. Gates · la frontera cliente/servidor se comprueba por construcción, no por disciplina
+- **Qué pasó:** dos veces en tres días (be26b8e, a583fb1) un «use client» importó un valor de un
+  módulo que tira de `pg` y el build de Vercel murió con «Can't resolve 'dns'». El hook de
+  pre-commit existía y no lo paró: valida el índice en el momento de la llamada, y `git add` +
+  `git commit` en un solo comando le hizo construir HEAD. · **Hecho (2026-09-08):** `qa:frontera`
+  (grafo de imports de valor desde cada «use client»; falla con la cadena entera si alcanza
+  `app/lib/db/`, un builtin de Node o un paquete solo-servidor; probado contra la fuga real) en
+  `prebuild` y en el hook, antes de tsc; el hook deniega la mezcla add+commit y `commit -a`, y
+  deniega sin `jq`. Lo puro de las métricas vive en `lib/metricas/definiciones.ts`. Lección §24. ·
+  **Severidad:** rompía producción · **Esfuerzo:** 2 h · **Fase 0** · **Fecha:** 2026-09-08 · 🟢

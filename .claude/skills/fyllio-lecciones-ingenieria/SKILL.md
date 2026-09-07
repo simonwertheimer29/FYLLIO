@@ -426,6 +426,26 @@ sobre un objeto devuelve `[object Object]` y rompe justo después de la migraci�
 > la ficha, porque `componerQueQuiere` recorría `camposRecogidos` en el orden del payload. Lo cazó
 > `qa:ficha` el mismo día; sin él habría sido un «la ficha lo dice raro» semanas después.
 
+### 24. La frontera cliente/servidor se vigila por construcción, y el hook valida lo que se va a commitear
+Dos veces en tres días (be26b8e el 6-sep, a583fb1 el 7-sep) un Client Component importó un VALOR
+de un módulo de servidor y el build de Vercel murió con «Can't resolve 'dns'». La disciplina
+(«acuérdate de sacar lo puro a otro módulo») no aguanta tres días. Reglas:
+- **Lo que un componente de cliente necesita de un módulo de servidor vive en un módulo PURO**
+  (sin `db/`, sin Node, sin paquetes solo-servidor) y el módulo de servidor lo re-exporta. Nunca un
+  alias vacío ni `"use server"` para tapar el import.
+- **`qa:frontera`** (`scripts/qa-frontera-cliente.mts`) recorre el grafo de imports de cada
+  `"use client"` y falla si alcanza `app/lib/db/`, un builtin de Node o un paquete solo-servidor
+  (`pg`, `kysely`, `@upstash/*`, `@anthropic-ai/*`, `next/headers`…), con la cadena entera. Corre en
+  `prebuild` y en el hook de pre-commit, ANTES de tsc y del build: un segundo, sin construir.
+- **El hook valida el índice en el momento de la llamada.** `git add … && git commit …` en el mismo
+  comando construye HEAD (limpio) y commitea otra cosa: así pasó a583fb1 «con el hook puesto». Añadir
+  y commitear van en comandos separados; el hook deniega la mezcla y `commit -a`. Y sin `jq` el hook
+  deniega en vez de pasar en silencio: un gate que calla no es un gate.
+> **Nos lo enseñó:** a583fb1. El hook corrió, construyó el índice de HEAD —que estaba verde—, dio
+> paso, y el comando añadió y commiteó `CompararView.tsx` importando `AGREGACION` de `diarias.ts`
+> → `db/context` → `pg`. Vercel: nueve errores. El build también fallaba en local; nadie lo vio
+> porque el gate miró el árbol equivocado.
+
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo
 debe cumplir, se añade aquí como mandamiento con su línea de "Nos lo enseñó". Las

@@ -20,7 +20,7 @@ import { DateTime } from "luxon";
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
-import { AGREGACION, METRICAS_V1, type Metrica } from "./diarias";
+import { AGREGACION, METRICAS_V1, type Metrica } from "./definiciones";
 import { TZ_CLINICA } from "../time";
 
 export const AVISO_NO_CAUSAL =

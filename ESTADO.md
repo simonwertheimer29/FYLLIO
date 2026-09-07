@@ -39,6 +39,12 @@ jsonb con GIN (042) y lectores migrados, `after()` verificado en paralelo. `qa:m
 `qa:ficha`, `qa:turno`, `qa:entrante` en verde. Marcador: 22,5 → 28,5
 ([`MARCADOR-MISION.md`](MARCADOR-MISION.md)). Fase 0 sigue abierta SOLO por bloqueantes externos
 (165 Meta; consentimiento y plazo, abogado). Censo y fases: [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md).
+**8-sep · a583fb1 rompió el build de Vercel** (un «use client» importando de `metricas/diarias` →
+`pg`), con el hook puesto: el hook construía el índice de HEAD porque `git add` y `git commit`
+iban en el mismo comando. Arreglado por la vía correcta (`metricas/definiciones.ts` puro) y con
+guarda por construcción: `qa:frontera` en `prebuild` y en el hook, que además deniega la mezcla
+add+commit (MEJORAS 208, lección §24, DECISIONES 8-sep).
+
 **FASE 2 ABIERTA (7-sep) por 2.6, hecha:** Analíticas › Antes y después (clínica o red, marca por
 hito o fecha, ventana igual 7/14/28, n, no comparable con motivo, aviso de no causalidad;
 `qa:antes-despues` 22/22). `demo:reset` regenera la serie de 45 días y el hito «agente encendido».
