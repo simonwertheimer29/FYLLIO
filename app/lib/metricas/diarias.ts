@@ -79,6 +79,109 @@ export const METRICAS_V1 = [
 ] as const;
 export type Metrica = (typeof METRICAS_V1)[number];
 export type ValorMetrica = { valor: number; n: number };
+
+/** Cómo se agrega una métrica sobre varios días (2.6, antes/después): las
+ *  cuentas y los euros se SUMAN; las medianas diarias se promedian ponderando
+ *  por su n (no es la mediana del periodo, y se dice así en pantalla). */
+export type Agregacion = "suma" | "mediana_ponderada";
+export const AGREGACION: Record<Metrica, Agregacion> = {
+  tiempo_respuesta_mediana_min: "mediana_ponderada",
+  modelo_latencia_mediana_ms: "mediana_ponderada",
+  entrantes: "suma",
+  salientes: "suma",
+  salientes_del_agente: "suma",
+  leads_nuevos: "suma",
+  leads_citados: "suma",
+  leads_convertidos: "suma",
+  presupuestos_presentados_n: "suma",
+  presupuestos_presentados_eur: "suma",
+  aceptados_n: "suma",
+  aceptados_eur: "suma",
+  perdidos_n: "suma",
+  pagos_eur: "suma",
+  evaluaciones: "suma",
+  derivaciones: "suma",
+  derivaciones_caso_completo: "suma",
+  aplazados: "suma",
+  coste_usd: "suma",
+  modelo_errores: "suma",
+  descartes_juez: "suma",
+};
+
+export type Unidad = "n" | "eur" | "min" | "ms" | "usd";
+export const UNIDAD: Record<Metrica, Unidad> = {
+  tiempo_respuesta_mediana_min: "min",
+  modelo_latencia_mediana_ms: "ms",
+  presupuestos_presentados_eur: "eur",
+  aceptados_eur: "eur",
+  pagos_eur: "eur",
+  coste_usd: "usd",
+  entrantes: "n",
+  salientes: "n",
+  salientes_del_agente: "n",
+  leads_nuevos: "n",
+  leads_citados: "n",
+  leads_convertidos: "n",
+  presupuestos_presentados_n: "n",
+  aceptados_n: "n",
+  perdidos_n: "n",
+  evaluaciones: "n",
+  derivaciones: "n",
+  derivaciones_caso_completo: "n",
+  aplazados: "n",
+  modelo_errores: "n",
+  descartes_juez: "n",
+};
+
+/** Qué dirección es «mejor» al comparar. `neutro` = informativa, no se colorea. */
+export type Sentido = "mas_mejor" | "menos_mejor" | "neutro";
+export const SENTIDO: Record<Metrica, Sentido> = {
+  tiempo_respuesta_mediana_min: "menos_mejor",
+  modelo_latencia_mediana_ms: "menos_mejor",
+  perdidos_n: "menos_mejor",
+  modelo_errores: "menos_mejor",
+  coste_usd: "menos_mejor",
+  leads_nuevos: "mas_mejor",
+  leads_citados: "mas_mejor",
+  leads_convertidos: "mas_mejor",
+  presupuestos_presentados_n: "mas_mejor",
+  presupuestos_presentados_eur: "mas_mejor",
+  aceptados_n: "mas_mejor",
+  aceptados_eur: "mas_mejor",
+  pagos_eur: "mas_mejor",
+  entrantes: "neutro",
+  salientes: "neutro",
+  salientes_del_agente: "neutro",
+  evaluaciones: "neutro",
+  derivaciones: "neutro",
+  derivaciones_caso_completo: "neutro",
+  aplazados: "neutro",
+  descartes_juez: "neutro",
+};
+
+export const ETIQUETA_METRICA: Record<Metrica, string> = {
+  tiempo_respuesta_mediana_min: "Tiempo de respuesta (mediana, min laborables)",
+  entrantes: "Mensajes entrantes",
+  salientes: "Mensajes salientes",
+  salientes_del_agente: "Salientes redactados por el agente",
+  leads_nuevos: "Leads nuevos",
+  leads_citados: "Leads citados",
+  leads_convertidos: "Leads convertidos",
+  presupuestos_presentados_n: "Presupuestos presentados",
+  presupuestos_presentados_eur: "Presupuestos presentados (€)",
+  aceptados_n: "Presupuestos aceptados",
+  aceptados_eur: "Presupuestos aceptados (€)",
+  perdidos_n: "Presupuestos perdidos",
+  pagos_eur: "Pagos cobrados (€)",
+  evaluaciones: "Turnos evaluados por el agente",
+  derivaciones: "Derivaciones a persona",
+  derivaciones_caso_completo: "Derivaciones con el caso completo",
+  aplazados: "Aplazados",
+  coste_usd: "Coste del modelo ($)",
+  modelo_errores: "Errores del modelo",
+  descartes_juez: "Borradores descartados por el juez",
+  modelo_latencia_mediana_ms: "Latencia del modelo (mediana, ms)",
+};
 export type DiaCalculado = Partial<Record<Metrica, ValorMetrica>>;
 
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -275,26 +378,34 @@ export async function guardarDia(args: {
 }): Promise<{ escritas: number }> {
   const cliente = clienteDe(args.cliente);
   const ahora = args.ahora ?? new Date();
-  return runWithClienteDb(cliente, async (trx) => {
-    let escritas = 0;
-    for (const metrica of METRICAS_V1) {
-      const v = args.valores[metrica];
-      if (!v) continue;
-      await sql`
-        insert into metricas_diarias (cliente, clinica_id, dia, metrica, valor, n, definicion_v, calculado_en)
-        values (${cliente}::cliente_t, ${args.clinicaId}, ${args.dia}::date, ${metrica}, ${v.valor}, ${v.n}, ${DEFINICION_V}, ${ahora})
-        on conflict (cliente, (coalesce(clinica_id, '')), dia, metrica)
-        do update set valor = excluded.valor, n = excluded.n, definicion_v = excluded.definicion_v, calculado_en = excluded.calculado_en`.execute(trx);
-      escritas++;
-    }
-    return { escritas };
+  // UNA sentencia por día y alcance (no 21): el backfill vive de ida y vuelta
+  // a la base, y cada viaje al pooler son ~100 ms.
+  const filas = METRICAS_V1.flatMap((metrica) => {
+    const v = args.valores[metrica];
+    return v ? [sql`(${cliente}::cliente_t, ${args.clinicaId}, ${args.dia}::date, ${metrica}, ${v.valor}, ${v.n}, ${DEFINICION_V}, ${ahora})`] : [];
   });
+  if (filas.length === 0) return { escritas: 0 };
+  await runWithClienteDb(cliente, (trx) =>
+    sql`
+      insert into metricas_diarias (cliente, clinica_id, dia, metrica, valor, n, definicion_v, calculado_en)
+      values ${sql.join(filas, sql`, `)}
+      on conflict (cliente, (coalesce(clinica_id, '')), dia, metrica)
+      do update set valor = excluded.valor, n = excluded.n, definicion_v = excluded.definicion_v, calculado_en = excluded.calculado_en`.execute(trx),
+  );
+  return { escritas: filas.length };
 }
 
-export async function calcularYGuardar(args: { cliente?: Cliente; clinicaId: string | null; dia: string; ahora?: Date }) {
+export async function calcularYGuardar(args: { cliente?: Cliente; clinicaId: string | null; dia: string; ahora?: Date; horario?: HorarioLaboral }) {
   const valores = await calcularDia(args);
   const r = await guardarDia({ ...args, valores });
   return { valores, escritas: r.escritas };
+}
+
+/** Los horarios de las clínicas, UNA vez por corrida (no uno por día). */
+async function horariosDe(clinicas: readonly string[]): Promise<Map<string, HorarioLaboral>> {
+  const m = new Map<string, HorarioLaboral>();
+  for (const id of clinicas) m.set(id, await horarioDe(id));
+  return m;
 }
 
 export async function clinicasActivas(cliente?: Cliente): Promise<string[]> {
@@ -305,15 +416,25 @@ export async function clinicasActivas(cliente?: Cliente): Promise<string[]> {
   return (r.rows ?? []).map((x) => x.id);
 }
 
-/** Un día entero de un cliente: la red y cada clínica activa. */
-export async function calcularDiaCliente(args: { cliente?: Cliente; dia: string; ahora?: Date }): Promise<{ clinicas: number; escritas: number }> {
+/** Un día entero de un cliente: la red y cada clínica activa. `clinicas` y
+ *  `horarios` se pueden pasar ya cargados (el backfill los carga una vez). */
+export async function calcularDiaCliente(args: {
+  cliente?: Cliente;
+  dia: string;
+  ahora?: Date;
+  clinicas?: readonly string[];
+  horarios?: Map<string, HorarioLaboral>;
+}): Promise<{ clinicas: number; escritas: number }> {
   const cliente = clienteDe(args.cliente);
-  const clinicas = await clinicasActivas(cliente);
-  let escritas = (await calcularYGuardar({ cliente, clinicaId: null, dia: args.dia, ahora: args.ahora })).escritas;
-  for (const id of clinicas) {
-    escritas += (await calcularYGuardar({ cliente, clinicaId: id, dia: args.dia, ahora: args.ahora })).escritas;
-  }
-  return { clinicas: clinicas.length, escritas };
+  const clinicas = args.clinicas ?? (await clinicasActivas(cliente));
+  const horarios = args.horarios ?? (await horariosDe(clinicas));
+  // La red y las clínicas de un mismo día, en paralelo: consultas
+  // independientes sobre el pooler.
+  const resultados = await Promise.all([
+    calcularYGuardar({ cliente, clinicaId: null, dia: args.dia, ahora: args.ahora, horario: HORARIO_DEFAULT }),
+    ...clinicas.map((id) => calcularYGuardar({ cliente, clinicaId: id, dia: args.dia, ahora: args.ahora, horario: horarios.get(id) ?? HORARIO_DEFAULT })),
+  ]);
+  return { clinicas: clinicas.length, escritas: resultados.reduce((s, r) => s + r.escritas, 0) };
 }
 
 export function diasEntre(desde: string, hasta: string, tope = 31): string[] {
@@ -328,10 +449,18 @@ export function diasEntre(desde: string, hasta: string, tope = 31): string[] {
   return out;
 }
 
-export async function backfill(args: { cliente?: Cliente; desde: string; hasta: string; tope?: number; ahora?: Date }) {
+export async function backfill(args: { cliente?: Cliente; desde: string; hasta: string; tope?: number; ahora?: Date; paralelo?: number }) {
+  const cliente = clienteDe(args.cliente);
   const dias = diasEntre(args.desde, args.hasta, args.tope ?? 31);
+  const clinicas = await clinicasActivas(cliente);
+  const horarios = await horariosDe(clinicas);
+  const paralelo = Math.max(1, args.paralelo ?? 3);
   let escritas = 0;
-  for (const dia of dias) escritas += (await calcularDiaCliente({ cliente: args.cliente, dia, ahora: args.ahora })).escritas;
+  for (let i = 0; i < dias.length; i += paralelo) {
+    const tramo = dias.slice(i, i + paralelo);
+    const rs = await Promise.all(tramo.map((dia) => calcularDiaCliente({ cliente, dia, ahora: args.ahora, clinicas, horarios })));
+    escritas += rs.reduce((s, r) => s + r.escritas, 0);
+  }
   return { dias: dias.length, escritas, truncado: dias.length < diasEntre(args.desde, args.hasta, 100000).length };
 }
 

@@ -18,7 +18,7 @@ va primero aunque no duela hoy.
 |---|---|---|---|---|
 | **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** — hecho todo lo de ingeniería; quedan 165 (catálogo de Meta) y el cableado de consentimiento y plazo (abogado): bloqueantes externos, declarados | 2026-09-06 | — |
 | **1** | Cimientos baratos de la visión — dos irrecuperables | ✅ **Cerrada** (168-175 hechas; 175 por verificación) | 2026-09-06 | 2026-09-06 |
-| **2** | Inteligencia visible sin gastar modelo | ⬜ Abierta | — | — |
+| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; siguiente 2.5) | 2026-09-07 | — |
 | **3** | Decidir y ejecutar dentro de reglas | ⬜ Abierta | — | — |
 | **4** | El ERP y la infraestructura que ya se usa | ⬜ Abierta · parte independiente puede adelantarse | — | — |
 | **5** | Lo que la visión promete | ⬜ Abierta | — | — |
@@ -97,7 +97,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | 2.3 | Next Best Config: aplazados × capacidades de la clínica | 178, 89 |
 | 2.4 | Confianza del agente (vara, descartes, coincidencia) y madurez por clínica | 179, 184, 185 |
 | 2.5 | Tiempo hasta primera respuesta humana por cola (métrica #1 del plan ofensivo) | 180 |
-| 2.6 | Antes/después por clínica con n y ventana igual | 181 |
+| 2.6 | Antes/después por clínica con n y ventana igual | 181 | ✅ 7-sep (Analíticas › Antes y después; `qa:antes-despues`) |
 | 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 |
 | 2.8 | «Ver por qué» por mensaje (inspector de decisiones) | 183 |
 | 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita + pantallas de demo | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73, 15 |
@@ -263,3 +263,8 @@ tanda «seed honesto» es 82, 110 y 112.
   cubiertas — `leads_citados` por la cita agendada (37 llevaba cerrada desde julio con
   `fecha_cierre`, que da `leads_convertidos`) y pagos por clínica vía la clínica del paciente. La
   serie compara sedes. Marcador actualizado (22,5 → 28,5). Siguiente: fase 2 por 2.6.
+- **2026-09-07 · FASE 2 ABIERTA por 2.6.** Antes/después por clínica hecho (181): ventanas iguales,
+  n, motivos de no comparable, aviso de no causalidad, hitos del historial. Simon confirmó Vercel
+  (405 en producción, sin protección), `COLA_URL_BASE` y `cola:programar`: la cola está viva.
+  `demo:reset` regenera la serie (45 días, ~1 min) y el hito. Siguiente: 2.5 (tiempo hasta primera
+  respuesta humana por cola), luego 2.8 (ver por qué) y 2.7 (el botón).

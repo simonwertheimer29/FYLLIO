@@ -2485,7 +2485,17 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 
 ## 181. Fase 2 · Antes/después por clínica — la comparación contra uno mismo
 - Con 167 (marca) + 172 (serie): «aceptaba el 40 % y ahora el 52 % desde el día X», con n, ventana
-  igual y aviso de no causalidad. · **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  igual y aviso de no causalidad. · **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-07** — `lib/metricas/antes-despues`: ventanas IGUALES alrededor de la marca (la
+  marca fuera; si no han pasado los días pedidos, las DOS ventanas se acortan a los disponibles;
+  último día completo = ayer), agregación por suma o por mediana ponderada por n (y se dice así),
+  «no comparable» con motivo (definición cambiada, faltan días con dato, pocos casos para una
+  mediana), aviso de no causalidad SIEMPRE. Hitos desde el historial de configuración (167) con
+  etiqueta en palabras («Agente encendido»). `GET /api/metricas/antes-despues` (clínicas visibles,
+  hitos y las 21 comparaciones en una llamada; acceso por clínica) y **Analíticas › Antes y después**
+  (clínica o red, marca por hito o fecha, ventana 7/14/28, color solo donde la dirección significa
+  algo, lo no comparable desplegable con su porqué). La demo compara sedes: `demo:reset` regenera la
+  serie de 45 días y siembra el hito «agente encendido hace tres semanas». `qa:antes-despues` 22/22.
 
 ## 182. Fase 2 · Botón «el agente se equivocó aquí» → caso candidato del eval
 - La vara es sintética; el bucle de PLAN-AGENTE fase 4 no tiene UI. · **Propuesta:** un botón en el

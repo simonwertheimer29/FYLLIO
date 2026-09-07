@@ -10,7 +10,7 @@
     "lint": "eslint",
     "clean": "rm -rf .next",
     "dev:fresh": "rm -rf .next && next dev",
-    "demo:reset": "node scripts/db-seed-demo-rico.mjs && tsx scripts/db-seed-inicio-fotos.mts",
+    "demo:reset": "node scripts/db-seed-demo-rico.mjs && tsx scripts/db-seed-inicio-fotos.mts && tsx scripts/metricas-backfill.mts --cliente DEMO --dias 45",
     "demo:entrante": "tsx scripts/demo-entrante.mts",
     "semaforo": "tsx scripts/semaforo-censo.mts",
     "db:migrate": "node scripts/db-migrate.mjs",
@@ -54,6 +54,8 @@
     "qa:incidencias": "tsx scripts/qa-incidencias.mts",
     "qa:cola-trabajos": "tsx scripts/qa-cola-trabajos.mts",
     "qa:metricas": "tsx scripts/qa-metricas.mts",
+    "qa:antes-despues": "tsx scripts/qa-antes-despues.mts",
+    "metricas:backfill": "tsx scripts/metricas-backfill.mts",
     "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",
     "cola:programar": "tsx scripts/cola-programar.mts",
     "qa:supresion": "tsx scripts/qa-supresion.mts"

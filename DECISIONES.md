@@ -4053,3 +4053,20 @@ Verificar antes de construir ahorró dos horas. **172, ausencias:** `leads_citad
 cita agendada (`citas.lead_id` + `agendada_en`), que es la fecha real de «citado»; 37 llevaba
 cerrada desde julio (`fecha_cierre`) y da `leads_convertidos`; los pagos toman la clínica del
 paciente. La serie compara sedes, que es el argumento entero de la fase 2.
+
+## 2026-09-07 · Fase 2 abierta por 2.6 — la comparación contra uno mismo (181)
+
+Decisiones de diseño para que no mienta: (1) **ventana igual** — la marca queda fuera y, si aún
+no han pasado los días pedidos, las dos ventanas se acortan a los disponibles (nunca 14 contra
+3), con el último día completo en ayer; (2) las **medianas diarias se promedian ponderando por
+n** y la pantalla lo dice: no es la mediana del periodo; (3) **no comparable con motivo** en vez
+de un guion: definición cambiada, faltan días con dato (mínimo la mitad), pocos casos para una
+mediana (5), y una métrica sin filas no se inventa como cero; (4) el **aviso de no causalidad
+viaja con la respuesta**, no es un pie de página opcional; (5) el color solo donde la dirección
+significa algo (SENTIDO por métrica; lo informativo, neutro). La marca sale del historial de
+configuración (167) traducido a palabras («Agente encendido»), o la pone la persona.
+
+**Coste que apareció:** el primer backfill de 45 días tardó más de diez minutos — 7.000 viajes al
+pooler a ~100 ms. Con una sentencia por día y alcance (no 21), horarios cargados una vez y tres
+días en paralelo, 7 días = 9 s. Lección conocida (§coste-sesión, pero en la base): el coste es el
+número de idas y vueltas, no el de filas. `demo:reset` regenera la serie entera en un minuto.

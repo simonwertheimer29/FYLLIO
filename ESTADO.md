@@ -39,9 +39,13 @@ jsonb con GIN (042) y lectores migrados, `after()` verificado en paralelo. `qa:m
 `qa:ficha`, `qa:turno`, `qa:entrante` en verde. Marcador: 22,5 → 28,5
 ([`MARCADOR-MISION.md`](MARCADOR-MISION.md)). Fase 0 sigue abierta SOLO por bloqueantes externos
 (165 Meta; consentimiento y plazo, abogado). Censo y fases: [`PLAN-MAESTRO.md`](PLAN-MAESTRO.md).
-**Siguiente sesión, en frío: fase 2 por 2.6** (antes/después por clínica con `serie()`).
-Simon: `COLA_URL_BASE` + `npm run cola:programar`, protección de despliegues de Vercel, backfill
-histórico de métricas (`/api/cron/metricas?desde=&hasta=`, 31 días por llamada).
+**FASE 2 ABIERTA (7-sep) por 2.6, hecha:** Analíticas › Antes y después (clínica o red, marca por
+hito o fecha, ventana igual 7/14/28, n, no comparable con motivo, aviso de no causalidad;
+`qa:antes-despues` 22/22). `demo:reset` regenera la serie de 45 días y el hito «agente encendido».
+Simon cerró lo suyo: Vercel sin protección en producción (405), `COLA_URL_BASE` y `cola:programar`
+hechos → la cola está viva. **Siguiente sesión, en frío: 2.5** (tiempo hasta primera respuesta
+humana por cola), luego 2.8 y 2.7. Backfill histórico real cuando haya clientes:
+`npm run metricas:backfill -- --cliente RB --desde … --hasta …`.
 
 ### Lo anterior (5 sep)
 

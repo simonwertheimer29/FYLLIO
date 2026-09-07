@@ -99,6 +99,7 @@ const ITEMS: Item[] = [
     hijos: [
       { label: "KPIs", href: "/analiticas/kpis" },
       { label: "Informes", href: "/analiticas/informes" },
+      { label: "Antes y después", href: "/analiticas/comparar" },
     ],
   },
   { label: "Ajustes", href: "/ajustes", Icono: Settings, soloAdmin: true },

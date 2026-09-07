@@ -131,6 +131,10 @@ try {
     "lista_espera", "historial_acciones", "citas", "presupuestos", "pagos_paciente", "acciones_lead",
     "notificaciones", "alertas_enviadas", "conversaciones_copilot", "informes_guardados", "configuraciones_clinica",
     "configuracion_recordatorios", "configuracion_waba", "push_subscriptions",
+    // Plan maestro fases 0-2 (6/7-sep): la serie diaria y los fallos también son
+    // DEMO y se regeneran (metricas: backfill al final). configuracion_historial
+    // es append-only para la app: se limpia con la conexión admin, abajo.
+    "metricas_diarias", "incidencias",
     "objetivos_mensuales", "reglas_automatizacion", "configuracion_automatizaciones", "doctores_presupuestos",
     "usuarios_presupuestos", "plantillas_mensaje", "plantillas_lead", "leads", "pacientes"];
   let borradas = 0;
@@ -153,6 +157,9 @@ try {
     try {
       const r = await admin.query(`delete from eventos_automatizacion where cliente='DEMO'`);
       console.log(`wipe admin eventos_automatizacion DEMO: ${r.rowCount} filas fuera`);
+      // 038: el historial de configuración también es append-only para la app.
+      const rh = await admin.query(`delete from configuracion_historial where cliente='DEMO'`);
+      console.log(`wipe admin configuracion_historial DEMO: ${rh.rowCount} filas fuera`);
     } finally {
       await admin.end();
     }
@@ -335,6 +342,23 @@ try {
       ultima_accion: lastSal ? "WhatsApp_Saliente" : (acciones.length ? "Llamada" : null),
     });
     leads.push({ id: lid, est, cid, nombre, guion });
+    // 2.6 / MEJORAS 172 (7-sep): un lead citado TIENE su cita, enlazada por
+    // lead_id y agendada cuando se confirmó en el hilo — es de ahí de donde
+    // sale `leads_citados` en la serie diaria. Antes el seed dejaba el estado
+    // «Citado» sin cita: una demo que no podía comparar sedes por leads.
+    if (fechaCita && horaCita) {
+      const [hh, mm] = horaCita.split(":").map(Number);
+      const inicio = new Date(`${fechaCita}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`);
+      const agendadaEn = est === "Citados Hoy" ? hAgo(18) : dh(-1, 19);
+      await ins("citas", {
+        nombre, hora_inicio: inicio.toISOString(), hora_final: new Date(inicio.getTime() + 30 * 60_000).toISOString(),
+        estado: "Programada", origen: "Coordinación", lead_id: lid, clinica_id: cid,
+        // Sin doctor asignado a propósito: la primera visita de un lead se
+        // asigna al llegar, y la invariante G2.6 (cita dentro del horario de su
+        // doctor) no puede comprobar un horario que aún no existe.
+        profesional_id: null, agendada_en: agendadaEn, notas: `Primera visita · ${trat}`,
+      });
+    }
     for (const a of acciones) await ins("acciones_lead", { lead_id: lid, tipo_accion: a.tipo, resumen: a.resumen, timestamp: a.ts, detalles: a.det });
     // El envío real registra acción + fila de hilo (prerequisito 5417982):
     if (lastSal) await ins("acciones_lead", { lead_id: lid, tipo_accion: "WhatsApp_Saliente", resumen: "WhatsApp enviado", timestamp: lastSal.ts, detalles: "Mensaje enviado desde el panel." });
@@ -1321,6 +1345,12 @@ try {
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_automatizaciones", {
     clinica_id: cid, activa: true, dias_inactividad_alerta: 3, dias_portal_sin_respuesta: 7, dias_reactivacion: 60,
     modo_whatsapp: "manual", evaluador_activo: true, actualizado_en: dISO(-2),
+  });
+  // El HITO de la demo (2.6, MEJORAS 181): el agente se encendió hace tres
+  // semanas en cada clínica — la marca que Analíticas › Antes y después ofrece.
+  for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_historial", {
+    clinica_id: cid, tabla: "configuracion_automatizaciones", campo: "evaluador_activo",
+    antes: "false", despues: "true", actor_nombre: "Simon (demo)", created_at: dISO(-21),
   });
   // eventos del sistema — TODOS procesado=true (candado 2: el cron los ignora)
   let eventosN = 0;
