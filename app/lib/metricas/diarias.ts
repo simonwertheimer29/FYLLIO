@@ -41,6 +41,18 @@
 //   coste_usd · suma del coste de cada turno (lib/agente/coste). n = turnos
 //     con `usage`. modelo_errores · incidencias agente/modelo_no_disponible
 //     (veces). descartes_juez · turnos con borrador descartado por el juez.
+//   respuesta_humana_prioritaria_min / respuesta_humana_normal_min (2.5,
+//     MEJORAS 180) · por cada ENTREGA del agente (`derivado`) de ese día,
+//     minutos LABORABLES hasta el primer saliente CONFIRMADO con
+//     autor='persona' del mismo hilo (en modo A, que una persona pulse enviar
+//     ES la respuesta humana, aunque el texto lo redactara el agente). La cola
+//     se deriva del hecho (colaDeDerivacion: causa + malestar), nunca se lee
+//     persistida. Solo cuenta la PRIMERA entrega de cada episodio: otra
+//     entrega del mismo hilo sin respuesta humana entre medias es el mismo
+//     caso esperando, no uno nuevo. Mediana; n = entregas contestadas. Las
+//     entregas sin respuesta NO cuentan (no se inventa un tiempo): el valor
+//     de un día puede cambiar cuando llega la respuesta y se recalcula, y lo
+//     que sigue esperando se ve en la cola de Inicio, no aquí.
 
 import { sql } from "kysely";
 import { DateTime } from "luxon";
@@ -50,6 +62,7 @@ import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types"
 import { minutosLaborablesEntre } from "../seguimiento/tiempo-laborable";
 import { costeUsdDeTurno } from "../agente/coste";
 import { leerPayloadEvaluacion } from "../agente/persistir-turno";
+import { colaDeDerivacion, type CausaDerivacion } from "../automatizacion/estado";
 import { TZ_CLINICA } from "../time";
 
 // Las definiciones (métricas, agregación, unidades, sentido, etiquetas) viven
@@ -193,10 +206,15 @@ export async function calcularDia(args: {
          and (${c}::text is null or pa.clinica_id = ${c})`.execute(trx);
     out.pagos_eur = { valor: Number(pagos.rows[0]?.eur ?? 0), n: Number(pagos.rows[0]?.n ?? 0) };
 
+    // `mensaje_id` del evento es el id de WhatsApp si el mensaje lo tiene y, si
+    // no, el id de la fila (barrido-reevaluacion.ts: `waba_message_id ?? id`).
+    // El seed no rellena el de WhatsApp: con el join solo por waba, TODAS las
+    // métricas del agente por sede daban 0 en DEMO (cazado el 8-sep con 2.5).
     const evs = await sql<{ evento: string; causa: string | null; json: unknown }>`
       select e.evento, e.causa_derivacion as causa, e.evaluacion_json as json
         from eventos_automatizacion e
-        left join mensajes_whatsapp m on m.waba_message_id = e.mensaje_id
+        left join mensajes_whatsapp m
+          on m.waba_message_id = e.mensaje_id or (m.waba_message_id is null and m.id = e.mensaje_id)
        where e.tipo_caso = 'conversacion' and e.evento in ('evaluacion', 'derivado', 'aplazado')
          and (e.created_at at time zone ${tz})::date = ${args.dia}::date
          and (${c}::text is null or m.clinica_id = ${c})`.execute(trx);
@@ -231,6 +249,40 @@ export async function calcularDia(args: {
     out.aplazados = { valor: aplazados, n: aplazados };
     out.coste_usd = { valor: Math.round(coste * 10000) / 10000, n: conUsage };
     out.descartes_juez = { valor: descartes, n: evaluaciones };
+
+    // 2.5 · Entregas del agente del día → primer saliente confirmado de una
+    // persona en el mismo hilo (caso_id = teléfono E.164). Solo la primera
+    // entrega de cada episodio: si hay otra entrega anterior del hilo sin
+    // respuesta humana entre las dos, esta es el mismo caso esperando.
+    const entregas = await sql<{ entregado: Date; causa: string; malestar: boolean | null; respondido: Date | null }>`
+      select d.created_at as entregado, d.causa_derivacion as causa, d.malestar,
+             (select min(s."timestamp") from mensajes_whatsapp s
+               where s.telefono = d.caso_id and s.direccion = 'Saliente' and s.autor = 'persona'
+                 and coalesce(s.fuente, '') <> 'Modo_A_manual_pendiente'
+                 and s."timestamp" > d.created_at) as respondido
+        from eventos_automatizacion d
+        left join mensajes_whatsapp m
+          on m.waba_message_id = d.mensaje_id or (m.waba_message_id is null and m.id = d.mensaje_id)
+       where d.tipo_caso = 'conversacion' and d.evento = 'derivado' and d.causa_derivacion is not null
+         and (d.created_at at time zone ${tz})::date = ${args.dia}::date
+         and (${c}::text is null or m.clinica_id = ${c})
+         and not exists (
+           select 1 from eventos_automatizacion d2
+            where d2.tipo_caso = 'conversacion' and d2.evento = 'derivado'
+              and d2.caso_id = d.caso_id and d2.created_at < d.created_at
+              and not exists (
+                select 1 from mensajes_whatsapp s2
+                 where s2.telefono = d.caso_id and s2.direccion = 'Saliente' and s2.autor = 'persona'
+                   and coalesce(s2.fuente, '') <> 'Modo_A_manual_pendiente'
+                   and s2."timestamp" > d2.created_at and s2."timestamp" < d.created_at))`.execute(trx);
+    const porCola: Record<"prioritaria" | "normal", number[]> = { prioritaria: [], normal: [] };
+    for (const e of entregas.rows) {
+      if (e.respondido == null) continue;
+      const cola = colaDeDerivacion(e.causa as CausaDerivacion, e.malestar);
+      porCola[cola].push(minutosLaborablesEntre(new Date(e.entregado), new Date(e.respondido), horario));
+    }
+    out.respuesta_humana_prioritaria_min = { valor: Math.round(mediana(porCola.prioritaria) * 10) / 10, n: porCola.prioritaria.length };
+    out.respuesta_humana_normal_min = { valor: Math.round(mediana(porCola.normal) * 10) / 10, n: porCola.normal.length };
 
     const modErr = await sql<{ n: number }>`
       select coalesce(sum(veces), 0)::int as n from incidencias

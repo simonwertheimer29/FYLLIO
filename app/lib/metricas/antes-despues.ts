@@ -20,13 +20,14 @@ import { DateTime } from "luxon";
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
-import { AGREGACION, METRICAS_V1, type Metrica } from "./definiciones";
+import { AGREGACION, METRICAS_V1, N_MIN_MEDIANA, type Metrica } from "./definiciones";
 import { TZ_CLINICA } from "../time";
 
 export const AVISO_NO_CAUSAL =
   "Antes y después no es causa y efecto: en la ventana de después cambiaron también otras cosas (temporada, personal, campañas). Sirve para mirar, no para concluir.";
-/** Mínimo de casos detrás de una mediana ponderada para compararla. */
-export const N_MIN_MEDIANA = 5;
+/** Mínimo de casos detrás de una mediana ponderada para compararla. Vive en
+ *  `definiciones` (puro) porque Inicio, en el cliente, avisa con el mismo umbral. */
+export { N_MIN_MEDIANA };
 export const VENTANAS_PERMITIDAS = [7, 14, 28] as const;
 
 const DIA_RE = /^\d{4}-\d{2}-\d{2}$/;

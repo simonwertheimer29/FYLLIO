@@ -49,9 +49,15 @@ add+commit (MEJORAS 208, lección §24, DECISIONES 8-sep).
 hito o fecha, ventana igual 7/14/28, n, no comparable con motivo, aviso de no causalidad;
 `qa:antes-despues` 22/22). `demo:reset` regenera la serie de 45 días y el hito «agente encendido».
 Simon cerró lo suyo: Vercel sin protección en producción (405), `COLA_URL_BASE` y `cola:programar`
-hechos → la cola está viva. **Siguiente sesión, en frío: 2.5** (tiempo hasta primera respuesta
-humana por cola), luego 2.8 y 2.7. Backfill histórico real cuando haya clientes:
+hechos → la cola está viva. Backfill histórico real cuando haya clientes:
 `npm run metricas:backfill -- --cliente RB --desde … --hasta …`.
+**8-sep · 2.5 hecha (MEJORAS 180):** dos métricas en la serie (`respuesta_humana_prioritaria_min`
+y `_normal_min`): de la entrega del agente al primer saliente confirmado de una persona, en minutos
+laborables, por cola derivada del hecho; solo la primera entrega del episodio; lo sin contestar no
+cuenta (está en la cola). Inicio › Tu equipo la enseña con n y ventana (7 días completos). De paso:
+el join evento→mensaje por clínica solo miraba `waba_message_id`, que el seed no rellena → todas las
+métricas del agente POR SEDE eran 0 en DEMO; ahora enlaza como el barrido (`waba ?? id`).
+**Siguiente sesión, en frío: 2.8** (ver por qué, MEJORAS 183), luego 2.7 (el botón, 182).
 **8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
 el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
 tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en

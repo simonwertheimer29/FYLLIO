@@ -33,6 +33,7 @@ import type { Inicio, ClinicaInicio, PuntoDinero } from "../../lib/inicio/calcul
 // Como VALOR, solo desde el módulo puro: importar la constante desde
 // dashboard-red arrastraba pg al bundle de cliente (build roto el 06-09).
 import { BASE_MINIMA_COHORTE, cohorteComparable } from "../../lib/inicio/cohorte";
+import { N_MIN_MEDIANA } from "../../lib/metricas/definiciones";
 import { BarraProporcion, BarraApilada, Bullet, Sparkline, CifraConBarra, FilaBarra } from "./micro";
 import {
   Sparkles,
@@ -95,6 +96,16 @@ const PROCESO: Record<string, { titulo: string; resultado: (n: number, importe: 
 
 const s = (n: number) => (n === 1 ? "" : "s");
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+/** Minutos laborables en palabras: «45 min», «2 h 5 min». */
+const minLegibles = (m: number) => {
+  const t = Math.round(m);
+  const h = Math.floor(t / 60);
+  return h ? `${h} h ${t % 60} min` : `${t} min`;
+};
+/** Una cola de «respuesta humana» en una frase: el tiempo Y cuántos casos hay
+ *  detrás — una mediana sobre 1 caso no es una mediana, y se dice. */
+const textoCola = (c: { min: number | null; n: number }) =>
+  c.min == null || c.n === 0 ? "sin casos" : `${minLegibles(c.min)} (${c.n < N_MIN_MEDIANA ? "solo " : ""}${c.n} caso${s(c.n)})`;
 /** Los últimos `n` días de una línea del dinero parado, para su sparkline.
  *  Un día sin esa línea en la foto es un hueco (null), no un cero. */
 const serieLinea = (serie: PuntoDinero[], tipo: string, n = 8): Array<number | null> =>
@@ -167,7 +178,7 @@ export function InicioView() {
                     const f = data.fyllioMes;
                     const resumen = [
                       `Dinero parado: ${eur(data.dineroParado.total)} en presupuestos · ${eur(data.dineroParado.cobros)} vencidos · ${data.dineroParado.leadsSinImporte} leads. Líneas: ${data.dineroParado.lineas.map((l) => `${l.titulo}: ${l.importe != null ? eur(l.importe) : l.n}`).join(" · ")}`,
-                      `Equipo: ${Object.entries(data.equipo.porCohorte).map(([k, n]) => `${ETIQUETA_COHORTE[k] ?? k} ${n}`).join(" · ")}; el más viejo ${data.equipo.masViejoDias ?? "—"} días.`,
+                      `Equipo: ${Object.entries(data.equipo.porCohorte).map(([k, n]) => `${ETIQUETA_COHORTE[k] ?? k} ${n}`).join(" · ")}; el más viejo ${data.equipo.masViejoDias ?? "—"} días. Respuesta de una persona a lo que entrega el agente (últimos ${data.equipo.respuestaHumana.dias} días): prioritaria ${textoCola(data.equipo.respuestaHumana.prioritaria)} · normal ${textoCola(data.equipo.respuestaHumana.normal)}.`,
                       `Fyllio este mes: ${f.procesos.map((p) => `${PROCESO[p.proceso].titulo}: ${PROCESO[p.proceso].resultado(p.resultado, p.importe)}${p.cocinado != null ? ` (${p.cocinado} cocinados)` : ""}`).join(" · ")}.`,
                     ].join("\n");
                     openCopilot({
@@ -414,6 +425,22 @@ export function InicioView() {
                       </>
                     )}
                   </p>
+                  {/* 2.5 · La métrica #1 del plan: cuánto tarda una persona en contestar lo que
+                      el agente entrega. Si sube, el agente hace daño por bien que clasifique.
+                      Sin color: no hay umbral declarado, y un número sin vara no se colorea. */}
+                  <p className="mt-1 text-[12.5px] tabular-nums text-[var(--color-muted)]">
+                    {(() => {
+                      const rh = data.equipo.respuestaHumana;
+                      if (rh.prioritaria.n + rh.normal.n === 0) return `Sin entregas del agente contestadas en los últimos ${rh.dias} días.`;
+                      return (
+                        <>
+                          Lo que entrega el agente se contesta en{" "}
+                          <span className="font-semibold text-[var(--color-foreground)]">{textoCola(rh.prioritaria)}</span> en la cola prioritaria y en{" "}
+                          <span className="font-semibold text-[var(--color-foreground)]">{textoCola(rh.normal)}</span> en la normal · últimos {rh.dias} días.
+                        </>
+                      );
+                    })()}
+                  </p>
                   <button type="button" onClick={() => setDetalleEquipo((v) => !v)} aria-expanded={detalleEquipo} className={CLASE_DETALLE}>
                     {detalleEquipo ? <ChevronDown size={14} strokeWidth={ICON_STROKE} aria-hidden /> : <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />}
                     {detalleEquipo ? "Ocultar el detalle del equipo" : "Ver el detalle del equipo"}
@@ -449,6 +476,25 @@ export function InicioView() {
                             <FilaBarra etiqueta="Más de 3 días" valor={e.masDe3} max={maxEdad} texto={String(e.masDe3)} rojo={e.masDe3 > 0} />
                           </ul>
                         </div>
+                        {(() => {
+                          // 2.5 · Detalle del MISMO bloque: la respuesta humana por cola, con n y la
+                          // ventana en palabras. Lo que sigue sin contestar está arriba, esperando.
+                          const rh = data.equipo.respuestaHumana;
+                          const maxMin = Math.max(1, rh.prioritaria.min ?? 0, rh.normal.min ?? 0);
+                          return (
+                            <div>
+                              <p className={CLASE_EYEBROW}>Cuánto tarda en contestarse lo que entrega el agente</p>
+                              <ul className="mt-1">
+                                <FilaBarra etiqueta="Cola prioritaria" valor={rh.prioritaria.min ?? 0} max={maxMin} texto={textoCola(rh.prioritaria)} tenue={rh.prioritaria.n === 0} />
+                                <FilaBarra etiqueta="Cola normal" valor={rh.normal.min ?? 0} max={maxMin} texto={textoCola(rh.normal)} tenue={rh.normal.n === 0} />
+                              </ul>
+                              <p className="mt-1">
+                                Mediana en minutos laborables, del {ddmm(rh.desde)} al {ddmm(rh.hasta)}. Cuenta desde que el agente entrega el caso hasta el primer mensaje que envía una
+                                persona. Las entregas que nadie ha contestado todavía no cuentan: están arriba, esperando.
+                              </p>
+                            </div>
+                          );
+                        })()}
                         {data.esRed && data.equipo.porClinica.length > 0 && (
                           <div>
                             <p className={CLASE_EYEBROW}>Por sede</p>

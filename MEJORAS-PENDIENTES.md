@@ -2481,7 +2481,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - Métrica #1 de `PLAN-AGENTE-OFENSIVO §10`; solo existe un comentario en `leads/acciones.ts`. ·
   **Propuesta:** evento `derivado` → primer saliente con `autor='persona'`; serie en 172; en Inicio
   equipo. · **Severidad:** la única que detecta que el agente haga daño · **Esfuerzo:** 1 día ·
-  **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  **Fase 2** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-08** — dos métricas en la serie diaria (`respuesta_humana_prioritaria_min`,
+  `respuesta_humana_normal_min`; 21 → 23): por cada entrega del agente (`derivado`) del día, minutos
+  LABORABLES hasta el primer saliente CONFIRMADO con `autor='persona'` del mismo hilo (en modo A,
+  pulsar enviar ES la respuesta humana aunque el texto lo redactara el agente). La cola se deriva
+  del hecho con `colaDeDerivacion` (causa + malestar), nunca se lee persistida. Solo cuenta la
+  PRIMERA entrega de cada episodio (otra entrega sin respuesta humana entre medias es el mismo caso
+  esperando), y las entregas sin contestar NO cuentan: no se inventa un tiempo, y lo que espera ya
+  está en la cola de Inicio. Inicio › Tu equipo: una línea visible con las dos colas, n y «solo N
+  casos» por debajo de 5; en el detalle, barras + ventana (7 días completos, hasta ayer; en red se
+  ponderan las sedes). Sale sola en Antes/después. `qa:metricas` con un segundo día contado a mano
+  (agente ≠ persona, pendiente no cuenta, insistencia del mismo episodio se ignora, queja sin
+  contestar no cuenta) 33/33.
 
 ## 181. Fase 2 · Antes/después por clínica — la comparación contra uno mismo
 - Con 167 (marca) + 172 (serie): «aceptaba el 40 % y ahora el 52 % desde el día X», con n, ventana

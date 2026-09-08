@@ -4132,3 +4132,28 @@ los días 1..hoy−1 de este mes y del anterior) desplaza cualquier ventana seg�
 del 23 al 31 la ventana «antes» pisa el tramo del mes anterior. Un solo modelo temporal para
 el volumen es MEJORAS 209, y toca la historia de Inicio: decisión de Simon. Un bucle de fin de
 semana oscilaba entre el sábado 29 y el domingo 30 y colgó el seed sin salida: salto calculado.
+
+## 2026-09-08 — Fase 2.5: la métrica que detecta si el agente hace daño (MEJORAS 180)
+Dos métricas nuevas en la serie diaria: de la ENTREGA del agente (`derivado`) al primer saliente
+CONFIRMADO de una persona en el mismo hilo, en minutos laborables, por cola. Tres decisiones de
+definición, todas para no mentir: **(1)** la cola se deriva del hecho con `colaDeDerivacion`
+(causa + malestar), nunca se lee persistida — misma doctrina que la 022; **(2)** solo cuenta la
+PRIMERA entrega de cada episodio: una segunda entrega del mismo hilo sin respuesta humana entre
+medias es el mismo caso esperando, no uno nuevo (si contara, dos entregas y una respuesta darían
+dos tiempos, el segundo corto, y la mediana bajaría sola justo cuando nadie contesta); **(3)** lo
+sin contestar NO cuenta — no se inventa un tiempo — y lo que espera ya está en la cola de Inicio,
+que es donde se actúa. En modo A, que una persona pulse enviar ES la respuesta humana aunque el
+texto lo redactara el agente: el paciente ha sido atendido por alguien que lo leyó.
+
+**Cazado de paso, y es el hallazgo del día:** el join evento→mensaje que da la CLÍNICA a todas las
+métricas del agente (evaluaciones, derivaciones, aplazados, coste, latencia) solo miraba
+`waba_message_id`, que el seed nunca rellena (0 de 1.241 mensajes). Por sede, todas daban 0 en
+DEMO desde la 172, y Antes/después «comparaba sedes» con ceros. Nadie lo vio porque la red sí
+sumaba. Ahora enlaza como el barrido (`waba_message_id ?? id`), sin subir `definicion_v`: la
+definición no cambió, el join estaba mal. Lección §7 otra vez: la primera pantalla por clínica
+de la métrica nueva dijo «sin casos» y la pregunta fue por qué, no «el seed no tiene».
+
+**Lo que ve Simon hoy (Inicio › Tu equipo, 7 días completos):** red «normal 39 min (27 casos)»,
+prioritaria «sin casos» (la queja y la urgencia del seed son de hoy y siguen esperando arriba);
+por sede 35 / 32 / 38 / 60 min con 4 / 11 / 10 / 2 casos — la de 2 dice «solo 2 casos». Un
+número sin vara no se colorea: hasta que haya un umbral declarado, va en gris.

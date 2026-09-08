@@ -35,10 +35,28 @@ export const METRICAS_V1 = [
   "modelo_errores",
   "descartes_juez",
   "modelo_latencia_mediana_ms",
+  // 2.5 (MEJORAS 180): cuánto tarda una PERSONA en contestar lo que el agente
+  // entrega, por cola. La métrica #1 del plan ofensivo: la única que detecta
+  // que el agente haga daño (una promesa al paciente que nadie cumple).
+  "respuesta_humana_prioritaria_min",
+  "respuesta_humana_normal_min",
 ] as const;
 export type Metrica = (typeof METRICAS_V1)[number];
 export type ValorMetrica = { valor: number; n: number };
 export type DiaCalculado = Partial<Record<Metrica, ValorMetrica>>;
+
+/** Por debajo de esto una mediana no es una mediana y se dice en pantalla
+ *  (antes/después la declara «no comparable»; Inicio avisa «pocos casos»). */
+export const N_MIN_MEDIANA = 5;
+
+/** Mediana ponderada por n de varias medianas (varios días, varias sedes):
+ *  NO es la mediana del conjunto, y quien la pinta lo dice. null sin casos. */
+export function medianaPonderada(puntos: ReadonlyArray<{ valor: number; n: number }>): { valor: number | null; n: number } {
+  const n = puntos.reduce((s, p) => s + Number(p.n), 0);
+  if (n <= 0) return { valor: null, n: 0 };
+  const valor = puntos.reduce((s, p) => s + Number(p.valor) * Number(p.n), 0) / n;
+  return { valor: Math.round(valor * 10) / 10, n };
+}
 
 /** Cómo se agrega una métrica sobre varios días (2.6, antes/después): las
  *  cuentas y los euros se SUMAN; las medianas diarias se promedian ponderando
@@ -47,6 +65,8 @@ export type Agregacion = "suma" | "mediana_ponderada";
 export const AGREGACION: Record<Metrica, Agregacion> = {
   tiempo_respuesta_mediana_min: "mediana_ponderada",
   modelo_latencia_mediana_ms: "mediana_ponderada",
+  respuesta_humana_prioritaria_min: "mediana_ponderada",
+  respuesta_humana_normal_min: "mediana_ponderada",
   entrantes: "suma",
   salientes: "suma",
   salientes_del_agente: "suma",
@@ -72,6 +92,8 @@ export type Unidad = "n" | "eur" | "min" | "ms" | "usd";
 export const UNIDAD: Record<Metrica, Unidad> = {
   tiempo_respuesta_mediana_min: "min",
   modelo_latencia_mediana_ms: "ms",
+  respuesta_humana_prioritaria_min: "min",
+  respuesta_humana_normal_min: "min",
   presupuestos_presentados_eur: "eur",
   aceptados_eur: "eur",
   pagos_eur: "eur",
@@ -98,6 +120,8 @@ export type Sentido = "mas_mejor" | "menos_mejor" | "neutro";
 export const SENTIDO: Record<Metrica, Sentido> = {
   tiempo_respuesta_mediana_min: "menos_mejor",
   modelo_latencia_mediana_ms: "menos_mejor",
+  respuesta_humana_prioritaria_min: "menos_mejor",
+  respuesta_humana_normal_min: "menos_mejor",
   perdidos_n: "menos_mejor",
   modelo_errores: "menos_mejor",
   coste_usd: "menos_mejor",
@@ -141,4 +165,6 @@ export const ETIQUETA_METRICA: Record<Metrica, string> = {
   modelo_errores: "Errores del modelo",
   descartes_juez: "Borradores descartados por el juez",
   modelo_latencia_mediana_ms: "Latencia del modelo (mediana, ms)",
+  respuesta_humana_prioritaria_min: "Respuesta de una persona a lo que entrega el agente · cola prioritaria (mediana, min laborables)",
+  respuesta_humana_normal_min: "Respuesta de una persona a lo que entrega el agente · cola normal (mediana, min laborables)",
 };

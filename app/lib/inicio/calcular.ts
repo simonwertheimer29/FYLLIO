@@ -25,7 +25,27 @@ import { HORARIO_DEFAULT } from "../automatizaciones/types";
 import { ultimoCierreDeJornada } from "../seguimiento/tiempo-laborable";
 import { sumarCosteUsd, type UsageTurno } from "../agente/coste";
 import { hoyISO, sumaDias } from "../time";
+import { serie, ayerISO, type Metrica } from "../metricas/diarias";
+import { medianaPonderada } from "../metricas/definiciones";
 import type { CasoDeCola, Cohorte } from "../seguimiento/cola";
+
+/** 2.5 (MEJORAS 180): la ventana de «cuánto tarda una persona en contestar lo
+ *  que entrega el agente». Días COMPLETOS hasta ayer (la serie diaria no tiene
+ *  el día de hoy). Es política y viaja en el payload: la pantalla la dice. */
+export const RESPUESTA_HUMANA_DIAS = 7;
+
+/** Cuánto tarda una persona en contestar lo que el agente entrega, por cola:
+ *  mediana ponderada por n de las medianas diarias de `metricas_diarias`
+ *  (no es la mediana del periodo, y se dice). n = entregas contestadas;
+ *  `min` null = sin casos. Lo que sigue sin contestar está en la cola de
+ *  arriba, no aquí: aquí no se inventa un tiempo. */
+export type RespuestaHumana = {
+  desde: string;
+  hasta: string;
+  dias: number;
+  prioritaria: { min: number | null; n: number };
+  normal: { min: number | null; n: number };
+};
 
 /** Política dictada (31-08): un hecho «llegó cocinado» si el agente entregó
  *  el caso completo, con ese objetivo, en los 30 días anteriores. Se dice. */
@@ -77,6 +97,8 @@ export type Inicio = {
     edades: { menosDeUnDia: number; de1a3: number; masDe3: number };
     /** Casos esperando por sede (solo tiene sentido en red). */
     porClinica: Array<{ clinicaId: string; nombre: string | null; n: number }>;
+    /** 2.5 · la métrica #1 del plan ofensivo: si esto sube, el agente hace daño. */
+    respuestaHumana: RespuestaHumana;
   };
   fyllioMes: {
     mes: string;
@@ -117,10 +139,11 @@ export async function calcularInicio(opts: {
   const hoy = hoyISO(ahora);
   const ids = opts.clinicaIds;
 
-  const [dash, agregados, fotos] = await Promise.all([
+  const [dash, agregados, fotos, respuestaHumana] = await Promise.all([
     calcularDashboardRed({ clinicaIds: ids, ahora }),
     conTransaccionCompartida(cliente, () => agregadosInicio(cliente, ids, ahora)),
     leerFotos(cliente, ids, opts.esRed, hoy),
+    respuestaHumanaDe(cliente, ids, ahora),
   ]);
 
   // ── 1 · tu equipo, del mismo cálculo de la cola ──
@@ -183,10 +206,27 @@ export async function calcularInicio(opts: {
       serie: fotos.serieEquipo,
       edades,
       porClinica,
+      respuestaHumana,
     },
     fyllioMes: agregados.fyllioMes,
     clinicas,
   };
+}
+
+/** Lee la serie diaria (172) de las dos colas y la agrega. Alcance: red =
+ *  la fila sin clínica; una o varias sedes = sus filas, ponderadas juntas
+ *  (el subconjunto de un usuario no tiene fila propia y no se inventa). */
+async function respuestaHumanaDe(cliente: ReturnType<typeof requireCliente>, ids: string[] | null, ahora: Date): Promise<RespuestaHumana> {
+  const hasta = ayerISO(ahora);
+  const desde = sumaDias(hasta, -(RESPUESTA_HUMANA_DIAS - 1));
+  const alcances: Array<string | null> = ids === null ? [null] : ids;
+  const leer = async (metrica: Metrica) => {
+    const puntos = (await Promise.all(alcances.map((clinicaId) => serie({ cliente, clinicaId, metrica, desde, hasta })))).flat();
+    const m = medianaPonderada(puntos);
+    return { min: m.valor, n: m.n };
+  };
+  const [prioritaria, normal] = await Promise.all([leer("respuesta_humana_prioritaria_min"), leer("respuesta_humana_normal_min")]);
+  return { desde, hasta, dias: RESPUESTA_HUMANA_DIAS, prioritaria, normal };
 }
 
 function dineroDe(casos: CasoDeCola[], tipo: CasoDeCola["tipo"]): number {

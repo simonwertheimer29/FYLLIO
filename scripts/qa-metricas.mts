@@ -24,17 +24,20 @@ const check = (cond: boolean, m: string) => (cond ? ok(m) : ko(m));
 
 const TEL = "+34600000993";
 const DIA = "2020-01-15";
+/** 2.5 · un segundo hilo y un segundo día (jueves 16) para la respuesta humana. */
+const TEL2 = "+34600000992";
+const DIA2 = "2020-01-16";
 const CLINICA = "qa-clinica-metricas";
 
 async function limpiar() {
   await runWithClienteDb("DEMO", async (trx) => {
     await sql`delete from eventos_automatizacion where mensaje_id like 'qa-met-%'`.execute(trx);
-    await sql`delete from mensajes_whatsapp where telefono = ${TEL}`.execute(trx);
+    await sql`delete from mensajes_whatsapp where telefono in (${TEL}, ${TEL2})`.execute(trx);
     await sql`delete from citas where id = 'qa-met-cita'`.execute(trx);
     await sql`delete from leads where id in ('qa-met-lead', 'qa-met-lead2')`.execute(trx);
     await sql`delete from pagos_paciente where id = 'qa-met-pago'`.execute(trx);
     await sql`delete from pacientes where id = 'qa-met-pac'`.execute(trx);
-    await sql`delete from metricas_diarias where dia = ${DIA}::date`.execute(trx);
+    await sql`delete from metricas_diarias where dia in (${DIA}::date, ${DIA2}::date)`.execute(trx);
     await sql`delete from clinicas where id = ${CLINICA}`.execute(trx);
   });
 }
@@ -80,8 +83,42 @@ async function main() {
       // Un turno del agente con latencia (jsonb desde la 042: se inserta como texto y Postgres lo valida).
       await sql`insert into eventos_automatizacion (cliente, tipo_caso, caso_id, evento, actor_nombre, mensaje_id, evaluacion_json, created_at)
                 values ('DEMO', 'conversacion', ${TEL}, 'evaluacion', 'qa', 'qa-met-1', ${JSON.stringify({ v: 1, latenciaMs: 1200, borradorDescartado: { motivo: "qa" } })}, '2020-01-15T10:00:05+01:00'::timestamptz)`.execute(trx);
+
+      // 2.5 · DÍA 2 (jueves 16), otro hilo: las entregas del agente y la respuesta humana.
+      //   09:00 entrante + entrega URGENCIA (prioritaria) → 09:10 saliente del AGENTE (no es una
+      //   persona: no cuenta) → 09:20 saliente de persona PENDIENTE (no cuenta) → 09:30 entrante +
+      //   segunda entrega «insistencia» (mismo episodio sin respuesta: se ignora) → 09:45 saliente
+      //   de persona = 45 min laborables, prioritaria.
+      //   12:00 entrante + entrega caso_completo (normal) → 12:30 saliente de persona = 30 min.
+      //   16:00 entrante + entrega peticion_queja SIN malestar (normal), nadie contesta: no cuenta.
+      const filas2: Array<[string, string, string, string, string | null, boolean, string]> = [
+        ["qa-met-7", "Entrante", "me duele mucho", "2020-01-16T09:00:00+01:00", null, false, "qa"],
+        ["qa-met-8", "Saliente", "lo paso al equipo", "2020-01-16T09:10:00+01:00", "agente", true, "qa"],
+        ["qa-met-9", "Saliente", "pendiente", "2020-01-16T09:20:00+01:00", "persona", false, "Modo_A_manual_pendiente"],
+        ["qa-met-9b", "Entrante", "¿hola?", "2020-01-16T09:30:00+01:00", null, false, "qa"],
+        ["qa-met-10", "Saliente", "ven a las 12", "2020-01-16T09:45:00+01:00", "persona", false, "qa"],
+        ["qa-met-11", "Entrante", "acepto", "2020-01-16T12:00:00+01:00", null, false, "qa"],
+        ["qa-met-12", "Saliente", "perfecto", "2020-01-16T12:30:00+01:00", "persona", false, "qa"],
+        ["qa-met-13", "Entrante", "quiero hablar con alguien", "2020-01-16T16:00:00+01:00", null, false, "qa"],
+      ];
+      // SIN waba_message_id a propósito: el evento enlaza por el id de la fila (como el
+      // barrido y como el seed), y la clínica tiene que resolverse igual.
+      for (const [id, dir, txt, ts, autor, ia, fuente] of filas2) {
+        await sql`insert into mensajes_whatsapp (id, cliente, telefono, direccion, contenido, "timestamp", fuente, autor, sugerido_por_ia, clinica_id, tipo, waba_message_id)
+                  values (${id}, 'DEMO', ${TEL2}, ${dir}, ${txt}, ${ts}::timestamptz, ${fuente}, ${autor}, ${ia}, ${CLINICA}, 'text', null)`.execute(trx);
+      }
+      const entregas: Array<[string, string, boolean | null, string]> = [
+        ["qa-met-7", "urgencia", null, "2020-01-16T09:00:00+01:00"],
+        ["qa-met-9b", "insistencia", null, "2020-01-16T09:30:00+01:00"],
+        ["qa-met-11", "caso_completo", null, "2020-01-16T12:00:00+01:00"],
+        ["qa-met-13", "peticion_queja", false, "2020-01-16T16:00:00+01:00"],
+      ];
+      for (const [mensajeId, causa, malestar, ts] of entregas) {
+        await sql`insert into eventos_automatizacion (cliente, tipo_caso, caso_id, evento, actor_nombre, mensaje_id, causa_derivacion, malestar, motivo_texto, created_at)
+                  values ('DEMO', 'conversacion', ${TEL2}, 'derivado', 'qa', ${mensajeId}, ${causa}, ${malestar}, 'qa', ${ts}::timestamptz)`.execute(trx);
+      }
     });
-    ok("5 mensajes, 2 leads, 1 cita, 1 pago y 1 turno sembrados el 2020-01-15");
+    ok("5 mensajes, 2 leads, 1 cita, 1 pago y 1 turno sembrados el 2020-01-15; 8 mensajes y 4 entregas el 2020-01-16");
 
     console.log("Cálculo (red)");
     const red = await calcularDia({ cliente: "DEMO", clinicaId: null, dia: DIA });
@@ -100,7 +137,29 @@ async function main() {
     check(red.evaluaciones?.valor === 1 && red.coste_usd?.valor === 0 && red.modelo_errores?.valor === 0, "agente: 1 evaluación sin usage (coste 0), 0 errores");
     check(red.modelo_latencia_mediana_ms?.valor === 1200 && red.modelo_latencia_mediana_ms?.n === 1, `latencia mediana 1200 ms sobre 1 turno (${red.modelo_latencia_mediana_ms?.valor})`);
     check(red.descartes_juez?.valor === 1, "descartes del juez = 1 (el payload lo trae como objeto)");
+    check(red.respuesta_humana_prioritaria_min?.n === 0 && red.respuesta_humana_normal_min?.n === 0, "respuesta humana: sin entregas ese día → n = 0 en las dos colas (no se inventa un tiempo)");
     check(Object.keys(red).length === METRICAS_V1.length, `todas las métricas v1 calculadas (${Object.keys(red).length}/${METRICAS_V1.length})`);
+
+    console.log("Cálculo (respuesta humana, día 2)");
+    const d2 = await calcularDia({ cliente: "DEMO", clinicaId: null, dia: DIA2 });
+    check(
+      d2.respuesta_humana_prioritaria_min?.valor === 45 && d2.respuesta_humana_prioritaria_min?.n === 1,
+      `prioritaria: 45 min sobre 1 entrega — ni el saliente del agente ni el pendiente cuentan (${d2.respuesta_humana_prioritaria_min?.valor} / n=${d2.respuesta_humana_prioritaria_min?.n})`,
+    );
+    check(
+      d2.respuesta_humana_normal_min?.valor === 30 && d2.respuesta_humana_normal_min?.n === 1,
+      `normal: 30 min sobre 1 entrega — la insistencia del mismo episodio se ignora y la queja sin contestar no cuenta (${d2.respuesta_humana_normal_min?.valor} / n=${d2.respuesta_humana_normal_min?.n})`,
+    );
+    check(d2.derivaciones?.valor === 4 && d2.derivaciones_caso_completo?.valor === 1, `derivaciones del día = 4, 1 con caso completo (${d2.derivaciones?.valor}/${d2.derivaciones_caso_completo?.valor})`);
+    check(
+      d2.tiempo_respuesta_mediana_min?.valor === 15 && d2.tiempo_respuesta_mediana_min?.n === 3,
+      `contraste: el tiempo de respuesta SÍ cuenta al agente (turnos 10, 15 y 30 → mediana 15, n=3) (${d2.tiempo_respuesta_mediana_min?.valor} / n=${d2.tiempo_respuesta_mediana_min?.n})`,
+    );
+    const d2cli = await calcularDia({ cliente: "DEMO", clinicaId: CLINICA, dia: DIA2 });
+    check(d2cli.respuesta_humana_prioritaria_min?.valor === 45 && d2cli.respuesta_humana_normal_min?.valor === 30, "la clínica del mensaje entregado ve sus 45 y 30 min (sin waba_message_id: enlaza por el id de la fila)");
+    check(d2cli.derivaciones?.valor === 4, `la clínica ve sus 4 derivaciones por el id de la fila (${d2cli.derivaciones?.valor})`);
+    const d2otra = await calcularDia({ cliente: "DEMO", clinicaId: "otra-clinica", dia: DIA2 });
+    check(d2otra.respuesta_humana_prioritaria_min?.n === 0 && d2otra.respuesta_humana_normal_min?.n === 0, "otra clínica no ve ninguna entrega");
 
     console.log("Cálculo (clínica)");
     const cli = await calcularDia({ cliente: "DEMO", clinicaId: CLINICA, dia: DIA });
