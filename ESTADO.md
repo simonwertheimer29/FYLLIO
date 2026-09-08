@@ -63,9 +63,18 @@ qué recogió, qué anotó, qué decidió, el control, el borrador y lo técnico
 lo que vio el modelo 169). Panel en la columna lateral (flotante en móvil), botón en el mensaje
 que la persona ve (saliente del agente o, si no contestó, el entrante). «Reproducir en el banco»
 carga el hilo real hasta ese mensaje con la configuración de hoy. `qa:por-que` 26/26.
-**Siguiente sesión, en frío: 2.7** (el botón «el agente se equivocó aquí» → caso candidato del
-eval, MEJORAS 182): vive en el mismo panel de «por qué», que ya tiene la entrada renderizada (169),
-el juicio y el borrador — solo falta la corrección de la persona y la tabla de candidatos.
+**8-sep · 2.7 hecha (MEJORAS 182):** «El agente se equivocó aquí» en el pie del panel «por qué»: qué
+falló (cinco opciones en palabras de coordinadora; la de la decisión va en contra de lo que hizo) y
+qué debería haber hecho. El servidor copia lo persistido del turno (turno explicado, entrada 169,
+borrador, decisión, versión 168) a `casos_candidatos_eval` (043, RLS, uno por turno, volver a marcar
+reabre la revisión). Revisión humana: `npm run evals:candidatos -- --cliente X` (lista, `--md`,
+`--aceptar`/`--descartar`); la copia a evals/ es a mano y anonimizada. La regla de acceso al hilo es
+ahora UNA función (`acceso-hilo-sesion`) para ficha, por-qué y candidatos. Se borra con el hilo
+(supresión/retención) y en el wipe de DEMO. `qa:candidatos` 25/25. Pendiente de mirar en el
+navegador (el QA cubre el módulo y la ruta, no el panel).
+**Siguiente sesión, en frío:** decidir el orden del resto de la fase 2 (2.1-2.4, 2.9). Propuesta:
+2.4 (confianza del agente: vara, descartes, coincidencia — 179/184/185), porque enseña la vara que
+2.7 empieza a alimentar; 2.9 si hay demo a la vista.
 **8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
 el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
 tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en

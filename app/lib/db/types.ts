@@ -255,6 +255,34 @@ export interface Tabla_incidencias {
   reintentable: Generated<boolean>;
 }
 
+/** 043 — casos candidatos del eval (MEJORAS 182): un turno del agente que
+ *  una persona marcó como error, con la copia de lo que hizo y su
+ *  corrección. Uno por (cliente, mensaje_id); `estado` es la revisión humana. */
+export interface Tabla_casos_candidatos_eval {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string | null;
+  origen: Generated<"real" | "banco">;
+  telefono: string;
+  mensaje_id: string;
+  mensaje_paciente: string | null;
+  entrada: string | null;
+  juicio: ColumnType<unknown, string | null, string | null>;
+  borrador: string | null;
+  decision_agente: "siguio" | "entrego";
+  causa_entrega: string | null;
+  version: ColumnType<unknown, string | null, string | null>;
+  fallo: "decision" | "entendio_mal" | "borrador" | "recogida" | "otro";
+  correccion: string | null;
+  marcado_por: string;
+  marcado_por_nombre: string | null;
+  marcado_en: Generated<Date>;
+  estado: Generated<"pendiente" | "aceptado" | "descartado">;
+  revisado_en: Date | null;
+  nota_revision: string | null;
+  created_at: Generated<Date>;
+}
+
 /** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o
  *  red = null, día, métrica); `definicion_v` versiona la definición. */
 export interface Tabla_metricas_diarias {
@@ -541,4 +569,5 @@ export interface DB
   agendas_externas: Tabla_agendas_externas;
   ocupaciones_externas: Tabla_ocupaciones_externas;
   inicio_snapshots: Tabla_inicio_snapshots;
+  casos_candidatos_eval: Tabla_casos_candidatos_eval;
 }

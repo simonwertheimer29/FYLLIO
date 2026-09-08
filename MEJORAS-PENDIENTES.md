@@ -2514,7 +2514,21 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   chat que guarda (entrada renderizada 169 + juicio + corrección de la persona) como caso candidato;
   revisión humana antes de entrar en la vara. Es la única forma de que la vara deje de ser
   sintética sin esperar el histórico de RB. · **Severidad:** sin esto el agente no aprende ·
-  **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-08** — en el panel «por qué» de Mensajería, pie con «El agente se equivocó
+  aquí»: la persona elige qué falló (código cerrado en sus palabras: la opción de la decisión va en
+  contra de lo que hizo —«no hacía falta pasarlo» si entregó, «debería haberlo pasado» si siguió—,
+  entendió mal, el borrador, un dato, otra cosa; borrador/dato solo si el turno los tiene) y qué
+  debería haber hecho (obligatorio con borrador/otro). `POST /api/agente/candidatos` con la regla del
+  hilo (`lib/agente/acceso-hilo-sesion`, ahora UNA implementación para ficha, por-qué y candidatos);
+  el servidor copia lo PERSISTIDO del turno (el turno explicado que la persona vio, la entrada 169,
+  el borrador, la decisión y su causa, la versión 168, el mensaje del paciente) a
+  `casos_candidatos_eval` (043, RLS, uno por turno: volver a marcar corrige y reabre la revisión).
+  El panel enseña la marca (quién, cuándo, estado) con «Cambiar». Revisión humana fuera del producto:
+  `npm run evals:candidatos -- --cliente X [--md | --aceptar id | --descartar id]`; la copia a
+  evals/ va a mano, anonimizada y con `origen: real` (107: lo real y lo sintético no se mezclan). Se
+  borra con el hilo (supresión y retención) y en el wipe de DEMO. `qa:candidatos` 25/25 (validación,
+  copia, upsert, revisión, RLS desde RB).
 
 ## 183. Fase 2 · «Ver por qué» por mensaje — inspector de decisiones
 - La ficha enseña el último juicio; el resto vive en el log. · **Propuesta:** en el chat, por
@@ -2727,3 +2741,22 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   reescribir el modelo temporal entero es riesgo sin premio hoy. No volver a proponerla sin un
   motivo nuevo. · **Severidad:** la demo puede contar lo contrario según el día del mes ·
   **Esfuerzo:** 3-4 h · **Fase 2** · **Fecha:** 2026-09-08 · 🔵 aplazada
+
+## 210. Fase 2 · Revisar los casos candidatos dentro del producto (y desde el banco)
+- Hoy la revisión de lo marcado con «el agente se equivocó aquí» (182) es un script
+  (`evals:candidatos`) y el botón solo vive en Mensajería. · **Propuesta:** (a) una lista de
+  candidatos pendientes en /agentes/conversacional, solo admin, con aceptar/descartar y «copiar como
+  caso» ya anonimizado (nombre → «el paciente», teléfono fuera); (b) el mismo botón en el banco de
+  pruebas con `origen: banco` (107), que es donde Simon ya prueba y ve errores. · **Principio:**
+  anticipación/feedback — un candidato que nadie ve es una corrección perdida. · **Impacto:** medio
+  (el bucle de PLAN-AGENTE fase 4 solo arranca si las correcciones se revisan de verdad). ·
+  **Esfuerzo:** 1 día · **Fase 2** · **Fecha:** 2026-09-08 · 🔵
+
+## 211. Deuda · el vocabulario legible del agente vive en un componente
+- `ETIQUETA_TEMA` / `ETIQUETA_CAUSA` / `ETIQUETA_MOTIVO_JUEZ` están en
+  `components/agente/etiquetas-agente.tsx` junto a `Bloque` y `Tag`; `evals-candidatos.mts` (un script
+  de Node) tiene que importar un módulo de React para nombrar una causa. · **Propuesta:** mover los
+  tres diccionarios a un módulo puro `lib/agente/etiquetas-legibles.ts` y que el componente los
+  reexporte; los scripts importan del puro. · **Principio:** coherencia (§6: el vocabulario es UNO y
+  no depende de la capa que lo pinta). · **Impacto:** bajo (deuda, no producto). · **Esfuerzo:** 1 h
+  · **Fecha:** 2026-09-08 · 🔵

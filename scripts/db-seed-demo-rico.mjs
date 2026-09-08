@@ -146,7 +146,7 @@ try {
     // Plan maestro fases 0-2 (6/7-sep): la serie diaria y los fallos también son
     // DEMO y se regeneran (metricas: backfill al final). configuracion_historial
     // es append-only para la app: se limpia con la conexión admin, abajo.
-    "metricas_diarias", "incidencias",
+    "metricas_diarias", "incidencias", "casos_candidatos_eval",
     "objetivos_mensuales", "reglas_automatizacion", "configuracion_automatizaciones", "doctores_presupuestos",
     "usuarios_presupuestos", "plantillas_mensaje", "plantillas_lead", "leads", "pacientes"];
   let borradas = 0;

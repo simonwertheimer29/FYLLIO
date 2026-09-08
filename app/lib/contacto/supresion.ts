@@ -96,6 +96,11 @@ export async function borrarConversacion(args: {
          where tipo_caso = 'conversacion'
            and replace(replace(replace(caso_id, ' ', ''), '+', ''), '-', '') like ${patron}
          returning 1) select count(*)::int as n from d`);
+    // 2.7 (MEJORAS 182): los casos candidatos copian texto del hilo — se van con él.
+    const candidatos = await n(sql<{ n: number }>`with d as (
+        delete from casos_candidatos_eval
+         where replace(replace(replace(telefono, ' ', ''), '+', ''), '-', '') like ${patron}
+         returning 1) select count(*)::int as n from d`);
     const vistos = await n(sql<{ n: number }>`with d as (
         delete from seguimiento_vistos
          where tipo_caso = 'conversacion'
@@ -109,7 +114,7 @@ export async function borrarConversacion(args: {
         delete from secuencias_automaticas
          where replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}
          returning 1) select count(*)::int as n from d`);
-    const otros = { seguimiento_vistos: vistos, cola_envios: cola, secuencias_automaticas: secuencias, incidencias };
+    const otros = { seguimiento_vistos: vistos, cola_envios: cola, secuencias_automaticas: secuencias, incidencias, casos_candidatos_eval: candidatos };
     await trx
       .insertInto("supresiones")
       .values({

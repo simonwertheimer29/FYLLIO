@@ -509,7 +509,7 @@ export function MensajeriaView() {
               clasificador sigue alimentando SOLO al compositor (borrador).
               2.8: mientras hay un «por qué» abierto, el panel ocupa la columna. */}
           {turnoAbierto && abierta ? (
-            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} />
+            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} onMarcado={recargarPorQue} />
           ) : (
             <ContextoConversacion
               conversacion={conversacion}
@@ -531,7 +531,7 @@ export function MensajeriaView() {
             aria-label="Por qué hizo esto el agente"
             className="fixed inset-y-0 right-0 z-40 w-[min(22rem,100vw)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl lg:hidden"
           >
-            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} />
+            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} onMarcado={recargarPorQue} />
           </div>
         )}
       </div>

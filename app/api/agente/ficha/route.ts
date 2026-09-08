@@ -11,10 +11,9 @@
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
-import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { runWithCliente } from "../../../lib/airtable";
 import { fichaDeCaso } from "../../../lib/agente/ficha-caso";
-import { contextoDeConversacion } from "../../../lib/agente/contexto-conversacion";
+import { puedeVerHiloSesion } from "../../../lib/agente/acceso-hilo-sesion";
 
 export const dynamic = "force-dynamic";
 
@@ -28,23 +27,15 @@ export const GET = withAuth(async (session, req) => {
     return NextResponse.json({ error: "Falta telefono" }, { status: 400 });
   }
 
-  const clinicasPermitidas =
-    session.rol === "admin" ? null : await listClinicaIdsForUser(session.userId);
-
   try {
     return await runWithCliente(session.cliente, async () => {
-      const ctx = await contextoDeConversacion(telefono);
-      if (clinicasPermitidas) {
-        // Hilo sin clínica = solo rol de red (decisión del 2026-08-11).
-        // 2026-09-05 (MEJORAS 122): la regla es la del HILO — cualquiera de
-        // sus clínicas —, no la clínica de la ficha del paciente; si el hilo
-        // no tiene clínica, la de la ficha desempata.
-        const { clinicasDelHilo, puedeVerHilo } = await import("../../../lib/mensajeria/acceso-hilo");
-        const { todas } = await clinicasDelHilo(telefono);
-        const cls = todas.length ? todas : ctx.clinicaId ? [String(ctx.clinicaId)] : [];
-        if (!puedeVerHilo(clinicasPermitidas, cls)) {
-          return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-        }
+      // Hilo sin clínica = solo rol de red (decisión del 2026-08-11).
+      // 2026-09-05 (MEJORAS 122): la regla es la del HILO — cualquiera de
+      // sus clínicas —, no la clínica de la ficha del paciente; si el hilo
+      // no tiene clínica, la de la ficha desempata. Una sola implementación
+      // para ficha, «por qué» y candidatos (2.7).
+      if (!(await puedeVerHiloSesion(session, telefono))) {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
       }
       const ficha = await fichaDeCaso(telefono);
       return NextResponse.json(ficha);

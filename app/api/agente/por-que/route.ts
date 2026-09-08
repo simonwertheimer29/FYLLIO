@@ -11,11 +11,10 @@
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
-import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { runWithCliente } from "../../../lib/airtable";
-import { contextoDeConversacion } from "../../../lib/agente/contexto-conversacion";
-import { clinicasDelHilo, puedeVerHilo } from "../../../lib/mensajeria/acceso-hilo";
+import { puedeVerHiloSesion } from "../../../lib/agente/acceso-hilo-sesion";
 import { porQueDeHilo, replayDeHilo } from "../../../lib/agente/por-que";
+import { anotarCorrecciones } from "../../../lib/agente/candidatos-eval";
 
 export const dynamic = "force-dynamic";
 
@@ -30,26 +29,19 @@ export const GET = withAuth(async (session, req) => {
     return NextResponse.json({ error: "Falta telefono" }, { status: 400 });
   }
 
-  const clinicasPermitidas = session.rol === "admin" ? null : await listClinicaIdsForUser(session.userId);
-
   try {
     return await runWithCliente(session.cliente, async () => {
-      if (clinicasPermitidas) {
-        // La regla del HILO (MEJORAS 122): cualquiera de sus clínicas; sin
-        // clínica, la de la ficha desempata; sin ninguna, solo la red.
-        const ctx = await contextoDeConversacion(telefono);
-        const { todas } = await clinicasDelHilo(telefono);
-        const cls = todas.length ? todas : ctx.clinicaId ? [String(ctx.clinicaId)] : [];
-        if (!puedeVerHilo(clinicasPermitidas, cls)) {
-          return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-        }
+      // La regla del HILO (MEJORAS 122), la misma que la ficha y los candidatos.
+      if (!(await puedeVerHiloSesion(session, telefono))) {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
       }
       if (replay) {
         const r = await replayDeHilo(telefono, replay);
         if (!r) return NextResponse.json({ error: "Ese mensaje no está en la conversación" }, { status: 404 });
         return NextResponse.json(r);
       }
-      const turnos = await porQueDeHilo(telefono);
+      // 2.7: cada turno lleva su corrección si una persona lo marcó como error.
+      const turnos = await anotarCorrecciones(telefono, await porQueDeHilo(telefono));
       return NextResponse.json({ turnos });
     });
   } catch (err) {

@@ -18,7 +18,7 @@ va primero aunque no duela hoy.
 |---|---|---|---|---|
 | **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** — hecho todo lo de ingeniería; quedan 165 (catálogo de Meta) y el cableado de consentimiento y plazo (abogado): bloqueantes externos, declarados | 2026-09-06 | — |
 | **1** | Cimientos baratos de la visión — dos irrecuperables | ✅ **Cerrada** (168-175 hechas; 175 por verificación) | 2026-09-06 | 2026-09-06 |
-| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep, 2.5 y 2.8 ✅ 8-sep; siguiente 2.7) | 2026-09-07 | — |
+| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; quedan 2.1-2.4 y 2.9) | 2026-09-07 | — |
 | **3** | Decidir y ejecutar dentro de reglas | ⬜ Abierta | — | — |
 | **4** | El ERP y la infraestructura que ya se usa | ⬜ Abierta · parte independiente puede adelantarse | — | — |
 | **5** | Lo que la visión promete | ⬜ Abierta | — | — |
@@ -98,7 +98,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | 2.4 | Confianza del agente (vara, descartes, coincidencia) y madurez por clínica | 179, 184, 185 |
 | 2.5 | Tiempo hasta primera respuesta humana por cola (métrica #1 del plan ofensivo) | 180 | ✅ 8-sep (serie 172 + Inicio › Tu equipo; `qa:metricas`) |
 | 2.6 | Antes/después por clínica con n y ventana igual | 181 | ✅ 7-sep (Analíticas › Antes y después; `qa:antes-despues`) |
-| 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 |
+| 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 | ✅ 8-sep (Mensajería › panel «por qué» › «El agente se equivocó aquí» + `evals:candidatos`; `qa:candidatos`) |
 | 2.8 | «Ver por qué» por mensaje (inspector de decisiones) | 183 | ✅ 8-sep (Mensajería › «Ver por qué» + replay en el banco; `qa:por-que`) |
 | 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita + pantallas de demo | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73, 15 |
 | 2.10 | **Tanda «seed honesto»** (aprobada 6-sep, adelantada por la demo): el seed respeta el vocabulario real y lo comprueba con invariantes (§15) | 82, 110, 112 · ✅ 6-sep (demo:reset en verde con cuatro invariantes nuevas) |
@@ -277,3 +277,9 @@ tanda «seed honesto» es 82, 110 y 112.
   con el banco; y replay del turno real en el banco con la configuración de hoy. Siguiente: 2.7 (el
   botón «el agente se equivocó aquí» → caso candidato del eval, 182), que ahora tiene dónde vivir:
   el mismo panel.
+- **2026-09-08 · 2.7 hecha (182).** «El agente se equivocó aquí» en el pie del panel «por qué»: qué
+  falló (cinco opciones en palabras de coordinadora) y qué debería haber hecho; el servidor copia lo
+  persistido del turno a `casos_candidatos_eval` (043), uno por turno, revisión humana con
+  `evals:candidatos` antes de que nada entre en la vara. La regla de acceso al hilo pasa a ser una
+  sola función para ficha, por-qué y candidatos. Siguiente: decidir el orden de 2.1-2.4 y 2.9
+  (propuesta: 2.4, que enseña la vara que 2.7 alimenta).

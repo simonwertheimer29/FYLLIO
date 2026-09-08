@@ -57,6 +57,8 @@
     "qa:metricas": "tsx scripts/qa-metricas.mts",
     "qa:antes-despues": "tsx scripts/qa-antes-despues.mts",
     "qa:por-que": "tsx scripts/qa-por-que.mts",
+    "qa:candidatos": "tsx scripts/qa-candidatos.mts",
+    "evals:candidatos": "tsx scripts/evals-candidatos.mts",
     "metricas:backfill": "tsx scripts/metricas-backfill.mts",
     "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",
     "cola:programar": "tsx scripts/cola-programar.mts",

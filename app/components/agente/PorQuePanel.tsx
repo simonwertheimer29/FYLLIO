@@ -8,9 +8,22 @@
 // modelo. El orden es el de lo que decide antes: qué entendió, qué recogió,
 // qué anotó, qué decidió, el control, el borrador — y lo técnico plegado.
 
+import { useState } from "react";
 import Link from "next/link";
-import { X, Sparkles, AlertTriangle, CheckCircle2, Repeat, ICON_STROKE } from "../icons";
+import { toast } from "sonner";
+import { X, Sparkles, AlertTriangle, CheckCircle2, Repeat, Flag, ICON_STROKE } from "../icons";
 import { fechaClinica, horaClinica } from "../../lib/time";
+import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
+import {
+  FALLOS_CANDIDATO,
+  FALLOS_CON_TEXTO_OBLIGATORIO,
+  TOPE_CORRECCION,
+  ETIQUETA_ESTADO_CANDIDATO,
+  etiquetaFallo,
+  motivoCorreccionInvalida,
+  type CandidatoMarcado,
+  type FalloCandidato,
+} from "../../lib/agente/candidatos-eval.tipos";
 import { ETIQUETA_CLAVE, type ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { legibleCampo } from "./FichaCasoPanel";
 import { ETIQUETA_TEMA, ETIQUETA_CAUSA, ETIQUETA_MOTIVO_JUEZ, Bloque, Tag } from "./etiquetas-agente";
@@ -28,10 +41,13 @@ export function PorQuePanel({
   turno,
   telefono,
   onCerrar,
+  onMarcado,
 }: {
   turno: TurnoExplicado;
   telefono: string;
   onCerrar: () => void;
+  /** 2.7: tras guardar «se equivocó aquí», recargar los turnos para enseñar la marca. */
+  onMarcado: () => void;
 }) {
   const j = turno.juicio;
   const t = turno.tecnico;
@@ -207,21 +223,176 @@ export function PorQuePanel({
         </details>
       </div>
 
-      {banco && (
-        <div className="border-t border-[var(--color-border)] px-4 py-3">
-          <Link
-            href={banco}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
-          >
-            <Repeat size={14} strokeWidth={ICON_STROKE} aria-hidden />
-            Reproducir en el banco de pruebas
-          </Link>
-          <p className="mt-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
-            Vuelve a pasar este mensaje por el agente con la configuración de hoy, sin tocar la conversación real. Gasta un mensaje de prueba.
-          </p>
-        </div>
-      )}
+      {/* Las dos acciones sobre el turno: marcarlo como error (2.7) y
+          reproducirlo en el banco. El formulario crece aquí, así que el pie
+          scrollea si hace falta en vez de aplastar la lectura de arriba. */}
+      <div className="max-h-[70%] shrink-0 space-y-3 overflow-y-auto border-t border-[var(--color-border)] px-4 py-3">
+        <CorreccionDelTurno key={turno.clave} turno={turno} telefono={telefono} onMarcado={onMarcado} />
+        {banco && (
+          <div>
+            <Link
+              href={banco}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
+            >
+              <Repeat size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              Reproducir en el banco de pruebas
+            </Link>
+            <p className="mt-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
+              Vuelve a pasar este mensaje por el agente con la configuración de hoy, sin tocar la conversación real. Gasta un mensaje de prueba.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+// «EL AGENTE SE EQUIVOCÓ AQUÍ» (plan maestro 2.7, MEJORAS 182). La persona
+// dice qué falló —en sus palabras, código cerrado por debajo— y qué debería
+// haber hecho; el servidor copia lo persistido del turno y lo guarda como
+// caso candidato, que una persona revisa antes de que entre en la vara. Va
+// con `key={turno.clave}`: el estado del formulario es de ESTE turno y se
+// reinicia al cambiar de turno sin un efecto (lint: set-state-in-effect).
+function CorreccionDelTurno({
+  turno,
+  telefono,
+  onMarcado,
+}: {
+  turno: TurnoExplicado;
+  telefono: string;
+  onMarcado: () => void;
+}) {
+  const marcado = turno.correccion ?? null;
+  const decision = turno.entrega ? "entrego" : "siguio";
+  const [editando, setEditando] = useState(false);
+  const [fallo, setFallo] = useState<FalloCandidato | null>(null);
+  const [texto, setTexto] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  // Solo las opciones que tienen sentido en este turno: sin borrador no se
+  // puede corregir el borrador; sin datos recogidos, tampoco un dato.
+  const opciones = FALLOS_CANDIDATO.filter(
+    (f) => (f !== "borrador" || turno.borrador != null) && (f !== "recogida" || turno.recogidos.length > 0),
+  );
+  const textoObligatorio = fallo != null && FALLOS_CON_TEXTO_OBLIGATORIO.has(fallo);
+  const motivoInvalido = fallo != null ? motivoCorreccionInvalida(fallo, texto) : null;
+
+  const abrir = () => {
+    setFallo(marcado?.fallo ?? null);
+    setTexto(marcado?.correccion ?? "");
+    setEditando(true);
+  };
+
+  const guardar = async () => {
+    if (fallo == null || motivoInvalido) return;
+    setGuardando(true);
+    try {
+      await cargarJSON<{ marcado: CandidatoMarcado }>("/api/agente/candidatos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefono, clave: turno.clave, fallo, correccion: texto.trim() || null }),
+      });
+      toast.success("Guardado. Una persona lo revisa antes de cambiar nada en el agente.");
+      setEditando(false);
+      onMarcado();
+    } catch (e) {
+      toast.error(`No se pudo guardar. ${mensajeDeError(e)}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  if (!editando && marcado) {
+    return (
+      <div className="rounded-lg border border-[var(--color-border)] px-2.5 py-2 text-[12px] text-[var(--color-foreground)]">
+        <p className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+          <Flag size={11} strokeWidth={ICON_STROKE} aria-hidden />
+          Marcado como error del agente
+        </p>
+        <p className="mt-1 font-medium">{etiquetaFallo(marcado.fallo, decision)}</p>
+        {marcado.correccion && <p className="mt-0.5 whitespace-pre-wrap text-[var(--color-muted)]">{marcado.correccion}</p>}
+        <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+          {marcado.porNombre ?? "Alguien del equipo"} · {fechaClinica(marcado.en)} · {ETIQUETA_ESTADO_CANDIDATO[marcado.estado]}
+        </p>
+        <button type="button" onClick={abrir} className="mt-1.5 text-[12px] font-medium text-[var(--color-accent)] hover:underline">
+          Cambiar
+        </button>
+      </div>
+    );
+  }
+
+  if (!editando) {
+    return (
+      <button
+        type="button"
+        onClick={abrir}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
+      >
+        <Flag size={14} strokeWidth={ICON_STROKE} aria-hidden />
+        El agente se equivocó aquí
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void guardar();
+      }}
+      className="rounded-lg border border-[var(--color-border)] px-2.5 py-2 text-[var(--color-foreground)]"
+    >
+      <fieldset>
+        <legend className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">¿Qué falló?</legend>
+        <div className="mt-1.5 space-y-1.5">
+          {opciones.map((f) => (
+            <label key={f} className="flex cursor-pointer items-start gap-2 text-[12.5px] leading-snug">
+              <input
+                type="radio"
+                name={`fallo-${turno.clave}`}
+                value={f}
+                checked={fallo === f}
+                onChange={() => setFallo(f)}
+                className="mt-0.5 shrink-0 accent-[var(--color-accent)]"
+              />
+              <span>{etiquetaFallo(f, decision)}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className="mt-2.5 block text-[11px] font-medium text-[var(--color-muted)]">
+        ¿Qué debería haber hecho o dicho?{textoObligatorio ? "" : " (opcional)"}
+        <textarea
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          rows={3}
+          maxLength={TOPE_CORRECCION}
+          className="mt-1 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-[12.5px] font-normal text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+        />
+      </label>
+      {motivoInvalido && texto.trim() === "" && textoObligatorio ? (
+        <p className="mt-1 text-[11px] text-[var(--color-muted)]">{motivoInvalido}</p>
+      ) : (
+        <p className="mt-1 text-[11px] leading-snug text-[var(--color-muted)]">Sirve para que el agente mejore. Una persona lo revisa antes de cambiar nada.</p>
+      )}
+      <div className="mt-2 flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={guardando || fallo == null || motivoInvalido != null}
+          className="rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {guardando ? "Guardando…" : "Guardar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditando(false)}
+          disabled={guardando}
+          className="rounded-lg px-3 py-2 text-[12.5px] font-medium text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)]"
+        >
+          Cancelar
+        </button>
+      </div>
+    </form>
   );
 }
 

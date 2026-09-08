@@ -35,6 +35,7 @@ import { esLegible } from "../mensajeria/tipos-mensaje";
 import type { EscenarioPrueba, TurnoPrueba } from "./banco-pruebas";
 import type { VersionTurno } from "./version";
 import type { SenalesHilo } from "./evaluador";
+import type { CandidatoMarcado } from "./candidatos-eval.tipos";
 
 export type TurnoExplicado = {
   /** `mensaje_id` de los eventos del turno (waba_message_id ?? id del entrante). */
@@ -67,6 +68,9 @@ export type TurnoExplicado = {
   etiquetasDescartadas: string[];
   /** El borrador que propuso (payload `respuesta`). */
   borrador: string | null;
+  /** 2.7 (MEJORAS 182) — si una persona marcó el turno como error. Lo rellena
+   *  la ruta (`anotarCorrecciones`), no este módulo: aquí solo el log del agente. */
+  correccion?: CandidatoMarcado | null;
   tecnico: {
     version: VersionTurno | null;
     modelo: string | null;

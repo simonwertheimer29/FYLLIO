@@ -4187,3 +4187,36 @@ cargado a su teléfono y no necesita efecto de reset.
 **Lo que abre:** 2.7 (el botón «el agente se equivocó aquí») ya tiene dónde vivir — este panel
 tiene la entrada renderizada, el juicio y el borrador; falta la corrección de la persona y la
 tabla de candidatos.
+
+## 2026-09-08 — Fase 2.7: «El agente se equivocó aquí» → caso candidato del eval (MEJORAS 182)
+La vara del agente es sintética (50 casos escritos por nosotros) y el bucle de correcciones de
+PLAN-AGENTE fase 4 no tenía por dónde entrar: una coordinadora que veía al agente equivocarse no
+podía dejarlo dicho en ningún sitio. Ahora el panel «por qué» (2.8) tiene en su pie «El agente se
+equivocó aquí»: qué falló, en cinco opciones en sus palabras —la de la decisión va en la dirección
+CONTRARIA a lo que hizo el agente, porque el quiebre se afina en las dos direcciones—, y qué debería
+haber hecho o dicho (obligatorio cuando lo que falla es el texto). Guardado → toast y la marca queda
+en el panel con quién, cuándo y el estado de revisión.
+
+**Cuatro decisiones:** (1) **el cliente no manda lo que hizo el agente**: manda (teléfono, turno,
+fallo, corrección) y el servidor copia lo PERSISTIDO —el mismo turno explicado que la persona vio en
+el panel (§21), la entrada 169, el borrador, la decisión y su causa, la versión 168, el mensaje del
+paciente—; es copia a propósito porque el log tiene retención y el candidato debe sobrevivir hasta
+que alguien lo revise. (2) **Un candidato por turno** (unique cliente+mensaje_id): volver a marcar
+corrige el anterior y REABRE la revisión — lo aceptado se decidió sobre otra corrección. (3) **La
+revisión es humana y fuera del producto**, por ahora: `npm run evals:candidatos -- --cliente X`
+lista, enseña la entrada con `--md`, acepta o descarta; la copia a `evals/` se hace a mano,
+anonimizada y con `origen: real` (107: lo real y lo sintético no se mezclan al medir). Una pantalla
+de revisión en producto y el botón en el banco quedan propuestos (MEJORAS 210). (4) **La regla de
+acceso al hilo es UNA función** (`lib/agente/acceso-hilo-sesion`): estaba copiada en ficha y en
+por-qué (la de ficha con un `await import` dentro del handler) y el tercer consumidor la habría
+copiado otra vez.
+
+**Dos cosas cazadas por las herramientas, no por leer:** un `export * from "./x.tipos"` en el módulo
+de servidor dejaba a los scripts `.mts` sin los nombres re-exportados (tsx compila `.ts` a CJS y
+cjs-module-lexer no ve el `__reExport`) — el import fallaba al cargar; se importa del módulo puro
+directamente. Y el seed del QA escribió `peticion_o_queja` en vez de `peticion_queja`: lo paró el
+check constraint de 023 al primer intento (§15 funciona también contra nosotros).
+
+**Lo que no está verificado:** el panel en el navegador. `qa:candidatos` (25/25) cubre el módulo,
+la ruta de escritura no tiene QA propio y el formulario solo pasó `tsc`, lint y build. Antes de la
+próxima demo, abrir un «por qué» en Mensajería DEMO y marcar un turno.

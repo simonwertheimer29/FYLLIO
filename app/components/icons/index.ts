@@ -3,6 +3,7 @@
 
 export {
   Sparkles,
+  Flag,
   Bell,
   Phone,
   MessageCircle,
