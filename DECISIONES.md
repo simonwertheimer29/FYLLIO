@@ -4227,3 +4227,39 @@ descartes, coincidencia, madurez por clínica — MEJORAS 179, 184, 185) porque 
 cuenta la historia completa: así de bien decide el agente, y así lo corriges cuando falla — algo que
 nadie más enseña. 2.9 (Inicio y pantallas de demo) va después. Antes de nada, prueba el formulario de
 2.7 en el navegador, que es lo único de 2.7 sin verificar.
+
+## 2026-09-09 — 2.4: la confianza en el agente sale de la vara y de lo persistido, sin mezclarlas
+«Cómo decide tu agente» (Agentes › Configuración, `lib/agente/confianza`) y la coincidencia en Inicio
+› Tu equipo. Sin una llamada al modelo. **Cinco decisiones:** (1) **La vara es un artefacto, no un
+número en un `.txt`**: `qa:evals-evaluador` escribe `evals/ultima-pasada.json` al terminar una pasada
+ENTERA (una tanda o unos casos no la pisan) con el hash 168 del evaluador y del juez que midió, y el
+producto lo compara con el hash de lo que corre hoy —«es la misma versión» o «el agente cambió: la
+vara está por pasar»—. No se recalcula sola: cuesta $0,35 y es una decisión de quien la pasa. Hoy el
+JSON está transcrito a mano de la pasada del 5-sep, y es honesto porque el texto de los dos prompts
+no cambió desde 2fbafc3 (`git diff`): el hash de hoy ES el medido. (2) **Una ventana y una regla de
+sede**: 30 días completos hasta ayer (como 2.5), la sede de un hilo es la del último mensaje con
+clínica (como Inicio y el panel de descartes) y la de un envío sigue `sqlClinicaDeEnvio`, un
+fragmento SQL que comparten el bloque y la serie diaria; `qa:confianza` comprueba que los dos
+caminos dan el mismo número. (3) **La sintética y la real no se suman**: la vara dice «50 casos
+escritos por nosotros y anotados a ciegas» y las conversaciones reales van en otra sección, por
+sede, con el denominador entero (n de N envíos del equipo salían de un borrador). (4) **El
+disparador de modo B se DECLARA** (`DISPARADOR_MODO_B`, 80 % tal cual sobre 50 envíos) y se enseña
+con lo que falta en palabras, pero es provisional: la decisión es de Simon (MEJORAS 214). Un umbral
+de autonomía no lo fija el sistema solo. (5) **`envios_tal_cual` entra en la serie diaria** (23 →
+24 métricas) para que Antes/después compare el disparador alrededor de cada cambio de configuración.
+
+**Lo que enseña la demo:** el seed mide cada borrador del agente que el equipo envió (6 de 10 tal
+cual, 3 editados, 1 reescrito, en orden fijo: el disparador NO está alcanzado, y se ve por qué),
+hace que el control pare un borrador en la mitad de las preguntas de precio (antes el seed nunca
+escribía un descarte y «lo paró el control» salía 0 de 149) y marca dos turnos como error (uno
+pendiente, uno aceptado). Así el bloque cuenta el bucle entero.
+
+**Cazado por las herramientas:** el check `eventos_automatizacion_peticion_con_malestar` paró la
+siembra del QA por un `peticion_queja` sin `malestar` (§15, otra vez contra nosotros). Y ESLint
+señaló diez `any` en `inicio/calcular.ts` que ya estaban en HEAD: no son de este cambio y no se
+tocaron.
+
+**Lo que no está verificado:** el panel y la línea de Inicio en el navegador; `tsc`, ESLint,
+`qa:frontera`, `next build`, `qa:confianza` (31/31), `qa:metricas` y `demo:reset` en verde.
+Propuestas de paso: 212 (la pestaña «¿Escribe bien?» calcula la coincidencia por otro camino y sin
+aislar por sede), 213 (dos ventanas para el mismo descarte), 214 (el umbral).

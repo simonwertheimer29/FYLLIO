@@ -2475,7 +2475,21 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 ## 179. Fase 2 · Confianza del agente
 - Vara 66/67, descartes 10 %, coincidencia agente-humano: nada se ve. · **Propuesta:** bloque en
   Ajustes/Agentes: vara sintética hoy, tus conversaciones reales cuando existan. ·
-  **Severidad:** valor · **Esfuerzo:** 1 día · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  **Severidad:** valor · **Esfuerzo:** 1 día · **Fase 2** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-09** — Agentes › Configuración › «Cómo decide tu agente»
+  (`components/agente/ConfianzaAgentePanel` ← `GET /api/agente/confianza` ← `lib/agente/confianza`).
+  Dos fuentes que NO se mezclan, y se dice: (1) **la vara**, leída de `evals/ultima-pasada.json`
+  —lo escribe `qa:evals-evaluador` al terminar una pasada ENTERA (una tanda o unos casos no pisan
+  la vara)— con el hash (168) del evaluador y del juez medidos; el producto lo compara con el
+  hash del prompt que corre HOY y dice «es la misma versión» o «el agente cambió: la vara está por
+  pasar» (no se recalcula sola: cuesta modelo). Decide bien 66 de 67 · entrega listo cuando toca
+  21 de 21 · el control paró 7 de 73 · coste por turno, y que son 50 casos escritos por nosotros.
+  (2) **tus conversaciones reales**, por sede, 30 días completos hasta ayer: turnos, te libera
+  (caso listo de entregas), lo paró el control (vs el 10 % de la vara), enviado tal cual, marcado
+  como error (2.7); debajo de cada sede, qué sigue exigiendo persona y qué aplazó. (3) **Así lo
+  corriges**: el enlace a «Ver por qué» y el recuento de marcados por estado. Solo lo persistido.
+  `qa:confianza` 31/31 (dos sedes contadas a mano, aislamiento por alcance, «dos caminos, un
+  número» contra la serie diaria, vara legible/ilegible). Pendiente de mirar en el navegador.
 
 ## 180. Fase 2 · Tiempo hasta la primera respuesta humana por cola
 - Métrica #1 de `PLAN-AGENTE-OFENSIVO §10`; solo existe un comentario en `leads/acciones.ts`. ·
@@ -2555,12 +2569,27 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 ## 184. Fase 2 · Madurez del agente por clínica
 - Ratio `caso_completo` / resto de derivaciones por mes, ya contado en Inicio detalle. ·
   **Propuesta:** «de qué te libera y qué sigue exigiendo persona», por clínica. · **Esfuerzo:**
-  medio día · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  medio día · **Fase 2** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-09** — en el bloque de 179, por sede: «Te libera (caso listo)» = entregas con
+  `caso_completo` de todas las entregas (`madurezDe`, null sin entregas: no se inventa un 0 %), y
+  debajo del nombre de la sede «Sigue exigiendo persona: urgencia ×3 · pidió una persona ×2» y
+  «Aplazó: precio ×4 …» (las tres primeras causas/claves, vocabulario de `etiquetas-agente` y
+  `aplazamientos`). La sede de un hilo es la del último mensaje con clínica, como en Inicio.
 
 ## 185. Fase 2 · La coincidencia agente-humano en Inicio equipo
 - `CoincidenciaView` existe aislada. · **Propuesta:** «el equipo envía el borrador tal cual el X %»
   como el disparador declarado del paso de modo A a B. · **Esfuerzo:** medio día · **Fase 2** ·
-  **Fecha:** 2026-09-06 · 🔵
+  **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-09** — Inicio › Tu equipo: «El equipo envía el borrador del agente tal cual el
+  X % de las veces (n envíos) · últimos 30 días» y, en el detalle, el reparto tal cual / editado /
+  reescrito, «n de N envíos del equipo salían de un borrador» (el denominador entero) y el
+  DISPARADOR DECLARADO: `DISPARADOR_MODO_B = { tasaTalCual: 80, envios: 50 }` en
+  `lib/agente/confianza.tipos` —PROVISIONAL, ver 214— con lo que falta en palabras («faltan envíos
+  medidos (12 de 50)»). Mismo dato en el bloque de 179 (`coincidenciaDe`, una función). Y la
+  métrica `envios_tal_cual` en la serie diaria (172, 23 → 24: valor = tal cual, n = medidos; la
+  sede de un envío por `sqlClinicaDeEnvio`, compartida con el bloque), así que sale sola en
+  Antes/después. El seed de DEMO mide cada borrador enviado por el equipo (6 de 10 tal cual, 3
+  editados, 1 reescrito, en orden fijo) y marca dos turnos como error (uno pendiente, uno aceptado).
 
 ## 186. Fase 3 · Next Best Action v1 con cupo diario
 - La cola de Seguimiento ordena por cohorte y edad; no por impacto esperado ni por capacidad. ·
@@ -2760,3 +2789,32 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   reexporte; los scripts importan del puro. · **Principio:** coherencia (§6: el vocabulario es UNO y
   no depende de la capa que lo pinta). · **Impacto:** bajo (deuda, no producto). · **Esfuerzo:** 1 h
   · **Fecha:** 2026-09-08 · 🔵
+
+## 212. Deuda · la coincidencia agente-humano se calcula por dos caminos y uno no aísla por sede
+- `/api/automatizacion/coincidencia` (pestaña «¿Escribe bien?» de /automatizaciones) usa
+  `withPresupuestosAuth` y `enviosMedidos(dias)` SIN filtro de clínica: una coordinadora ve la
+  coincidencia de todo el cliente, y en una ventana rodante de 90 días. El bloque de 2.4
+  (`lib/agente/confianza` → `enviosPorClinica`) calcula lo mismo por sede, con el scoping de
+  Inicio y en días completos. Dos caminos para un número. · **Propuesta:** que la pestaña lea
+  `enviosPorClinica` (con su desglose por intención y por semana encima) y retirar `enviosMedidos`/
+  `enviosSinSugerido`; una sola ventana declarada. · **Principio:** coherencia (§6) y aislamiento
+  (§5 del skill de ingeniería). · **Impacto:** medio (un dato de todo el cliente delante de quien
+  solo debería ver su sede). · **Esfuerzo:** 2 h · **Fecha:** 2026-09-09 · 🔵
+
+## 213. Deuda · dos ventanas para el mismo descarte del control
+- `DescartesJuezPanel` (151) cuenta con `now() - 30 días` (rodante, cambia entre dos recargas —
+  §13) y el bloque de 2.4, justo encima, con 30 días COMPLETOS hasta ayer: el mismo descarte puede
+  estar en uno y no en el otro durante el día. · **Propuesta:** que `/api/agente/descartes` use
+  `ventanaConfianza` y diga «del dd/mm al dd/mm»; o fundir el desglose por motivo dentro del bloque
+  de 2.4 como su detalle plegable. · **Principio:** coherencia. · **Impacto:** bajo (confusión, no
+  dato falso). · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+
+## 214. Decisión de Simon · el umbral del disparador de modo B
+- 2.4 declara `DISPARADOR_MODO_B = { tasaTalCual: 80, envios: 50 }` (`lib/agente/confianza.tipos`) y
+  lo enseña en Inicio › Tu equipo y en Agentes › Configuración como «el disparador declarado». Es
+  un juicio, no una medida: PLAN-AGENTE.md §fase 4 dice que cada intención tendrá su umbral y su
+  histórico, y no hay conversaciones reales con las que calibrarlo. · **Propuesta:** Simon fija el
+  número (o lo deja en 80/50 a sabiendas) y, cuando exista el histórico real, se pasa a umbral por
+  intención. Cambiarlo es tocar una constante. · **Principio:** el sistema no decide solo un umbral
+  de autonomía (esencia §7). · **Impacto:** alto el día que se plantee el modo B; cero hasta
+  entonces. · **Esfuerzo:** 0 · **Fecha:** 2026-09-09 · 🔵

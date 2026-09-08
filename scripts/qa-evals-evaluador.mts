@@ -607,3 +607,36 @@ console.log(`  Coste medio por turno: $${porTurno.toFixed(5)} · por conversaci�
 console.log(`  Coste de esta pasada completa: $${usd.toFixed(4)}`);
 
 console.log(`\n✓ medido. El número es el dato — no se ajusta nada antes de reportarlo.`);
+
+// ─── La vara, persistida (plan maestro 2.4) ────────────────────────────────
+// Solo una pasada ENTERA escribe `evals/ultima-pasada.json`: una tanda
+// (--solo) o unos casos (--casos) medirían otra cosa y pisarían la vara. El
+// producto la enseña al lado del hash del prompt que corre hoy (168): por
+// eso viaja la versión medida, no un nombre que alguien tenga que subir.
+if (!solo && !SOLO_CASOS) {
+  const { writeFileSync } = await import("node:fs");
+  const { hashVersion } = await import("../app/lib/agente/version");
+  const { SYSTEM_PROMPT_EVALUADOR } = await import("../app/lib/agente/evaluador");
+  const { SYSTEM_PROMPT_JUEZ } = await import("../app/lib/agente/juez-borrador");
+  const okL = listos.filter((x) => x.okListo).length;
+  const vara = {
+    fecha: new Date().toISOString().slice(0, 10),
+    modelo: MODELO,
+    // Hoy todos los casos son sintéticos (evals/README.md); el día que entren
+    // reales, aquí se reporta por origen — no se mezclan.
+    origen: "sintetico",
+    casos: Object.keys(R1_FIX).length,
+    turnos: resultados.length,
+    decision: { aciertos, total: puntuados.length },
+    listo: listos.length ? { aciertos: okL, total: listos.length } : null,
+    descartesJuez: { n: descartes.length, total: resultados.length },
+    etiquetasFueraVocabulario: { n: totalEtiquetas, turnos: conEtiquetasMalas.length },
+    costePorTurnoUsd: Math.round(porTurno * 1e5) / 1e5,
+    costeUsd: Math.round(usd * 1e4) / 1e4,
+    version: { evaluador: hashVersion(SYSTEM_PROMPT_EVALUADOR), juez: hashVersion(SYSTEM_PROMPT_JUEZ) },
+    fallos: puntuados.filter((x) => !x.okDecision).map((x) => `${x.id}:${x.esperado}→${x.letra}`),
+    salida: null,
+  };
+  writeFileSync(join(DIR, "ultima-pasada.json"), JSON.stringify(vara, null, 2) + "\n");
+  console.log(`  vara escrita en evals/ultima-pasada.json (versión ${vara.version.evaluador} / ${vara.version.juez})`);
+}

@@ -83,6 +83,12 @@ async function main() {
       // Un turno del agente con latencia (jsonb desde la 042: se inserta como texto y Postgres lo valida).
       await sql`insert into eventos_automatizacion (cliente, tipo_caso, caso_id, evento, actor_nombre, mensaje_id, evaluacion_json, created_at)
                 values ('DEMO', 'conversacion', ${TEL}, 'evaluacion', 'qa', 'qa-met-1', ${JSON.stringify({ v: 1, latenciaMs: 1200, borradorDescartado: { motivo: "qa" } })}, '2020-01-15T10:00:05+01:00'::timestamptz)`.execute(trx);
+      // 2.4 · tres envíos medidos del hilo (sede = la del hilo): tal cual, editado, reescrito.
+      // Y uno SIN distancia (no medible): no entra en n. El mensaje_id solo sirve para limpiar.
+      for (const [id, d] of [["qa-met-env-1", 0], ["qa-met-env-2", 0.2], ["qa-met-env-3", 0.5], ["qa-met-env-4", null]] as Array<[string, number | null]>) {
+        await sql`insert into eventos_automatizacion (cliente, tipo_caso, caso_id, evento, actor_nombre, mensaje_id, distancia_edicion, largo_sugerido, created_at)
+                  values ('DEMO', 'conversacion', ${TEL}, 'mensaje_enviado', 'qa', ${id}, ${d}, 40, '2020-01-15T10:31:00+01:00'::timestamptz)`.execute(trx);
+      }
 
       // 2.5 · DÍA 2 (jueves 16), otro hilo: las entregas del agente y la respuesta humana.
       //   09:00 entrante + entrega URGENCIA (prioritaria) → 09:10 saliente del AGENTE (no es una
@@ -137,6 +143,7 @@ async function main() {
     check(red.evaluaciones?.valor === 1 && red.coste_usd?.valor === 0 && red.modelo_errores?.valor === 0, "agente: 1 evaluación sin usage (coste 0), 0 errores");
     check(red.modelo_latencia_mediana_ms?.valor === 1200 && red.modelo_latencia_mediana_ms?.n === 1, `latencia mediana 1200 ms sobre 1 turno (${red.modelo_latencia_mediana_ms?.valor})`);
     check(red.descartes_juez?.valor === 1, "descartes del juez = 1 (el payload lo trae como objeto)");
+    check(red.envios_tal_cual?.valor === 1 && red.envios_tal_cual?.n === 3, `envíos tal cual = 1 de 3 medidos; el envío sin distancia no cuenta (${red.envios_tal_cual?.valor}/${red.envios_tal_cual?.n})`);
     check(red.respuesta_humana_prioritaria_min?.n === 0 && red.respuesta_humana_normal_min?.n === 0, "respuesta humana: sin entregas ese día → n = 0 en las dos colas (no se inventa un tiempo)");
     check(Object.keys(red).length === METRICAS_V1.length, `todas las métricas v1 calculadas (${Object.keys(red).length}/${METRICAS_V1.length})`);
 
@@ -168,9 +175,10 @@ async function main() {
     check(cli.leads_citados?.valor === 1 && cli.leads_convertidos?.valor === 1, "la clínica ve su lead citado y su convertido");
     check(cli.pagos_eur?.valor === 150, `pagos por clínica = 150 € vía la clínica del paciente (${cli.pagos_eur?.valor})`);
     check(cli.evaluaciones?.valor === 1 && cli.modelo_latencia_mediana_ms?.valor === 1200, "la clínica ve el turno por el mensaje evaluado");
+    check(cli.envios_tal_cual?.valor === 1 && cli.envios_tal_cual?.n === 3, "la clínica ve sus 3 envíos medidos por la sede del hilo");
     check(Object.keys(cli).length === METRICAS_V1.length, "la clínica tiene todas las métricas (ninguna se salta por sede)");
     const otra = await calcularDia({ cliente: "DEMO", clinicaId: "otra-clinica", dia: DIA });
-    check(otra.entrantes?.valor === 0 && otra.pagos_eur?.valor === 0 && otra.leads_citados?.valor === 0, "otra clínica no ve nada");
+    check(otra.entrantes?.valor === 0 && otra.pagos_eur?.valor === 0 && otra.leads_citados?.valor === 0 && otra.envios_tal_cual?.n === 0, "otra clínica no ve nada (tampoco los envíos medidos)");
 
     console.log("Guardar (upsert) y leer");
     const ahora = new Date("2020-01-16T07:00:00+01:00");

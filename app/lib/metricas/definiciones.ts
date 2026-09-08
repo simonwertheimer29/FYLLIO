@@ -40,6 +40,11 @@ export const METRICAS_V1 = [
   // que el agente haga daño (una promesa al paciente que nadie cumple).
   "respuesta_humana_prioritaria_min",
   "respuesta_humana_normal_min",
+  // 2.4 (MEJORAS 185): de los envíos del equipo que salían de un borrador del
+  // agente, cuántos salieron TAL CUAL (valor) sobre los medidos (n). Es el
+  // disparador declarado del paso de modo A a modo B, y en la serie se puede
+  // comparar antes/después de cada cambio de configuración.
+  "envios_tal_cual",
 ] as const;
 export type Metrica = (typeof METRICAS_V1)[number];
 export type ValorMetrica = { valor: number; n: number };
@@ -86,6 +91,7 @@ export const AGREGACION: Record<Metrica, Agregacion> = {
   coste_usd: "suma",
   modelo_errores: "suma",
   descartes_juez: "suma",
+  envios_tal_cual: "suma",
 };
 
 export type Unidad = "n" | "eur" | "min" | "ms" | "usd";
@@ -113,6 +119,7 @@ export const UNIDAD: Record<Metrica, Unidad> = {
   aplazados: "n",
   modelo_errores: "n",
   descartes_juez: "n",
+  envios_tal_cual: "n",
 };
 
 /** Qué dirección es «mejor» al comparar. `neutro` = informativa, no se colorea. */
@@ -141,6 +148,7 @@ export const SENTIDO: Record<Metrica, Sentido> = {
   derivaciones_caso_completo: "neutro",
   aplazados: "neutro",
   descartes_juez: "neutro",
+  envios_tal_cual: "mas_mejor",
 };
 
 export const ETIQUETA_METRICA: Record<Metrica, string> = {
@@ -167,4 +175,5 @@ export const ETIQUETA_METRICA: Record<Metrica, string> = {
   modelo_latencia_mediana_ms: "Latencia del modelo (mediana, ms)",
   respuesta_humana_prioritaria_min: "Respuesta de una persona a lo que entrega el agente · cola prioritaria (mediana, min laborables)",
   respuesta_humana_normal_min: "Respuesta de una persona a lo que entrega el agente · cola normal (mediana, min laborables)",
+  envios_tal_cual: "Borradores del agente enviados tal cual por el equipo",
 };

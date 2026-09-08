@@ -34,6 +34,8 @@ import type { Inicio, ClinicaInicio, PuntoDinero } from "../../lib/inicio/calcul
 // dashboard-red arrastraba pg al bundle de cliente (build roto el 06-09).
 import { BASE_MINIMA_COHORTE, cohorteComparable } from "../../lib/inicio/cohorte";
 import { N_MIN_MEDIANA } from "../../lib/metricas/definiciones";
+import { DISPARADOR_MODO_B, disparadorModoB } from "../../lib/agente/confianza.tipos";
+import { ETIQUETA_COINCIDENCIA } from "../../lib/automatizacion/coincidencia";
 import { BarraProporcion, BarraApilada, Bullet, Sparkline, CifraConBarra, FilaBarra } from "./micro";
 import {
   Sparkles,
@@ -441,6 +443,21 @@ export function InicioView() {
                       );
                     })()}
                   </p>
+                  {/* 2.4 (185) · El disparador declarado del paso de modo A a B: cuánto
+                      envía el equipo TAL CUAL lo que el agente redactó. Sin color: el
+                      umbral es provisional y un número sin vara no se colorea. */}
+                  <p className="mt-1 text-[12.5px] tabular-nums text-[var(--color-muted)]">
+                    {(() => {
+                      const co = data.equipo.coincidencia;
+                      if (co.total === 0) return `Sin borradores del agente enviados por el equipo en los últimos ${co.dias} días.`;
+                      return (
+                        <>
+                          El equipo envía el borrador del agente tal cual el{" "}
+                          <span className="font-semibold text-[var(--color-foreground)]">{co.tasaTalCual} %</span> de las veces ({co.total} envío{s(co.total)}) · últimos {co.dias} días.
+                        </>
+                      );
+                    })()}
+                  </p>
                   <button type="button" onClick={() => setDetalleEquipo((v) => !v)} aria-expanded={detalleEquipo} className={CLASE_DETALLE}>
                     {detalleEquipo ? <ChevronDown size={14} strokeWidth={ICON_STROKE} aria-hidden /> : <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />}
                     {detalleEquipo ? "Ocultar el detalle del equipo" : "Ver el detalle del equipo"}
@@ -491,6 +508,39 @@ export function InicioView() {
                               <p className="mt-1">
                                 Mediana en minutos laborables, del {ddmm(rh.desde)} al {ddmm(rh.hasta)}. Cuenta desde que el agente entrega el caso hasta el primer mensaje que envía una
                                 persona. Las entregas que nadie ha contestado todavía no cuentan: están arriba, esperando.
+                              </p>
+                            </div>
+                          );
+                        })()}
+                        {(() => {
+                          // 2.4 (185) · Detalle: el reparto tal cual / editado / reescrito y el
+                          // disparador declarado hacia modo B, con lo que falta en palabras.
+                          const co = data.equipo.coincidencia;
+                          const disp = disparadorModoB(co);
+                          const max = Math.max(1, co.talCual, co.editado, co.reescrito);
+                          return (
+                            <div>
+                              <p className={CLASE_EYEBROW}>Qué hace el equipo con lo que redacta el agente</p>
+                              {co.total === 0 ? (
+                                <p className="mt-1">
+                                  Nada medido del {ddmm(co.desde)} al {ddmm(co.hasta)}: se mide cada vez que alguien envía un mensaje que el agente dejó redactado.
+                                </p>
+                              ) : (
+                                <>
+                                  <ul className="mt-1">
+                                    <FilaBarra etiqueta={ETIQUETA_COINCIDENCIA.tal_cual} valor={co.talCual} max={max} texto={String(co.talCual)} />
+                                    <FilaBarra etiqueta={ETIQUETA_COINCIDENCIA.editado} valor={co.editado} max={max} texto={String(co.editado)} />
+                                    <FilaBarra etiqueta={ETIQUETA_COINCIDENCIA.reescrito} valor={co.reescrito} max={max} texto={String(co.reescrito)} rojo={co.reescrito > 0} />
+                                  </ul>
+                                  <p className="mt-1 tabular-nums">
+                                    {co.total} de {co.enviosDelEquipo} envío{s(co.enviosDelEquipo)} del equipo salían de un borrador del agente, del {ddmm(co.desde)} al {ddmm(co.hasta)}.
+                                  </p>
+                                </>
+                              )}
+                              <p className="mt-1">
+                                {disp.alcanzado
+                                  ? `Se cumple el disparador para que el agente envíe solo lo rutinario (${DISPARADOR_MODO_B.tasaTalCual} % tal cual sobre ${DISPARADOR_MODO_B.envios} envíos): es momento de decidirlo.`
+                                  : `Para plantear que el agente envíe solo lo rutinario hace falta que el equipo mande tal cual al menos el ${DISPARADOR_MODO_B.tasaTalCual} % de ${DISPARADOR_MODO_B.envios} envíos; hoy ${disp.motivo}.`}
                               </p>
                             </div>
                           );

@@ -27,6 +27,7 @@ import { sumarCosteUsd, type UsageTurno } from "../agente/coste";
 import { hoyISO, sumaDias } from "../time";
 import { serie, ayerISO, type Metrica } from "../metricas/diarias";
 import { medianaPonderada } from "../metricas/definiciones";
+import { coincidenciaDe, type CoincidenciaVentana } from "../agente/confianza";
 import type { CasoDeCola, Cohorte } from "../seguimiento/cola";
 
 /** 2.5 (MEJORAS 180): la ventana de «cuánto tarda una persona en contestar lo
@@ -99,6 +100,9 @@ export type Inicio = {
     porClinica: Array<{ clinicaId: string; nombre: string | null; n: number }>;
     /** 2.5 · la métrica #1 del plan ofensivo: si esto sube, el agente hace daño. */
     respuestaHumana: RespuestaHumana;
+    /** 2.4 (185) · el equipo envía el borrador del agente tal cual el X %: el
+     *  disparador declarado del paso de modo A a B (`DISPARADOR_MODO_B`). */
+    coincidencia: CoincidenciaVentana;
   };
   fyllioMes: {
     mes: string;
@@ -139,11 +143,12 @@ export async function calcularInicio(opts: {
   const hoy = hoyISO(ahora);
   const ids = opts.clinicaIds;
 
-  const [dash, agregados, fotos, respuestaHumana] = await Promise.all([
+  const [dash, agregados, fotos, respuestaHumana, coincidencia] = await Promise.all([
     calcularDashboardRed({ clinicaIds: ids, ahora }),
     conTransaccionCompartida(cliente, () => agregadosInicio(cliente, ids, ahora)),
     leerFotos(cliente, ids, opts.esRed, hoy),
     respuestaHumanaDe(cliente, ids, ahora),
+    coincidenciaDe({ cliente, clinicaIds: ids, ahora }),
   ]);
 
   // ── 1 · tu equipo, del mismo cálculo de la cola ──
@@ -207,6 +212,7 @@ export async function calcularInicio(opts: {
       edades,
       porClinica,
       respuestaHumana,
+      coincidencia,
     },
     fyllioMes: agregados.fyllioMes,
     clinicas,

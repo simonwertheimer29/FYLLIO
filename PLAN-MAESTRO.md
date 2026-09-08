@@ -18,7 +18,7 @@ va primero aunque no duela hoy.
 |---|---|---|---|---|
 | **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** — hecho todo lo de ingeniería; quedan 165 (catálogo de Meta) y el cableado de consentimiento y plazo (abogado): bloqueantes externos, declarados | 2026-09-06 | — |
 | **1** | Cimientos baratos de la visión — dos irrecuperables | ✅ **Cerrada** (168-175 hechas; 175 por verificación) | 2026-09-06 | 2026-09-06 |
-| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; quedan 2.1-2.4 y 2.9) | 2026-09-07 | — |
+| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; 2.4 ✅ 9-sep; quedan 2.1-2.3 y 2.9) | 2026-09-07 | — |
 | **3** | Decidir y ejecutar dentro de reglas | ⬜ Abierta | — | — |
 | **4** | El ERP y la infraestructura que ya se usa | ⬜ Abierta · parte independiente puede adelantarse | — | — |
 | **5** | Lo que la visión promete | ⬜ Abierta | — | — |
@@ -95,7 +95,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | 2.1 | Inteligencia de conversación: objeciones, motivos de pérdida, qué frena | 176 |
 | 2.2 | Mapa de fuga por etapa en € | 177, 51, 48 |
 | 2.3 | Next Best Config: aplazados × capacidades de la clínica | 178, 89 |
-| 2.4 | Confianza del agente (vara, descartes, coincidencia) y madurez por clínica | 179, 184, 185 |
+| 2.4 | Confianza del agente (vara, descartes, coincidencia) y madurez por clínica | 179, 184, 185 | ✅ 9-sep (Agentes › Configuración › «Cómo decide tu agente» + Inicio › Tu equipo + `envios_tal_cual` en la serie; `qa:confianza`) |
 | 2.5 | Tiempo hasta primera respuesta humana por cola (métrica #1 del plan ofensivo) | 180 | ✅ 8-sep (serie 172 + Inicio › Tu equipo; `qa:metricas`) |
 | 2.6 | Antes/después por clínica con n y ventana igual | 181 | ✅ 7-sep (Analíticas › Antes y después; `qa:antes-despues`) |
 | 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 | ✅ 8-sep (Mensajería › panel «por qué» › «El agente se equivocó aquí» + `evals:candidatos`; `qa:candidatos`) |
@@ -284,3 +284,9 @@ tanda «seed honesto» es 82, 110 y 112.
   sola función para ficha, por-qué y candidatos. Siguiente (decisión de Simon): 2.4 —confianza del
   agente— porque con el botón de 2.7 cuenta la historia completa (así decide, así se corrige);
   después 2.9.
+- **2026-09-09 · 2.4 hecha (179, 184, 185).** «Cómo decide tu agente» en Agentes › Configuración:
+  la vara (de `evals/ultima-pasada.json`, con el hash del prompt medido comparado con el que corre
+  hoy) y las conversaciones reales por sede en 30 días completos —te libera, lo paró el control,
+  enviado tal cual, marcado como error— más el enlace al botón de 2.7. En Inicio › Tu equipo, la
+  coincidencia con el disparador declarado hacia modo B (80 % sobre 50 envíos, PROVISIONAL, MEJORAS
+  214). `envios_tal_cual` entra en la serie diaria. Siguiente: 2.9.

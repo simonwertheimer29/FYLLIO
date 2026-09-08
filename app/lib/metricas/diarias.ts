@@ -63,6 +63,7 @@ import { minutosLaborablesEntre } from "../seguimiento/tiempo-laborable";
 import { costeUsdDeTurno } from "../agente/coste";
 import { leerPayloadEvaluacion } from "../agente/persistir-turno";
 import { colaDeDerivacion, type CausaDerivacion } from "../automatizacion/estado";
+import { sqlClinicaDeEnvio } from "../automatizacion/clinica-de-envio";
 import { TZ_CLINICA } from "../time";
 
 // Las definiciones (métricas, agregación, unidades, sentido, etiquetas) viven
@@ -283,6 +284,20 @@ export async function calcularDia(args: {
     }
     out.respuesta_humana_prioritaria_min = { valor: Math.round(mediana(porCola.prioritaria) * 10) / 10, n: porCola.prioritaria.length };
     out.respuesta_humana_normal_min = { valor: Math.round(mediana(porCola.normal) * 10) / 10, n: porCola.normal.length };
+
+    // 2.4 (MEJORAS 185) · de los envíos del equipo que salían de un borrador
+    // del agente (evento `mensaje_enviado` con distancia medida), cuántos
+    // salieron tal cual (distancia 0 tras normalizar). La sede sigue la MISMA
+    // regla que el bloque de confianza (`sqlClinicaDeEnvio`): dos lectores,
+    // una regla.
+    const env = await sql<{ medidos: number; tal_cual: number }>`
+      select count(*)::int as medidos,
+             count(*) filter (where e.distancia_edicion = 0)::int as tal_cual
+        from eventos_automatizacion e
+       where e.evento = 'mensaje_enviado' and e.distancia_edicion is not null
+         and (e.created_at at time zone ${tz})::date = ${args.dia}::date
+         and (${c}::text is null or ${sqlClinicaDeEnvio("e")} = ${c})`.execute(trx);
+    out.envios_tal_cual = { valor: Number(env.rows[0]?.tal_cual ?? 0), n: Number(env.rows[0]?.medidos ?? 0) };
 
     const modErr = await sql<{ n: number }>`
       select coalesce(sum(veces), 0)::int as n from incidencias

@@ -120,6 +120,8 @@ negativo, que es de la fase 2 — así que hoy no se puede resolver ni midiendo.
 | `casos.md` | Los 50 casos **sin etiquetas**. Es lo que lee quien anota |
 | `.esperado.jsonl` | La anotación de Claude, **sellada**. No se abre hasta que Simon haya anotado |
 | `anotaciones/` | Las respuestas de Simon, una por tanda |
+| `ultima-pasada.json` | La última pasada ENTERA de `qa:evals-evaluador`, con el hash (168) de los prompts medidos. Es lo que el producto enseña como «la vara» (Agentes › Configuración) y compara con la versión que corre hoy. Una tanda (`--solo`) o unos casos (`--casos`) no la escriben |
+| `pasadas/` | La salida completa de cada pasada y el gasto (`GASTO.md`) |
 
 Las tandas: **1A** (20 casos) · **1B** (los MISMOS 20, reordenados, otro día) · **2** (los 30
 restantes).

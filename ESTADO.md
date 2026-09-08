@@ -72,10 +72,20 @@ reabre la revisión). Revisión humana: `npm run evals:candidatos -- --cliente X
 ahora UNA función (`acceso-hilo-sesion`) para ficha, por-qué y candidatos. Se borra con el hilo
 (supresión/retención) y en el wipe de DEMO. `qa:candidatos` 25/25. Pendiente de mirar en el
 navegador (el QA cubre el módulo y la ruta, no el panel).
-**Siguiente sesión, en frío: 2.4** (confianza del agente: vara, descartes, coincidencia y madurez por
-clínica — MEJORAS 179, 184, 185). Decisión de Simon (8-sep): 2.4 y el botón de 2.7 cuentan juntas la
-historia completa —así de bien decide, y así lo corriges cuando falla—; 2.9 después. Antes, Simon
-prueba el formulario de 2.7 en el navegador.
+**9-sep · 2.4 hecha (MEJORAS 179, 184, 185):** «Cómo decide tu agente» en Agentes › Configuración
+(`lib/agente/confianza` + `GET /api/agente/confianza`, scoping de Inicio). La VARA sale de
+`evals/ultima-pasada.json` (lo escribe `qa:evals-evaluador` al terminar una pasada entera; hoy,
+transcrita de la del 5-sep: 66/67, listo 21/21, control 7/73) con el hash 168 de los dos prompts
+medidos, comparado con el que corre hoy («es la misma versión» / «el agente cambió: la vara está
+por pasar»). Las CONVERSACIONES REALES por sede, 30 días completos hasta ayer: turnos, te libera
+(caso listo de entregas), lo paró el control, enviado tal cual, marcado como error (2.7), y debajo
+qué sigue exigiendo persona y qué aplazó. En Inicio › Tu equipo, «el equipo envía el borrador tal
+cual el X %» con el reparto y el DISPARADOR DECLARADO hacia modo B (80 % sobre 50 envíos,
+provisional — decisión de Simon pendiente, MEJORAS 214). `envios_tal_cual` en la serie diaria (23 →
+24) y en Antes/después. El seed de DEMO mide los borradores enviados y marca dos turnos como error.
+`qa:confianza` 31/31 · `qa:metricas` en verde. Pendiente de mirar en el navegador (como 2.7).
+**Siguiente sesión, en frío: 2.9** (Inicio: lo que ya está en marcha, motivos honestos, pantallas de
+demo). Antes, Simon prueba en el navegador el formulario de 2.7 y el bloque de 2.4.
 **8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
 el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
 tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en

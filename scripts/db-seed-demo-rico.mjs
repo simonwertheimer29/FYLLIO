@@ -1593,7 +1593,7 @@ try {
     }
 
     const { rows: msgs } = await db.query(
-      `select id, telefono, lead_id, presupuesto_id, paciente_id, direccion, contenido,
+      `select id, telefono, lead_id, presupuesto_id, paciente_id, direccion, contenido, clinica_id,
               intencion_detectada as intn, "timestamp" as ts
          from mensajes_whatsapp where cliente = 'DEMO' and telefono is not null
          order by telefono, "timestamp" asc, id asc`,
@@ -1627,7 +1627,7 @@ try {
         // evaluaciones y borradores del agente (08-09).
         if (!trasHito(m.ts)) continue;
         if (m.direccion === "Saliente") {
-          if (evaluado) sugeridos.push(m.id);
+          if (evaluado) sugeridos.push({ id: m.id, telefono, ts: m.ts, contenido: m.contenido });
           continue;
         }
         entrantesVistos++;
@@ -1669,9 +1669,16 @@ try {
           if (/cuánto cuesta|precio/.test(t)) aplazar = "precio_descuento";
           if (/horario|abrís/.test(t)) campos.motivo = "horario";
         }
+        // El control de seguridad para un borrador de vez en cuando (2.4, 9-sep):
+        // en la mitad de las preguntas de precio el generador «se compromete» y
+        // el juez lo tira por económica. Determinista: ~3 % de los turnos, del
+        // orden del 10 % de la vara, para que «lo paró el control» no sea 0.
+        const descartado = aplazar === "precio_descuento" && entrantesVistos % 2 === 1
+          ? { motivo: "economica", frase: "Te lo podemos dejar con un descuento si lo cierras esta semana." }
+          : null;
         const payload = {
           v: 1, tema: temaMsg, peticionOQueja: queja, malestar, urgenciaMedica: urgencia, mencionaAntecedenteMedico: false,
-          vuelveSobreAplazado: null, camposRecogidos: { [temaMsg]: campos }, hiloTruncado: false, borradorDescartado: null,
+          vuelveSobreAplazado: null, camposRecogidos: { [temaMsg]: campos }, hiloTruncado: false, borradorDescartado: descartado,
           respuesta: siguienteSaliente ? String(siguienteSaliente.contenido) : "",
           esperaHasta: esperaDias ? dias(m.ts, esperaDias) : null,
           presupuestoReferidoId: pres?.id ?? null,
@@ -1712,7 +1719,41 @@ try {
       }
     }
     if (sugeridos.length) {
-      await db.query(`update mensajes_whatsapp set sugerido_por_ia = true where cliente = 'DEMO' and id = any($1::text[])`, [sugeridos]);
+      await db.query(`update mensajes_whatsapp set sugerido_por_ia = true where cliente = 'DEMO' and id = any($1::text[])`, [sugeridos.map((s) => s.id)]);
+    }
+    // 2.4 (MEJORAS 185) · la coincidencia agente-humano: cada borrador del agente
+    // que el equipo envió lleva su medida (distancia normalizada; 0 = tal cual),
+    // como la registra `medir-envio` en el camino real. Reparto DECLARADO —
+    // 6 de cada 10 tal cual, 3 editados, 1 reescrito — en orden fijo, para que
+    // dos resets den lo mismo y el disparador de modo B (80 %) NO esté
+    // alcanzado: la demo enseña el camino, no la meta cumplida.
+    {
+      const DISTANCIAS = [0, 0, 0.14, 0, 0.62, 0, 0.21, 0, 0, 0.27];
+      for (let i = 0; i < sugeridos.length; i++) {
+        const s = sugeridos[i];
+        await ins("eventos_automatizacion", {
+          tipo_caso: "conversacion", caso_id: s.telefono, evento: "mensaje_enviado", actor_nombre: "Equipo (demo)",
+          distancia_edicion: DISTANCIAS[i % DISTANCIAS.length], largo_sugerido: String(s.contenido ?? "").length, created_at: seg(s.ts, 1),
+        });
+      }
+    }
+    // 2.4 + 2.7 · dos turnos marcados «el agente se equivocó aquí» por el equipo
+    // (uno pendiente de revisar, otro ya aceptado para la vara), para que el
+    // bloque de confianza enseñe el bucle entero: así decide, así lo corriges.
+    {
+      const marcables = msgs.filter((m) => m.direccion === "Entrante" && trasHito(m.ts) && m.intn === "Pide oferta/descuento").slice(0, 2);
+      for (let i = 0; i < marcables.length; i++) {
+        const m = marcables[i];
+        const siguiente = msgs.find((x) => x.telefono === m.telefono && x.direccion === "Saliente" && new Date(x.ts) > new Date(m.ts));
+        await ins("casos_candidatos_eval", {
+          clinica_id: m.clinica_id ?? null, telefono: m.telefono, mensaje_id: m.id, mensaje_paciente: m.contenido,
+          borrador: siguiente?.contenido ?? null, decision_agente: "siguio", causa_entrega: null,
+          fallo: i === 0 ? "borrador" : "decision",
+          correccion: i === 0 ? "No damos precios por WhatsApp: hay que ofrecer una visita de valoración." : null,
+          marcado_por: "demo-simon", marcado_por_nombre: "Simon (demo)", marcado_en: seg(m.ts, 3600),
+          estado: i === 0 ? "pendiente" : "aceptado", revisado_en: i === 0 ? null : seg(m.ts, 7200),
+        });
+      }
     }
     // Envíos que caducaron AYER (la línea «desde ayer» del Inicio los cuenta).
     {

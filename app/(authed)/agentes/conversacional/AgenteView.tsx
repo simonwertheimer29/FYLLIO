@@ -15,6 +15,7 @@ import { Sparkles, ICON_STROKE } from "../../../components/icons";
 import { AgenteConfigView } from "./AgenteConfigView";
 import { BancoPruebasView } from "./BancoPruebasView";
 import { DescartesJuezPanel } from "../../../components/agente/DescartesJuezPanel";
+import { ConfianzaAgentePanel } from "../../../components/agente/ConfianzaAgentePanel";
 
 export function AgenteView() {
   const { session } = useClinic();
@@ -65,8 +66,11 @@ export function AgenteView() {
       {tab === "configuracion" ? (
         <div className="space-y-6">
           <AgenteConfigView />
-          {/* MEJORAS 151: el termómetro del generador, junto a la config que
-              lo mueve. */}
+          {/* Plan maestro 2.4: cómo decide el agente (la vara y tus
+              conversaciones reales), junto a la config que lo mueve. */}
+          <ConfianzaAgentePanel />
+          {/* MEJORAS 151: el termómetro del generador — el detalle por motivo de
+              los descartes que el bloque de arriba resume. */}
           <DescartesJuezPanel />
         </div>
       ) : (
