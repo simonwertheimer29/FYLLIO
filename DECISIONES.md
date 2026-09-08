@@ -4220,3 +4220,10 @@ check constraint de 023 al primer intento (§15 funciona también contra nosotro
 **Lo que no está verificado:** el panel en el navegador. `qa:candidatos` (25/25) cubre el módulo,
 la ruta de escritura no tiene QA propio y el formulario solo pasó `tsc`, lint y build. Antes de la
 próxima demo, abrir un «por qué» en Mensajería DEMO y marcar un turno.
+
+## 2026-09-08 — Orden del resto de la fase 2: 2.4 y después 2.9 (decisión de Simon)
+Tras 2.7, el orden de 2.1-2.4 y 2.9 no estaba dictado. Simon fija 2.4 (confianza del agente: vara,
+descartes, coincidencia, madurez por clínica — MEJORAS 179, 184, 185) porque junto al botón de 2.7
+cuenta la historia completa: así de bien decide el agente, y así lo corriges cuando falla — algo que
+nadie más enseña. 2.9 (Inicio y pantallas de demo) va después. Antes de nada, prueba el formulario de
+2.7 en el navegador, que es lo único de 2.7 sin verificar.

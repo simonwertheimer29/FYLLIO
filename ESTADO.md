@@ -72,9 +72,10 @@ reabre la revisión). Revisión humana: `npm run evals:candidatos -- --cliente X
 ahora UNA función (`acceso-hilo-sesion`) para ficha, por-qué y candidatos. Se borra con el hilo
 (supresión/retención) y en el wipe de DEMO. `qa:candidatos` 25/25. Pendiente de mirar en el
 navegador (el QA cubre el módulo y la ruta, no el panel).
-**Siguiente sesión, en frío:** decidir el orden del resto de la fase 2 (2.1-2.4, 2.9). Propuesta:
-2.4 (confianza del agente: vara, descartes, coincidencia — 179/184/185), porque enseña la vara que
-2.7 empieza a alimentar; 2.9 si hay demo a la vista.
+**Siguiente sesión, en frío: 2.4** (confianza del agente: vara, descartes, coincidencia y madurez por
+clínica — MEJORAS 179, 184, 185). Decisión de Simon (8-sep): 2.4 y el botón de 2.7 cuentan juntas la
+historia completa —así de bien decide, y así lo corriges cuando falla—; 2.9 después. Antes, Simon
+prueba el formulario de 2.7 en el navegador.
 **8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
 el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
 tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en

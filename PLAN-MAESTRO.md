@@ -281,5 +281,6 @@ tanda «seed honesto» es 82, 110 y 112.
   falló (cinco opciones en palabras de coordinadora) y qué debería haber hecho; el servidor copia lo
   persistido del turno a `casos_candidatos_eval` (043), uno por turno, revisión humana con
   `evals:candidatos` antes de que nada entre en la vara. La regla de acceso al hilo pasa a ser una
-  sola función para ficha, por-qué y candidatos. Siguiente: decidir el orden de 2.1-2.4 y 2.9
-  (propuesta: 2.4, que enseña la vara que 2.7 alimenta).
+  sola función para ficha, por-qué y candidatos. Siguiente (decisión de Simon): 2.4 —confianza del
+  agente— porque con el botón de 2.7 cuenta la historia completa (así decide, así se corrige);
+  después 2.9.
