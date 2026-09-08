@@ -52,6 +52,13 @@ Simon cerró lo suyo: Vercel sin protección en producción (405), `COLA_URL_BAS
 hechos → la cola está viva. **Siguiente sesión, en frío: 2.5** (tiempo hasta primera respuesta
 humana por cola), luego 2.8 y 2.7. Backfill histórico real cuando haya clientes:
 `npm run metricas:backfill -- --cliente RB --desde … --hasta …`.
+**8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
+el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
+tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en
+minutos, 0,30 → 0,42 con cita, visita más cerca, diez aceptados más, log del agente solo desde
+el hito) y el volumen evita fines de semana y el pico del día 1. Límite estructural que queda:
+el tramo de Inicio pinado al día 1 desplaza las ventanas según el día del mes ([MEJORAS
+209](MEJORAS-PENDIENTES.md)). Detalle en DECISIONES 8-sep.
 
 ### Lo anterior (5 sep)
 

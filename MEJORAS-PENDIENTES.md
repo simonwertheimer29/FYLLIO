@@ -2680,3 +2680,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `prebuild` y en el hook, antes de tsc; el hook deniega la mezcla add+commit y `commit -a`, y
   deniega sin `jq`. Lo puro de las métricas vive en `lib/metricas/definiciones.ts`. Lección §24. ·
   **Severidad:** rompía producción · **Esfuerzo:** 2 h · **Fase 0** · **Fecha:** 2026-09-08 · 🟢
+
+## 209. Demo · Inicio y Antes/después no comparten modelo temporal — el tramo pinado al día 1 desplaza cualquier ventana diaria
+- **Qué pasa:** el «mismo tramo» de Inicio siembra 35 presupuestos por sede (`TRAMO_POR_SEDE`, con
+  la historia «Sur cae») en los días 1..hoy−1 de este mes y del anterior: el día 2 del mes son 17
+  presupuestos en UN día; el 30, uno cada dos días. Cualquier ventana diaria (Antes/después hoy,
+  las anomalías de la fase 5 mañana) que pise la primera semana de un mes sale inflada en
+  presentados y aceptados, y la ventana contraria, desinflada. El 8-sep el seed pasó a sembrar el
+  efecto del agente desde el hito (`HITO_DIAS = 23`, ver DECISIONES) y la ventana por defecto de
+  14 días queda limpia de la semana viva de la narrativa — pero no del tramo: del 23 al 31 de cada
+  mes la ventana «antes» pisa el tramo del mes anterior y presentados/aceptados «bajan»; y 28 días
+  pilla siempre la semana viva (+100 % en todo). · **Arreglo de verdad:** un solo modelo temporal
+  para el volumen: presupuestos a TASA diaria por sede (≈1/día en la red) con «Sur cae» como tasa
+  de aceptación por mes y sede, no como bloque pinado; el tramo de Inicio sale de ahí solo. Toca
+  la historia de Inicio («red que cierra», «salto ×1,5»): decisión de Simon. · **Severidad:** la
+  demo puede contar lo contrario según el día del mes · **Esfuerzo:** 3-4 h · **Fase 2** ·
+  **Fecha:** 2026-09-08 · 🔵

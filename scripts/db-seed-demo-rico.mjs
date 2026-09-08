@@ -66,6 +66,18 @@ const HOY = new Date(); HOY.setHours(9, 0, 0, 0);
 const dPlus = (n, h = 9, m = 0) => { const x = new Date(HOY); x.setDate(x.getDate() + n); return aHoraClinica(x, h, m); };
 const dISO = (n) => dPlus(n).toISOString();
 const fecha10 = (n) => dPlus(n).toISOString().slice(0, 10);
+// EL HITO de la demo (2.6): el agente se encendió hace HITO_DIAS días. Todo lo
+// que el volumen siembra desde ese día lleva el efecto del agente —respuesta en
+// minutos, más citados y convertidos, más aceptación— y lo anterior es la
+// clínica sin agente; el log del agente empieza ahí. Sin esto la demo contaba
+// la historia contraria (08-09): la comparación caía en el calendario que
+// tocara, y «después de encender el agente» convertía un 22 % menos.
+// 23 y no 21: la ventana por defecto de Antes/después (14 días) termina en
+// hito+14; con 21 pisaba el borde de la semana viva de la narrativa (−8/−7)
+// y la comparación se inflaba con ella. Con 23 termina en −9, fuera.
+const HITO_DIAS = 23;
+const HITO_DIA0 = dPlus(-HITO_DIAS, 0, 0);
+const trasHito = (d) => new Date(d).getTime() >= HITO_DIA0.getTime();
 const nacDe = (edad, i) => { const b = new Date(HOY); b.setFullYear(HOY.getFullYear() - edad); b.setMonth((i * 7) % 12, 1 + (i * 5) % 28); return b.toISOString().slice(0, 10); };
 const mesAct = HOY.toISOString().slice(0, 7);
 const mesPrev = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1).toISOString().slice(0, 7);
@@ -956,8 +968,19 @@ try {
     const mesDia = (mesesAtras, h = 10) => {
       const x = new Date(HOY);
       x.setDate(1); x.setMonth(x.getMonth() - mesesAtras);
-      const tope = mesesAtras === 0 ? Math.max(1, HOY.getDate() - 2) : 27;
+      // Mes cerrado: sus días reales (con 27 fijos, los 28-31 quedaban vacíos y
+      // una ventana que los pisara salía menos densa sin motivo).
+      const tope = mesesAtras === 0 ? Math.max(1, HOY.getDate() - 2) : new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
       x.setDate(1 + Math.floor(rnd() * tope));
+      // Laborable: una conversación de clínica un domingo contaba 0 minutos
+      // laborables de respuesta y hundía la mediana del día (08-09).
+      // Al lunes si cabe en el tope; si no, al viernes. Un salto calculado,
+      // no un bucle: entre el sábado 29 y el domingo 30 un bucle no salía.
+      const dow = x.getDay();
+      if (dow === 6 || dow === 0) {
+        const aLunes = dow === 6 ? 2 : 1;
+        x.setDate(x.getDate() + (x.getDate() + aLunes <= tope ? aLunes : -(dow === 6 ? 1 : 2)));
+      }
       return aHoraClinica(x, h);
     };
     // Ningún timestamp del volumen puede quedar en el futuro (borde: reset a
@@ -1007,57 +1030,96 @@ try {
 
     // ── LEADS de volumen: forma mensual creíble, histórico CERRADO ───────
     // Por mes (5 atrás → mes actual): variación real, no rampa.
-    const LEADS_MES = [34, 41, 37, 46, 52, 20];
-    const CONV_SHARE = [0.29, 0.32, 0.27, 0.33, 0.30, 0.30];
+    // Mes actual: al RITMO diario (leads/día), no una cifra fija — con 20 en
+    // seis días la ventana «después» del hito iba el doble de densa que la de
+    // «antes» y la comparación mentía por calendario (08-09).
+    const LEADS_MES = [34, 41, 37, 46, 52]; // m5 → m1
+    const CONV_SHARE = [0.29, 0.32, 0.27, 0.33, 0.30, 0.30]; // sin agente
+    const RITMO_DIA = 1.8;
+    // EL EFECTO DEL AGENTE (2.6, 08-09): desde el hito, más leads acaban con
+    // cita (≈0,30 → 0,42) y el hilo se contesta en minutos, no en la hora
+    // larga de una recepción ocupada. Verosímil, no milagroso: la captación
+    // (leads nuevos) no depende del agente y sigue a su ritmo.
+    const CONV_TRAS_HITO = 0.42;
+    const respuestaMin = (tras) => (tras ? 3 + Math.floor(rnd() * 10) : 25 + Math.floor(rnd() * 120));
+    // Primera visita: un laborable en una de cuatro horas de consulta. Con el
+    // agente se cierra más cerca (1-3 días: propone hueco en el acto); sin él,
+    // a 3-7 días. Sin doctor a propósito (G2.6: se asigna al llegar).
+    const HORAS_VISITA = [[10, 0], [11, 30], [16, 0], [17, 30]];
+    const primeraVisita = (desde, tras) => {
+      const x = new Date(desde); x.setDate(x.getDate() + (tras ? 1 + Math.floor(rnd() * 3) : 3 + Math.floor(rnd() * 5)));
+      while (x.getDay() === 0 || x.getDay() === 6) x.setDate(x.getDate() + 1);
+      const [h, mi] = HORAS_VISITA[Math.floor(rnd() * HORAS_VISITA.length)];
+      return aHoraClinica(x, h, mi);
+    };
+    const horaTxt = (d) => d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: TZ_CLINICA });
     const leadRows = []; const leadMeta = [];
-    for (let m = 0; m < LEADS_MES.length; m++) {
+    for (let m = 0; m <= 5; m++) {
       const mesesAtras = 5 - m;
-      const n = LEADS_MES[m];
-      const nConvMes = Math.round(n * CONV_SHARE[m]);
       // Mes actual: además de cerrados, entran NUEVOS sin llamar (la realidad
       // de una red con captación viva; el resto de estados vivos los pone el
       // seed narrativo con su coherencia fina).
       const nNuevos = mesesAtras === 0 ? 8 : 0;
+      const n = mesesAtras === 0 ? nNuevos + Math.round(RITMO_DIA * Math.max(1, HOY.getDate() - 2)) : LEADS_MES[m];
       for (let k = 0; k < n; k++) {
         const cid = VCLIS[(m * 7 + k) % VCLIS.length];
-        const estado = k < nNuevos ? "Nuevo" : k < nNuevos + nConvMes ? "Convertido" : "No Interesado";
         const trat = TRATS_INT[(m + k) % TRATS_INT.length];
         // Creado ANCLADO a su mes de calendario; la conversación concluye
         // 1-2 días después (mensajes fuera del mes no rompen nada).
         const creado = mesDia(mesesAtras, 9);
-        const conv = estado === "Convertido";
+        const tras = trasHito(creado);
+        let cierre = new Date(creado); cierre.setDate(cierre.getDate() + 1);
+        if (cierre > new Date()) cierre = creado; // hoy: se cierra en el día
+        // Cita → paciente. La cita se reserva al confirmar en el hilo
+        // (agendada_en) y el lead CONVIERTE cuando viene a la primera visita
+        // (fecha_cierre = la visita, MEJORAS 37). Si la visita aún no ha
+        // llegado es un Citado: `leads_citados` va por delante de
+        // `leads_convertidos`, como en una clínica de verdad.
+        const quiereCita = k >= nNuevos && rnd() < (tras ? CONV_TRAS_HITO : CONV_SHARE[m]);
+        const visita = quiereCita ? primeraVisita(cierre, tras) : null;
+        const conv = quiereCita && visita.getTime() <= Date.now();
+        const estado = k < nNuevos ? "Nuevo" : conv ? "Convertido" : quiereCita ? "Citado" : "No Interesado";
         const pacConv = conv ? pacVolNext() : null;
         const nombre = conv ? pacConv.nombre : nombreNuevo();
+        const primer = nombre.split(" ")[0];
         const telL = conv ? pacConv.tel : tel();
         const motivoNo = estado === "No Interesado" ? MOTIVOS_NO[(m + k) % MOTIVOS_NO.length] : null;
-        let cierre = new Date(creado); cierre.setDate(cierre.getDate() + 1);
-        if (cierre > new Date()) cierre = creado; // hoy: se cierra en el día (10h→11h→12h)
+        const respMin = respuestaMin(tras);
+        const visitaTxt = visita
+          ? `${visita.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long", timeZone: TZ_CLINICA })} a las ${horaTxt(visita)}`
+          : "";
         const guion = estado === "Nuevo" ? [] : [
-          { dir: "Saliente", ts: enHora(creado, 10), txt: `Hola ${nombre.split(" ")[0]}, soy del equipo de la clínica 😊 Nos dejaste tus datos interesándote por ${trat.toLowerCase()}. ¿Hablamos por aquí?` },
-          conv
+          { dir: "Saliente", ts: enHora(creado, 10), txt: `Hola ${primer}, soy del equipo de la clínica 😊 Nos dejaste tus datos interesándote por ${trat.toLowerCase()}. ¿Hablamos por aquí?` },
+          quiereCita
             ? { dir: "Entrante", ts: enHora(cierre, 11), txt: "Sí, me interesa. ¿Cuándo puedo ir?", intn: "Interesado" }
             : motivoNo === "No_Contesta"
-              ? { dir: "Saliente", ts: enHora(cierre, 11), txt: `${nombre.split(" ")[0]}, te escribo por si te ayudo con alguna duda 😊` }
+              ? { dir: "Saliente", ts: enHora(cierre, 11), txt: `${primer}, te escribo por si te ayudo con alguna duda 😊` }
               : { dir: "Entrante", ts: enHora(cierre, 11), txt: RECHAZO_LEAD[motivoNo], intn: "No interesado" },
-          conv
-            ? { dir: "Saliente", ts: enHora(cierre, 12), txt: `¡Hecho, ${nombre.split(" ")[0]}! Ya tienes tu ficha con nosotros; seguimos por aquí para lo que necesites.` }
-            : { dir: "Saliente", ts: enHora(cierre, 12), txt: "Entendido, gracias por avisar 😊 Aquí nos tienes si cambias de idea." },
+          quiereCita
+            ? { dir: "Saliente", ts: enHora(cierre, 11, respMin), txt: `¡Genial, ${primer}! Te reservo el ${visitaTxt} para la primera visita. Te mandamos un recordatorio el día antes 😊` }
+            : { dir: "Saliente", ts: enHora(cierre, 11, respMin), txt: "Entendido, gracias por avisar 😊 Aquí nos tienes si cambias de idea." },
         ];
         clampGuion(guion);
         const lastEnt = guion.find((x) => x.dir === "Entrante") ?? null;
+        const agendadaEn = quiereCita ? guion[2].ts : null;
         leadRows.push({
           nombre, telefono: telL, tratamiento_interes: trat, canal_captacion: CANALES[(m + k) % CANALES.length],
           estado, clinica_id: cid, doctor_asignado_id: docEn(cid).id, tipo_visita: "Primera visita",
+          fecha_cita: visita ? iso10(visita) : null, hora_cita: visita ? horaTxt(visita) : null,
           llamado: false, whatsapp_enviados: guion.filter((x) => x.dir === "Saliente").length,
           motivo_no_interes: motivoNo ? MOTIVO_ENUM[motivoNo] : null,
-          // MEJORAS 37 — el cierre del lead de volumen es el del guion.
-          fecha_cierre: estado === "Nuevo" ? null : enHora(cierre, 12),
+          // MEJORAS 37 — el cierre del lead de volumen es el del guion; el del
+          // convertido, su primera visita. El Citado sigue abierto.
+          fecha_cierre: estado === "Nuevo" || estado === "Citado" ? null : conv ? visita.toISOString() : guion[2].ts,
           intencion_detectada: lastEnt?.intn ?? null,
           convertido_a_paciente: conv, paciente_id: conv ? pacConv.id : null,
           ultima_accion: guion.length ? "WhatsApp_Saliente" : null,
           created_at: creado.toISOString(),
         });
-        leadMeta.push({ guion, telefono: telL, cid });
+        leadMeta.push({
+          guion, telefono: telL, cid,
+          cita: visita ? { nombre, visita, agendadaEn, estado: conv ? "Completado" : "Programada", pacienteId: pacConv?.id ?? null, trat } : null,
+        });
       }
     }
     const leadVolIds = await insMany("leads", leadRows);
@@ -1078,6 +1140,22 @@ try {
       });
     });
     await insMany("acciones_lead", accVolRows);
+    // Las citas de los leads citados y convertidos del volumen (08-09): de
+    // aquí sale `leads_citados` en la serie diaria — antes el volumen no tenía
+    // ninguna y Antes/después decía 0 → 0. Sin doctor (G2.6: se asigna al
+    // llegar) y reservada en el instante del mensaje que la confirma.
+    const citaLeadRows = [];
+    leadVolIds.forEach((lid, i) => {
+      const c = leadMeta[i].cita;
+      if (!c) return;
+      citaLeadRows.push({
+        nombre: c.nombre, hora_inicio: c.visita.toISOString(), hora_final: new Date(c.visita.getTime() + 30 * 60_000).toISOString(),
+        estado: c.estado, origen: "Coordinación", notas: `Primera visita · ${c.trat}`,
+        paciente_id: c.pacienteId, tratamiento_id: null, profesional_id: null, sillon_id: null,
+        clinica_id: leadMeta[i].cid, lead_id: lid, created_at: c.agendadaEn, agendada_en: c.agendadaEn,
+      });
+    });
+    await insMany("citas", citaLeadRows);
 
     // ── PRESUPUESTOS de volumen ──────────────────────────────────────────
     // Especiales de Cobros (offsets exactos en días, plazo global 90):
@@ -1112,6 +1190,13 @@ try {
     });
     // Abiertos recientes (en espera <48h — no ensucian "pendiente_responder").
     [1200, 2600, 800, 1750].forEach((imp, i) => espec.push({ tipo: "abierto", base: dPlus(-1), importe: imp, horas: 8 + i * 7 }));
+    // EL EFECTO DEL AGENTE en presupuestos (08-09): desde el hito se cierran
+    // más — diez aceptados y dos perdidos MÁS, repartidos desde hito+2 hasta
+    // hace una semana, de ticket algo menor que la media. La aceptación sube;
+    // el euro medio presentado no (una tabla donde TODO mejora tampoco se
+    // cree). Anclados a HOY como el hito: caen siempre en la ventana «después».
+    const EXTRA_TRAS_HITO = [1850, 1400, 2300, 1650, 1200, 2050, 1500, 1950, 1300, 2200, 1750, 1600];
+    EXTRA_TRAS_HITO.forEach((imp, i) => espec.push({ tipo: i % 6 === 5 ? "perdido" : "liquidado", base: dPlus(-(HITO_DIAS - 2 - Math.round(i * 1.35))), importe: jit(imp, 150), pct: 0.5 }));
 
     // ── RED QUE CIERRA (06-09) — la cohorte del mes POR SEDE ─────────────
     // Una red que funciona: aceptados repartidos, una sede claramente mejor
@@ -1168,21 +1253,27 @@ try {
       // por mes de presentación (también la del mes anterior, «mismo tramo»).
       // `base` conserva las 10:00 de la clínica: `iso10` recorta en UTC y la
       // medianoche local del día 1 sería todavía el 31 (lo hizo).
+      // Si dos días antes es el mes anterior, se presenta el MISMO día (no
+      // todos «el día 1»: eso apilaba los días 1-3 en el 1 y la serie diaria
+      // tenía un pico artificial cada mes, 08-09).
       const primeroDelMes = new Date(e.base); primeroDelMes.setDate(1);
-      const alta = new Date(Math.max(diasAntes(e.base, 2).getTime(), primeroDelMes.getTime()));
+      const alta = diasAntes(e.base, 2).getTime() < primeroDelMes.getTime() ? new Date(e.base) : diasAntes(e.base, 2);
       const motivoPerd = perdido ? MOTIVOS_PERD_VOL[presVolRows.length % MOTIVOS_PERD_VOL.length] : null;
+      // El tiempo de respuesta también aquí lleva el hito: minutos con el
+      // agente, la hora larga sin él (08-09).
+      const respMin = respuestaMin(trasHito(e.base));
       const guion = abierto
         ? [{ dir: "Saliente", ts: e.horas != null ? hAgo(e.horas) : enHora(alta, 10), txt: `Hola ${primer}, aquí tienes el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas 😊` }]
         : perdido
           ? [
               { dir: "Saliente", ts: enHora(diasAntes(e.base, 1), 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de ${tratLow} (${impTxt})?` },
               { dir: "Entrante", ts: enHora(e.base, 12), txt: RECHAZO_PRES[motivoPerd], intn: "Rechaza" },
-              { dir: "Saliente", ts: enHora(e.base, 13), txt: "Entendido, gracias por decírnoslo. Si en algún momento quieres retomarlo, aquí nos tienes 😊" },
+              { dir: "Saliente", ts: enHora(e.base, 12, respMin), txt: "Entendido, gracias por decírnoslo. Si en algún momento quieres retomarlo, aquí nos tienes 😊" },
             ]
           : [
               { dir: "Saliente", ts: enHora(alta, 10), txt: `Hola ${primer}, ¿has podido pensar sobre el presupuesto de ${tratLow} (${impTxt})?` },
               { dir: "Entrante", ts: enHora(e.base, 11), txt: "Sí, lo hemos decidido: ¡adelante! ¿Cómo lo hacemos?", intn: "Acepta sin condiciones" },
-              { dir: "Saliente", ts: enHora(e.base, 12), txt: `¡Enhorabuena, ${primer}! 🎉 Te llamamos hoy para cerrar la primera cita y el pago. Bienvenido/a.` },
+              { dir: "Saliente", ts: enHora(e.base, 11, respMin), txt: `¡Enhorabuena, ${primer}! 🎉 Te llamamos hoy para cerrar la primera cita y el pago. Bienvenido/a.` },
             ];
       clampGuion(guion);
       const lastEnt = [...guion].reverse().find((x) => x.dir === "Entrante") ?? null;
@@ -1294,7 +1385,7 @@ try {
       }
     }
     await insMany("citas", citaVolRows);
-    console.log(`VOLUMEN: +${pacsVol.length} pacientes · +${leadVolIds.length} leads · +${presVolIds.length} presupuestos · +${pagoVolIds.length} pagos · +${citaVolRows.length} citas · +${msgVolRows.length} mensajes`);
+    console.log(`VOLUMEN: +${pacsVol.length} pacientes · +${leadVolIds.length} leads · +${presVolIds.length} presupuestos · +${pagoVolIds.length} pagos · +${citaVolRows.length} citas · +${citaLeadRows.length} citas de leads · +${msgVolRows.length} mensajes`);
   }
 
   // ── BACKFILL financiero del paciente (cache derivada, una sola verdad) ──
@@ -1350,7 +1441,7 @@ try {
   // semanas en cada clínica — la marca que Analíticas › Antes y después ofrece.
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_historial", {
     clinica_id: cid, tabla: "configuracion_automatizaciones", campo: "evaluador_activo",
-    antes: "false", despues: "true", actor_nombre: "Simon (demo)", created_at: dISO(-21),
+    antes: "false", despues: "true", actor_nombre: "Simon (demo)", created_at: dISO(-HITO_DIAS),
   });
   // eventos del sistema — TODOS procesado=true (candado 2: el cron los ignora)
   let eventosN = 0;
@@ -1531,6 +1622,10 @@ try {
       let entregado = false;
       for (let i = 0; i < hilo.length; i++) {
         const m = hilo[i];
+        // El agente no existía antes del hito: ni evaluó, ni redactó, ni costó.
+        // Con el log sembrado desde abril, «antes de encender el agente» tenía
+        // evaluaciones y borradores del agente (08-09).
+        if (!trasHito(m.ts)) continue;
         if (m.direccion === "Saliente") {
           if (evaluado) sugeridos.push(m.id);
           continue;
@@ -1583,12 +1678,11 @@ try {
           // El coste del turno (31-08): tokens realistas de un turno en haiku.
           usage: { inputTokens: 1600 + (entrantesVistos * 137) % 900, outputTokens: 180 + (i * 31) % 160, cacheEscritura: 0, cacheLectura: 1200 },
           modelo: MODELO,
+          // Latencia de la llamada al modelo (174): la serie diaria la lee.
+          latenciaMs: 1400 + (i * 397 + entrantesVistos * 211) % 2200,
         };
-        // El coste se mide desde que el agente se encendió en la demo, hace
-        // un mes: los turnos anteriores van SIN usage, y así «medido desde el»
-        // dice una fecha creíble y no el primer hilo del histórico de abril
-        // (06-09). Se quita la clave entera: la consulta busca '"usage"'.
-        if (new Date(m.ts).getTime() < HOY.getTime() - 30 * 86_400_000) delete payload.usage;
+        // El coste se mide desde que el agente se encendió (el hito): el log
+        // empieza ahí, así que «medido desde el» dice esa fecha (06-09 / 08-09).
         await evento({ caso_id: telefono, evento: "evaluacion", evaluacion_json: JSON.stringify(payload), mensaje_id: m.id, created_at: seg(m.ts, 2) });
         nEval++; evaluado = true;
         if (aplazar) {

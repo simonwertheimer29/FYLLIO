@@ -4096,3 +4096,39 @@ alcanza `app/lib/db/`, un builtin de Node o un paquete solo-servidor. Probado: c
 a583fb1 en un segundo. Va en `prebuild` y en el hook, antes de tsc y del build. Y el hook cierra
 sus dos agujeros: deniega `git add … && git commit …` en el mismo comando y `commit -a`
 (construiría HEAD), y deniega si falta `jq` en vez de pasar en silencio. Lección §24 del skill.
+
+## 2026-09-08 · Antes/después contaba la historia contraria — el seed no sabía del hito
+
+**Los dos hallazgos, medidos antes de tocar nada** (`compararTodas` para DEMO, red, 7/14/28).
+(1) «Leads citados» 0 → 0 con n = 0: el cálculo estaba bien (`citas.lead_id` + `agendada_en`);
+el seed de VOLUMEN (229 leads en seis meses) no sembraba ninguna cita —solo los 38 leads
+narrativos, con la suya en −1/hoy, fuera de toda ventana. (2) La historia contraria: el volumen
+se generaba por mes de calendario sin saber que existía un hito; el hito iba a −21 y la ventana
+por defecto (14 días) terminaba en −7, justo el borde de la semana viva de la narrativa y del
+pico del día 1 del mes (los presupuestos con base los días 1-3 se apilaban en el 1). Lo que
+salía era calendario, no efecto: convertidos −22 %, presentados −17 %, respuesta +2 %. Además,
+el log del agente estaba sembrado desde abril: «antes de encender el agente» tenía evaluaciones
+y borradores del agente; y las conversaciones en domingo contaban 0 minutos laborables.
+
+**Lo que siembra ahora.** `HITO_DIAS = 23` (una constante; el historial de configuración y el
+volumen la comparten) y `trasHito(fecha)`: desde el hito, respuesta en 3-12 min (antes 25-145),
+0,30 → 0,42 leads con cita y la visita a 1-3 días (antes 3-7), diez aceptados y dos perdidos
+más de ticket algo menor anclados a HOY (caen siempre en «después»), citas de lead para citados
+y convertidos (77), el lead convierte cuando VIENE (`fecha_cierre` = la visita, MEJORAS 37) y
+si la visita no ha llegado es Citado; log del agente solo desde el hito, con `latenciaMs`. El
+mes actual va al ritmo diario de agosto (antes, 20 fijos en seis días); los meses cerrados
+usan sus días reales; fin de semana → laborable; presentación del día 1-3 el mismo día.
+
+**Lo que ve Simon hoy (14 días, red):** respuesta 63 → 6 min · citados 7 → 10 · convertidos
+8 → 12 · aceptados 11 → 17 (+32 % en €) · perdidos 9 → 4 · presentados 25 → 26 y € +2 % ·
+pagos +3 % · leads nuevos 23 → 20 · entrantes +5 % · evaluaciones y borradores 0 → 43/41 ·
+latencia «no comparable» (antes no había agente: n = 0). Es la historia pedida: mejora clara
+donde el agente actúa, plano donde no (captación, euro medio, cobro).
+
+**Lo que NO se arregla hoy y por qué.** 7 días es n pequeña (convertidos 6 → 3 por dos citas
+de más o de menos). 28 días pilla la semana viva de la narrativa (−8..0: 18 leads el −8, 22
+entrantes el −7) y sube todo +100 %. Y el «mismo tramo» de Inicio (35 presupuestos pinados a
+los días 1..hoy−1 de este mes y del anterior) desplaza cualquier ventana según el día del mes:
+del 23 al 31 la ventana «antes» pisa el tramo del mes anterior. Un solo modelo temporal para
+el volumen es MEJORAS 209, y toca la historia de Inicio: decisión de Simon. Un bucle de fin de
+semana oscilaba entre el sábado 29 y el domingo 30 y colgó el seed sin salida: salto calculado.
