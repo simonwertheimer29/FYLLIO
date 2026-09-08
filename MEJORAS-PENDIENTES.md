@@ -2693,6 +2693,8 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pilla siempre la semana viva (+100 % en todo). · **Arreglo de verdad:** un solo modelo temporal
   para el volumen: presupuestos a TASA diaria por sede (≈1/día en la red) con «Sur cae» como tasa
   de aceptación por mes y sede, no como bloque pinado; el tramo de Inicio sale de ahí solo. Toca
-  la historia de Inicio («red que cierra», «salto ×1,5»): decisión de Simon. · **Severidad:** la
-  demo puede contar lo contrario según el día del mes · **Esfuerzo:** 3-4 h · **Fase 2** ·
-  **Fecha:** 2026-09-08 · 🔵
+  la historia de Inicio («red que cierra», «salto ×1,5»). **Decisión de Simon (8-sep): anotada,
+  NO se ejecuta ahora** — a 7 y 14 días, que es lo que se enseña, la historia ya es la correcta;
+  reescribir el modelo temporal entero es riesgo sin premio hoy. No volver a proponerla sin un
+  motivo nuevo. · **Severidad:** la demo puede contar lo contrario según el día del mes ·
+  **Esfuerzo:** 3-4 h · **Fase 2** · **Fecha:** 2026-09-08 · 🔵 aplazada
