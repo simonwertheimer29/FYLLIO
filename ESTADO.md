@@ -57,7 +57,15 @@ laborables, por cola derivada del hecho; solo la primera entrega del episodio; l
 cuenta (está en la cola). Inicio › Tu equipo la enseña con n y ventana (7 días completos). De paso:
 el join evento→mensaje por clínica solo miraba `waba_message_id`, que el seed no rellena → todas las
 métricas del agente POR SEDE eran 0 en DEMO; ahora enlaza como el barrido (`waba ?? id`).
-**Siguiente sesión, en frío: 2.8** (ver por qué, MEJORAS 183), luego 2.7 (el botón, 182).
+**8-sep · 2.8 hecha (MEJORAS 183):** «Ver por qué» en cada mensaje del agente en Mensajería
+(`lib/agente/por-que` + `GET /api/agente/por-que` con el aislamiento de la ficha): qué entendió,
+qué recogió, qué anotó, qué decidió, el control, el borrador y lo técnico plegado (versión 168,
+lo que vio el modelo 169). Panel en la columna lateral (flotante en móvil), botón en el mensaje
+que la persona ve (saliente del agente o, si no contestó, el entrante). «Reproducir en el banco»
+carga el hilo real hasta ese mensaje con la configuración de hoy. `qa:por-que` 26/26.
+**Siguiente sesión, en frío: 2.7** (el botón «el agente se equivocó aquí» → caso candidato del
+eval, MEJORAS 182): vive en el mismo panel de «por qué», que ya tiene la entrada renderizada (169),
+el juicio y el borrador — solo falta la corrección de la persona y la tabla de candidatos.
 **8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
 el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
 tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en

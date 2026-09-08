@@ -27,14 +27,21 @@ import {
 } from "../../../components/icons";
 import { ETIQUETA_CLAVE, type ClaveAplazado } from "../../../lib/automatizacion/aplazamientos";
 import { legibleCampo } from "../../../components/agente/FichaCasoPanel";
+// El vocabulario en palabras y los bloques son los MISMOS que enseña «Ver
+// por qué» en Mensajería (2.8): un solo diccionario para las dos pantallas.
+import { ETIQUETA_TEMA, ETIQUETA_CAUSA, ETIQUETA_MOTIVO_JUEZ, Bloque, Tag } from "../../../components/agente/etiquetas-agente";
 import type { EvaluacionTurno } from "../../../lib/agente/evaluador";
 import type { EscenarioPrueba } from "../../../lib/agente/banco-pruebas";
+import type { ReplayDeHilo } from "../../../lib/agente/por-que";
 
 type Turno = {
   direccion: "Entrante" | "Saliente";
   contenido: string;
   /** Solo en las respuestas del agente. */
   evaluacion?: EvaluacionTurno;
+  /** 2.8 — viene de una conversación REAL (replay): un saliente real lo
+   *  mandó la clínica, no este banco, y se etiqueta así. */
+  real?: boolean;
 };
 
 const ESCENARIOS: Array<{ tipo: EscenarioPrueba["tipo"]; etiqueta: string; detalle: string }> = [
@@ -44,35 +51,8 @@ const ESCENARIOS: Array<{ tipo: EscenarioPrueba["tipo"]; etiqueta: string; detal
   { tipo: "al_dia", etiqueta: "Paciente al día", detalle: "Sin nada abierto — el agente conversa sin perseguir nada" },
 ];
 
-const ETIQUETA_TEMA: Record<string, string> = {
-  cobro: "su pago pendiente",
-  presupuesto: "su presupuesto",
-  cita: "una cita",
-  identificar: "quién es",
-  otro: "otra cosa (logística, agradecimiento…)",
-  ninguno: "no se entiende",
-};
-
-const ETIQUETA_CAUSA: Record<string, string> = {
-  peticion_queja: "pidió una persona o se quejó",
-  urgencia: "urgencia médica",
-  insistencia: "insistió sobre algo aplazado",
-  caso_completo: "caso completo — lo entrega listo",
-  antecedente_medico: "mencionó un antecedente médico con cita próxima",
-};
-
-const ETIQUETA_MOTIVO_JUEZ: Record<string, string> = {
-  clinica: "afirmaba algo clínico",
-  economica: "comprometía dinero no decidido",
-  datos_sensibles: "soltaba un dato de salud no pedido",
-  promesa: "prometía algo que nadie iba a hacer",
-  agenda: "afirmaba huecos que no ve, o se comprometía a reservar la cita",
-  sin_categoria: "infringía una regla dura",
-  juez_no_respondio: "el control no respondió (se descartó por seguridad)",
-};
-
 export function BancoPruebasView() {
-  const { selectedClinicaId, clinicas } = useClinic();
+  const { selectedClinicaId, setSelectedClinicaId, clinicas } = useClinic();
   const [estado, setEstado] = useState<{ permitido: boolean; motivo?: string; usados?: number; tope?: number } | null>(null);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
   const [escenario, setEscenario] = useState<EscenarioPrueba>({ tipo: "lead_nuevo" });
@@ -96,17 +76,70 @@ export function BancoPruebasView() {
     }
   }, [selectedClinicaId]);
 
+  // 2.8 (MEJORAS 183): llegar con ?replay=<teléfono>&hasta=<mensaje> carga la
+  // conversación REAL hasta ese mensaje y lo deja escrito — Enviar reproduce
+  // la decisión con la configuración de hoy. El banco prueba el agente DE una
+  // clínica: si el hilo es de otra, se selecciona esa primero y el replay se
+  // aplica cuando el selector ya está en ella (por eso vive en un ref).
+  const replayRef = useRef<ReplayDeHilo | null>(null);
+  const replayPedido = useRef(false);
+  const clinicaActualRef = useRef(selectedClinicaId);
+  const [derivadoDeReplay, setDerivadoDeReplay] = useState(false);
   useEffect(() => {
-    setTurnos([]);
+    clinicaActualRef.current = selectedClinicaId;
+  }, [selectedClinicaId]);
+  const aplicarReplay = useCallback((r: ReplayDeHilo) => {
+    setEscenario(r.escenario);
+    setTurnos(r.hilo.map((t) => ({ direccion: t.direccion, contenido: t.contenido, real: true })));
+    setTexto(r.mensaje);
+    setDerivadoDeReplay(r.derivadoPrevio);
+  }, []);
+  const soltarReplay = useCallback(() => {
+    replayRef.current = null;
+    setDerivadoDeReplay(false);
+  }, []);
+
+  useEffect(() => {
+    const r = replayRef.current;
+    if (r && (r.clinicaId == null || r.clinicaId === selectedClinicaId)) {
+      aplicarReplay(r);
+    } else {
+      setTurnos([]);
+      setDerivadoDeReplay(false);
+    }
     setEstado(null);
     void cargarEstado();
-  }, [cargarEstado]);
+  }, [cargarEstado, selectedClinicaId, aplicarReplay]);
+
+  useEffect(() => {
+    if (replayPedido.current) return;
+    replayPedido.current = true;
+    const q = new URLSearchParams(window.location.search);
+    const tel = q.get("replay");
+    const hasta = q.get("hasta");
+    if (!tel || !hasta) return;
+    void (async () => {
+      try {
+        const r = await cargarJSON<ReplayDeHilo>(
+          `/api/agente/por-que?telefono=${encodeURIComponent(tel)}&replay=${encodeURIComponent(hasta)}`,
+        );
+        replayRef.current = r;
+        if (r.clinicaId && r.clinicaId !== clinicaActualRef.current) setSelectedClinicaId(r.clinicaId);
+        else aplicarReplay(r);
+        toast.message(
+          "Conversación real cargada hasta ese mensaje. Pulsa Enviar para ver cómo decide hoy el agente. La situación (presupuesto, deuda) es la de hoy, y nada de esto toca los datos reales.",
+        );
+      } catch (e) {
+        toast.error(`No se pudo cargar la conversación para reproducirla. ${mensajeDeError(e)}`);
+      }
+    })();
+  }, [aplicarReplay, setSelectedClinicaId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [turnos]);
 
-  const derivadoPrevio = turnos.some((t) => t.evaluacion?.decision === "deriva");
+  const derivadoPrevio = derivadoDeReplay || turnos.some((t) => t.evaluacion?.decision === "deriva");
   const ultimaEvaluacion = [...turnos].reverse().find((t) => t.evaluacion)?.evaluacion ?? null;
   // El panel enseña el último estado COMPLETO (23-08): tras derivar, un
   // mensaje más devolvía actuar:false y borraba lo recogido — justo cuando
@@ -199,6 +232,7 @@ export function BancoPruebasView() {
                   if (escenario.tipo !== e.tipo) {
                     setEscenario({ tipo: e.tipo });
                     setTurnos([]);
+                    soltarReplay();
                   }
                 }}
                 aria-pressed={on}
@@ -268,7 +302,10 @@ export function BancoPruebasView() {
             {turnos.length > 0 && (
               <button
                 type="button"
-                onClick={() => setTurnos([])}
+                onClick={() => {
+                  setTurnos([]);
+                  soltarReplay();
+                }}
                 className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
               >
                 <RefreshCw size={12} strokeWidth={ICON_STROKE} aria-hidden />
@@ -299,9 +336,9 @@ export function BancoPruebasView() {
                     </div>
                   ) : (
                     <div className="max-w-[80%] rounded-xl rounded-bl-sm bg-[var(--color-surface-muted)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
-                      <span className="mb-0.5 flex items-center gap-1 text-[10.5px] font-semibold text-[var(--color-accent)]">
-                        <Sparkles size={11} strokeWidth={ICON_STROKE} aria-hidden />
-                        Agente
+                      <span className={`mb-0.5 flex items-center gap-1 text-[10.5px] font-semibold ${t.real ? "text-[var(--color-muted)]" : "text-[var(--color-accent)]"}`}>
+                        {!t.real && <Sparkles size={11} strokeWidth={ICON_STROKE} aria-hidden />}
+                        {t.real ? "Enviado desde la clínica (conversación real)" : "Agente"}
                         {t.evaluacion?.decision === "deriva" && (
                           <span className="ml-1 rounded bg-[var(--color-danger-soft)] px-1 py-px text-[10px] font-semibold text-[var(--color-danger)]">
                             deriva
@@ -486,23 +523,6 @@ function PorDentro({ ev }: { ev: EvaluacionTurno }) {
       )}
     </div>
   );
-}
-
-function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-[var(--color-border)] px-2.5 py-2">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{titulo}</p>
-      <div className="mt-0.5">{children}</div>
-    </div>
-  );
-}
-
-function Tag({ tono, children }: { tono: "danger" | "warning"; children: React.ReactNode }) {
-  const cls =
-    tono === "danger"
-      ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
-      : "bg-[var(--color-warning-soft)] text-[var(--color-warning)]";
-  return <span className={`ml-1 rounded px-1 py-px text-[10.5px] font-semibold ${cls}`}>{children}</span>;
 }
 
 const INPUT =

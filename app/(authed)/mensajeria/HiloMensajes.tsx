@@ -77,6 +77,7 @@ export function HiloMensajes({
   telefono,
   nombresClinica,
   onConfirmarEnvio,
+  porQue,
 }: {
   mensajes: MensajeHilo[];
   telefono?: string | null;
@@ -85,6 +86,11 @@ export function HiloMensajes({
   /** MEJORAS 122 — id → nombre, para etiquetar cada mensaje con su clínica
    *  cuando el hilo ha pasado por más de una (hilo único por persona). */
   nombresClinica?: Record<string, string>;
+  /** 2.8 (MEJORAS 183) — «Ver por qué»: fila del mensaje → clave del turno
+   *  que lo explica. El botón va en el mensaje que la persona VE: el saliente
+   *  del agente si lo hubo, y si no el entrante (ahí se pregunta «¿y por qué
+   *  no contestó?»). */
+  porQue?: { de: Record<string, string>; abierto: string | null; onVer: (clave: string) => void };
 }) {
   const finRef = useRef<HTMLDivElement>(null);
   const clinicasEnHilo = new Set(mensajes.map((m) => m.clinicaId).filter(Boolean));
@@ -113,6 +119,7 @@ export function HiloMensajes({
         const esArchivo = !mio && m.tipo != null && (!esLegible(m.tipo) || m.tipo === "sticker" || m.tipo === "system");
         const Icono = esArchivo ? (ICONO_TIPO[m.tipo!] ?? Ban) : null;
         const abrible = esArchivo && m.tipo !== "system" && Boolean(telefono);
+        const clavePorQue = porQue?.de[m.id] ?? null;
         return (
           <div key={m.id}>
             {nuevoDia && (
@@ -180,6 +187,16 @@ export function HiloMensajes({
                     mio && !m.pendienteConfirmar ? "text-[var(--color-on-accent)]/70" : "text-[var(--color-muted)]"
                   }`}
                 >
+                  {clavePorQue && porQue && (
+                    <button
+                      type="button"
+                      onClick={() => porQue.onVer(clavePorQue)}
+                      aria-pressed={porQue.abierto === clavePorQue}
+                      className="mr-2 font-medium underline-offset-2 hover:underline"
+                    >
+                      {porQue.abierto === clavePorQue ? "Cerrar por qué" : "Ver por qué"}
+                    </button>
+                  )}
                   {m.sugeridoPorIa && (
                     <span title="Lo redactó el agente" className="mr-1 inline-flex align-middle">
                       <Sparkles size={10} strokeWidth={ICON_STROKE} aria-label="Lo redactó el agente" />

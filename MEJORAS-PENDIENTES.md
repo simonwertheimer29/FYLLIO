@@ -2519,7 +2519,24 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 ## 183. Fase 2 · «Ver por qué» por mensaje — inspector de decisiones
 - La ficha enseña el último juicio; el resto vive en el log. · **Propuesta:** en el chat, por
   mensaje del agente: juicios, campos, aplazados, descarte, versión (168) y replay en el banco. ·
-  **Severidad:** confianza · **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  **Severidad:** confianza · **Esfuerzo:** 2 días · **Fase 2** · **Fecha:** 2026-09-06 · 🟢
+  **HECHA el 2026-09-08** — `lib/agente/por-que`: agrupa por TURNO lo persistido (evento
+  `evaluacion` + `aplazado`/`derivado`/`espera_*` del mismo `mensaje_id`) y lo enlaza con el mensaje
+  que ve la coordinadora: el entrante que lo provocó y el saliente que redactó el agente (primer
+  `sugerido_por_ia` tras la evaluación y antes del siguiente entrante). Enlace evento→mensaje por
+  `waba_message_id ?? id`. Solo lo persistido, sin modelo; la cola se deriva del hecho. `GET
+  /api/agente/por-que` con el aislamiento exacto de la ficha (404 fuera de scope). En Mensajería:
+  «Ver por qué» en la burbuja del mensaje que la persona VE (el saliente del agente, o el entrante
+  si no contestó), panel en la columna lateral sustituyendo a la ficha (regla del 11-08) y flotante
+  sin oscurecer en móvil (§4 ter), Escape cierra. Orden: qué entendió · qué recogió · qué anotó · qué
+  decidió · el control · el borrador · detalles técnicos plegados (modelo, latencia, coste, versión
+  168, señales, lo que vio el modelo 169). Vocabulario compartido con el banco
+  (`components/agente/etiquetas-agente`, antes tres diccionarios locales del banco). **Replay:**
+  «Reproducir en el banco de pruebas» → `/agentes/conversacional?replay=<tel>&hasta=<mensaje>`; el
+  banco carga el hilo REAL hasta ese mensaje (solo texto, salientes confirmados, tope 40), lo deja
+  escrito, selecciona la clínica del hilo y avisa de que la situación (presupuesto, deuda) es la de
+  HOY. `qa:por-que` 26/26 (tres turnos contados a mano: con juicio y saliente del agente, entregado
+  sin juicio por audio, descartado por el control con espera fijada).
 
 ## 184. Fase 2 · Madurez del agente por clínica
 - Ratio `caso_completo` / resto de derivaciones por mes, ya contado en Inicio detalle. ·

@@ -51,6 +51,8 @@ import { useFichaDeCaso } from "./useFichaDeCaso";
 import { toast } from "sonner";
 import { Phone } from "../../components/icons";
 import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
+import { usePorQueDeHilo } from "./usePorQueDeHilo";
+import { PorQuePanel } from "../../components/agente/PorQuePanel";
 
 type RespuestaLista = {
   conversaciones: Conversacion[];
@@ -192,6 +194,30 @@ export function MensajeriaView() {
   // MEJORAS 119: la ficha, UNA vez, repartida entre el composer (borrador del
   // evaluador, opt-out) y la columna derecha.
   const { ficha, recargar: recargarFicha } = useFichaDeCaso(abierta);
+
+  // 2.8 (MEJORAS 183): «ver por qué» por mensaje. Los turnos explicados se
+  // recargan con el hilo; el panel SUSTITUYE a la ficha en la columna derecha
+  // mientras está abierto (regla del 11-08: el contexto vive en la lateral) y
+  // en móvil flota sin oscurecer (§4 ter). Escape lo cierra.
+  const { turnos: porQueTurnos, error: errorPorQue, recargar: recargarPorQue } = usePorQueDeHilo(abierta, hilo);
+  const [porQueAbierto, setPorQueAbierto] = useState<string | null>(null);
+  useEffect(() => {
+    setPorQueAbierto(null);
+  }, [abierta]);
+  useEffect(() => {
+    if (!porQueAbierto) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPorQueAbierto(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [porQueAbierto]);
+  const porQueDe: Record<string, string> = {};
+  for (const t of porQueTurnos ?? []) {
+    const fila = t.salienteId ?? t.entranteId;
+    if (fila) porQueDe[fila] = t.clave;
+  }
+  const turnoAbierto = porQueAbierto ? ((porQueTurnos ?? []).find((t) => t.clave === porQueAbierto) ?? null) : null;
 
   // Llamar es una acción sobre la PERSONA, así que vive en la cabecera de la
   // conversación, no en el cuerpo. Se registra por el camino central de
@@ -420,6 +446,14 @@ export function MensajeriaView() {
               </header>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+                {errorPorQue && (
+                  <p className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-dashed border-[var(--color-border)] px-3 py-1.5 text-[11.5px] text-[var(--color-muted)]">
+                    <span>No se pudo cargar el «por qué» del agente. {errorPorQue}</span>
+                    <button type="button" onClick={() => void recargarPorQue()} className="shrink-0 font-medium text-[var(--color-accent)] hover:underline">
+                      Reintentar
+                    </button>
+                  </p>
+                )}
                 {cargandoHilo && !hilo ? (
                   <CardListSkeleton />
                 ) : errorHilo ? (
@@ -432,6 +466,7 @@ export function MensajeriaView() {
                     mensajes={hilo ?? []}
                     telefono={abierta}
                     nombresClinica={Object.fromEntries(clinicas.map((c) => [c.id, c.nombre]))}
+                    porQue={{ de: porQueDe, abierto: porQueAbierto, onVer: (clave) => setPorQueAbierto((v) => (v === clave ? null : clave)) }}
                     onConfirmarEnvio={async (mensajeId) => {
                       // MEJORAS 130: «sí, lo envié» desde el hilo.
                       if (await confirmarEnvio(mensajeId)) {
@@ -471,17 +506,34 @@ export function MensajeriaView() {
         {/* ── Derecha: el contexto ────────────────────────────────────── */}
         <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
           {/* B2: la ficha del caso sustituye al resumen viejo; el `caso` del
-              clasificador sigue alimentando SOLO al compositor (borrador). */}
-          <ContextoConversacion
-            conversacion={conversacion}
-            ficha={ficha}
-            onRecargarFicha={recargarFicha}
-            onCambio={() => {
-              recargarCaso();
-              void cargarLista();
-            }}
-          />
+              clasificador sigue alimentando SOLO al compositor (borrador).
+              2.8: mientras hay un «por qué» abierto, el panel ocupa la columna. */}
+          {turnoAbierto && abierta ? (
+            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} />
+          ) : (
+            <ContextoConversacion
+              conversacion={conversacion}
+              ficha={ficha}
+              onRecargarFicha={recargarFicha}
+              onCambio={() => {
+                recargarCaso();
+                void cargarLista();
+              }}
+            />
+          )}
         </aside>
+        {/* Por debajo de lg no hay columna: el panel flota a la derecha SIN
+            oscurecer (el hilo es el contexto de lo que se lee) y se cierra
+            con la X o Escape, no clicando fuera. */}
+        {turnoAbierto && abierta && (
+          <div
+            role="dialog"
+            aria-label="Por qué hizo esto el agente"
+            className="fixed inset-y-0 right-0 z-40 w-[min(22rem,100vw)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl lg:hidden"
+          >
+            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} />
+          </div>
+        )}
       </div>
     </div>
   );

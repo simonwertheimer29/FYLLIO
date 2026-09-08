@@ -4157,3 +4157,33 @@ de la métrica nueva dijo «sin casos» y la pregunta fue por qué, no «el seed
 prioritaria «sin casos» (la queja y la urgencia del seed son de hoy y siguen esperando arriba);
 por sede 35 / 32 / 38 / 60 min con 4 / 11 / 10 / 2 casos — la de 2 dice «solo 2 casos». Un
 número sin vara no se colorea: hasta que haya un umbral declarado, va en gris.
+
+## 2026-09-08 — Fase 2.8: «Ver por qué» por mensaje (MEJORAS 183)
+El agente persistía todo (juicio, campos, aplazados, entrega, descarte, versión, lo que vio) y
+la ficha solo enseñaba el ÚLTIMO juicio: nadie podía contestar «¿por qué dijo esto hace tres
+días?» sin abrir el log. Ahora cada turno se agrupa por `mensaje_id` (evaluación + aplazados +
+derivado + esperas del mismo entrante) y se ancla al mensaje que la coordinadora VE: el saliente
+que redactó el agente (primer `sugerido_por_ia` tras la evaluación y antes del siguiente entrante)
+o, si no contestó —descartado por el control, entregado sin respuesta, audio—, el entrante, que es
+donde se pregunta «¿y por qué no?». Un botón por turno, nunca dos para lo mismo.
+
+**Tres decisiones:** (1) solo lo PERSISTIDO — fase 2 es inteligencia visible sin gastar modelo;
+la cola se deriva del hecho como en todas partes; (2) el panel vive en la columna lateral y
+sustituye a la ficha mientras está abierto (regla del 11-08, sin excepciones), flotante sin
+oscurecer en móvil (§4 ter); lo técnico —hashes de versión, latencia, coste, la entrada
+renderizada— va plegado, existe para atribuir un juicio a una versión, no para leerse primero;
+(3) el vocabulario en palabras (tema, causa, motivo del control) era tres diccionarios locales del
+banco de pruebas: ahora es UN módulo puro compartido, porque dos pantallas con dos nombres para lo
+mismo es el patrón paralelo que la esencia §6 prohíbe. El replay reutiliza el banco tal cual (URL
+`?replay=&hasta=`): carga el hilo real hasta el mensaje y lo deja escrito; la situación es la de
+HOY porque el contexto no tiene histórico, y se dice en pantalla en vez de inventar la de aquel día.
+
+**Dos cosas cazadas por el QA, no por leer:** `hasta` (date) llegaba como medianoche LOCAL y
+`toISOString()` la convertía en el día anterior — se pide como texto; y un comentario SQL con
+acentos graves dentro del template literal rompía el parseo. Y una del lint del repo:
+`react-hooks/set-state-in-effect` prohíbe `setState` síncrono en un efecto — el hook nuevo ata lo
+cargado a su teléfono y no necesita efecto de reset.
+
+**Lo que abre:** 2.7 (el botón «el agente se equivocó aquí») ya tiene dónde vivir — este panel
+tiene la entrada renderizada, el juicio y el borrador; falta la corrección de la persona y la
+tabla de candidatos.
