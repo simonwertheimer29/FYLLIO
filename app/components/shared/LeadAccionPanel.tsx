@@ -35,7 +35,7 @@ import type { PlantillaLead } from "../../api/leads/plantillas/route";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import {
   PanelAccionShell,
-  PanelCabecera,
+  cabeceraAccion,
   ContextoRecomendacion,
   Burbujas,
   RegistroColapsable,
@@ -639,14 +639,15 @@ export function LeadAccionPanel({
     situacion?.primaria === a ? btnAccionPrimario : btnAccionSecundario;
 
   return (
-    <PanelAccionShell onClose={onClose}>
-      <PanelCabecera
-        nombre={lead.nombre}
-        sub={`${lead.tratamiento ?? "Sin tratamiento de interés"}${lead.canal ? ` · ${lead.canal}` : ""}`}
-        prioridad={situacion?.prioridad ?? null}
-        prioridadTitle={situacion?.quePasa}
-        onClose={onClose}
-      />
+    <PanelAccionShell
+      onClose={onClose}
+      cabecera={cabeceraAccion({
+        nombre: lead.nombre,
+        sub: `${lead.tratamiento ?? "Sin tratamiento de interés"}${lead.canal ? ` · ${lead.canal}` : ""}`,
+        prioridad: situacion?.prioridad ?? null,
+        prioridadTitle: situacion?.quePasa,
+      })}
+    >
 
       {/* Bloque 1: contexto y recomendación */}
       <div className="px-4 pt-3 pb-3 border-b border-[var(--color-border)] shrink-0">

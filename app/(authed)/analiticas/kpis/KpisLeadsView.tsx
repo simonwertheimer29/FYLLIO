@@ -19,12 +19,13 @@ import {
 } from "recharts";
 import { Trophy, TrendingDown } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
+import { PanelFlotante } from "../../../components/ui/PanelFlotante";
 import { StatePill } from "../../../components/ui/StatePill";
 import { KpiCard } from "../../../components/ui/KpiCard";
 import { Comparativa } from "../../../components/shared/Cifra";
 import { KpiCardSkeleton } from "../../../components/ui/Skeleton";
 import { ErrorState } from "../../../components/ui/Feedback";
-import { X, ICON_STROKE } from "../../../components/icons";
+import { ICON_STROKE } from "../../../components/icons";
 import { useClinic } from "../../../lib/context/ClinicContext";
 import { colorCategoria } from "../../../components/shared/paleta-grafica";
 import type { PeriodoKpi } from "../../../lib/periodo";
@@ -561,26 +562,15 @@ function ClinicKpiDrawer({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <aside className="relative w-full max-w-[480px] bg-[var(--color-background)] shadow-md flex flex-col h-full overflow-hidden">
-        <header className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-between shrink-0">
-          <div>
-            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
-              {data?.clinica?.nombre ?? "Clínica"}
-            </h3>
-            <p className="text-[11px] text-[var(--color-muted)]">KPIs de la clínica</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
-            aria-label="Cerrar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+    <PanelFlotante
+      anclaje="hoja"
+      anchoRem={30}
+      titulo={data?.clinica?.nombre ?? "Clínica"}
+      subtitulo="KPIs de la clínica"
+      ariaLabel="KPIs de la clínica"
+      onCerrar={onClose}
+    >
+      <div className="space-y-4">
           {error ? (
             <ErrorState
               detail="Los KPIs de esta clínica no están disponibles ahora mismo."
@@ -635,9 +625,8 @@ function ClinicKpiDrawer({
               </Card>
             </>
           )}
-        </div>
-      </aside>
-    </div>
+      </div>
+    </PanelFlotante>
   );
 }
 

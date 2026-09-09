@@ -20,8 +20,8 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import type { Notificacion } from "../../lib/presupuestos/types";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
-import { X, ICON_STROKE } from "../icons";
 import { ErrorState } from "../ui/Feedback";
+import { PanelFlotante } from "../ui/PanelFlotante";
 import { Skeleton } from "../ui/Skeleton";
 
 /** El punto de color dice de QUÉ es el aviso, con los tokens semánticos. */
@@ -122,42 +122,27 @@ export default function NotificacionesPanel({
   const noLeidas = notificaciones.filter((n) => !n.leida).length;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-
-      <div className="relative w-full max-w-sm bg-[var(--color-surface)] border-l border-[var(--color-border)] shadow-2xl flex flex-col h-full overflow-hidden">
-        {/* Cabecera con la escala del producto: título de sección en Geist
-            semibold, no un `text-xs font-bold uppercase`. */}
-        <div className="px-5 py-4 border-b border-[var(--color-border)] shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-              Avisos
-              {noLeidas > 0 && (
-                <span className="ml-2 text-[var(--color-accent)] tabular-nums">({noLeidas})</span>
-              )}
-            </h2>
-            <div className="flex items-center gap-3">
-              {noLeidas > 0 && (
-                <button
-                  onClick={handleMarcarTodasLeidas}
-                  className="text-[11px] font-semibold text-[var(--color-accent)] hover:underline"
-                >
-                  Marcar todos leídos
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
-                aria-label="Cerrar"
-              >
-                <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Lista */}
-        <div className="flex-1 overflow-y-auto">
+    <PanelFlotante
+      anclaje="hoja"
+      anchoRem={24}
+      titulo={
+        <>
+          Avisos
+          {noLeidas > 0 && <span className="ml-2 text-[var(--color-accent)] tabular-nums">({noLeidas})</span>}
+        </>
+      }
+      ariaLabel="Avisos"
+      onCerrar={onClose}
+      sinRelleno
+      acciones={
+        noLeidas > 0 ? (
+          <button type="button" onClick={handleMarcarTodasLeidas} className="mr-1 text-[11px] font-semibold text-[var(--color-accent)] hover:underline">
+            Marcar todos leídos
+          </button>
+        ) : undefined
+      }
+    >
+      <div>
           {loading && (
             <div className="space-y-3 p-4">
               {[0, 1, 2].map((i) => (
@@ -223,8 +208,7 @@ export default function NotificacionesPanel({
                 </div>
               </button>
             ))}
-        </div>
       </div>
-    </div>
+    </PanelFlotante>
   );
 }

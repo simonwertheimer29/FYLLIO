@@ -19,7 +19,7 @@ import type {
   PresupuestoEstado,
 } from "../../lib/presupuestos/types";
 import { AccionPanel } from "../shared/AccionPanel";
-import { PanelAccionShell, PanelCabecera } from "../shared/panel-accion-ui";
+import { PanelAccionShell, cabeceraAccion } from "../shared/panel-accion-ui";
 import { ErrorState } from "../ui/Feedback";
 import { eur } from "../shared/Cifra";
 
@@ -71,13 +71,14 @@ export default function FichaPresupuesto({
   const importe = presupuesto.amount != null ? eur(presupuesto.amount) : "sin importe";
 
   return (
-    <PanelAccionShell onClose={onClose}>
-      <PanelCabecera
-        nombre={presupuesto.patientName}
-        sub={`${presupuesto.treatments.join(", ") || "Sin tratamiento"} · ${importe}`}
-        prioridad={null}
-        onClose={onClose}
-      />
+    <PanelAccionShell
+      onClose={onClose}
+      cabecera={cabeceraAccion({
+        nombre: presupuesto.patientName,
+        sub: `${presupuesto.treatments.join(", ") || "Sin tratamiento"} · ${importe}`,
+        prioridad: null,
+      })}
+    >
       <div className="p-4">
         {error ? (
           <ErrorState detail="No se pudo abrir la ficha del paciente." onRetry={cargar} />

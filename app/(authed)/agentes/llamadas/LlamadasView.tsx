@@ -6,6 +6,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
+import { PanelFlotante } from "../../../components/ui/PanelFlotante";
 import { KpiCard } from "../../../components/ui/KpiCard";
 import {
   KpiCardSkeleton,
@@ -13,7 +14,7 @@ import {
 } from "../../../components/ui/Skeleton";
 import { ErrorState, EmptyState } from "../../../components/ui/Feedback";
 import { toast } from "sonner";
-import { Phone, RefreshCw, X, User, Info, ICON_STROKE } from "../../../components/icons";
+import { Phone, RefreshCw, User, Info, ICON_STROKE } from "../../../components/icons";
 import { deDiccionario } from "../../../lib/diccionario";
 import { fechaHoraClinica } from "../../../lib/time";
 import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
@@ -462,28 +463,35 @@ function LlamadaDrawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
-      <aside className="relative w-full max-w-md bg-[var(--color-surface)] shadow-xl flex flex-col h-full">
-        <header className="px-5 py-3 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
-          <div>
-            <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">
-              Llamada IA
-            </p>
-            <p className="text-sm font-semibold text-[var(--color-foreground)] mt-0.5">
-              {tipoLabel(llamada.tipo)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} />
-          </button>
-        </header>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 text-sm">
+    <PanelFlotante
+      anclaje="hoja"
+      anchoRem={28}
+      titulo={tipoLabel(llamada.tipo)}
+      subtitulo="Llamada IA"
+      ariaLabel="Detalle de la llamada"
+      onCerrar={onClose}
+      pie={isAdmin && llamada.estado === "fallida" ? (
+        <>
+            {/* Sin servicio de voz el botón no se esconde: se deshabilita Y
+                dice por qué. Esconderlo dejaría a quien lo conoce buscándolo;
+                dejarlo activo era ofrecer una acción que siempre falla. */}
+            <button
+              type="button"
+              onClick={reintentar}
+              disabled={reintentando || !operativas}
+              className="w-full rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {reintentando ? "Reintentando…" : "Reintentar llamada"}
+            </button>
+            {!operativas && (
+              <p className="mt-2 text-[11px] text-[var(--color-muted)] text-center">
+                Disponible en cuanto se active el servicio de voz.
+              </p>
+            )}
+        </>
+      ) : undefined}
+    >
+      <div className="space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-3">
             <Field
               label="Estado"
@@ -551,28 +559,7 @@ function LlamadaDrawer({
             </div>
           )}
         </div>
-        {isAdmin && llamada.estado === "fallida" && (
-          <footer className="border-t border-[var(--color-border)] p-3 shrink-0">
-            {/* Sin servicio de voz el botón no se esconde: se deshabilita Y
-                dice por qué. Esconderlo dejaría a quien lo conoce buscándolo;
-                dejarlo activo era ofrecer una acción que siempre falla. */}
-            <button
-              type="button"
-              onClick={reintentar}
-              disabled={reintentando || !operativas}
-              className="w-full rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {reintentando ? "Reintentando…" : "Reintentar llamada"}
-            </button>
-            {!operativas && (
-              <p className="mt-2 text-[11px] text-[var(--color-muted)] text-center">
-                Disponible en cuanto se active el servicio de voz.
-              </p>
-            )}
-          </footer>
-        )}
-      </aside>
-    </div>
+    </PanelFlotante>
   );
 }
 

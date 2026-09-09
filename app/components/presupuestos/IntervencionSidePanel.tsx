@@ -34,7 +34,7 @@ import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
 import {
   PanelAccionShell,
-  PanelCabecera,
+  cabeceraAccion,
   ContextoRecomendacion,
   Burbujas,
   Composer,
@@ -398,14 +398,15 @@ export default function IntervencionSidePanel({
     situacion.primaria === a ? btnAccionPrimario : btnAccionSecundario;
 
   return (
-    <PanelAccionShell onClose={onClose}>
-      <PanelCabecera
-        nombre={item.patientName}
-        sub={`${item.treatments.join(", ") || "Sin tratamiento"} · ${importeStr}`}
-        prioridad={situacion.prioridad}
-        prioridadTitle={situacion.quePasa}
-        onClose={onClose}
-      />
+    <PanelAccionShell
+      onClose={onClose}
+      cabecera={cabeceraAccion({
+        nombre: item.patientName,
+        sub: `${item.treatments.join(", ") || "Sin tratamiento"} · ${importeStr}`,
+        prioridad: situacion.prioridad,
+        prioridadTitle: situacion.quePasa,
+      })}
+    >
 
       {/* Bloque 1: contexto y recomendación */}
       <div className="px-4 pt-3 pb-3 border-b border-[var(--color-border)] shrink-0">

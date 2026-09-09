@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import { StatePill, type StatePillVariant } from "../ui/StatePill";
+import { PanelFlotante } from "../ui/PanelFlotante";
 import { fechaHoraClinica } from "../../lib/time";
 import {
   ChevronDown,
@@ -26,7 +27,6 @@ import {
   Plus,
   Send,
   Sparkles,
-  X,
   ICON_STROKE,
 } from "../icons";
 
@@ -48,45 +48,51 @@ export function iniciales(nombre: string): string {
 
 // ─── Shell: lateral en escritorio, pantalla completa en móvil/tablet ───
 
+export type CabeceraAccion = {
+  titulo: React.ReactNode;
+  subtitulo?: React.ReactNode;
+  /** Lo que va a la izquierda de la X: la prioridad del caso. */
+  acciones?: React.ReactNode;
+  ariaLabel: string;
+};
+
+/** El cascarón del panel de acción es el común (PanelFlotante, anclaje «hoja»,
+ *  MEJORAS 221): no oscurece el contexto del que salió el caso y se cierra con
+ *  la X o Escape. Antes bloqueaba el scroll y oscurecía con blur. */
 export function PanelAccionShell({
   onClose,
+  cabecera,
   children,
 }: {
   onClose: () => void;
+  cabecera: CabeceraAccion;
   children: React.ReactNode;
 }) {
-  // Escape cierra + bloquea scroll del body mientras está abierto.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full lg:max-w-md h-dvh bg-[var(--color-surface)] shadow-2xl flex flex-col overflow-hidden">
-        {children}
-      </div>
-    </div>
+    <PanelFlotante
+      anclaje="hoja"
+      anchoRem={28}
+      titulo={cabecera.titulo}
+      subtitulo={cabecera.subtitulo}
+      acciones={cabecera.acciones}
+      ariaLabel={cabecera.ariaLabel}
+      onCerrar={onClose}
+      sinRelleno
+    >
+      {children}
+    </PanelFlotante>
   );
 }
 
 // ─── Cabecera mínima ───────────────────────────────────────────────────
 
-export function PanelCabecera({
+/** La cabecera del panel de acción: avatar + nombre, qué hay en juego y la
+ *  prioridad (su hueco mientras carga). Se pasa a `PanelAccionShell`. */
+export function cabeceraAccion({
   nombre,
   sub,
   prioridad,
   prioridadTitle,
-  onClose,
 }: {
   nombre: string;
   /** Qué hay en juego: tratamiento (· importe en presupuestos). */
@@ -94,37 +100,27 @@ export function PanelCabecera({
   prioridad: PrioridadPanel | null;
   /** Tooltip del pill (el porqué). */
   prioridadTitle?: string;
-  onClose: () => void;
-}) {
+}): CabeceraAccion {
   const pill = prioridad ? PRIORIDAD_PILL[prioridad] : null;
-  return (
-    <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center gap-2.5 shrink-0">
-      <div className="h-9 w-9 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-[11px] font-semibold flex items-center justify-center shrink-0">
-        {iniciales(nombre)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h2 className="font-display text-sm font-semibold text-[var(--color-foreground)] leading-tight truncate">
-          {nombre}
-        </h2>
-        <p className="text-[11px] text-[var(--color-muted)] truncate tabular-nums">{sub}</p>
-      </div>
-      {pill ? (
-        <StatePill variant={pill.variant} title={prioridadTitle}>
-          {pill.label}
-        </StatePill>
-      ) : (
-        <span className="h-5 w-16 rounded-md bg-[var(--color-surface-muted)] animate-pulse" aria-hidden />
-      )}
-      <button
-        type="button"
-        onClick={onClose}
-        className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1 -mr-1"
-        aria-label="Cerrar"
-      >
-        <X size={18} strokeWidth={ICON_STROKE} aria-hidden />
-      </button>
-    </div>
-  );
+  return {
+    ariaLabel: nombre,
+    titulo: (
+      <span className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-soft)] text-[11px] font-semibold text-[var(--color-accent)]">
+          {iniciales(nombre)}
+        </span>
+        <span className="truncate">{nombre}</span>
+      </span>
+    ),
+    subtitulo: sub,
+    acciones: pill ? (
+      <StatePill variant={pill.variant} title={prioridadTitle}>
+        {pill.label}
+      </StatePill>
+    ) : (
+      <span className="h-5 w-16 animate-pulse rounded-md bg-[var(--color-surface-muted)]" aria-hidden />
+    ),
+  };
 }
 
 // ─── Contexto y recomendación (recuadro pequeño y denso) ───────────────

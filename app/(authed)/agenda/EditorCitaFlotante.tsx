@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { cargarJSON } from "../../lib/fetch-json";
 import { deMin } from "../../lib/agenda/disponibilidad";
 import { fechaCorta } from "../../lib/agenda/fechas";
-import { X, Pencil, ICON_STROKE } from "../../components/icons";
+import { Pencil, ICON_STROKE } from "../../components/icons";
+import { PanelFlotante } from "../../components/ui/PanelFlotante";
 
 export type BorradorCita = {
   modo: "crear" | "editar";
@@ -144,21 +145,26 @@ export function EditorCitaFlotante({
   }
 
   return (
-    <div
-      data-editor-cita
-      className="fixed z-50 w-80 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-2xl"
-      style={pos ? { left: pos.left, top: pos.top } : { right: 24, top: 112 }}
-      onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="font-display text-sm font-semibold text-[var(--color-foreground)]">
-          {borrador.modo === "crear" ? "Nueva cita" : "Mover cita"}
-        </h3>
-        <button type="button" onClick={onClose} aria-label="Cerrar sin guardar"
-          className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]">
-          <X size={15} strokeWidth={ICON_STROKE} aria-hidden />
+    <PanelFlotante
+      anclaje="libre"
+      anchoRem={20}
+      estilo={pos ? { left: pos.left, top: pos.top } : { right: 24, top: 112 }}
+      titulo={borrador.modo === "crear" ? "Nueva cita" : "Mover cita"}
+      ariaLabel={borrador.modo === "crear" ? "Nueva cita" : "Mover cita"}
+      onCerrar={onClose}
+      pie={
+        <div className="flex gap-2">
+        <button type="button" onClick={onClose}
+          className="flex-1 rounded-lg bg-[var(--color-surface-muted)] py-2 text-sm font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-border)]">
+          Cancelar
         </button>
-      </div>
+        <button type="button" onClick={() => void guardar()} disabled={!puedeGuardar}
+          className="flex-1 rounded-lg bg-[var(--color-accent)] py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+          {saving ? "Guardando…" : "Guardar"}
+        </button>
+        </div>
+      }
+    >
 
       {/* Lo YA elegido con el ratón: una línea, no un formulario. */}
       <div className="mb-3 flex items-start justify-between gap-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
@@ -249,16 +255,6 @@ export function EditorCitaFlotante({
         </p>
       )}
 
-      <div className="mt-3 flex gap-2">
-        <button type="button" onClick={onClose}
-          className="flex-1 rounded-lg bg-[var(--color-surface-muted)] py-2 text-sm font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-border)]">
-          Cancelar
-        </button>
-        <button type="button" onClick={() => void guardar()} disabled={!puedeGuardar}
-          className="flex-1 rounded-lg bg-[var(--color-accent)] py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
-          {saving ? "Guardando…" : "Guardar"}
-        </button>
-      </div>
-    </div>
+    </PanelFlotante>
   );
 }

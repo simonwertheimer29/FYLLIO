@@ -28,6 +28,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
+import { PanelFlotante } from "../../components/ui/PanelFlotante";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { MessageCircle, ICON_STROKE } from "../../components/icons";
 import type {
@@ -52,7 +53,7 @@ import { toast } from "sonner";
 import { Phone } from "../../components/icons";
 import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
 import { usePorQueDeHilo } from "./usePorQueDeHilo";
-import { PorQuePanel } from "../../components/agente/PorQuePanel";
+import { PorQuePanel, cabeceraPorQue } from "../../components/agente/PorQuePanel";
 
 type RespuestaLista = {
   conversaciones: Conversacion[];
@@ -526,13 +527,17 @@ export function MensajeriaView() {
             oscurecer (el hilo es el contexto de lo que se lee) y se cierra
             con la X o Escape, no clicando fuera. */}
         {turnoAbierto && abierta && (
-          <div
-            role="dialog"
-            aria-label="Por qué hizo esto el agente"
-            className="fixed inset-y-0 right-0 z-40 w-[min(22rem,100vw)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl lg:hidden"
+          <PanelFlotante
+            anclaje="hoja"
+            anchoRem={22}
+            {...cabeceraPorQue(turnoAbierto)}
+            ariaLabel="Por qué hizo esto el agente"
+            onCerrar={() => setPorQueAbierto(null)}
+            sinRelleno
+            className="lg:hidden"
           >
-            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} onMarcado={recargarPorQue} />
-          </div>
+            <PorQuePanel turno={turnoAbierto} telefono={abierta} onCerrar={() => setPorQueAbierto(null)} onMarcado={recargarPorQue} sinCabecera />
+          </PanelFlotante>
         )}
       </div>
     </div>

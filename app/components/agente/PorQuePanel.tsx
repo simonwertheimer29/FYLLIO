@@ -37,15 +37,32 @@ const ETIQUETA_IDIOMA: Record<string, string> = {
 
 const s = (n: number) => (n === 1 ? "" : "s");
 
+/** Titular y fecha del turno: los pinta este panel en escritorio y el cascarón
+ *  común en la hoja móvil (MEJORAS 216). */
+export function cabeceraPorQue(turno: { en: string }) {
+  return {
+    titulo: (
+      <>
+        <Sparkles size={14} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-accent)]" aria-hidden />
+        Por qué hizo esto el agente
+      </>
+    ),
+    subtitulo: `${fechaClinica(turno.en, { diaSemana: true })} · ${horaClinica(new Date(turno.en))}`,
+  };
+}
+
 export function PorQuePanel({
   turno,
   telefono,
   onCerrar,
+  sinCabecera = false,
   onMarcado,
 }: {
   turno: TurnoExplicado;
   telefono: string;
   onCerrar: () => void;
+  /** En la hoja móvil la cabecera la pinta el cascarón común (`cabeceraPorQue`). */
+  sinCabecera?: boolean;
   /** 2.7: tras guardar «se equivocó aquí», recargar los turnos para enseñar la marca. */
   onMarcado: () => void;
 }) {
@@ -59,25 +76,22 @@ export function PorQuePanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-start justify-between gap-2 border-b border-[var(--color-border)] px-4 py-3">
-        <div className="min-w-0">
-          <p className="flex items-center gap-1.5 font-display text-[14px] font-semibold text-[var(--color-foreground)]">
-            <Sparkles size={14} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-accent)]" aria-hidden />
-            Por qué hizo esto el agente
-          </p>
-          <p className="mt-0.5 text-[11.5px] tabular-nums text-[var(--color-muted)]">
-            {fechaClinica(turno.en, { diaSemana: true })} · {horaClinica(new Date(turno.en))}
-          </p>
+      {!sinCabecera && (
+        <div className="flex items-start justify-between gap-2 border-b border-[var(--color-border)] px-4 py-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 font-display text-[14px] font-semibold text-[var(--color-foreground)]">{cabeceraPorQue(turno).titulo}</p>
+            <p className="mt-0.5 text-[11.5px] tabular-nums text-[var(--color-muted)]">{cabeceraPorQue(turno).subtitulo}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="shrink-0 rounded-lg p-1 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
+          >
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onCerrar}
-          aria-label="Cerrar"
-          className="shrink-0 rounded-lg p-1 text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
-        >
-          <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-        </button>
-      </div>
+      )}
 
       <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto px-4 py-3 text-[12.5px] leading-relaxed text-[var(--color-foreground)]">
         {turno.sinJuicio ? (

@@ -19,9 +19,9 @@ import type { PeriodoKpi } from "../../../lib/periodo";
 import { KpiCard } from "../../../components/ui/KpiCard";
 import { KpiCardSkeleton } from "../../../components/ui/Skeleton";
 import { ErrorState, EmptyState } from "../../../components/ui/Feedback";
+import { PanelFlotante } from "../../../components/ui/PanelFlotante";
 import { eur } from "../../../components/shared/Cifra";
 import {
-  X,
   Building2,
   CreditCard,
   Users,
@@ -521,30 +521,15 @@ function CobrosDrillDrawer({
   onClose: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-stretch justify-end"
-      onClick={onClose}
+    <PanelFlotante
+      anclaje="hoja"
+      anchoRem={42}
+      titulo={data?.clinica?.nombre ?? "Clínica"}
+      subtitulo="Cobros del periodo"
+      ariaLabel="Cobros de la clínica"
+      onCerrar={onClose}
+      sinRelleno
     >
-      <aside
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-[var(--color-surface)] border-l border-[var(--color-border)] flex flex-col overflow-y-auto shadow-xl"
-      >
-        <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-              {data?.clinica?.nombre ?? "Clínica"}
-            </h2>
-            <p className="text-[11px] text-[var(--color-muted)]">Cobros del periodo</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
-            aria-label="Cerrar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </button>
-        </header>
         {error ? (
           <div className="flex-1 p-5">
             <ErrorState
@@ -625,7 +610,6 @@ function CobrosDrillDrawer({
             </section>
           </div>
         )}
-      </aside>
-    </div>
+    </PanelFlotante>
   );
 }

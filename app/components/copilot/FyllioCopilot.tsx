@@ -34,6 +34,7 @@ import {
   ChevronDown,
   ICON_STROKE,
 } from "../icons";
+import { PanelFlotante } from "../ui/PanelFlotante";
 import { ChevronUp, Mic, Square } from "lucide-react";
 
 // ─── Sprint 14b Bloque 8 — patient mention parser ──────────────────────
@@ -427,74 +428,42 @@ export function FyllioCopilot() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          {/* Sprint 13 Bloque 7.2 — drawer 420px, fondo muted para que
-              las burbujas del Copilot destaquen. */}
-          <aside className="relative w-full max-w-[420px] bg-[var(--color-surface-muted)] shadow-md flex flex-col h-full overflow-hidden">
-            <header className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-between shrink-0">
-              <div>
-                <h2 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
-                  Copilot
-                </h2>
-                <p className="text-[11px] text-[var(--color-muted)]">
-                  {contextSnapshot
-                    ? `Contexto: ${contextLabel(contextSnapshot.kind)}`
-                    : "Asistente IA · Lectura y acciones"}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
-                {messages.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={reset}
-                    className="text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] px-2 py-1 rounded-lg hover:bg-[var(--color-surface-muted)] transition-colors"
-                  >
-                    Reiniciar
-                  </button>
-                )}
+        <PanelFlotante
+          anclaje="hoja"
+          anchoRem={26.25}
+          titulo={
+            <span className="flex items-center gap-2">
+              <Sparkles size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
+              Copilot
+            </span>
+          }
+          subtitulo={contextSnapshot ? `Contexto: ${contextLabel(contextSnapshot.kind)}` : "Asistente IA · Lectura y acciones"}
+          ariaLabel="Copilot"
+          onCerrar={() => setOpen(false)}
+          sinRelleno
+          acciones={
+            <>
+              {messages.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setShowHistory(true)}
-                  aria-label="Historial"
-                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
+                  onClick={reset}
+                  className="rounded-lg px-2 py-1 text-[11px] font-medium text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
                 >
-                  <History size={16} strokeWidth={ICON_STROKE} />
+                  Reiniciar
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
-                  aria-label="Cerrar"
-                >
-                  <X size={16} strokeWidth={ICON_STROKE} />
-                </button>
-              </div>
-            </header>
-
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              {messages.length === 0 && !loading && (
-                <PromptTemplates onPick={(q) => send(q)} disabled={loading} />
               )}
-              {messages.map((m, i) => (
-                <ChatBubble
-                  key={i}
-                  message={m}
-                  msgIndex={i}
-                  onAction={ejecutarAccion}
-                  onCancel={cancelarAccion}
-                  executingActionId={executingActionId}
-                />
-              ))}
-              {loading && <ThinkingDots />}
-              {error && (
-                <div className="rounded-md bg-[var(--color-danger-soft)] border border-rose-200 dark:border-rose-500/30 px-3 py-2 text-xs text-[var(--color-danger)]">
-                  {error}
-                </div>
-              )}
-            </div>
-
-            <footer className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowHistory(true)}
+                aria-label="Historial"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
+              >
+                <History size={16} strokeWidth={ICON_STROKE} />
+              </button>
+            </>
+          }
+          pie={
+            <>
               {recording && (
                 <div className="mb-2 flex items-center gap-2 text-[11px] text-[var(--color-danger)]">
                   <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-danger)] animate-pulse" />
@@ -557,7 +526,32 @@ export function FyllioCopilot() {
                   <ArrowUp size={16} strokeWidth={ICON_STROKE} />
                 </button>
               </div>
-            </footer>
+            </>
+          }
+        >
+            {/* Fondo muted para que las burbujas destaquen (Sprint 13 · 7.2). */}
+            <div ref={scrollRef} className="h-full overflow-y-auto bg-[var(--color-surface-muted)] px-5 py-4 space-y-3">
+              {messages.length === 0 && !loading && (
+                <PromptTemplates onPick={(q) => send(q)} disabled={loading} />
+              )}
+              {messages.map((m, i) => (
+                <ChatBubble
+                  key={i}
+                  message={m}
+                  msgIndex={i}
+                  onAction={ejecutarAccion}
+                  onCancel={cancelarAccion}
+                  executingActionId={executingActionId}
+                />
+              ))}
+              {loading && <ThinkingDots />}
+              {error && (
+                <div className="rounded-md bg-[var(--color-danger-soft)] border border-rose-200 dark:border-rose-500/30 px-3 py-2 text-xs text-[var(--color-danger)]">
+                  {error}
+                </div>
+              )}
+            </div>
+
 
             {showHistory && (
               <HistoryPanel
@@ -566,8 +560,7 @@ export function FyllioCopilot() {
                 activeId={conversacionId}
               />
             )}
-          </aside>
-        </div>
+        </PanelFlotante>
       )}
     </>
   );

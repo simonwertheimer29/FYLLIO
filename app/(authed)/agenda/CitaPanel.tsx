@@ -24,7 +24,6 @@ import { cargarJSON } from "../../lib/fetch-json";
 import { fechaClinica } from "../../lib/time";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import {
-  X,
   Sparkles,
   Bell,
   Check,
@@ -133,25 +132,21 @@ export function CitaPanel({
   const rec = lineaRecordatorio(cita.recordatorio);
 
   return (
-    <PanelAccionShell onClose={onClose}>
-      {/* ── Cabecera: LA CITA ── */}
-      <div className="border-b border-[var(--color-border)] px-5 py-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="truncate font-display text-base font-semibold text-[var(--color-foreground)]">
-              {cita.nombre ?? "—"}
-            </p>
-            <p className="text-xs text-[var(--color-muted)]">
-              <span className="[font-variant-numeric:tabular-nums]">{fechaCorta(cita.fecha)} · {cita.hora}</span> — {cita.doctorNombre}
-            </p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar"
-            className="shrink-0 text-[var(--color-muted)] hover:text-[var(--color-foreground)]">
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </button>
-        </div>
-
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+    <PanelAccionShell
+      onClose={onClose}
+      cabecera={{
+        titulo: cita.nombre ?? "—",
+        subtitulo: (
+          <>
+            <span className="[font-variant-numeric:tabular-nums]">{fechaCorta(cita.fecha)} · {cita.hora}</span> — {cita.doctorNombre}
+          </>
+        ),
+        ariaLabel: "Detalle de la cita",
+      }}
+    >
+      {/* ── Lo primero: estado, aviso y acciones sobre LA CITA ── */}
+      <div className="border-b border-[var(--color-border)] px-5 py-3">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${ESTILO_ESTADO_CHIP[cita.estado] ?? "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]"}`}>
             {cita.estado === "Completado" ? "Completada" : cita.estado}
           </span>
