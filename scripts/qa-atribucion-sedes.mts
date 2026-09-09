@@ -42,7 +42,7 @@ const SOLO_RED: Partial<Record<Metrica, string>> = {};
 const NULL_ES_GLOBAL: Record<string, string> = {
   configuraciones_clinica: "null = opción de toda la red (p. ej. Plazos_Liquidacion global, `cobros.ts` lo lee así)",
   plantillas_mensaje: "null = plantilla compartida por la red",
-  informes_guardados: "null = informe de la red (no consta pantalla que filtre por sede; comprobar si alguna lo hace)",
+  informes_guardados: "null = el bucket «todas» (informe de toda la red, D8); los de una sede sí llevan clinica_id — confirmado por Simon el 9-sep",
 };
 
 async function main() {

@@ -2954,3 +2954,16 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   después, barrido del resto (Antes/después, KPIs, Ajustes, Agentes › Configuración). Lo que vaya a
   tooltip tiene que ser prescindible: en móvil no hay cursor. · **Esfuerzo:** Confianza + Inicio
   medio día; barrido 1 día · **Fecha:** 2026-09-09 · 🔵
+
+## 223. Dato · un informe guardado para una sede se vuelve «de toda la red» si el nombre no casa
+- `informes-pg.ts` traduce `clinica` (texto: el NOMBRE de la clínica, paridad con Airtable) a
+  `clinica_id` buscando por nombre exacto, y «nombre sin match ⇒ null = bucket global». Un nombre
+  con una tilde distinta, o una clínica renombrada en Ajustes, convierte en silencio un informe de
+  sede en un informe de la red — la misma familia que 217 (atribución que se pierde sin error), y
+  `qa:atribucion` no la ve porque el resultado no es «todo a null» sino «una fila de más en global».
+  Escritores: `api/presupuestos/informes/guardados` y `api/automatizaciones/procesar`. ·
+  **Principio:** confianza (§5); identidad por id, no por nombre (§20 del skill de ingeniería). ·
+  **Propuesta:** los escritores mandan `clinicaId` (id) y el shim deja de resolver por nombre; si
+  llega un nombre sin match, error, no null. · **Impacto:** bajo hoy (dos informes en DEMO, ambos
+  globales a propósito), alto el día que un piloto genere informes por sede. · **Esfuerzo:** 1-2 h ·
+  **Fecha:** 2026-09-09 · 🔵
