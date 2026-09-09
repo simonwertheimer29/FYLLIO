@@ -382,6 +382,24 @@ de dar algo por hecho, y no es un ruego: el hook de pre-commit del repo (`script
 > con «Can't resolve 'async_hooks'» en `db/context.ts:17`. Se había verificado con `tsc` y
 > `eslint`, no con `next build`. El build local fallaba igual: nadie lo había lanzado.
 
+### 23. Todo campo que una pantalla manda lo tiene que aceptar la escritura — y lo vigila `qa:campos`
+Un campo que el formulario envía, la ruta mete en el saco y el mapeador de Postgres no lista **no
+da error: simplemente no llega**. Sin excepción, sin log, sin toast. Ajustes › Clínica mandó
+`telefono` desde el corte a Postgres (21-jul) y ninguna clínica de ningún cliente pudo guardarlo
+hasta el 9-sep, cuando el portal del paciente lo necesitó. Reglas: **(a)** un mapeador PG
+(`*RawPg`, `updateXPg`) acepta por lista explícita y esa lista ES el contrato: añadir un campo a un
+formulario es añadirlo al mapa en el MISMO commit; **(b)** `npm run qa:campos`
+(`scripts/qa-campos-perdidos.mts`) compara, leyendo el código, lo que cada llamador mete en el
+saco —y lo que cada `JSON.stringify({…})` de un formulario manda a su ruta— con lo que la
+escritura acepta, y falla si algo se tira; corre en `prebuild`; **(c)** lo que se ignora a
+propósito (el sello `creado_en` que pone la base, el `Cliente` que sale de la sesión) va en su
+lista `IGNORAR` con el porqué, nunca en silencio; **(d)** lo que el QA no puede afirmar (sacos
+opacos, bodies no literales) lo lista con `--todo` — «no comprobable» no es «bien».
+> **Nos lo enseñó:** MEJORAS 73 (09-09-2026). `updateClinicaCentralRawPg` mapeaba Nombre, Ciudad y
+> Activa; `Telefono` viajaba desde el formulario, la ruta lo ponía en `fields["Telefono"]`, y moría
+> ahí. Se encontró de casualidad haciendo el portal. El QA reproduce el fallo si se quita la línea
+> (probado el mismo día).
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)

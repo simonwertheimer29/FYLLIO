@@ -4334,5 +4334,27 @@ sede (910 000 101-104); a las cuatro sedes DEMO se les puso hoy a mano el mismo 
 20/20 con la comprobación nueva («el de la base, o ninguno»).
 
 **Lo que no está verificado:** el panel desde la ficha del paciente y la franja de Leads en el
-navegador. `tsc`, ESLint (sin avisos nuevos; los `any` que marca son anteriores) y `qa:frontera`
-en verde; `next build` no se corrió en esta sesión.
+navegador. `tsc`, ESLint (sin avisos nuevos; los `any` que marca son anteriores), `qa:frontera` y
+`next build` (corrido después, a petición de Simon: exit 0) en verde.
+
+## 2026-09-09 — El patrón «se manda y se tira», cazado por construcción (`qa:campos`)
+Simon pide, a raíz del teléfono (MEJORAS 73), diagnosticar si hay MÁS campos que una pantalla
+envía y la escritura de Postgres no persiste, y cazarlos por construcción antes que a mano.
+**Diagnóstico:** `scripts/qa-campos-perdidos.mts` (`npm run qa:campos`, en `prebuild`) lee el
+código y compara en dos niveles. Nivel 1: cada escritura PG que recibe un saco (`fields`/`patch:
+Record<string, …>`, 46 funciones más 27 envoltorios que delegan) ACEPTA las claves que lee a mano,
+las de los mapas por los que itera (`COLS`, `W[k]`, `PATCH_COLS`), las que trata una a una
+(`k === "Paciente"`) y las de los helpers del mismo fichero; cada llamador MANDA las de su literal o
+sus asignaciones `fields["X"] =`. Nivel 2: cada `JSON.stringify({…})` de un formulario (84 envíos)
+llega a una ruta que lee `body.x`, lo desestructura, lo anota con un tipo o lo pasa entero a una
+escritura (entonces cuentan las claves que esa escritura acepta, también con parámetro tipado:
+`Partial<{ valor… }>`). **Resultado: ninguna clave más se tira** en 83 comparaciones; lo único que
+se ignora a propósito está en `IGNORAR` con su porqué (sellos `creado_en`/`actualizado_en` que
+pone la base; `Cliente` que sale de la sesión). El QA se probó reintroduciendo el fallo del teléfono:
+lo señala con fichero y línea. **Lo que no ve** (listado con `--todo`, 98 casos): sacos
+opacos (spread, claves calculadas, sacos que vienen de otra función), bodies no literales y rutas
+que no resuelve — «no comprobable» no se cuenta como bien. **Tres cegueras suyas corregidas
+durante la sesión** (comas dentro de `Record<string, unknown>`, tipos de retorno con llaves que
+se tomaban por el cuerpo, `const M` local que se confundía con otro `M` del fichero): las primeras
+pasadas daban 6 y 10 falsos positivos; un QA estático se calibra contra el código real antes de
+fiarse de él. Lección 23 en el skill de ingeniería.

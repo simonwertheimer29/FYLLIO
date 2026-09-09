@@ -296,3 +296,7 @@ tanda «seed honesto» es 82, 110 y 112.
   semana, convertidos este mes); el CSV de la Tabla exporta exactamente las filas visibles
   (`qa:export`); el portal lleva el teléfono de la sede como enlace `tel:` (`qa:portal`), y de paso
   se arregló que Ajustes no podía guardar ese teléfono. Fase 2: quedan 2.1-2.3.
+- **2026-09-09 (noche) · `qa:campos`.** Del hallazgo del teléfono sale un QA por construcción que
+  compara lo que cada formulario/ruta manda con lo que cada escritura de Postgres acepta (nivel 1
+  ruta→PG, nivel 2 formulario→ruta). Ninguna clave más se tiraba. En `prebuild`. Lección 23.
+  Siguiente (decisión de Simon): 2.2, el mapa de fuga por etapa en €, en sesión nueva.

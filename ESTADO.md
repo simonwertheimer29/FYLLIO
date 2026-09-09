@@ -94,8 +94,14 @@ El CSV de la Tabla de Presupuestos exporta exactamente las filas visibles, en su
 recuento en el nombre (`qa:export` 8/8). El portal del paciente lleva el teléfono de la sede como
 enlace `tel:`; de paso: NINGUNA clínica tenía teléfono porque el update de PG lo tiraba — Ajustes ya
 lo guarda (`qa:portal` 20/20). Sin verificar en el navegador: el panel desde la ficha del paciente y
-la franja de Leads. `tsc`, ESLint (sin avisos nuevos) y `qa:frontera` en verde; `next build` no se
-corrió.
+la franja de Leads. `tsc`, ESLint (sin avisos nuevos), `qa:frontera` y `next build` en verde.
+**9-sep (noche) · `qa:campos`, el patrón «se manda y se tira» por construcción:** a raíz del
+teléfono, Simon pidió saber si había MÁS campos que una pantalla envía y Postgres no persiste.
+`scripts/qa-campos-perdidos.mts` compara, leyendo el código, lo que cada llamador mete en el saco
+de una escritura (46 funciones + 27 envoltorios) y lo que cada formulario manda a su ruta (84
+envíos) con lo que la escritura acepta. Resultado: ninguna clave más se tira; el QA reproduce el
+fallo del teléfono si se quita la línea. Corre en `prebuild`. Lección 23 del skill de ingeniería.
+Detalle en DECISIONES 9-sep.
 **Siguiente sesión, en frío: 2.1-2.3** (inteligencia de conversación 176 · mapa de fuga en € 177 ·
 Next Best Config 178) — orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin
 verificar: formulario de 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde
