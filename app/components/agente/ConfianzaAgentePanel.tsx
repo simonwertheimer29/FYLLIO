@@ -1,7 +1,8 @@
 "use client";
 
-// CÓMO DECIDE TU AGENTE — /agentes/conversacional › Configuración (plan
-// maestro 2.4, MEJORAS 179/184/185).
+// CÓMO DECIDE TU AGENTE — /agentes/conversacional › Confianza (plan
+// maestro 2.4, MEJORAS 179/184/185). Regla A del estándar visual (9-sep):
+// una línea explica; el matiz de cada dato va en tooltip y es prescindible.
 //
 // Dos fuentes que no se mezclan, y se dice: la VARA (sintética: casos escritos
 // por nosotros y anotados a ciegas, medida sobre una versión concreta del
@@ -22,19 +23,20 @@ import { Gauge, ICON_STROKE } from "../icons";
 import { ETIQUETA_CAUSA } from "./etiquetas-agente";
 import { ETIQUETA_CLAVE } from "../../lib/automatizacion/aplazamientos";
 import { ETIQUETA_COINCIDENCIA } from "../../lib/automatizacion/coincidencia";
-import {
-  DISPARADOR_MODO_B,
-  disparadorModoB,
-  pct,
-  type ClinicaConfianza,
-  type Confianza,
-} from "../../lib/agente/confianza.tipos";
+import { pct, type ClinicaConfianza, type Confianza } from "../../lib/agente/confianza.tipos";
+import { LineaModoB } from "./LineaModoB";
 
 type Datos = Confianza & { esRed: boolean };
 
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 const fechaLarga = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 const s = (n: number) => (n === 1 ? "" : "s");
+const origenVara = (o: string) =>
+  o === "sintetico"
+    ? "Casos escritos por nosotros y anotados a ciegas; ninguno es una conversación tuya."
+    : o === "real"
+      ? "Casos reales."
+      : "Casos reales y escritos por nosotros.";
 
 /** «66 de 67 · 99 %» — la parte, el todo y la proporción, siempre juntos. */
 function DeTotal({ parte, total, sinTotal = "—" }: { parte: number; total: number; sinTotal?: string }) {
@@ -131,7 +133,7 @@ export function ConfianzaAgentePanel() {
           Cómo decide tu agente
         </p>
         <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
-          Primero la vara, que mide el motor con casos escritos por nosotros; después tus conversaciones reales, sede por sede. No se mezclan.
+          La vara mide el motor con casos escritos por nosotros; debajo, tus conversaciones reales por sede. No se mezclan.
         </p>
       </header>
 
@@ -146,7 +148,10 @@ export function ConfianzaAgentePanel() {
         <div className="space-y-5">
           {/* ── 1 · La vara ── */}
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted)]">La vara</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted)]" title={datos.vara ? origenVara(datos.vara.pasada.origen) : undefined}>
+              La vara
+              {datos.vara && <> · {datos.vara.pasada.casos} casos · medida el {fechaLarga(datos.vara.pasada.fecha)}</>}
+            </p>
             {!datos.vara ? (
               <p className="mt-1 text-[13px] text-[var(--color-muted)]">La última pasada de la vara no se pudo leer. Hasta que se vuelva a pasar, aquí no hay número.</p>
             ) : (
@@ -168,15 +173,9 @@ export function ConfianzaAgentePanel() {
                         </Cifra>
                       </li>
                     </ul>
-                    <p className="mt-1.5 text-[12px] text-[var(--color-muted)]">
-                      Medida el {fechaLarga(p.fecha)} sobre {p.casos} casos {p.origen === "sintetico" ? "escritos por nosotros y anotados a ciegas — ninguno es una conversación tuya" : p.origen === "real" ? "reales" : "reales y escritos por nosotros"}
-                      {p.decision.total - p.decision.aciertos > 0 ? `; ${p.decision.total - p.decision.aciertos} fallo${s(p.decision.total - p.decision.aciertos)} anotado${s(p.decision.total - p.decision.aciertos)} en la vara` : ""}.{" "}
-                      {datos.vara.mideLoQueCorre ? (
-                        "Es la misma versión del agente que corre hoy."
-                      ) : (
-                        <span className="text-[var(--color-warning)]">El agente cambió desde esa pasada: la vara está por volver a pasar.</span>
-                      )}
-                    </p>
+                    {!datos.vara.mideLoQueCorre && (
+                      <p className="mt-1.5 text-[12px] text-[var(--color-warning)]">El agente cambió desde esa pasada: la vara está por volver a pasar.</p>
+                    )}
                   </>
                 );
               })()
@@ -197,10 +196,10 @@ export function ConfianzaAgentePanel() {
                     <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
                       <th className="py-1.5 pr-3 font-semibold">Sede</th>
                       <th className="py-1.5 pr-3 text-right font-semibold">Turnos</th>
-                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap">Te libera (caso listo)</th>
-                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap">Lo paró el control</th>
-                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap">Enviado tal cual</th>
-                      <th className="py-1.5 text-right font-semibold whitespace-nowrap">Marcado como error</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="Entregas que llegaron con el caso completo, de todas las entregas a una persona.">Te libera (caso listo)</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="Borradores que el control de seguridad descartó.">Lo paró el control</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="De los envíos que salían de un borrador del agente, cuántos mandó el equipo sin tocar.">Enviado tal cual</th>
+                      <th className="py-1.5 text-right font-semibold whitespace-nowrap" title="Se marca desde «Ver por qué» en Mensajería; entra en revisión antes de sumarse a la vara.">Marcado como error</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -210,56 +209,42 @@ export function ConfianzaAgentePanel() {
                     {datos.esRed && datos.clinicas.length > 1 && <FilaSede c={datos.total} titulo="Toda la red" destacada />}
                   </tbody>
                 </table>
-                <p className="mt-1.5 text-[11.5px] leading-snug text-[var(--color-muted)]">
-                  «Te libera» = entregas que llegaron con el caso completo, de todas las entregas a una persona. «Lo paró el control» = borradores que el
-                  control de seguridad descartó (el detalle por motivo, abajo). «Enviado tal cual» = de los envíos que salían de un borrador del agente,
-                  cuántos mandó el equipo sin tocar ({datos.total.coincidencia.total} de {datos.total.coincidencia.enviosDelEquipo} envío{s(datos.total.coincidencia.enviosDelEquipo)} del equipo salían de un borrador).
-                </p>
               </div>
             )}
           </div>
 
-          {/* ── 3 · Así lo corriges, y el disparador de modo B ── */}
+          {/* ── 3 · Marcados como error y el disparador de modo B: dos datos, sin párrafos ── */}
           <div className="grid gap-3 border-t border-[var(--color-border)] pt-3 text-[12.5px] text-[var(--color-muted)] md:grid-cols-2">
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-wider">Así lo corriges</p>
-              <p className="mt-1">
-                Cuando el agente se equivoque, márcalo desde «Ver por qué» en{" "}
-                <Link href="/mensajeria" className="font-medium text-[var(--color-accent)] hover:underline">Mensajería</Link>: se guarda el turno tal cual lo viste y
-                entra en la revisión antes de sumarse a la vara.
-                {datos.total.marcados.total > 0 ? (
+              <p
+                className="text-[10px] font-medium uppercase tracking-wider"
+                title="Se marca desde «Ver por qué» en Mensajería: el turno se guarda tal cual lo viste y entra en revisión antes de sumarse a la vara."
+              >
+                Marcados como error
+              </p>
+              <p className="mt-1 tabular-nums">
+                {datos.total.marcados.total === 0 ? (
+                  "Ninguno en esta ventana"
+                ) : (
                   <>
-                    {" "}En esta ventana: <b className="font-semibold text-[var(--color-foreground)]">{datos.total.marcados.total}</b> marcado{s(datos.total.marcados.total)}
+                    <b className="font-semibold text-[var(--color-foreground)]">{datos.total.marcados.total}</b>
                     {datos.total.marcados.pendientes > 0 ? ` · ${datos.total.marcados.pendientes} por revisar` : ""}
                     {datos.total.marcados.aceptados > 0 ? ` · ${datos.total.marcados.aceptados} aceptado${s(datos.total.marcados.aceptados)} para la vara` : ""}
-                    {datos.total.marcados.descartados > 0 ? ` · ${datos.total.marcados.descartados} descartado${s(datos.total.marcados.descartados)}` : ""}.
+                    {datos.total.marcados.descartados > 0 ? ` · ${datos.total.marcados.descartados} descartado${s(datos.total.marcados.descartados)}` : ""}
                   </>
-                ) : (
-                  " Nadie ha marcado ninguno en esta ventana."
                 )}
+                {" · "}
+                <Link href="/mensajeria" className="font-medium text-[var(--color-accent)] hover:underline">Marcar uno en Mensajería</Link>
               </p>
             </div>
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-wider">Cuándo puede enviar solo lo rutinario</p>
-              {(() => {
-                const co = datos.total.coincidencia;
-                const disp = disparadorModoB(co);
-                return (
-                  <p className="mt-1">
-                    El disparador declarado: que el equipo envíe el borrador tal cual al menos el {DISPARADOR_MODO_B.tasaTalCual} % de {DISPARADOR_MODO_B.envios} envíos.
-                    {co.total > 0 && (
-                      <>
-                        {" "}Hoy: {ETIQUETA_COINCIDENCIA.tal_cual.toLowerCase()} {co.talCual}, {ETIQUETA_COINCIDENCIA.editado.toLowerCase()} {co.editado}, {ETIQUETA_COINCIDENCIA.reescrito.toLowerCase()} {co.reescrito}.
-                      </>
-                    )}{" "}
-                    {disp.alcanzado ? (
-                      <b className="font-semibold text-[var(--color-foreground)]">Se cumple: es momento de decidirlo.</b>
-                    ) : (
-                      <>Todavía no: {disp.motivo}.</>
-                    )}
-                  </p>
-                );
-              })()}
+              <p className="text-[10px] font-medium uppercase tracking-wider">Enviar solo lo rutinario</p>
+              {datos.total.coincidencia.total > 0 && (
+                <p className="mt-1 tabular-nums">
+                  Hoy: {ETIQUETA_COINCIDENCIA.tal_cual.toLowerCase()} {datos.total.coincidencia.talCual} · {ETIQUETA_COINCIDENCIA.editado.toLowerCase()} {datos.total.coincidencia.editado} · {ETIQUETA_COINCIDENCIA.reescrito.toLowerCase()} {datos.total.coincidencia.reescrito}
+                </p>
+              )}
+              <LineaModoB co={datos.total.coincidencia} className={datos.total.coincidencia.total > 0 ? "mt-0.5" : "mt-1"} />
             </div>
           </div>
         </div>

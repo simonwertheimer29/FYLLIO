@@ -38,7 +38,7 @@ import type { Inicio, ClinicaInicio, PuntoDinero } from "../../lib/inicio/calcul
 // dashboard-red arrastraba pg al bundle de cliente (build roto el 06-09).
 import { BASE_MINIMA_COHORTE, cohorteComparable } from "../../lib/inicio/cohorte";
 import { N_MIN_MEDIANA } from "../../lib/metricas/definiciones";
-import { DISPARADOR_MODO_B, disparadorModoB } from "../../lib/agente/confianza.tipos";
+import { LineaModoB } from "../../components/agente/LineaModoB";
 import { ETIQUETA_COINCIDENCIA } from "../../lib/automatizacion/coincidencia";
 import { BarraProporcion, BarraApilada, Bullet, Sparkline, CifraConBarra, FilaBarra } from "./micro";
 import {
@@ -216,8 +216,7 @@ export function InicioView() {
           <div className="min-w-0">
             {data ? (
               <p className="mt-1 text-[13px] text-[var(--color-muted)]" data-desde-ayer>
-                <span className="font-medium text-[var(--color-foreground)]">Desde el {fechaHoraLegible(data.desdeAyer.desdeISO).toLowerCase()}</span>
-                <span className="text-[11.5px]"> (último cierre de jornada)</span>
+                <span className="font-medium text-[var(--color-foreground)]" title="Desde el último cierre de jornada.">Desde el {fechaHoraLegible(data.desdeAyer.desdeISO).toLowerCase()}</span>
                 {" · "}
                 <Link href="/mensajeria?filtro=agente" className="hover:underline">
                   <b className="font-semibold text-[var(--color-foreground)] tabular-nums">{data.desdeAyer.atendidas}</b> conversación{s(data.desdeAyer.atendidas) ? "es" : ""} atendida{s(data.desdeAyer.atendidas)} por el agente
@@ -389,15 +388,18 @@ export function InicioView() {
                   {/* 2.5 · La métrica #1 del plan: cuánto tarda una persona en contestar lo que
                       el agente entrega. Si sube, el agente hace daño por bien que clasifique.
                       Sin color: no hay umbral declarado, y un número sin vara no se colorea. */}
-                  <p className="mt-1 text-[12.5px] tabular-nums text-[var(--color-muted)]">
+                  <p
+                    className="mt-1 text-[12.5px] tabular-nums text-[var(--color-muted)]"
+                    title="Mediana en minutos laborables, desde que el agente entrega el caso hasta el primer mensaje de una persona."
+                  >
                     {(() => {
                       const rh = data.equipo.respuestaHumana;
-                      if (rh.prioritaria.n + rh.normal.n === 0) return `Sin entregas del agente contestadas en los últimos ${rh.dias} días.`;
+                      if (rh.prioritaria.n + rh.normal.n === 0) return `Sin entregas del agente contestadas · últimos ${rh.dias} días`;
                       return (
                         <>
-                          Lo que entrega el agente se contesta en{" "}
-                          <span className="font-semibold text-[var(--color-foreground)]">{textoCola(rh.prioritaria)}</span> en la cola prioritaria y en{" "}
-                          <span className="font-semibold text-[var(--color-foreground)]">{textoCola(rh.normal)}</span> en la normal · últimos {rh.dias} días.
+                          Respuesta a lo que entrega el agente:{" "}
+                          <span className="font-semibold text-[var(--color-foreground)]">{textoCola(rh.prioritaria)}</span> prioritaria ·{" "}
+                          <span className="font-semibold text-[var(--color-foreground)]">{textoCola(rh.normal)}</span> normal · últimos {rh.dias} días
                         </>
                       );
                     })()}
@@ -405,14 +407,17 @@ export function InicioView() {
                   {/* 2.4 (185) · El disparador declarado del paso de modo A a B: cuánto
                       envía el equipo TAL CUAL lo que el agente redactó. Sin color: el
                       umbral es provisional y un número sin vara no se colorea. */}
-                  <p className="mt-1 text-[12.5px] tabular-nums text-[var(--color-muted)]">
+                  <p
+                    className="mt-1 text-[12.5px] tabular-nums text-[var(--color-muted)]"
+                    title="Envíos del equipo que salían de un borrador del agente y se mandaron sin tocar."
+                  >
                     {(() => {
                       const co = data.equipo.coincidencia;
-                      if (co.total === 0) return `Sin borradores del agente enviados por el equipo en los últimos ${co.dias} días.`;
+                      if (co.total === 0) return `Sin borradores del agente enviados por el equipo · últimos ${co.dias} días`;
                       return (
                         <>
-                          El equipo envía el borrador del agente tal cual el{" "}
-                          <span className="font-semibold text-[var(--color-foreground)]">{co.tasaTalCual} %</span> de las veces ({co.total} envío{s(co.total)}) · últimos {co.dias} días.
+                          Borrador del agente enviado tal cual:{" "}
+                          <span className="font-semibold text-[var(--color-foreground)]">{co.tasaTalCual} %</span> de {co.total} envío{s(co.total)} · últimos {co.dias} días
                         </>
                       );
                     })()}
@@ -440,17 +445,17 @@ export function InicioView() {
                     >
                     <div className="space-y-4 text-[12.5px] text-[var(--color-muted)]">
                       <div>
-                        <p className={CLASE_EYEBROW}>La cola este mes</p>
+                        <p className={CLASE_EYEBROW} title="Casos esperando a alguien, una foto al día.">La cola este mes</p>
                         {serie.length >= 2 ? (
                           <>
                             <Sparkline valores={serie.map((p) => p.total)} ancho={460} alto={44} rojo className="mt-1 h-11 w-full" />
                             <p className="mt-1 tabular-nums">
-                              Casos esperando a alguien, una foto al día. El {ddmm(serie[0].dia)} eran <b className="font-semibold text-[var(--color-foreground)]">{serie[0].total}</b>; hoy{" "}
-                              <b className="font-semibold text-[var(--color-foreground)]">{data.equipo.total}</b>.
+                              El {ddmm(serie[0].dia)}: <b className="font-semibold text-[var(--color-foreground)]">{serie[0].total}</b> · hoy:{" "}
+                              <b className="font-semibold text-[var(--color-foreground)]">{data.equipo.total}</b>
                             </p>
                           </>
                         ) : (
-                          <p className="mt-1">Todavía {serie.length === 0 ? "no hay fotos de la cola" : "hay una sola foto de la cola"}: se guarda una al día y la curva aparece con la segunda.</p>
+                          <p className="mt-1">Sin curva todavía: se guarda una foto al día.</p>
                         )}
                       </div>
                       <div>
@@ -468,15 +473,16 @@ export function InicioView() {
                         const maxMin = Math.max(1, rh.prioritaria.min ?? 0, rh.normal.min ?? 0);
                         return (
                           <div>
-                            <p className={CLASE_EYEBROW}>Cuánto tarda en contestarse lo que entrega el agente</p>
+                            <p
+                              className={CLASE_EYEBROW}
+                              title="Mediana en minutos laborables, desde que el agente entrega el caso hasta el primer mensaje de una persona. Las entregas sin contestar no cuentan: están arriba, esperando."
+                            >
+                              Cuánto tarda en contestarse lo que entrega el agente · del {ddmm(rh.desde)} al {ddmm(rh.hasta)}
+                            </p>
                             <ul className="mt-1">
                               <FilaBarra etiqueta="Cola prioritaria" valor={rh.prioritaria.min ?? 0} max={maxMin} texto={textoCola(rh.prioritaria)} tenue={rh.prioritaria.n === 0} />
                               <FilaBarra etiqueta="Cola normal" valor={rh.normal.min ?? 0} max={maxMin} texto={textoCola(rh.normal)} tenue={rh.normal.n === 0} />
                             </ul>
-                            <p className="mt-1">
-                              Mediana en minutos laborables, del {ddmm(rh.desde)} al {ddmm(rh.hasta)}. Cuenta desde que el agente entrega el caso hasta el primer mensaje que envía una
-                              persona. Las entregas que nadie ha contestado todavía no cuentan: están arriba, esperando.
-                            </p>
                           </div>
                         );
                       })()}
@@ -484,15 +490,14 @@ export function InicioView() {
                         // 2.4 (185) · Detalle: el reparto tal cual / editado / reescrito y el
                         // disparador declarado hacia modo B, con lo que falta en palabras.
                         const co = data.equipo.coincidencia;
-                        const disp = disparadorModoB(co);
                         const max = Math.max(1, co.talCual, co.editado, co.reescrito);
                         return (
                           <div>
-                            <p className={CLASE_EYEBROW}>Qué hace el equipo con lo que redacta el agente</p>
+                            <p className={CLASE_EYEBROW} title="Se mide cada vez que alguien envía un mensaje que el agente dejó redactado.">
+                              Qué hace el equipo con lo que redacta el agente · del {ddmm(co.desde)} al {ddmm(co.hasta)}
+                            </p>
                             {co.total === 0 ? (
-                              <p className="mt-1">
-                                Nada medido del {ddmm(co.desde)} al {ddmm(co.hasta)}: se mide cada vez que alguien envía un mensaje que el agente dejó redactado.
-                              </p>
+                              <p className="mt-1">Nada medido.</p>
                             ) : (
                               <>
                                 <ul className="mt-1">
@@ -501,15 +506,11 @@ export function InicioView() {
                                   <FilaBarra etiqueta={ETIQUETA_COINCIDENCIA.reescrito} valor={co.reescrito} max={max} texto={String(co.reescrito)} rojo={co.reescrito > 0} />
                                 </ul>
                                 <p className="mt-1 tabular-nums">
-                                  {co.total} de {co.enviosDelEquipo} envío{s(co.enviosDelEquipo)} del equipo salían de un borrador del agente, del {ddmm(co.desde)} al {ddmm(co.hasta)}.
+                                  {co.total} de {co.enviosDelEquipo} envío{s(co.enviosDelEquipo)} del equipo salían de un borrador del agente
                                 </p>
                               </>
                             )}
-                            <p className="mt-1">
-                              {disp.alcanzado
-                                ? `Se cumple el disparador para que el agente envíe solo lo rutinario (${DISPARADOR_MODO_B.tasaTalCual} % tal cual sobre ${DISPARADOR_MODO_B.envios} envíos): es momento de decidirlo.`
-                                : `Para plantear que el agente envíe solo lo rutinario hace falta que el equipo mande tal cual al menos el ${DISPARADOR_MODO_B.tasaTalCual} % de ${DISPARADOR_MODO_B.envios} envíos; hoy ${disp.motivo}.`}
-                            </p>
+                            <LineaModoB co={co} />
                           </div>
                         );
                       })()}
@@ -550,17 +551,17 @@ export function InicioView() {
                   >
                   <div className="space-y-4 text-[12.5px] text-[var(--color-muted)]">
                     <div>
-                      <p className={CLASE_EYEBROW}>Evolución del mes</p>
+                      <p className={CLASE_EYEBROW} title="Presupuestos parados, una foto al día.">Evolución del mes</p>
                       {serie.length >= 2 ? (
                         <>
                           <Sparkline valores={totales} ancho={460} alto={56} className="mt-1 h-14 w-full" />
                           <p className="mt-1 tabular-nums">
-                            Presupuestos parados, una foto al día · máximo <b className="font-semibold text-[var(--color-foreground)]">{eur(Math.max(...totales))}</b> · mínimo{" "}
-                            <b className="font-semibold text-[var(--color-foreground)]">{eur(Math.min(...totales))}</b> · {serie.length} día{s(serie.length)} con foto.
+                            Máximo <b className="font-semibold text-[var(--color-foreground)]">{eur(Math.max(...totales))}</b> · mínimo{" "}
+                            <b className="font-semibold text-[var(--color-foreground)]">{eur(Math.min(...totales))}</b> · {serie.length} día{s(serie.length)} con foto
                           </p>
                         </>
                       ) : (
-                        <p className="mt-1">Todavía {serie.length === 0 ? "no hay fotos" : "hay una sola foto"}: se guarda una al día y la curva aparece con la segunda.</p>
+                        <p className="mt-1">Sin curva todavía: se guarda una foto al día.</p>
                       )}
                     </div>
                     <div>
@@ -578,7 +579,12 @@ export function InicioView() {
                       </ul>
                     </div>
                     <div>
-                      <p className={CLASE_EYEBROW}>Qué se movió en 7 días</p>
+                      <p
+                        className={CLASE_EYEBROW}
+                        title={`Neto por línea frente a la foto${data.dineroParado.comparadoConDia ? ` del ${ddmm(data.dineroParado.comparadoConDia)}` : " de hace 7 días"}. Lo que entró y lo que salió por separado no se guarda todavía.`}
+                      >
+                        Qué se movió en 7 días
+                      </p>
                       <ul className="mt-1 space-y-0.5 tabular-nums">
                         {data.dineroParado.lineas.map((l) => (
                           <li key={l.tipo} className="flex items-baseline justify-between gap-2">
@@ -589,9 +595,6 @@ export function InicioView() {
                           </li>
                         ))}
                       </ul>
-                      <p className="mt-1 text-[11px]">
-                        Neto por línea frente a la foto{data.dineroParado.comparadoConDia ? ` del ${ddmm(data.dineroParado.comparadoConDia)}` : " de hace 7 días"}. Lo que entró y lo que salió por separado no se guarda todavía.
-                      </p>
                     </div>
                   </div>
                   </PanelFlotante>
@@ -607,10 +610,6 @@ export function InicioView() {
                     <Bot size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
                     Qué hizo Fyllio por ti este mes
                   </h2>
-                  {/* La política, dicha (dictado): la ventana de «cocinado». */}
-                  <p className="text-[11.5px] text-[var(--color-muted)]">
-                    «Llegó cocinado» = el agente entregó el caso completo en los {data.fyllioMes.ventanaCocinadoDias} días anteriores al cierre.
-                  </p>
                 </div>
                 <ul className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   {data.fyllioMes.procesos.map((p) => {
@@ -622,7 +621,10 @@ export function InicioView() {
                         {/* La proporción, en forma: con cocinado = 0 el carril queda
                             vacío y se ve a la primera (antes las cuatro cifras pesaban igual). */}
                         {p.resultado > 0 && p.cocinado != null && <BarraProporcion n={p.cocinado} total={p.resultado} className="mt-2" />}
-                        <p className="mt-1 text-[12px] leading-snug tabular-nums text-[var(--color-muted)]">
+                        <p
+                          className="mt-1 text-[12px] leading-snug tabular-nums text-[var(--color-muted)]"
+                          title={`Cuenta como entregado por el agente si el caso llegó completo en los ${data.fyllioMes.ventanaCocinadoDias} días anteriores al cierre.`}
+                        >
                           {p.resultado === 0 ? (
                             "Nada cerrado este mes todavía."
                           ) : p.cocinado == null ? (
@@ -690,15 +692,13 @@ export function InicioView() {
                       <p className="tabular-nums"><b className="font-semibold text-[var(--color-foreground)]">{data.fyllioMes.detalle.mensajesDelEquipo}</b> escritos por el equipo</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-medium uppercase tracking-wider">Coste del agente</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wider">
+                        Coste del agente{data.fyllioMes.detalle.costeDesdeISO ? ` · desde el ${fechaHoraLegible(data.fyllioMes.detalle.costeDesdeISO).replace(/ a las .*$/, "")}` : ""}
+                      </p>
                       {data.fyllioMes.detalle.costeUsd == null ? (
                         <p className="mt-1">Sin turnos tarifados este mes.</p>
                       ) : (
                         <p className="mt-1 tabular-nums"><b className="font-semibold text-[var(--color-foreground)]">{data.fyllioMes.detalle.costeUsd.toFixed(2)} USD</b> en {data.fyllioMes.detalle.turnosTarifados} turno{s(data.fyllioMes.detalle.turnosTarifados)}{data.fyllioMes.detalle.turnosSinTarifa > 0 ? ` · ${data.fyllioMes.detalle.turnosSinTarifa} sin tarifa` : ""}</p>
-                      )}
-                      {/* «Desde el día X»: política, se dice (dictado). */}
-                      {data.fyllioMes.detalle.costeDesdeISO && (
-                        <p className="text-[11px]">Medido desde el {fechaHoraLegible(data.fyllioMes.detalle.costeDesdeISO).replace(/ a las .*$/, "")}. Coste del servicio, en dólares.</p>
                       )}
                     </div>
                   </div>
@@ -739,17 +739,13 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
             <Building2 size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
             Tus clínicas
           </h2>
-          <p className="text-[11px] text-[var(--color-muted)]">
-            Ordenadas por conversaciones que necesitan a alguien · clic en una clínica para ver su Inicio
-            {caida ? <> · <span className="text-[var(--color-danger)]">resaltada: la sede que cayó</span></> : null}
-          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
               <tr className="border-b border-[var(--color-border)]">
                 <th className="px-4 py-2 text-left font-semibold">Clínica</th>
-                <th className="px-2 py-2 text-right font-semibold max-w-[4.5rem]">Necesitan persona</th>
+                <th className="px-2 py-2 text-right font-semibold max-w-[4.5rem]" title="Conversaciones que necesitan a alguien. La tabla se ordena por esta columna.">Necesitan persona</th>
                 <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">Aceptados de presentados</th>
                 <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">€ aceptado</th>
                 <th className="px-2 py-2 text-right font-semibold whitespace-nowrap">€ vencido</th>
@@ -763,6 +759,7 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
                   <tr
                     key={c.id}
                     onClick={() => onClinica(c.id)}
+                    title={`Ver el Inicio de ${c.nombre}`}
                     className={`cursor-pointer border-b border-[var(--color-border)] last:border-0 transition-colors hover:bg-[var(--color-surface-muted)] ${esCaida ? "bg-[var(--color-danger-soft)]" : ""}`}
                   >
                     <td className="px-4 py-1.5 font-semibold text-[var(--color-foreground)]">
@@ -847,7 +844,7 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
         >
         <div className="space-y-4 text-[12.5px] text-[var(--color-muted)]">
           <div>
-            <p className={CLASE_EYEBROW}>€ aceptado · este mes vs el mismo tramo del anterior</p>
+            <p className={CLASE_EYEBROW} title="Barra intensa: este mes. Tenue: los mismos días del mes pasado.">€ aceptado · este mes vs el mismo tramo del anterior</p>
             <ul className="mt-1">
               {porAceptado.map((c) => (
                 <li key={c.id} className="py-0.5">
@@ -862,7 +859,6 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
                 </li>
               ))}
             </ul>
-            <p className="mt-1 text-[11px]">Barra intensa: este mes. Tenue: los mismos días del mes pasado.</p>
           </div>
           <div>
             <p className={CLASE_EYEBROW}>Cobros vencidos por sede</p>
@@ -877,15 +873,17 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
             )}
           </div>
           <div>
-            <p className={CLASE_EYEBROW}>El agente por sede · todo el mes</p>
+            <p
+              className={CLASE_EYEBROW}
+              title="Conversaciones evaluadas y casos entregados completos desde el día 1; la sede es la del último mensaje del hilo. La línea «Desde el…» de arriba cuenta solo desde el último cierre de jornada."
+            >
+              El agente por sede · todo el mes
+            </p>
             <ul className="mt-1">
               {porAgente.map((c) => (
                 <FilaBarra key={c.id} etiqueta={c.nombre} valor={c.agenteAtendidas} max={maxAgente} texto={`${c.agenteAtendidas} atendida${s(c.agenteAtendidas)} · ${c.agenteEntregadas} entregada${s(c.agenteEntregadas)}`} />
               ))}
             </ul>
-            <p className="mt-1 text-[11px]">
-              Conversaciones evaluadas y casos entregados completos desde el día 1. La línea de arriba («Desde el…») cuenta solo desde el último cierre de jornada: por eso sus cifras son menores. La sede es la del último mensaje del hilo.
-            </p>
           </div>
         </div>
         </PanelFlotante>
