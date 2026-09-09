@@ -13,6 +13,7 @@ export {
   Check,
   X,
   ArrowUp,
+  ArrowDown,
   Wrench,
   AlertTriangle,
   ChevronRight,

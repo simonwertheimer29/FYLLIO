@@ -2487,6 +2487,20 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - Dinero parado, motivo de pérdida y aplazados existen por separado. · **Propuesta:** lead sin
   contactar → sin cita → presupuesto no aceptado → cobro vencido, en € y con el «por qué» de 176. ·
   **Severidad:** valor · **Esfuerzo:** 3-4 días · **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  **HECHA el 2026-09-09** — Analíticas › Dónde se pierde (`analiticas/fuga/FugaView` ← `GET
+  /api/metricas/fuga` ← `lib/metricas/fuga`; tipos y copy en `fuga.tipos`, puro). Cuatro etapas
+  con los casos que SALIERON del flujo en 30/90/180 días completos hasta ayer, comparados con la
+  ventana anterior: leads cerrados «No interesado» sin contacto nuestro / tras contacto sin cita
+  (con los que sí tuvieron cita aparte), presupuestos cuyo último paso a PERDIDO cae en la ventana
+  y siguen perdidos (importe), cobros que cruzaron a vencido en la ventana (la regla de la cola,
+  `GRACIA_VENCIDO_DIAS` con nombre) más lo vencido hoy. El porqué: el motivo que registró la
+  persona (vocabularios 42 y F7, con € por motivo y «aún reactivable») y, en los presupuestos
+  cerrados sin motivo, la frase que recogió el agente (`extraerMotivoDelLog` + mapeo conservador).
+  Dos monedas que NO se suman: € real (presupuestos + cobros) y ≈€ esperado de los leads = casos ×
+  tasa lead→aceptado × ticket medio de la propia clínica en 180 días, con la base a la vista y null
+  con motivo si hay menos de 5 captados o 5 aceptados. El «por qué» agregado de 176 sigue
+  pendiente: aquí solo entra lo persistido por caso. `qa:fuga` 33/33 (dos sedes contadas a mano en
+  2020, reloj fijo). Pendiente de mirar en el navegador.
 
 ## 178. Fase 2 · Next Best Config — qué publicar para que el agente resuelva más
 - `aplazados` por clave (con `NATURALEZA_DE_CLAVE`) y `capacidadesDe(conocimiento)` existen y no
@@ -2857,3 +2871,37 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   anclaje «hoja» del primitivo (solo la hoja, sin la parte absoluta) y Mensajería lo usa en móvil;
   `PorQuePanel` deja de pintar su propia cabecera con X cuando va dentro del primitivo. ·
   **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+
+## 217. Dato · el historial de PERDIDO del seed no lleva sede: `perdidos_n` por clínica sale 0
+- `db-seed-demo-rico.mjs` inserta `historial_acciones` (cambio_estado → PERDIDO) sin `clinica_id`
+  (37 de 37 filas en DEMO, medido el 9-sep) y `metricas/diarias.ts` filtra `perdidos_n` por
+  `historial_acciones.clinica_id`: la serie diaria por sede dice 0 perdidos y Antes/después por sede
+  compara 0 con 0. El mapa de fuga (177) lo esquiva uniendo con `presupuestos.clinica_id`. ·
+  **Principio:** confianza (§5). · **Propuesta:** (a) el seed escribe `clinica_id` en el historial, y
+  comprobar que `registrarAccion` lo hace en producción; (b) `perdidos_n` resuelve la sede por el
+  presupuesto, no por la fila del historial, como el mapa — una sola definición. · **Impacto:**
+  medio (una métrica de la serie miente por sede). · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+
+## 218. Facilidad · «Ver los casos» del mapa de fuga aterriza en la tabla sin filtrar
+- Las tablas de leads y presupuestos no leen filtros de la URL (ninguna llama a `useSearchParams`);
+  el mapa enlaza a `/tablas/leads` y `/tablas/presupuestos` y la coordinadora tiene que volver a
+  filtrar por «No interesado» / «Perdido» y por fecha. Cobros recibe `?urgencia=vencido` desde el
+  dashboard; comprobar que lo aplica. · **Principio:** anticipación (§3). · **Propuesta:** las tres
+  tablas aceptan `estado`, `motivo` y `desde`/`hasta` por URL y el mapa los manda. · **Impacto:**
+  medio. · **Esfuerzo:** 2 h · **Fecha:** 2026-09-09 · 🔵
+
+## 219. Deuda · la resolución de alcance (clínica | red, 403/404) está copiada en las rutas analíticas
+- `api/metricas/antes-despues` y `api/metricas/fuga` resuelven igual qué clínicas ve la sesión, el
+  default (red si admin, primera sede si no), «red» sin permiso → 403 y sede fuera de alcance → 404;
+  comprobar si `api/agente/confianza` es la tercera copia. Varias copias del mismo filtro de acceso
+  son varios sitios donde equivocarse (§5 del skill de ingeniería). · **Propuesta:**
+  `resolverAlcanceAnalitico(session, url)` en `lib/auth` y las rutas lo llaman; un QA adversarial
+  único. · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+
+## 220. Fase 2.1 (176) · el objetivo «cita» no recoge por qué un lead declina
+- El mapa de fuga enseña frases del agente solo en presupuestos: `que_le_frena` y `motivo_rechazo`
+  existen en el objetivo «presupuesto» y no en «cita» (`automatizacion/objetivos.ts`), así que
+  cuando un lead dice «no, gracias» el agente no recoge nada y la etapa «sin cita» solo tiene el
+  motivo que puso la persona. · **Propuesta:** al diseñar 176, un campo `motivo_no_cita` en «cita»
+  (solo si declina) con el mismo mapeo conservador al vocabulario de seis; el mapa lo pinta sin
+  cambios. · **Esfuerzo:** entra en 176 · **Fecha:** 2026-09-09 · 🔵

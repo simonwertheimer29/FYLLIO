@@ -18,7 +18,7 @@ va primero aunque no duela hoy.
 |---|---|---|---|---|
 | **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** — hecho todo lo de ingeniería; quedan 165 (catálogo de Meta) y el cableado de consentimiento y plazo (abogado): bloqueantes externos, declarados | 2026-09-06 | — |
 | **1** | Cimientos baratos de la visión — dos irrecuperables | ✅ **Cerrada** (168-175 hechas; 175 por verificación) | 2026-09-06 | 2026-09-06 |
-| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; 2.4 y 2.9 ✅ 9-sep; quedan 2.1-2.3) | 2026-09-07 | — |
+| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; 2.4, 2.9 y 2.2 ✅ 9-sep; quedan 2.1 y 2.3) | 2026-09-07 | — |
 | **3** | Decidir y ejecutar dentro de reglas | ⬜ Abierta | — | — |
 | **4** | El ERP y la infraestructura que ya se usa | ⬜ Abierta · parte independiente puede adelantarse | — | — |
 | **5** | Lo que la visión promete | ⬜ Abierta | — | — |
@@ -93,7 +93,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | # | Qué | MEJORAS |
 |---|---|---|
 | 2.1 | Inteligencia de conversación: objeciones, motivos de pérdida, qué frena | 176 |
-| 2.2 | Mapa de fuga por etapa en € | 177, 51, 48 |
+| 2.2 | Mapa de fuga por etapa en € | 177, 51, 48 | ✅ 9-sep (Analíticas › Dónde se pierde; `qa:fuga`; 48 ya cerrada; 51 sigue abierta: es una pregunta al piloto) |
 | 2.3 | Next Best Config: aplazados × capacidades de la clínica | 178, 89 |
 | 2.4 | Confianza del agente (vara, descartes, coincidencia) y madurez por clínica | 179, 184, 185 | ✅ 9-sep (Agentes › Configuración › «Cómo decide tu agente» + Inicio › Tu equipo + `envios_tal_cual` en la serie; `qa:confianza`) |
 | 2.5 | Tiempo hasta primera respuesta humana por cola (métrica #1 del plan ofensivo) | 180 | ✅ 8-sep (serie 172 + Inicio › Tu equipo; `qa:metricas`) |
@@ -300,3 +300,10 @@ tanda «seed honesto» es 82, 110 y 112.
   compara lo que cada formulario/ruta manda con lo que cada escritura de Postgres acepta (nivel 1
   ruta→PG, nivel 2 formulario→ruta). Ninguna clave más se tiraba. En `prebuild`. Lección 23.
   Siguiente (decisión de Simon): 2.2, el mapa de fuga por etapa en €, en sesión nueva.
+- **2026-09-09 (noche) · 2.2 hecha (177; 48 ya estaba cerrada; 51 sigue abierta porque es una
+  pregunta al piloto, no código).** Analíticas › Dónde se pierde: los casos que salieron del flujo
+  en 30/90/180 días por etapa —sin contacto, sin cita, presupuesto perdido, cobro vencido— con €
+  real donde hay documento, ≈€ esperado en leads con el método a la vista, el motivo registrado y
+  la frase del agente en los cerrados sin motivo; comparado con la ventana anterior. `qa:fuga`
+  33/33. De paso: 217 (el historial PERDIDO del seed sin sede deja `perdidos_n` por clínica a 0),
+  218-220. Siguiente: 2.1 o 2.3, decisión de Simon.

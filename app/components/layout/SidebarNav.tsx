@@ -100,6 +100,7 @@ const ITEMS: Item[] = [
       { label: "KPIs", href: "/analiticas/kpis" },
       { label: "Informes", href: "/analiticas/informes" },
       { label: "Antes y después", href: "/analiticas/comparar" },
+      { label: "Dónde se pierde", href: "/analiticas/fuga" },
     ],
   },
   { label: "Ajustes", href: "/ajustes", Icono: Settings, soloAdmin: true },

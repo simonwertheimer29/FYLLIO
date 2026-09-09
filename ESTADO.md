@@ -102,10 +102,21 @@ de una escritura (46 funciones + 27 envoltorios) y lo que cada formulario manda 
 envíos) con lo que la escritura acepta. Resultado: ninguna clave más se tira; el QA reproduce el
 fallo del teléfono si se quita la línea. Corre en `prebuild`. Lección 23 del skill de ingeniería.
 Detalle en DECISIONES 9-sep.
-**Siguiente sesión, en frío: 2.1-2.3** (inteligencia de conversación 176 · mapa de fuga en € 177 ·
-Next Best Config 178) — orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin
-verificar: formulario de 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde
-la ficha del paciente y la cabecera de Leads.
+**9-sep (noche) · 2.2, el mapa de fuga por etapa en € (MEJORAS 177):** Analíticas › Dónde se
+pierde. En 30/90/180 días completos hasta ayer, los casos que SALIERON del flujo por etapa —leads
+cerrados sin contacto nuestro, contactados sin cita, presupuestos cuyo último paso a perdido cae en
+la ventana, cobros que cruzaron a vencido— con el € del documento donde lo hay, el ≈€ esperado de
+los leads (tasa lead→aceptado × ticket medio de la propia clínica, base a la vista, null con motivo
+si no hay base), el motivo registrado por la persona (con € por motivo y «aún reactivable») y la
+frase del agente en presupuestos cerrados sin motivo; todo comparado con la ventana anterior. En
+DEMO red, 90 días: 125 casos, 62.354 € reales, ≈23.224 € en leads, 0,6 s. `qa:fuga` 33/33 (dos
+sedes contadas a mano en 2020, reloj fijo). Hallazgo de paso: el seed no pone `clinica_id` en el
+historial de PERDIDO y `perdidos_n` por sede sale 0 (MEJORAS 217). Sin verificar en el navegador.
+Detalle en DECISIONES 9-sep.
+**Siguiente sesión, en frío: 2.1 o 2.3** (inteligencia de conversación 176 · Next Best Config 178)
+— orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin verificar: formulario de
+2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde la ficha del paciente,
+la cabecera de Leads y el mapa «Dónde se pierde».
 **9-sep (tarde) · El detalle de cada bloque de Inicio ya no se despliega en línea** (al abrir el del
 equipo, Dinero se iba de la pantalla): se abre en un panel flotante AL LADO del bloque, 32 rem, sin
 oscurecer, con el titular del bloque repetido en la cabecera. Cascarón nuevo `PanelFlotante`

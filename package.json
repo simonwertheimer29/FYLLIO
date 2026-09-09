@@ -61,6 +61,7 @@
     "qa:por-que": "tsx scripts/qa-por-que.mts",
     "qa:candidatos": "tsx scripts/qa-candidatos.mts",
     "qa:confianza": "tsx scripts/qa-confianza.mts",
+    "qa:fuga": "tsx scripts/qa-fuga.mts",
     "evals:candidatos": "tsx scripts/evals-candidatos.mts",
     "metricas:backfill": "tsx scripts/metricas-backfill.mts",
     "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",

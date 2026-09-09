@@ -18,6 +18,11 @@ import { diasDeClinicaEntre } from "./presupuestos/estado-conversacion";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Días de margen tras el plazo antes de que un pendiente cuente como VENCIDO.
+ *  Es la regla de la cola (`diasVencido > 7`), con nombre para que el mapa de
+ *  fuga (2.2) pueda decir en qué día cruzó cada cobro sin copiar el literal. */
+export const GRACIA_VENCIDO_DIAS = 7;
+
 export type UrgenciaCobro = "vencido" | "por_vencer" | "estancado" | "normal";
 
 /** Estado de la vida financiera completa (módulo Cobros, Zona Registro). */
@@ -153,7 +158,7 @@ export function calcularCobrosPorPaciente(args: {
     const tieneAlgunPago = (pagosCountPorPac.get(p.id) ?? 0) > 0;
 
     if (pendiente > 0) {
-      if (diasVencido != null && diasVencido > 7 && !tieneLiquidacion) {
+      if (diasVencido != null && diasVencido > GRACIA_VENCIDO_DIAS && !tieneLiquidacion) {
         urgencia = "vencido";
       } else if (diasParaVencer != null && diasParaVencer <= 7 && !tieneLiquidacion) {
         urgencia = "por_vencer";

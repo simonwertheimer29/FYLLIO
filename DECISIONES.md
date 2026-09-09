@@ -4358,3 +4358,41 @@ durante la sesión** (comas dentro de `Record<string, unknown>`, tipos de retorn
 se tomaban por el cuerpo, `const M` local que se confundía con otro `M` del fichero): las primeras
 pasadas daban 6 y 10 falsos positivos; un QA estático se calibra contra el código real antes de
 fiarse de él. Lección 23 en el skill de ingeniería.
+
+## 2026-09-09 — 2.2: el mapa de fuga cuenta lo que SALIÓ del flujo, con dos monedas que no se suman
+«Dónde se pierde» (Analíticas, `lib/metricas/fuga`, MEJORAS 177). Sin una llamada al modelo. **Cinco
+decisiones:** (1) **Flujo, no stock**: el mapa cuenta los casos que salieron del flujo en una ventana
+de días completos hasta ayer (30/90/180) y los compara con la ventana anterior de igual longitud; lo
+parado HOY ya está en Inicio y no se duplica. Cada etapa declara su fecha: el cierre del lead (37), el
+ÚLTIMO paso a PERDIDO del historial (la fuente de `fechasPerdidaPorPresupuesto` y de `perdidos_n`) y
+solo si sigue perdido —uno reactivado no es una fuga—, y el día en que un cobro cruzó a vencido
+(aceptación + plazo + `GRACIA_VENCIDO_DIAS` + 1; la regla vivía como un `7` literal en `cobros.ts` y
+ahora tiene nombre; los cobros no se comparan con la ventana anterior, y se dice por qué). (2)
+**Contacto = un saliente que llegó**: contador, acción de llamada/WhatsApp o mensaje saliente enviado;
+un `Modo_A_manual_pendiente` no es contacto. (3) **El € de los leads es una estimación y viaja
+aparte**: casos × tasa lead→aceptado × ticket medio, de la propia clínica en 180 días, con la base a
+la vista (captados, aceptaron, ticket) y null con motivo por debajo de 5 captados o 5 aceptados
+(`MIN_ACEPTADOS_ESTIMACION`, el espíritu de `BASE_MINIMA_COHORTE`). El titular enseña «dinero real
+que se fue» y «lo que valían los leads» como dos cifras, nunca una suma. (4) **El porqué es lo que
+alguien escribió**: el motivo de la persona (vocabularios 42 y F7, con € por motivo y «aún
+reactivable»), y en los presupuestos cerrados sin motivo la frase que recogió el agente, leída con
+`extraerMotivoDelLog` (el mismo lector que pre-rellena el modal de cierre) y mapeada con
+`sugerirMotivoPerdida`; los leads no llevan frase porque el objetivo «cita» no la recoge (220). El
+agregado de 176 sigue pendiente. (5) **Alcance por la columna de la fila** (leads y presupuestos por
+`clinica_id`, como la serie diaria) y los cobros vía su paciente (como la cola de cobros): la
+atribución de cada etapa es la de su hermana, no una tercera.
+
+**Lo que enseña la demo (red, 90 días):** 125 casos, 62.354 € reales (29 presupuestos, 50.589 €; 7
+cobros, 11.765 €), ≈23.224 € en 89 leads que se cerraron tras contacto; «sin contacto» sale a 0
+porque el seed siempre escribe un saliente antes de cerrar, y «sin motivo» a 0 porque siempre pone
+motivo: la frase del agente solo la ejercita el QA. 0,6-1,1 s por alcance.
+
+**Cazado de paso:** las 37 filas de historial PERDIDO de DEMO van sin `clinica_id`, así que
+`perdidos_n` por sede en la serie diaria es 0 y Antes/después por sede compara 0 con 0 (217). El
+mapa lo esquiva uniendo con `presupuestos.clinica_id`.
+
+**Lo que no está verificado:** la pantalla en el navegador. `tsc`, ESLint (sin avisos nuevos),
+`qa:frontera`, `next build` y `qa:fuga` (33/33: reparto contacto/sin cita, pendiente de modo A que
+no es contacto, reactivado que no cuenta, perdido-recuperado-perdido una vez, cobro dentro vs antes,
+saldado que no cuenta, frase del agente, estimación null con motivo y contada a mano con base,
+aislamiento por sede, red = suma, ventana de 90) en verde. Propuestas: 217-220.
