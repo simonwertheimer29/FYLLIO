@@ -10,6 +10,8 @@
 // carga; el error de render lo ataja el error.tsx de la sección.
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { X, ICON_STROKE } from "../../../components/icons";
 import { useClinic } from "../../../lib/context/ClinicContext";
 import { AvisoFiltroClinica } from "../../../components/shared/AvisoFiltroClinica";
 import { Card } from "../../../components/ui/Card";
@@ -42,14 +44,33 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [search, setSearch] = useState("");
-  const [filtro, setFiltro] = useState<"todos" | Resultado>("todos");
+  // MEJORAS 218 — un enlace puede llegar con el filtro PUESTO («Ver los casos» del
+  // mapa de fuga): ?resultado=no_interesado&motivo=Precio&desde=…&hasta=… (desde y
+  // hasta, sobre la fecha de cierre). El rango se enseña como chip quitable.
+  const params = useSearchParams();
+  const resultadoUrl = params.get("resultado");
+  const [filtro, setFiltro] = useState<"todos" | Resultado>(
+    resultadoUrl === "en_curso" || resultadoUrl === "convertido" || resultadoUrl === "no_interesado" ? resultadoUrl : "todos",
+  );
   // F7 — Tablas filtra por la COLUMNA de motivo (el log queda para la ficha).
-  const [filtroMotivo, setFiltroMotivo] = useState<string>("todos");
+  const [filtroMotivo, setFiltroMotivo] = useState<string>(params.get("motivo") ?? "todos");
+  const [rangoCierre, setRangoCierre] = useState<{ desde: string; hasta: string } | null>(() => {
+    const d = params.get("desde");
+    const h = params.get("hasta");
+    const DIA = /^\d{4}-\d{2}-\d{2}$/;
+    return d && h && DIA.test(d) && DIA.test(h) ? { desde: d, hasta: h } : null;
+  });
 
   const visibles = useMemo(() => {
     let out = leads;
     if (selectedClinicaId) out = out.filter((l) => l.clinicaId === selectedClinicaId);
     if (filtro !== "todos") out = out.filter((l) => resultadoDe(l) === filtro);
+    if (rangoCierre) {
+      out = out.filter((l) => {
+        const dia = String(l.fechaCierre ?? "").slice(0, 10);
+        return dia >= rangoCierre.desde && dia <= rangoCierre.hasta;
+      });
+    }
     if (filtroMotivo !== "todos") {
       out = out.filter((l) =>
         filtroMotivo === "sin_motivo"
@@ -66,7 +87,7 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
     }
     // Auditoría: lo más reciente primero, orden estable.
     return [...out].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
-  }, [leads, selectedClinicaId, filtro, filtroMotivo, search]);
+  }, [leads, selectedClinicaId, filtro, filtroMotivo, rangoCierre, search]);
 
   const totales = useMemo(() => {
     const base = selectedClinicaId
@@ -137,6 +158,17 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
             </button>
           ))}
         </div>
+        {rangoCierre && (
+          <button
+            type="button"
+            onClick={() => setRangoCierre(null)}
+            title="Quitar el rango de fechas"
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)]"
+          >
+            Cerrados del {fecha(rangoCierre.desde)} al {fecha(rangoCierre.hasta)}
+            <X size={12} strokeWidth={ICON_STROKE} aria-hidden />
+          </button>
+        )}
         <select
           value={filtroMotivo}
           onChange={(e) => setFiltroMotivo(e.target.value)}

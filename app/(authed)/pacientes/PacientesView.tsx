@@ -22,7 +22,8 @@ import { Card } from "../../components/ui/Card";
 import { Cifra, eur } from "../../components/shared/Cifra";
 import { EmptyState } from "../../components/ui/Feedback";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
-import { MessageCircle, Users, Euro, Pencil, FileText, ChevronDown, ICON_STROKE } from "../../components/icons";
+import { MessageCircle, Users, Euro, Pencil, FileText, ChevronDown, CalendarDays, ICON_STROKE } from "../../components/icons";
+import { AgendarPanel } from "../../components/agenda/AgendarPanel";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import NewPresupuestoModal from "../../components/presupuestos/NewPresupuestoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
@@ -189,6 +190,9 @@ export function PacientesView({
   const [search, setSearch] = useState(busquedaInicial);
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
+  // Repaso de Simon 9-sep: agendar también desde la TABLA, sin entrar en la
+  // ficha. El mismo panel que la ficha (AgendarPanel, sujeto paciente).
+  const [agendando, setAgendando] = useState<Paciente | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
   const [editingTipo, setEditingTipo] = useState<string | null>(null);
   // Carga progresiva: 166 filas de golpe eran 29.000 px de scroll. Mismo patrón
@@ -574,6 +578,15 @@ export function PacientesView({
                         >
                           {p.nombre}
                         </Link>
+                        <button
+                          type="button"
+                          onClick={() => setAgendando(p)}
+                          title="Agendar una cita"
+                          aria-label={`Agendar una cita a ${p.nombre}`}
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[var(--color-muted)] hover:bg-[var(--color-accent-soft)] hover:text-[var(--color-accent)]"
+                        >
+                          <CalendarDays size={13} strokeWidth={ICON_STROKE} aria-hidden />
+                        </button>
                         <CeldaEditable
                           valor={p.nombre}
                           soloLapiz
@@ -813,6 +826,16 @@ export function PacientesView({
               )}
             </tbody>
           </table>
+          {agendando && (
+            <AgendarPanel
+              sujeto={{
+                tipo: "paciente",
+                paciente: { id: agendando.id, nombre: agendando.nombre, doctorSugeridoId: agendando.doctorLinkId, proximaCita: agendando.proximaCita },
+              }}
+              onClose={() => setAgendando(null)}
+              onHecho={() => void refrescarFila(agendando.id)}
+            />
+          )}
         </div>
         {restantes > 0 && (
           <button

@@ -34,6 +34,10 @@ export type PanelFlotanteProps = {
   /** Solo con anclaje «bloque». «derecha»: pegado al borde derecho del contenedor
    *  (tapa lo que haya ahí). «izquierda»: fuera del contenedor, a su izquierda. */
   lado?: "derecha" | "izquierda";
+  /** Solo con anclaje «bloque»: a qué borde del contenedor se pega. «abajo» para el
+   *  ÚLTIMO bloque de la página: así crece hacia arriba sobre lo que ya hay y no
+   *  alarga la página (el panel de «Tus clínicas» la alargaba, repaso 9-sep). */
+  alinear?: "arriba" | "abajo";
   className?: string;
 };
 
@@ -41,9 +45,10 @@ const BASE = "flex flex-col border border-[var(--color-border)] bg-[var(--color-
 const POR_ANCLAJE = {
   pantalla: "fixed right-4 top-16 z-50 max-h-[calc(100vh-5rem)] max-w-[calc(100vw-2rem)] rounded-xl",
   bloque:
-    "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:border-y-0 max-lg:border-r-0 lg:absolute lg:top-0 lg:z-30 lg:max-h-[calc(100vh-5rem)] lg:rounded-xl",
+    "max-lg:fixed max-lg:inset-y-0 max-lg:right-0 max-lg:z-40 max-lg:border-y-0 max-lg:border-r-0 lg:absolute lg:z-30 lg:max-h-[calc(100vh-5rem)] lg:rounded-xl",
 } as const;
 const POR_LADO = { derecha: "lg:right-0", izquierda: "lg:right-full lg:mr-3" } as const;
+const POR_ALINEAR = { arriba: "lg:top-0", abajo: "lg:bottom-0" } as const;
 
 export function PanelFlotante({
   titulo,
@@ -55,6 +60,7 @@ export function PanelFlotante({
   anchoRem = 30,
   anclaje = "pantalla",
   lado = "derecha",
+  alinear = "arriba",
   className = "",
 }: PanelFlotanteProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -80,7 +86,7 @@ export function PanelFlotante({
       role="dialog"
       aria-label={ariaLabel}
       style={{ width: `min(${anchoRem}rem, 100vw)` }}
-      className={`${BASE} ${POR_ANCLAJE[anclaje]} ${anclaje === "bloque" ? POR_LADO[lado] : ""} ${className}`}
+      className={`${BASE} ${POR_ANCLAJE[anclaje]} ${anclaje === "bloque" ? `${POR_LADO[lado]} ${POR_ALINEAR[alinear]}` : ""} ${className}`}
     >
       <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
         <div className="min-w-0">

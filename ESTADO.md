@@ -120,6 +120,39 @@ por el presupuesto, el seed la manda y lo comprueba, `perdidos_n` atribuye por e
 regenerado: 45 días de `perdidos_n` = 25 en la red y 25 sumando sedes (antes 0). `qa:campos` no
 podía cazarlo (nadie mandaba la clave); la guarda es que el escritor resuelva solo y que el seed
 compruebe las columnas por las que filtra una métrica. Detalle en DECISIONES 9-sep (noche).
+**9-sep (noche) · REPASO DE SIMON en el navegador (seis pantallas) — el plan de la siguiente sesión,
+en este orden:**
+1. **QA genérico «la red ve lo que ninguna sede ve»** (Simon: vale más que el arreglo de 217): para
+   cada métrica de la serie, si la red > 0 en la ventana y la suma de sedes = 0, falla. Caza la
+   familia entera (enlace evento-mensaje, teléfono de clínicas, historial sin sede) sin saber del caso.
+2. **Dónde se pierde**: (a) «los casos que SALIERON DEL FLUJO» es jerga → «casos que se perdieron», UNA
+   línea; (b) «Ver los casos» tiene que aterrizar con el FILTRO puesto (esos casos, no la tabla
+   entera) → MEJORAS 218, las tablas leen filtros de la URL.
+3. **Inicio**: el panel «Tus clínicas» agranda la pantalla al abrirse; los otros tres no (bug).
+4. **Confianza del agente**: (a) mal sitio — no va en Configuración; recomendación pendiente
+   (pestaña propia «Confianza» en Agentes › Conversacional junto a Configuración y Pruebas, o
+   Analíticas); (b) es la pantalla con MÁS texto del producto: aplicar la regla A primero ahí y en
+   Inicio.
+5. **TRANSVERSAL A — sobra texto en todo el producto (va al estándar visual):** UNA línea explica qué
+   es esto; lo demás se entiende solo; si un dato necesita explicación va en tooltip al pasar el
+   cursor, no como párrafo permanente. En móvil no hay cursor: lo que va a tooltip tiene que ser
+   PRESCINDIBLE; si hace falta para entender el dato, no se esconde. Primero Confianza e Inicio,
+   luego barrer el resto.
+6. **TRANSVERSAL B — los paneles no son iguales:** unos cubren toda la pantalla y otros no. Censar
+   cuáles hay y unificar en un estándar único (PanelFlotante + MEJORAS 215-216 son el principio).
+7. **Agendar desde la TABLA de pacientes** (sin entrar en la ficha): diagnosticar si `AgendarPanel`
+   se puede montar ahí.
+Funcionan: formulario «se equivocó aquí», los cuatro paneles de Inicio (cierran con Escape),
+agendar desde la ficha, cabecera de Leads. **Formato de entrega desde hoy** (memoria
+`simon-formato-entrega`): qué se hizo · objetivo · qué ver y dónde, paso a paso.
+**9-sep (noche, después del repaso) · hecho:** `qa:atribucion` (guarda genérica «la red ve lo que
+ninguna sede ve», verde: 24 métricas, 49 columnas, tres tablas declaradas globales); «Dónde se
+pierde» a una línea + tooltips + «Ver los casos» con filtro (leads lee la URL; presupuestos NO
+todavía); Inicio › «Tus clínicas» ya no alarga la página (`alinear="abajo"`); Confianza en pestaña
+propia de Agentes › Conversacional; «Agendar» desde la tabla de pacientes (botón de calendario por
+fila). **Queda del repaso, en orden:** regla A en Confianza (18 párrafos) e Inicio, luego barrido
+(222); unificación de paneles (221, dos primitivos, dos tandas); filtros por URL en la tabla de
+presupuestos (218). Sin verificar en el navegador. Detalle en DECISIONES 9-sep (noche).
 **Siguiente sesión, en frío: 2.1 o 2.3** (inteligencia de conversación 176 · Next Best Config 178)
 — orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin verificar: formulario de
 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde la ficha del paciente,

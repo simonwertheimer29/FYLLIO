@@ -218,6 +218,13 @@ El usuario es una coordinadora, no un ingeniero. El texto habla su idioma:
   Nombra las cosas por lo que el usuario controla, no por cómo está construido el sistema.
 - **Nunca IDs internos a la vista** (nada de `rec...` de Airtable). Muestra nombres, no IDs.
 - **Voz activa, sentence case, frases cortas.** Tildes y ortografía correctas siempre
+- **UNA línea explica qué es esto; lo demás se entiende solo (dictado por Simon el 2026-09-09
+  tras probar seis pantallas).** Un párrafo permanente de explicación delante de una tabla o un
+  bloque es una señal de que el bloque no se explica solo: se arregla el bloque, no se añade texto.
+  Si un dato necesita matiz, el matiz va en un **tooltip** al pasar el cursor, nunca como texto fijo.
+  Y como en móvil no hay cursor, lo que va a tooltip tiene que ser **PRESCINDIBLE**: si hace falta
+  para entender el dato, no se esconde — se dice en la propia etiqueta o se rediseña el dato. El
+  caso que dio la regla: «Cómo decide tu agente» con cuatro líneas antes de la tabla y dos después.
   ("pestañas", "aparecerán aquí"), sin enums crudos ("confirmacion cita").
 
 ## 6. Móvil

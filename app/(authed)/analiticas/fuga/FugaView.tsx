@@ -19,7 +19,6 @@ import {
   ArrowRight,
   CreditCard,
   FileText,
-  Info,
   Minus,
   RefreshCw,
   Sparkles,
@@ -85,10 +84,7 @@ export function FugaView() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold text-[var(--color-foreground)]">Dónde se pierde</h1>
-          <p className="mt-1 text-sm text-[var(--color-muted)]">
-            Los casos que salieron del flujo en la ventana, etapa por etapa: cuántos, cuánto y por qué. Lo que está parado hoy
-            y aún se puede rescatar está en Inicio.
-          </p>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">Los casos que se perdieron, etapa por etapa: cuántos, cuánto y por qué.</p>
         </div>
         <button
           type="button"
@@ -158,14 +154,6 @@ export function FugaView() {
             ))}
           </ol>
 
-          <p className="flex items-start gap-2 text-xs text-[var(--color-muted)]">
-            <Info size={14} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" />
-            <span>
-              Un lead cuenta como contactado si hubo una llamada o un WhatsApp nuestro antes del cierre. Un presupuesto cuenta el día en
-              que pasó a perdido, y solo si sigue perdido. Un cobro cuenta el día en que superó el plazo de pago de su clínica. El € de
-              los leads es una estimación con los datos de la propia clínica y se enseña aparte del dinero real.
-            </span>
-          </p>
         </>
       )}
     </div>
@@ -244,8 +232,11 @@ function TarjetaEtapa({ etapa: e }: { etapa: EtapaDeFuga }) {
               <Icono size={16} strokeWidth={ICON_STROKE} />
             </span>
             <div className="min-w-0">
-              <h2 className="font-[family-name:var(--font-geist-sans)] text-base font-semibold text-[var(--color-foreground)]">{e.titulo}</h2>
-              <p className="mt-0.5 text-sm text-[var(--color-muted)]">{e.detalle}</p>
+              {/* El criterio exacto va en tooltip (regla «una línea explica»): es
+                  prescindible, el titular ya dice qué se perdió. */}
+              <h2 className="font-[family-name:var(--font-geist-sans)] text-base font-semibold text-[var(--color-foreground)]" title={e.detalle}>
+                {e.titulo}
+              </h2>
             </div>
           </div>
 

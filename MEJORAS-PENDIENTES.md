@@ -2902,6 +2902,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   dashboard; comprobar que lo aplica. · **Principio:** anticipación (§3). · **Propuesta:** las tres
   tablas aceptan `estado`, `motivo` y `desde`/`hasta` por URL y el mapa los manda. · **Impacto:**
   medio. · **Esfuerzo:** 2 h · **Fecha:** 2026-09-09 · 🔵
+  **HECHA A MEDIAS el 2026-09-09 (noche)** — la tabla de LEADS lee `resultado`, `motivo`, `desde` y
+  `hasta` (sobre la fecha de cierre) de la URL y enseña el rango como chip quitable; el mapa manda
+  `resultado=no_interesado&desde&hasta` en sus dos etapas de leads (la tabla no distingue contacto:
+  las dos aterrizan en el mismo filtro). Cobros ya preseleccionaba `?urgencia=vencido`. **Queda** la
+  tabla de presupuestos: el mapa ya manda `estado=PERDIDO&desde&hasta` y la tabla los ignora.
 
 ## 219. Deuda · la resolución de alcance (clínica | red, 403/404) está copiada en las rutas analíticas
 - `api/metricas/antes-despues` y `api/metricas/fuga` resuelven igual qué clínicas ve la sesión, el
@@ -2918,3 +2923,34 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   motivo que puso la persona. · **Propuesta:** al diseñar 176, un campo `motivo_no_cita` en «cita»
   (solo si declina) con el mismo mapeo conservador al vocabulario de seis; el mapa lo pinta sin
   cambios. · **Esfuerzo:** entra en 176 · **Fecha:** 2026-09-09 · 🔵
+
+## 221. TRANSVERSAL B (repaso de Simon 9-sep) · censo de paneles y modales: tres familias, trece cascarones a mano
+- Censo del 9-sep (grep de `fixed inset-0|inset-y-0|role="dialog"|PanelFlotante|ConfirmDialog`):
+  **(a) Panel flotante al lado del contexto, sin oscurecer** (§4 ter): `PanelFlotante` — Inicio ×4,
+  `AgendarPanel`. **(b) Drawer lateral a toda altura** (`fixed inset-0 … justify-end`, 8 copias a
+  mano, unas oscurecen y otras no): `LlamadasView` (detalle), `KpisLeadsView`, `KpisCobrosView`
+  (con blur), `FyllioCopilot`, `NotificacionesPanel`, `panel-accion-ui` (LeadAccionPanel /
+  AccionPanel), `MensajeriaView` (hoja móvil), `AppShell` (menú móvil). **(c) Modal centrado con
+  fondo oscurecido** (13 copias a mano con CUATRO fondos distintos: `slate-900/40`, `/50`, con o sin
+  `backdrop-blur`, `black/50`): `ConfirmDialog` (el primitivo), `ClinicaEquipoView`,
+  `EstadoPresupuestoFlow`, `AgendarModal`, `AsistenciaModal`, `MotivoNoInteresModal`, `NewLeadModal`,
+  `Paciente360View`, `PagoModal`, `ImportarCSVModal`, `KanbanBoard`, `MotivoPerdidaModal`,
+  `NewPresupuestoModal` (hoja abajo en móvil), `PagoCierreModal`. Aparte: el click-catcher del
+  calendario de `AgendaView` (no es un panel) y el portal del paciente (app aparte).
+- **Principio:** coherencia (§6 esencia, §7 visual): «tiene que ser un estándar único y verse igual».
+- **Propuesta:** DOS primitivos y ninguna copia: `PanelFlotante` (ya existe; absorbe la familia b con
+  un anclaje «hoja» a toda altura, MEJORAS 215-216) y un `Modal` nuevo en `components/ui` (fondo
+  ÚNICO, Escape, foco, cierre por X; `ConfirmDialog` pasa a ser un Modal con dos botones). Tanda en
+  dos partes: primero los 8 drawers (misma forma, menos riesgo), luego los 13 modales, uno por commit.
+  La regla al estándar visual cuando se decida el fondo único.
+- **Impacto:** medio-alto en confianza (hoy el producto se ve como cuatro productos). · **Esfuerzo:**
+  1,5-2 días · **Fecha:** 2026-09-09 · 🔵
+
+## 222. TRANSVERSAL A (repaso de Simon 9-sep) · barrido de texto sobrante: «una línea explica»
+- Regla nueva en el estándar visual §5. Hecho hoy en «Dónde se pierde» (cabecera a una línea; el
+  criterio de cada etapa pasa a tooltip del titular; fuera el pie de definiciones). **Pendiente, en
+  este orden:** `ConfianzaAgentePanel` (18 párrafos en 269 líneas; cuatro antes de la tabla y dos
+  después — el caso que dio la regla) e Inicio (cabeceras de los cuatro bloques y sus paneles);
+  después, barrido del resto (Antes/después, KPIs, Ajustes, Agentes › Configuración). Lo que vaya a
+  tooltip tiene que ser prescindible: en móvil no hay cursor. · **Esfuerzo:** Confianza + Inicio
+  medio día; barrido 1 día · **Fecha:** 2026-09-09 · 🔵

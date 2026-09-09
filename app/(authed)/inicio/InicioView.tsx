@@ -842,6 +842,7 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
           onCerrar={onAlternar}
           anclaje="bloque"
           lado="derecha"
+          alinear="abajo"
           anchoRem={32}
         >
         <div className="space-y-4 text-[12.5px] text-[var(--color-muted)]">

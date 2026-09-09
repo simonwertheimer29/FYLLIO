@@ -357,13 +357,19 @@ export async function calcularFuga(opts: { clinicaId: string | null; dias: Venta
     if (frasesDelAgente.length >= 8) break;
   }
 
+  // «Ver los casos» llega con el filtro PUESTO (repaso de Simon 9-sep, MEJORAS
+  // 218): la tabla de leads lee resultado/desde/hasta de la URL. Las dos etapas
+  // de leads aterrizan en el mismo filtro: la tabla no distingue contacto.
+  const conVentana = (base: string, extra: string) => `${base}?${extra}&desde=${desde}&hasta=${hasta}`;
   const e1 = etapa("sin_contacto", {
+    href: conVentana(HREF_ETAPA.sin_contacto, "resultado=no_interesado"),
     actual: { n: sinContacto.length, eur: null },
     previo: { n: leadsAntes.filter((l) => !l.contactado).length, eur: null },
     ...motivosDeLeads(sinContacto),
     estimado: estimar(sinContacto.length, filas.base),
   });
   const e2 = etapa("sin_cita", {
+    href: conVentana(HREF_ETAPA.sin_cita, "resultado=no_interesado"),
     actual: { n: sinCita.length, eur: null },
     previo: { n: leadsAntes.filter((l) => l.contactado).length, eur: null },
     ...motivosDeLeads(sinCita),
@@ -371,6 +377,8 @@ export async function calcularFuga(opts: { clinicaId: string | null; dias: Venta
     conCita: sinCita.filter((l) => l.tuvo_cita).length,
   });
   const e3 = etapa("presupuesto_perdido", {
+    // La tabla de presupuestos aún no lee filtros de la URL (218, pendiente).
+    href: conVentana(HREF_ETAPA.presupuesto_perdido, "estado=PERDIDO"),
     actual: { n: presAhora.length, eur: sumaImporte(presAhora) },
     previo: { n: presAntes.length, eur: sumaImporte(presAntes) },
     ...motivosDePresupuestos(presAhora),

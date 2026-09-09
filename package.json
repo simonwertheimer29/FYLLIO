@@ -62,6 +62,7 @@
     "qa:candidatos": "tsx scripts/qa-candidatos.mts",
     "qa:confianza": "tsx scripts/qa-confianza.mts",
     "qa:fuga": "tsx scripts/qa-fuga.mts",
+    "qa:atribucion": "tsx scripts/qa-atribucion-sedes.mts",
     "evals:candidatos": "tsx scripts/evals-candidatos.mts",
     "metricas:backfill": "tsx scripts/metricas-backfill.mts",
     "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",

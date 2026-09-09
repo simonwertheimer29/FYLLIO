@@ -20,7 +20,7 @@ import { ConfianzaAgentePanel } from "../../../components/agente/ConfianzaAgente
 export function AgenteView() {
   const { session } = useClinic();
   const esAdmin = session.rol === "admin";
-  const [tab, setTab] = useState<"configuracion" | "pruebas">(esAdmin ? "configuracion" : "pruebas");
+  const [tab, setTab] = useState<"configuracion" | "confianza" | "pruebas">(esAdmin ? "configuracion" : "pruebas");
 
   if (!esAdmin) {
     // Sin pestañas: solo el banco, con la nota de dónde vive lo demás.
@@ -46,6 +46,7 @@ export function AgenteView() {
       <div className="mb-4 flex gap-1 border-b border-[var(--color-border)]">
         {([
           { id: "configuracion" as const, label: "Configuración" },
+          { id: "confianza" as const, label: "Confianza" },
           { id: "pruebas" as const, label: "Pruebas" },
         ]).map((t) => (
           <button
@@ -64,10 +65,12 @@ export function AgenteView() {
         ))}
       </div>
       {tab === "configuracion" ? (
+        <AgenteConfigView />
+      ) : tab === "confianza" ? (
         <div className="space-y-6">
-          <AgenteConfigView />
-          {/* Plan maestro 2.4: cómo decide el agente (la vara y tus
-              conversaciones reales), junto a la config que lo mueve. */}
+          {/* Repaso de Simon 9-sep: la confianza NO va en Configuración (ahí se
+              ajusta el agente); pestaña propia junto a Configuración y Pruebas.
+              Plan maestro 2.4: la vara y tus conversaciones reales. */}
           <ConfianzaAgentePanel />
           {/* MEJORAS 151: el termómetro del generador — el detalle por motivo de
               los descartes que el bloque de arriba resume. */}

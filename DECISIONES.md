@@ -4418,3 +4418,29 @@ lo espera del caller; (b) el seed comprueba las columnas por las que FILTRA una 
 enums (§15). Queda por generalizar (b): un QA que, para cada métrica de la serie, exija que la suma
 de las sedes no sea 0 cuando la red no lo es — «la red ve lo que ninguna sede ve» es la firma de
 una columna de atribución vacía. Sin hacer: se propone al cerrar la prueba en el navegador.
+
+## 2026-09-09 (noche) — Repaso de Simon en el navegador: dos reglas transversales y cinco arreglos
+Seis pantallas probadas; tres funcionaban (formulario «se equivocó aquí», agendar desde la ficha,
+cabecera de Leads). **Dos reglas nuevas, dictadas:** (A) «UNA línea explica qué es esto; lo demás se
+entiende solo; si un dato necesita explicación va en tooltip, y lo que va a tooltip tiene que ser
+prescindible porque en móvil no hay cursor» — al estándar visual §5, aplicada hoy en «Dónde se
+pierde» y pendiente en Confianza (el peor caso: 18 párrafos) e Inicio, luego barrido (222). (B) los
+paneles tienen que ser un estándar único: censo hecho (221): tres familias, 8 drawers y 13 modales a
+mano con cuatro fondos distintos; propuesta de dos primitivos, en dos tandas.
+**Hecho hoy:** (1) `qa:atribucion` — la guarda genérica «la red ve lo que ninguna sede ve»: por
+métrica de la serie, red > 0 con sedes = 0 falla; y por esquema, toda columna `clinica_id` con todas
+las filas a null falla salvo declaración con porqué (`NULL_ES_GLOBAL`: configuraciones_clinica,
+plantillas_mensaje, informes_guardados — esta última por comprobar). La primera pasada ya paró en las
+tres; con la declaración, verde en 24 métricas y 49 columnas. (2) «Dónde se pierde»: cabecera a una
+línea, criterios a tooltip, «Ver los casos» llega con el filtro puesto — la tabla de leads lee
+`resultado/motivo/desde/hasta` de la URL y enseña el rango como chip quitable (218 a medias: la de
+presupuestos aún ignora `estado`). (3) Inicio: el panel de «Tus clínicas» alargaba la página porque
+era el último bloque y el panel absoluto colgaba por debajo; `PanelFlotante` gana `alinear="abajo"`
+(se pega al borde inferior del bloque y crece hacia arriba). (4) Confianza sale de Configuración a
+una pestaña propia «Confianza» en Agentes › Conversacional, junto a Configuración y Pruebas
+(recomendación aplicada: es diagnóstico del agente y el bucle de corrección —2.7, candidatos— vive
+ahí; Analíticas es negocio; mover a Analíticas son cinco líneas si Simon prefiere). (5) Agendar desde
+la TABLA de pacientes: el mismo `AgendarPanel` de la ficha montado en `PacientesView` con un botón
+de calendario en cada fila (`sujeto` paciente: id, nombre, doctor, próxima cita — la tabla ya lo
+tenía). Nada de esto está verificado en el navegador; `tsc`, `qa:frontera`, `qa:fuga`, `qa:atribucion`
+en verde. **Formato de entrega desde hoy:** qué se hizo · objetivo · qué ver y dónde, paso a paso.
