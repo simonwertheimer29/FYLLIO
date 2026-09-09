@@ -7,7 +7,7 @@
 // y el lead se queda en Contactado.
 
 import { useState } from "react";
-import { X, ICON_STROKE } from "../../../components/icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../../../components/ui/Modal";
 import type { Lead } from "./types";
 import { hoyISO } from "../../../lib/time";
 import { CamposCita, Labeled } from "../../../components/agenda/CamposCita";
@@ -122,31 +122,24 @@ export function AgendarModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={submit}
-        className="w-full max-w-md rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Agendar cita</h3>
-            <p className="text-[11px] text-[var(--color-muted)] truncate">
-              {lead.nombre} · {lead.clinicaNombre ?? "Clínica"}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-            aria-label="Cerrar sin guardar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+    <Modal
+      titulo="Agendar cita"
+      subtitulo={`${lead.nombre} · ${lead.clinicaNombre ?? "Clínica"}`}
+      onCerrar={onClose}
+      ocupado={saving}
+      form={{ onSubmit: submit }}
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={saving} className={btnModalSecundario}>
+            Cancelar
           </button>
-        </div>
+          <button type="submit" disabled={!canSave} className={btnModalPrimario}>
+            {saving ? "Guardando…" : "Confirmar cita"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
 
         {/* G2.4 — fecha/hora/doctor/tipo-de-cita son los CamposCita
             compartidos con el CitaModal de la rejilla: una sola
@@ -215,24 +208,8 @@ export function AgendarModal({
           </p>
         )}
 
-        <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={!canSave}
-            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? "Guardando…" : "Confirmar cita"}
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </Modal>
   );
 }
 

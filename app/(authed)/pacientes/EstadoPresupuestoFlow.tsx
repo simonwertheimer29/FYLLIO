@@ -19,7 +19,7 @@ import MotivoPerdidaModal from "../../components/presupuestos/MotivoPerdidaModal
 import { estadosAlcanzables } from "../../lib/presupuestos/transiciones";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import type { PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
-import { X, ICON_STROKE } from "../../components/icons";
+import { Modal } from "../../components/ui/Modal";
 import { eur } from "../../components/shared/Cifra";
 
 export type PresupuestoBrief = {
@@ -131,26 +131,13 @@ export function EstadoPresupuestoFlow({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      onClick={onClose}
+    <Modal
+      titulo={sel ? "Cambiar estado del presupuesto" : "¿Qué presupuesto quieres corregir?"}
+      onCerrar={onClose}
+      ocupado={guardando}
+      ancho="sm"
+      sinRelleno
     >
-      <div
-        className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
-          <h3 className="font-display text-sm font-semibold text-[var(--color-foreground)]">
-            {sel ? "Cambiar estado del presupuesto" : "¿Qué presupuesto quieres corregir?"}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-            aria-label="Cerrar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </button>
-        </div>
 
         {!sel ? (
           <div className="p-3 space-y-2">
@@ -209,7 +196,6 @@ export function EstadoPresupuestoFlow({
             )}
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

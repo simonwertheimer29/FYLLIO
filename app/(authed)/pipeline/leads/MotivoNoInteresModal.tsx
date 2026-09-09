@@ -13,6 +13,7 @@ import { MOTIVOS_ORDENADOS, MOTIVO_DEF, type MotivoLead } from "../../../lib/lea
 import { cargarJSON } from "../../../lib/fetch-json";
 import { sugerirMotivoLead, type MotivoDelLog } from "../../../lib/agente/motivo-sugerido";
 import { Sparkles, ICON_STROKE } from "../../../components/icons";
+import { Modal, btnModalSecundario, btnModalPeligro } from "../../../components/ui/Modal";
 
 export function MotivoNoInteresModal({
   nombre,
@@ -86,20 +87,28 @@ export function MotivoNoInteresModal({
   );
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
-        <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
-          ¿Por qué se descarta este lead?
-        </p>
-        <p className="text-xs text-[var(--color-muted)] mb-4">
+    <Modal
+      titulo="¿Por qué se descarta este lead?"
+      subtitulo={
+        <>
           <span className="font-semibold">{nombre}</span> — se moverá a{" "}
           <span className="font-bold text-[var(--color-danger)]">No Interesado</span>
-        </p>
+        </>
+      }
+      onCerrar={onCancel}
+      ancho="sm"
+      pie={
+        <>
+          <button type="button" onClick={onCancel} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={() => seleccionado && onConfirm(seleccionado)} disabled={!seleccionado} className={btnModalPeligro}>
+            Confirmar y mover
+          </button>
+        </>
+      }
+    >
+      <div>
 
         {sugerencia && (
           <div className="mb-3 flex items-start gap-2 rounded-xl bg-[var(--color-accent-soft)] px-3 py-2.5">
@@ -121,24 +130,7 @@ export function MotivoNoInteresModal({
         </p>
         <div className="space-y-2 mb-4">{descartados.map(opcion)}</div>
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => seleccionado && onConfirm(seleccionado)}
-            disabled={!seleccionado}
-            className="flex-1 rounded-lg bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Confirmar y mover
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

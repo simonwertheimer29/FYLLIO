@@ -2,7 +2,8 @@
 
 // Sprint UI — modal de confirmación propio que sustituye a los
 // confirm()/alert() nativos en toda la app. Patrón: modal para decidir,
-// toast (sonner) para el resultado.
+// toast (sonner) para el resultado. Desde el 10-sep (MEJORAS 221) es un
+// `Modal` con dos botones: el cascarón, el velo y el teclado son los comunes.
 //
 // Uso:
 //   const [open, setOpen] = useState(false);
@@ -17,6 +18,7 @@
 //   />
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { Modal, btnModalPeligro, btnModalPrimario, btnModalSecundario } from "./Modal";
 
 export type ConfirmDialogProps = {
   open: boolean;
@@ -46,50 +48,23 @@ export function ConfirmDialog({
   onClose,
 }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
-
+  // Modal ya cierra con Escape (no mientras `busy`) y devuelve el foco; aquí
+  // solo se decide que el foco inicial caiga en el botón que confirma.
   useEffect(() => {
-    if (!open) return;
-    confirmRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      // No se puede cerrar mientras la acción async está en curso.
-      if (e.key === "Escape" && !busy) onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, busy, onClose]);
+    if (open) confirmRef.current?.focus();
+  }, [open]);
 
   if (!open) return null;
 
-  const confirmClass = destructive
-    ? "bg-[var(--color-danger)] text-[var(--color-on-accent)] hover:opacity-90"
-    : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]";
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-    >
-      <div
-        className="absolute inset-0 bg-slate-900/40"
-        onClick={busy ? undefined : onClose}
-        aria-hidden="true"
-      />
-      <div className="fyllio-fade-in relative w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl">
-        <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-          {title}
-        </h2>
-        {description && (
-          <div className="mt-2 text-sm text-[var(--color-muted)]">{description}</div>
-        )}
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors"
-          >
+    <Modal
+      titulo={title}
+      onCerrar={onClose}
+      ocupado={busy}
+      ancho="sm"
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={busy} className={btnModalSecundario}>
             {cancelLabel}
           </button>
           <button
@@ -97,12 +72,14 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50 transition-colors ${confirmClass}`}
+            className={destructive ? btnModalPeligro : btnModalPrimario}
           >
             {busy ? "Un momento…" : confirmLabel}
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      {description && <div className="text-sm text-[var(--color-muted)]">{description}</div>}
+    </Modal>
   );
 }

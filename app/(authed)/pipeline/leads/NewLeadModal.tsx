@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ICON_STROKE } from "../../../components/icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../../../components/ui/Modal";
 import type { Lead } from "./types";
 
 const TRATAMIENTOS = [
@@ -69,26 +69,23 @@ export function NewLeadModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <form
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
-      >
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Nuevo lead</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-            aria-label="Cerrar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+    <Modal
+      titulo="Nuevo lead"
+      onCerrar={onClose}
+      ocupado={saving}
+      form={{ onSubmit: submit }}
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={saving} className={btnModalSecundario}>
+            Cancelar
           </button>
-        </div>
+          <button type="submit" disabled={saving} className={btnModalPrimario}>
+            {saving ? "Guardando…" : "Crear lead"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3">
 
         <Labeled label="Nombre" required>
           <input
@@ -189,24 +186,8 @@ export function NewLeadModal({
           </p>
         )}
 
-        <div className="flex gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
-          >
-            {saving ? "Guardando…" : "Crear lead"}
-          </button>
-        </div>
-      </form>
-    </div>
+      </div>
+    </Modal>
   );
 }
 

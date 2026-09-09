@@ -17,6 +17,7 @@ import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { ErrorState } from "../../../components/ui/Feedback";
 import { AlertTriangle, Target, Sparkles, ICON_STROKE } from "../../../components/icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../../../components/ui/Modal";
 import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
 import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
 import { LlamadasIaPanel } from "./LlamadasIaPanel";
@@ -981,24 +982,29 @@ function PlantillaEditor({
     mode === "edit" && plantilla?.clinicaId === null && scope !== "global";
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-5 py-4 border-b border-[var(--color-border)]">
-          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-            {mode === "create" ? "Nueva plantilla" : "Editar plantilla"}
-          </h3>
-          {isGlobalReadOnly && (
-            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1 flex items-start gap-1.5">
-              <AlertTriangle size={14} strokeWidth={ICON_STROKE} className="shrink-0 mt-px" aria-hidden />
-              <span>
-                Esta es una plantilla por defecto. Solo puedes editarla desde el ámbito
-                &quot;Valores por defecto&quot;. Para personalizarla en esta clínica,
-                crea una plantilla nueva con el mismo nombre.
-              </span>
-            </p>
-          )}
-        </div>
-        <div className="p-5 space-y-4">
+    <Modal
+      titulo={mode === "create" ? "Nueva plantilla" : "Editar plantilla"}
+      onCerrar={onClose}
+      ocupado={submitting}
+      ancho="2xl"
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting || isGlobalReadOnly} className={btnModalPrimario}>
+            {submitting ? "Guardando…" : mode === "create" ? "Crear plantilla" : "Guardar cambios"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {isGlobalReadOnly && (
+          <p className="flex items-start gap-1.5 text-[12px] text-[var(--color-warning)]">
+            <AlertTriangle size={14} strokeWidth={ICON_STROKE} className="mt-px shrink-0" aria-hidden />
+            <span>Es una plantilla por defecto: se edita desde «Valores por defecto». Para esta clínica, crea una nueva con el mismo nombre.</span>
+          </p>
+        )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
@@ -1078,24 +1084,7 @@ function PlantillaEditor({
               {error}
             </p>
           )}
-        </div>
-        <div className="px-5 py-3 border-t border-[var(--color-border)] flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || isGlobalReadOnly}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
-          >
-            {submitting ? "Guardando…" : mode === "create" ? "Crear plantilla" : "Guardar cambios"}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -7,7 +7,7 @@
 import { useCallback, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { StatePill } from "../../../components/ui/StatePill";
-import { X, ICON_STROKE } from "../../../components/icons";
+import { Modal } from "../../../components/ui/Modal";
 import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
 
 // Mismo criterio que el backend (isValidLoginEmail): sin espacios/comillas.
@@ -657,28 +657,9 @@ function ModalShell({
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">{title}</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-            aria-label="Cerrar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+    <Modal titulo={title} onCerrar={onClose}>
+      {children}
+    </Modal>
   );
 }
 

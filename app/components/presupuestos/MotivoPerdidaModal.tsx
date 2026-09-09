@@ -5,6 +5,7 @@ import type { MotivoPerdida } from "../../lib/presupuestos/types";
 import { cargarJSON } from "../../lib/fetch-json";
 import { sugerirMotivoPerdida, type MotivoDelLog } from "../../lib/agente/motivo-sugerido";
 import { Droplet, Sparkles, ICON_STROKE } from "../icons";
+import { Modal, btnModalSecundario, btnModalPeligro } from "../ui/Modal";
 
 import { MOTIVOS_PERDIDA as MOTIVOS } from "../../lib/presupuestos/motivos-perdida";
 
@@ -58,18 +59,28 @@ export default function MotivoPerdidaModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
-          ¿Por qué se perdió este presupuesto?
-        </p>
-        <p className="text-xs text-[var(--color-muted)] mb-4">
+    <Modal
+      titulo="¿Por qué se perdió este presupuesto?"
+      subtitulo={
+        <>
           <span className="font-semibold">{patientName}</span> — se moverá a{" "}
           <span className="font-bold text-[var(--color-danger)]">Perdido</span>
-        </p>
+        </>
+      }
+      onCerrar={onCancel}
+      ancho="sm"
+      pie={
+        <>
+          <button type="button" onClick={onCancel} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={handleConfirm} disabled={!seleccionado} className={btnModalPeligro}>
+            Confirmar y mover
+          </button>
+        </>
+      }
+    >
+      <div>
 
         {sugerencia && (
           <div className="mb-3 flex items-start gap-2 rounded-xl bg-[var(--color-accent-soft)] px-3 py-2.5">
@@ -135,22 +146,7 @@ export default function MotivoPerdidaModal({
           </span>
         </label>
 
-        <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={!seleccionado}
-            className="flex-1 rounded-lg bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Confirmar y mover
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

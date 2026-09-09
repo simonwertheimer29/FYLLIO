@@ -59,6 +59,7 @@ import {
   AlertTriangle,
   ICON_STROKE,
 } from "../icons";
+import { Modal, btnModalSecundario, btnModalPeligro } from "../ui/Modal";
 
 // Sprint 14a Bloque 6 — re-scope a 3 hitos comerciales.
 
@@ -1651,11 +1652,23 @@ function DeletePagoDialog({
     }
   }
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] rounded-xl shadow-xl border border-[var(--color-border)] max-w-sm w-full p-5">
-        <h3 className="font-display font-semibold text-[var(--color-foreground)] text-sm">
-          ¿Eliminar este pago?
-        </h3>
+    <Modal
+      titulo="¿Eliminar este pago?"
+      onCerrar={onClose}
+      ocupado={submitting}
+      ancho="sm"
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={handleDelete} disabled={submitting} className={btnModalPeligro}>
+            {submitting ? "Eliminando…" : "Eliminar"}
+          </button>
+        </>
+      }
+    >
+      <div className="-mt-2">
         <p className="text-xs text-[var(--color-muted)] mt-2">
           Pago de{" "}
           <span className="font-semibold text-[var(--color-foreground)]">
@@ -1671,23 +1684,7 @@ function DeletePagoDialog({
             {error}
           </p>
         )}
-        <div className="flex justify-end gap-2 mt-5">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-danger)] text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? "Eliminando…" : "Eliminar"}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

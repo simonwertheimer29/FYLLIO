@@ -19,8 +19,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  AlertTriangle, X, Search, Check, ArrowRight, ICON_STROKE,
+  AlertTriangle, Search, Check, ArrowRight, ICON_STROKE,
 } from "../icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../ui/Modal";
 import type {
   Doctor, Presupuesto, PresupuestoEstado, UserSession,
 } from "../../lib/presupuestos/types";
@@ -226,21 +227,24 @@ export default function NewPresupuestoModal({
   const puedeGuardar = (isEdit || !!paciente) && tratamientos.length > 0 && !saving;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 sm:p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-lg sm:rounded-xl rounded-t-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
-        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
-          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-            {isEdit ? "Editar presupuesto" : "Nuevo presupuesto"}
-          </h3>
-          <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]" aria-label="Cerrar">
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+    <Modal
+      titulo={isEdit ? "Editar presupuesto" : "Nuevo presupuesto"}
+      onCerrar={onClose}
+      ocupado={saving}
+      ancho="lg"
+      form={{ onSubmit: handleSubmit }}
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={saving} className={btnModalSecundario}>
+            Cancelar
           </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          <button type="submit" disabled={!puedeGuardar} className={btnModalPrimario}>
+            {saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear presupuesto"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
           {/* ── Paciente ─────────────────────────────────────────────── */}
           {!isEdit && (
             <div>
@@ -465,24 +469,7 @@ export default function NewPresupuestoModal({
             </p>
           )}
 
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-surface-muted)]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!puedeGuardar}
-              className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-            >
-              {saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear presupuesto"}
-            </button>
-          </div>
-        </form>
       </div>
-    </div>
+    </Modal>
   );
 }

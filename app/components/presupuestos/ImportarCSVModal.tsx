@@ -9,7 +9,8 @@ import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { cargarJSON } from "../../lib/fetch-json";
-import { Check, X, FolderOpen, CheckCircle2, AlertTriangle, ChevronLeft, ArrowRight, ICON_STROKE } from "../icons";
+import { Check, FolderOpen, CheckCircle2, AlertTriangle, ChevronLeft, ArrowRight, ICON_STROKE } from "../icons";
+import { Modal } from "../ui/Modal";
 import type { Presupuesto, UserSession } from "../../lib/presupuestos/types";
 import { resolverTipoPaciente, type TipoPacienteOpcion } from "../../lib/pacientes/tipos-paciente-puro";
 import { eur } from "../shared/Cifra";
@@ -327,31 +328,79 @@ export default function ImportarCSVModal({
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-[var(--color-surface)] rounded-xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
-
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between gap-4 shrink-0">
-          <div>
-            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Importar CSV Gesden</h2>
-            <p className="text-[11px] text-[var(--color-muted)] mt-0.5">
-              {paso < 5 ? `Paso ${paso} de 4` : "Completado"}
-            </p>
+    <Modal
+      titulo="Importar CSV Gesden"
+      subtitulo={paso < 5 ? `Paso ${paso} de 4` : "Completado"}
+      acciones={<Stepper paso={paso} />}
+      onCerrar={onClose}
+      ocupado={importing}
+      ancho="3xl"
+      sinRelleno
+      pie={
+        <>
+          {/* Atrás, a la izquierda del pie */}
+          <div className="mr-auto">
+            {paso > 1 && paso < 5 && (
+              <button
+                onClick={() => setPaso((paso - 1) as 1 | 2 | 3 | 4 | 5)}
+                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+              >
+                <ChevronLeft size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Anterior
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-4">
-            <Stepper paso={paso} />
-            <button
-              onClick={onClose}
-              className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] ml-1"
-              aria-label="Cerrar"
-            >
-              <X size={18} strokeWidth={ICON_STROKE} aria-hidden />
-            </button>
-          </div>
-        </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-auto p-6">
+          {/* Forward / action buttons */}
+          <div className="flex gap-2">
+            {paso === 2 && (
+              <button
+                onClick={applyMappingAndContinue}
+                disabled={!mappingValid}
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+              >
+                Aplicar mapeo
+                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              </button>
+            )}
+            {paso === 3 && (
+              <button
+                onClick={() => { if (aImportar.length > 0) setPaso(4); }}
+                disabled={aImportar.length === 0}
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+              >
+                Continuar ({aImportar.length})
+                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              </button>
+            )}
+            {paso === 4 && (
+              <button
+                onClick={handleImportar}
+                disabled={aImportar.length === 0}
+                className="text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+              >
+                Confirmar importación
+              </button>
+            )}
+            {paso === 5 && !importing && resultado && (
+              <button
+                onClick={() => { onImported(); onClose(); }}
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
+              >
+                Ver en Panel
+                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              </button>
+            )}
+            {paso === 5 && !importing && !resultado && (
+              <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+                Cerrar
+              </button>
+            )}
+          </div>
+        </>
+      }
+    >
+        <div className="p-6">
 
           {/* ── Paso 1: Subir ──────────────────────────────── */}
           {paso === 1 && (
@@ -615,69 +664,6 @@ export default function ImportarCSVModal({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-[var(--color-border)] flex items-center justify-between shrink-0">
-          {/* Back button */}
-          <div>
-            {paso > 1 && paso < 5 && (
-              <button
-                onClick={() => setPaso((paso - 1) as 1 | 2 | 3 | 4 | 5)}
-                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
-              >
-                <ChevronLeft size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                Anterior
-              </button>
-            )}
-          </div>
-
-          {/* Forward / action buttons */}
-          <div className="flex gap-2">
-            {paso === 2 && (
-              <button
-                onClick={applyMappingAndContinue}
-                disabled={!mappingValid}
-                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-              >
-                Aplicar mapeo
-                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
-              </button>
-            )}
-            {paso === 3 && (
-              <button
-                onClick={() => { if (aImportar.length > 0) setPaso(4); }}
-                disabled={aImportar.length === 0}
-                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-              >
-                Continuar ({aImportar.length})
-                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
-              </button>
-            )}
-            {paso === 4 && (
-              <button
-                onClick={handleImportar}
-                disabled={aImportar.length === 0}
-                className="text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-              >
-                Confirmar importación
-              </button>
-            )}
-            {paso === 5 && !importing && resultado && (
-              <button
-                onClick={() => { onImported(); onClose(); }}
-                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
-              >
-                Ver en Panel
-                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
-              </button>
-            )}
-            {paso === 5 && !importing && !resultado && (
-              <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
-                Cerrar
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

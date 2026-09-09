@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { METODOS_PAGO, type MetodoPago } from "../../lib/pagos-format";
 import { Check, ICON_STROKE } from "../icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../ui/Modal";
 import { eur } from "../shared/Cifra";
 
 export type PagoCierre = { importe: number; metodo?: string };
@@ -45,25 +46,33 @@ export default function PagoCierreModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
+    <Modal
+      titulo="¿Cuánto ha pagado hoy?"
+      subtitulo={
+        <>
+          {patientName ? <span className="font-semibold">{patientName}</span> : "El paciente"} aceptó su presupuesto
+          {totalStr ? <> de <span className="font-semibold text-[var(--color-foreground)]">{totalStr}</span></> : null}.
+        </>
+      }
+      onCerrar={onCancel}
+      ocupado={enviado}
+      ancho="sm"
+      pie={
+        <>
+          <button type="button" onClick={onCancel} disabled={enviado} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={() => confirmar(null)} disabled={enviado} className={btnModalSecundario}>
+            Aceptar sin pago
+          </button>
+          <button type="button" onClick={() => confirmar({ importe, metodo })} disabled={!importeValido || enviado} className={btnModalPrimario}>
+            <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
+            {importeValido ? `Registrar pago de ${eur(importe)}` : "Registrar pago"}
+          </button>
+        </>
+      }
     >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
-          ¿Cuánto ha pagado hoy?
-        </p>
-        <p className="text-xs text-[var(--color-muted)] mb-4">
-          {patientName ? <span className="font-semibold">{patientName}</span> : "El paciente"} aceptó
-          su presupuesto{totalStr ? (
-            <>
-              {" "}de <span className="font-bold text-[var(--color-success)]">{totalStr}</span>
-            </>
-          ) : null}
-          . Registra la señal o el pago de hoy — o acéptalo sin pago si aún no ha pagado nada.
-        </p>
+      <div>
 
         <label className="block text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)] mb-1">
           Pagado hoy
@@ -114,36 +123,7 @@ export default function PagoCierreModal({
           ))}
         </select>
 
-        <button
-          type="button"
-          onClick={() => confirmar({ importe, metodo })}
-          disabled={!importeValido || enviado}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-success)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed mb-2"
-        >
-          <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
-          {importeValido
-            ? `Registrar pago de ${eur(importe)}`
-            : "Registrar pago"}
-        </button>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={enviado}
-            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => confirmar(null)}
-            disabled={enviado}
-            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
-          >
-            Aceptar sin pago
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

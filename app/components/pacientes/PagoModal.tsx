@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos-format";
 import { AlertTriangle, ICON_STROKE } from "../icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../ui/Modal";
 import { hoyISO } from "../../lib/time";
 
 export const TIPOS_PAGO_OPTS: Array<{ value: TipoPago; label: string; help: string }> = [
@@ -141,20 +142,30 @@ export function PagoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] rounded-xl shadow-xl border border-[var(--color-border)] max-w-md w-full">
-        <div className="px-5 py-4 border-b border-[var(--color-border)]">
-          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-            {mode === "create" ? "Registrar pago" : "Editar pago"}
-          </h3>
-          {isMigrated && (
-            <p className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300 mt-1">
-              <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden />
-              Pago histórico migrado, edita con cuidado.
-            </p>
-          )}
-        </div>
-        <div className="p-5 space-y-4">
+    <Modal
+      titulo={mode === "create" ? "Registrar pago" : "Editar pago"}
+      subtitulo={
+        isMigrated ? (
+          <span className="inline-flex items-center gap-1 text-[var(--color-warning)]">
+            <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            Pago histórico migrado, edita con cuidado.
+          </span>
+        ) : undefined
+      }
+      onCerrar={onClose}
+      ocupado={submitting}
+      pie={
+        <>
+          <button type="button" onClick={onClose} disabled={submitting} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={handleSubmit} disabled={submitting} className={btnModalPrimario}>
+            {submitting ? "Guardando…" : mode === "create" ? "Guardar pago" : "Guardar cambios"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>Importe (€)</label>
@@ -233,28 +244,7 @@ export function PagoModal({
               {error}
             </p>
           )}
-        </div>
-        <div className="px-5 py-3 border-t border-[var(--color-border)] flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg disabled:opacity-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
-          >
-            {submitting
-              ? "Guardando…"
-              : mode === "create"
-              ? "Guardar pago"
-              : "Guardar cambios"}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }

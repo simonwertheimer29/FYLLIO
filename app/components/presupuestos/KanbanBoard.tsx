@@ -15,6 +15,7 @@ import {
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
 import { Check, Copy, Phone, MessageCircle, Pencil, ICON_STROKE } from "../icons";
+import { Modal, btnModalPrimario, btnModalSecundario } from "../ui/Modal";
 import { type RangoKanban } from "../shared/RangoTemporal";
 // El rango temporal (2026-07-26) sustituye el corte fijo de 14 días de las
 // columnas cerradas. `seVeConRango` vive en lib/pipeline para que la cabecera y
@@ -352,20 +353,30 @@ function ConfirmMoveModal({
   const cfg = ESTADO_CONFIG[targetEstado];
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Confirmar cambio de estado</p>
-        <p className="text-xs text-[var(--color-muted)] mb-4">
+    <Modal
+      titulo="Confirmar cambio de estado"
+      subtitulo={
+        <>
           Mover <span className="font-semibold">{patientName}</span> a{" "}
-          {/* El nombre del estado iba pintado con `cfg.hex` — un hex a mano que
-              en modo oscuro quedaba ilegible sobre la superficie del modal. */}
           <span className="font-semibold text-[var(--color-foreground)]">{cfg.label}</span>
-        </p>
+        </>
+      }
+      onCerrar={onCancel}
+      ancho="sm"
+      pie={
+        <>
+          <button type="button" onClick={onCancel} className={btnModalSecundario}>
+            Cancelar
+          </button>
+          <button type="button" onClick={() => onConfirm(skipFuture)} className={btnModalPrimario}>
+            Confirmar
+          </button>
+        </>
+      }
+    >
+      <div>
 
-        <label className="flex items-center gap-2 text-xs text-[var(--color-muted)] mb-5 cursor-pointer select-none">
+        <label className="flex cursor-pointer select-none items-center gap-2 text-xs text-[var(--color-muted)]">
           <input
             type="checkbox"
             checked={skipFuture}
@@ -375,22 +386,8 @@ function ConfirmMoveModal({
           No volver a mostrar esta confirmación
         </label>
 
-        <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => onConfirm(skipFuture)}
-            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)]"
-          >
-            Confirmar
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
