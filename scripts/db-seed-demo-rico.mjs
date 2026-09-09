@@ -672,7 +672,7 @@ try {
       });
       presupuestos.push({ id: pid, estado, importe, pac, fechaAceptado, guion });
       if (fechaPerdida) await ins("historial_acciones", {
-        presupuesto_id: pid, tipo: "cambio_estado",
+        presupuesto_id: pid, tipo: "cambio_estado", clinica_id: pac.cid,
         descripcion: "Estado cambiado a PERDIDO",
         metadata: JSON.stringify({ estadoNuevo: "PERDIDO" }),
         registrado_por: "Coordinación", fecha: fechaPerdida,
@@ -790,7 +790,7 @@ try {
     });
     presupuestos.push({ id: pid, estado: "PERDIDO", importe: 700, pac, fechaAceptado: null, guion });
     await ins("historial_acciones", {
-      presupuesto_id: pid, tipo: "cambio_estado", descripcion: "Estado cambiado a PERDIDO",
+      presupuesto_id: pid, clinica_id: pac.cid, tipo: "cambio_estado", descripcion: "Estado cambiado a PERDIDO",
       metadata: JSON.stringify({ estadoNuevo: "PERDIDO" }), registrado_por: "Coordinación",
       fecha: iso(perd, 14),
     });
@@ -1324,7 +1324,7 @@ try {
         nota: "Mensaje del hilo de WhatsApp.", registrado_por: "Coordinación", mensaje_ia_usado: true, tono_usado: "cercano",
       });
       if (presVolRows[i].estado === "PERDIDO") histVolRows.push({
-        presupuesto_id: pid, tipo: "cambio_estado", descripcion: "Estado cambiado a PERDIDO",
+        presupuesto_id: pid, clinica_id: presVolRows[i].clinica_id, tipo: "cambio_estado", descripcion: "Estado cambiado a PERDIDO",
         metadata: JSON.stringify({ estadoNuevo: "PERDIDO" }), registrado_por: "Coordinación",
         fecha: tsSafe(enHora(e.base, 14)),
       });
@@ -1864,6 +1864,13 @@ try {
     const fueraMotivo = mp.rows.filter((r) => !VOCAB_MOTIVO_PERDIDA.has(r.motivo_perdida));
     if (fueraMotivo.length) {
       throw new Error(`[seed] motivo_perdida fuera del enum (112): ` + fueraMotivo.map((f) => `${f.motivo_perdida} (${f.n})`).join(", "));
+    }
+    // MEJORAS 217 (09-09): el historial de cambios de estado lleva su sede. Sin
+    // ella la serie diaria por clínica cuenta 0 perdidos y nadie lo ve: la
+    // columna es la que filtra `perdidos_n`, así que vacía es un cero que miente.
+    const hs = await db.query(`select count(*)::int n from historial_acciones where cliente = 'DEMO' and tipo = 'cambio_estado' and clinica_id is null`);
+    if (hs.rows[0].n > 0) {
+      throw new Error(`[seed] ${hs.rows[0].n} cambio(s) de estado en el historial sin clinica_id (217): la serie diaria por sede los perdería`);
     }
     const VOCAB_TRIGGER = new Set(["lead_creado", "cita_confirmada_24h_antes", "presupuesto_presentado", "presupuesto_estancado_7d", "lead_inactivo_n_dias"]);
     const rg = await db.query(`select trigger_tipo, count(*)::int n from reglas_automatizacion where cliente = 'DEMO' group by 1`);

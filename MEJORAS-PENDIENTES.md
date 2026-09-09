@@ -2881,6 +2881,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   comprobar que `registrarAccion` lo hace en producción; (b) `perdidos_n` resuelve la sede por el
   presupuesto, no por la fila del historial, como el mapa — una sola definición. · **Impacto:**
   medio (una métrica de la serie miente por sede). · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+  **HECHA el 2026-09-09 (noche)** — en tres sitios, porque el dato se perdía en tres: (1)
+  `registrarAccion` escribía `clinica_id: null` a mano en PRODUCCIÓN, no solo el seed; ahora resuelve
+  la sede por el presupuesto dentro de la misma transacción (el caller no puede olvidarla). (2) El seed
+  manda `clinica_id` en sus tres inserts de historial y una invariante nueva revienta `demo:reset` si
+  queda un cambio de estado sin sede. (3) `perdidos_n` en la serie diaria atribuye por
+  `presupuestos.clinica_id` (coalesce con la columna para huérfanos), la misma atribución que el mapa
+  de fuga; `qa:metricas` siembra un perdido cuyo historial va sin sede y exige que la sede lo vea.
+  Migración 044 rellena lo ya escrito (idempotente). Medido en DEMO tras `demo:reset`: 37/37 filas con
+  sede; `perdidos_n` en 45 días = 25 en la red y 25 sumando sedes (10/8/5/2), antes 25 y 0.
+  **Por qué `qa:campos` no lo cazó:** vigila lo que un caller MANDA y la escritura TIRA; aquí nadie
+  mandaba la clave (el seed) o se mandaba null a propósito (el escritor). La guarda para esta clase es
+  otra: el escritor resuelve solo lo que puede resolver, y una invariante del seed sobre las columnas
+  por las que FILTRA una métrica.
 
 ## 218. Facilidad · «Ver los casos» del mapa de fuga aterriza en la tabla sin filtrar
 - Las tablas de leads y presupuestos no leen filtros de la URL (ninguna llama a `useSearchParams`);

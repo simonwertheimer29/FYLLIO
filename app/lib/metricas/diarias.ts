@@ -192,11 +192,16 @@ export async function calcularDia(args: {
     out.aceptados_n = { valor: Number(p0?.an ?? 0), n: Number(p0?.an ?? 0) };
     out.aceptados_eur = { valor: Number(p0?.ae ?? 0), n: Number(p0?.an ?? 0) };
 
+    // La sede de un perdido es la de su PRESUPUESTO (MEJORAS 217): el historial
+    // se escribió sin clinica_id hasta el 9-sep y por sede salía 0. Un historial
+    // huérfano (presupuesto borrado) cae a su propia columna y sigue contando
+    // en la red. Misma atribución que el mapa de fuga.
     const perd = await sql<{ n: number }>`
-      select count(*)::int as n from historial_acciones
-       where tipo = 'cambio_estado' and metadata like '%"estadoNuevo":"PERDIDO"%'
-         and (fecha at time zone ${tz})::date = ${args.dia}::date
-         and (${c}::text is null or clinica_id = ${c})`.execute(trx);
+      select count(*)::int as n from historial_acciones h
+        left join presupuestos p on p.id = h.presupuesto_id
+       where h.tipo = 'cambio_estado' and h.metadata like '%"estadoNuevo":"PERDIDO"%'
+         and (h.fecha at time zone ${tz})::date = ${args.dia}::date
+         and (${c}::text is null or coalesce(p.clinica_id, h.clinica_id) = ${c})`.execute(trx);
     out.perdidos_n = { valor: Number(perd.rows[0]?.n ?? 0), n: Number(perd.rows[0]?.n ?? 0) };
 
     const pagos = await sql<{ n: number; eur: number }>`

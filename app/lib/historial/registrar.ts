@@ -35,8 +35,17 @@ export async function registrarAccion(args: {
     const { currentCliente } = await import("../airtable");
     const cliente = currentCliente();
     if (!cliente) throw new Error("[historial] sin cliente en contexto (fail-closed)");
-    await runWithClienteDb(cliente, (trx) =>
-      trx
+    await runWithClienteDb(cliente, async (trx) => {
+      // MEJORAS 217 (2026-09-09): la sede la resuelve ESTE escritor por el
+      // presupuesto, no el caller. Se escribía `clinica_id: null` y la serie
+      // diaria filtraba `perdidos_n` por esa columna: por sede salía 0 durante
+      // semanas. Un dato que nadie manda no lo caza qa:campos (vigila lo que se
+      // manda y se tira); por eso se resuelve aquí, donde no se puede olvidar.
+      const clinicaId =
+        args.clinica ??
+        (await trx.selectFrom("presupuestos").select("clinica_id").where("id", "=", args.presupuestoId).executeTakeFirst())?.clinica_id ??
+        null;
+      await trx
         .insertInto("historial_acciones")
         .values({
           cliente,
@@ -45,11 +54,11 @@ export async function registrarAccion(args: {
           descripcion: args.descripcion,
           metadata: args.metadata ? JSON.stringify(args.metadata) : "",
           registrado_por: args.registradoPor ?? "",
-          clinica_id: null,
+          clinica_id: clinicaId,
           fecha: new Date(fecha),
         })
-        .execute(),
-    );
+        .execute();
+    });
     return;
     
 } catch (err) {

@@ -4396,3 +4396,25 @@ mapa lo esquiva uniendo con `presupuestos.clinica_id`.
 no es contacto, reactivado que no cuenta, perdido-recuperado-perdido una vez, cobro dentro vs antes,
 saldado que no cuenta, frase del agente, estimación null con motivo y contada a mano con base,
 aislamiento por sede, red = suma, ventana de 90) en verde. Propuestas: 217-220.
+
+## 2026-09-09 (noche) — 217: el historial de PERDIDO iba sin sede en producción, no solo en el seed
+Al montar el mapa de fuga salió que las 37 filas de historial PERDIDO de DEMO no tenían `clinica_id`,
+y la serie diaria filtraba `perdidos_n` por esa columna: por sede 0, y Antes/después por sede
+comparaba 0 con 0. Se dio por cosa del seed y era peor: `registrarAccion` (`lib/historial/registrar`)
+escribía `clinica_id: null` a mano, así que en RB e INDEP tampoco habría sede nunca. **Arreglo en
+tres sitios:** el escritor resuelve la sede por el presupuesto en su transacción (el caller no
+participa); el seed manda la clave en sus tres inserts y una invariante nueva revienta `demo:reset`
+si queda un cambio de estado sin sede; `perdidos_n` atribuye por `presupuestos.clinica_id` con
+coalesce a la columna (la atribución del mapa de fuga: una definición), y `qa:metricas` siembra un
+perdido cuyo historial va SIN sede y exige que la sede lo vea. Migración 044 rellena lo ya escrito.
+Medido tras `demo:reset`: 37/37 con sede; 45 días de `perdidos_n` = 25 en la red y 25 sumando sedes.
+
+**Es el mismo patrón que el enlace evento-mensaje y el teléfono de las clínicas** —un dato que nadie
+manda y que semanas después aparece como un cero— pero NO la misma clase que caza `qa:campos`: ese
+QA compara lo que un caller mete en el saco con lo que la escritura acepta, y aquí el saco iba sin
+la clave (seed) o con null a propósito (escritor). La guarda para esta clase es doble: (a) lo que un
+escritor puede resolver solo (la sede de un presupuesto, el paciente de un pago) lo resuelve él, no
+lo espera del caller; (b) el seed comprueba las columnas por las que FILTRA una métrica, no solo los
+enums (§15). Queda por generalizar (b): un QA que, para cada métrica de la serie, exija que la suma
+de las sedes no sea 0 cuando la red no lo es — «la red ve lo que ninguna sede ve» es la firma de
+una columna de atribución vacía. Sin hacer: se propone al cerrar la prueba en el navegador.

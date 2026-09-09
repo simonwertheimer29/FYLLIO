@@ -113,6 +113,13 @@ DEMO red, 90 días: 125 casos, 62.354 € reales, ≈23.224 € en leads, 0,6 s.
 sedes contadas a mano en 2020, reloj fijo). Hallazgo de paso: el seed no pone `clinica_id` en el
 historial de PERDIDO y `perdidos_n` por sede sale 0 (MEJORAS 217). Sin verificar en el navegador.
 Detalle en DECISIONES 9-sep.
+**9-sep (noche) · 217 arreglada mientras Simon prueba en el navegador:** el historial de PERDIDO iba
+sin sede también en producción (`registrarAccion` escribía null); ahora el escritor resuelve la sede
+por el presupuesto, el seed la manda y lo comprueba, `perdidos_n` atribuye por el presupuesto
+(`qa:metricas` lo exige con un historial sin sede) y la migración 044 rellena lo escrito. DEMO
+regenerado: 45 días de `perdidos_n` = 25 en la red y 25 sumando sedes (antes 0). `qa:campos` no
+podía cazarlo (nadie mandaba la clave); la guarda es que el escritor resuelva solo y que el seed
+compruebe las columnas por las que filtra una métrica. Detalle en DECISIONES 9-sep (noche).
 **Siguiente sesión, en frío: 2.1 o 2.3** (inteligencia de conversación 176 · Next Best Config 178)
 — orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin verificar: formulario de
 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde la ficha del paciente,
