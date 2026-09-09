@@ -2818,3 +2818,20 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   intención. Cambiarlo es tocar una constante. · **Principio:** el sistema no decide solo un umbral
   de autonomía (esencia §7). · **Impacto:** alto el día que se plantee el modo B; cero hasta
   entonces. · **Esfuerzo:** 0 · **Fecha:** 2026-09-09 · 🔵
+
+## 215. Deuda · el editor de cita de la agenda tiene su propio cascarón de panel flotante
+- `EditorCitaFlotante` (`fixed z-50 w-80`, X y Escape propios) es una de las dos copias que quedan del
+  cascarón que desde el 9-sep vive en `PanelFlotante` (`components/ui`; lo usan Inicio y agendar).
+  Se coloca JUNTO al bloque borrador con `getBoundingClientRect` (a su derecha o a su izquierda según
+  el borde), cosa que el primitivo no sabe hacer. · **Propuesta:** un tercer anclaje del primitivo,
+  «elemento» (recibe `left/top` ya calculados), y el editor pasa a usarlo; la lógica de colocación se
+  queda en el editor. · **Principio:** un solo cascarón para la familia «panel al lado de su
+  contexto» (§4 ter). · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+
+## 216. Deuda · la hoja móvil de «por qué» en Mensajería es la otra copia del cascarón
+- `MensajeriaView` envuelve `PorQuePanel` en un `fixed inset-y-0 right-0 w-[min(22rem,100vw)]` con
+  Escape propio solo por debajo de lg (en escritorio vive en la columna lateral). Es el mismo modo
+  «hoja» que `PanelFlotante` ya dibuja por debajo de lg con el anclaje «bloque». · **Propuesta:** un
+  anclaje «hoja» del primitivo (solo la hoja, sin la parte absoluta) y Mensajería lo usa en móvil;
+  `PorQuePanel` deja de pintar su propia cabecera con X cuando va dentro del primitivo. ·
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵

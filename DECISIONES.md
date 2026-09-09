@@ -4263,3 +4263,39 @@ tocaron.
 `qa:frontera`, `next build`, `qa:confianza` (31/31), `qa:metricas` y `demo:reset` en verde.
 Propuestas de paso: 212 (la pestaña «¿Escribe bien?» calcula la coincidencia por otro camino y sin
 aislar por sede), 213 (dos ventanas para el mismo descarte), 214 (el umbral).
+
+## 2026-09-09 — Inicio: el detalle de un bloque se abre AL LADO, no debajo (PanelFlotante)
+
+Simon probó Inicio en el navegador: al abrir el detalle del equipo todo lo demás bajaba y el bloque
+de dinero parado —lo más importante— se iba de la pantalla. El desglose en línea competía con lo que
+tiene que estar siempre visible. Diagnóstico: los cuatro detalles (dinero, equipo, Fyllio, clínicas)
+ya eran JSX autocontenido sobre datos del payload; era cambiar el contenedor, no rehacer el contenido.
+
+**Decisiones (Simon, sobre la propuesta):** (1) **Panel flotante sin oscurecer** (§4 ter): lo de
+detrás es contexto de lectura; se cierra con la X y Escape, no clicando fuera. (2) **Ancho 32 rem**:
+el panel es más estrecho que tres de los cuatro bloques; lo que da es altura sin mover la página,
+así que las rejillas de 3 y 4 columnas se apilan y las sparklines pasan de 300 a 460 px. (3)
+**Anclado al bloque**, no al viewport: `absolute` dentro de la `section` (`relative`), `top` del
+bloque, altura máxima el viewport y scroll interno; se mueve con su bloque. Un `fixed top-16` habría
+aparecido junto a Dinero al abrir el detalle de Clínicas con la tabla al fondo. (4) **La cabecera
+repite el titular del bloque** (total parado y comparación; esperando y fuera de plazo; los cuatro
+resultados; n clínicas y la que cayó): «84 tal cual» lleva el 60 % al lado por construcción, aunque
+el panel tape parte del bloque o el bloque quede fuera de la pantalla. (5) **Extraer el primitivo
+ahora**: tres copias del mismo cascarón (agendar, editor de cita, «por qué» en móvil) ya eran un
+patrón; la cuarta habría sido deuda deliberada. `PanelFlotante` (`components/ui`) sale del panel de
+agendar, que ya lo usa (cabecera, cuerpo con scroll y pie fijo); las otras dos copias, MEJORAS 215-216.
+
+**Colocación con el ancho real (contenedor a 1.536 px):** Dinero → el panel se ancla a la FILA,
+pegado a su borde derecho, y tapa Equipo: a la derecha de Dinero no cabe por debajo de ~1.350 px y
+desbordaría el contenedor; con este anclaje el umbral de «Dinero entero visible» es el mismo y por
+debajo degrada tapando el borde derecho de Dinero en vez de desbordar. Equipo → a la izquierda del
+bloque: tapa comparaciones y sparklines de Dinero, el total sigue a la vista. Fyllio y Clínicas →
+pegados al borde derecho del bloque: tapan la cuarta tarjeta y las columnas de €, que van en la
+cabecera. Por debajo de lg (1.024 px) el panel pasa a hoja fija a la derecha, el patrón de «por qué»
+en móvil. Un solo detalle abierto a la vez (`panel: dinero | equipo | fyllio | clinicas | null`);
+cambiar de sede lo cierra. Reorganizado con la forma nueva: Fyllio enseña «Entregas por motivo» y
+«Preguntas que aplazó» a lo ancho y las dos cifras cortas lado a lado; los nombres de clínica sin
+truncar.
+
+**Lo que no está verificado:** los cuatro paneles y el de agendar en el navegador (claro y oscuro,
+entre 1.024 y 1.536 px, y móvil). `tsc`, ESLint, `qa:frontera` y `next build` en verde.

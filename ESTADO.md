@@ -85,7 +85,13 @@ provisional — decisión de Simon pendiente, MEJORAS 214). `envios_tal_cual` en
 24) y en Antes/después. El seed de DEMO mide los borradores enviados y marca dos turnos como error.
 `qa:confianza` 31/31 · `qa:metricas` en verde. Pendiente de mirar en el navegador (como 2.7).
 **Siguiente sesión, en frío: 2.9** (Inicio: lo que ya está en marcha, motivos honestos, pantallas de
-demo). Antes, Simon prueba en el navegador el formulario de 2.7 y el bloque de 2.4.
+demo). Antes, Simon prueba en el navegador el formulario de 2.7, el bloque de 2.4 y los cuatro
+paneles de detalle de Inicio (abajo).
+**9-sep (tarde) · El detalle de cada bloque de Inicio ya no se despliega en línea** (al abrir el del
+equipo, Dinero se iba de la pantalla): se abre en un panel flotante AL LADO del bloque, 32 rem, sin
+oscurecer, con el titular del bloque repetido en la cabecera. Cascarón nuevo `PanelFlotante`
+(`components/ui`), que ya usa también el panel de agendar; el editor de cita y la hoja móvil de «por
+qué» quedan como [MEJORAS 215-216](MEJORAS-PENDIENTES.md). Detalle en DECISIONES 9-sep.
 **8-sep · Antes/después contaba la historia contraria** («leads citados» 0 → 0 y, tras encender
 el agente, respuesta más lenta y −22 % convertidos): el volumen del seed no sabía del hito ni
 tenía citas de leads. Ahora siembra el efecto del agente desde `HITO_DIAS = 23` (respuesta en
