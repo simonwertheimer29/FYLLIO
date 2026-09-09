@@ -206,8 +206,13 @@ panel? Sí → flotante sin oscurecer. No → modal con fondo oscurecido.
 
 Referencias: el editor de cita de la agenda y el panel de agendar desde la
 ficha (flotantes); ConfirmDialog (oscurece — confirma algo irreversible).
-Los modales existentes que oscurecen sin exigir atención exclusiva se adaptan
-al tocarlos por otro motivo, no en barrido dedicado.
+
+**Dos primitivos y ninguna copia (10-sep-2026, MEJORAS 221).** Todo lo flotante se hace con
+`PanelFlotante` (`components/ui`; anclajes «pantalla», «bloque», «hoja» a toda altura y «libre»
+con posición dada) y todo lo que oscurece con `Modal` (`components/ui`; velo único
+`--color-overlay`, Escape y clic fuera salvo con acción en curso, hoja desde abajo en móvil,
+botones del pie con `btnModalPrimario/Secundario/Peligro`). Un `fixed inset-0` escrito a mano
+en una pantalla es una copia que hay que sustituir, no un caso especial.
 
 ## 5. Tono del texto (copy)
 

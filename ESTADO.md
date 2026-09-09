@@ -153,10 +153,15 @@ propia de Agentes › Conversacional; «Agendar» desde la tabla de pacientes (b
 fila). **Queda del repaso, en orden:** regla A en Confianza (18 párrafos) e Inicio, luego barrido
 (222); unificación de paneles (221, dos primitivos, dos tandas); filtros por URL en la tabla de
 presupuestos (218). Sin verificar en el navegador. Detalle en DECISIONES 9-sep (noche).
-**Siguiente sesión, en frío: 2.1 o 2.3** (inteligencia de conversación 176 · Next Best Config 178)
-— orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin verificar: formulario de
-2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde la ficha del paciente,
-la cabecera de Leads y el mapa «Dónde se pierde».
+**10-sep · el repaso, cerrado (222, 221, 218):** regla A en Confianza, Inicio y el barrido (una línea
+por sección, el matiz en tooltip); dos primitivos de panel —`PanelFlotante` con «hoja» y «libre» para
+los ocho drawers y el editor de cita, `Modal` nuevo con velo único para los trece modales y
+ConfirmDialog (215 y 216 caen con ello)—; la tabla de presupuestos lee `estado`/`desde`/`hasta` y el
+mapa de fuga aterriza con el filtro puesto en las tres tablas. `tsc`, ESLint sin avisos nuevos y
+`next build` en verde en cada tanda. Sin verificar en el navegador. Detalle en DECISIONES 10-sep.
+**En curso (10-sep): 2.1 (176) y después 2.3 (178)**, en ese orden por Simon. Pendiente de probar en
+el navegador: formulario de 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar
+desde la ficha, la cabecera de Leads, el mapa «Dónde se pierde» y todo lo del 10-sep.
 **9-sep (tarde) · El detalle de cada bloque de Inicio ya no se despliega en línea** (al abrir el del
 equipo, Dinero se iba de la pantalla): se abre en un panel flotante AL LADO del bloque, 32 rem, sin
 oscurecer, con el titular del bloque repetido en la cabecera. Cascarón nuevo `PanelFlotante`

@@ -2862,7 +2862,8 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   el borde), cosa que el primitivo no sabe hacer. · **Propuesta:** un tercer anclaje del primitivo,
   «elemento» (recibe `left/top` ya calculados), y el editor pasa a usarlo; la lógica de colocación se
   queda en el editor. · **Principio:** un solo cascarón para la familia «panel al lado de su
-  contexto» (§4 ter). · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+  contexto» (§4 ter). · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🟢 **HECHA el 2026-09-10** (anclaje «libre» de
+  `PanelFlotante` con `estilo`; la colocación junto al hueco sigue en el editor).
 
 ## 216. Deuda · la hoja móvil de «por qué» en Mensajería es la otra copia del cascarón
 - `MensajeriaView` envuelve `PorQuePanel` en un `fixed inset-y-0 right-0 w-[min(22rem,100vw)]` con
@@ -2870,7 +2871,8 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   «hoja» que `PanelFlotante` ya dibuja por debajo de lg con el anclaje «bloque». · **Propuesta:** un
   anclaje «hoja» del primitivo (solo la hoja, sin la parte absoluta) y Mensajería lo usa en móvil;
   `PorQuePanel` deja de pintar su propia cabecera con X cuando va dentro del primitivo. ·
-  **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+  **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🟢 **HECHA el 2026-09-10** (anclaje «hoja»; `cabeceraPorQue` la pinta el
+  cascarón común y `PorQuePanel` va `sinCabecera` dentro de él).
 
 ## 217. Dato · el historial de PERDIDO del seed no lleva sede: `perdidos_n` por clínica sale 0
 - `db-seed-demo-rico.mjs` inserta `historial_acciones` (cambio_estado → PERDIDO) sin `clinica_id`
@@ -2901,12 +2903,15 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   filtrar por «No interesado» / «Perdido» y por fecha. Cobros recibe `?urgencia=vencido` desde el
   dashboard; comprobar que lo aplica. · **Principio:** anticipación (§3). · **Propuesta:** las tres
   tablas aceptan `estado`, `motivo` y `desde`/`hasta` por URL y el mapa los manda. · **Impacto:**
-  medio. · **Esfuerzo:** 2 h · **Fecha:** 2026-09-09 · 🔵
+  medio. · **Esfuerzo:** 2 h · **Fecha:** 2026-09-09 · 🟢
   **HECHA A MEDIAS el 2026-09-09 (noche)** — la tabla de LEADS lee `resultado`, `motivo`, `desde` y
   `hasta` (sobre la fecha de cierre) de la URL y enseña el rango como chip quitable; el mapa manda
   `resultado=no_interesado&desde&hasta` en sus dos etapas de leads (la tabla no distingue contacto:
   las dos aterrizan en el mismo filtro). Cobros ya preseleccionaba `?urgencia=vencido`. **Queda** la
   tabla de presupuestos: el mapa ya manda `estado=PERDIDO&desde&hasta` y la tabla los ignora.
+  **HECHA el 2026-09-10** — `MaximaView` lee `estado`, `desde` y `hasta` (pill «Cerrados» + chip «Perdidos del X al Y»
+  quitable; elegir otro pill lo quita) y `PresupuestosShell` arranca el rango en «Histórico» cuando el enlace trae
+  ventana: con las dos semanas por defecto escondía justo lo que el enlace pedía.
 
 ## 219. Deuda · la resolución de alcance (clínica | red, 403/404) está copiada en las rutas analíticas
 - `api/metricas/antes-despues` y `api/metricas/fuga` resuelven igual qué clínicas ve la sesión, el
@@ -2944,7 +2949,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   dos partes: primero los 8 drawers (misma forma, menos riesgo), luego los 13 modales, uno por commit.
   La regla al estándar visual cuando se decida el fondo único.
 - **Impacto:** medio-alto en confianza (hoy el producto se ve como cuatro productos). · **Esfuerzo:**
-  1,5-2 días · **Fecha:** 2026-09-09 · 🔵
+  1,5-2 días · **Fecha:** 2026-09-09 · 🟢 **HECHA el 2026-09-10** en dos tandas: los ocho drawers sobre `PanelFlotante`
+  («hoja» y «libre», ninguno oscurece; el menú móvil del AppShell queda fuera por ser navegación) y los trece modales +
+  ConfirmDialog sobre `Modal` (`components/ui`, velo único `--color-overlay`, hoja desde abajo en móvil). Residuos: los
+  formularios de ClinicaEquipoView llevan sus botones en el cuerpo y no en el pie; el historial del Copilot sigue siendo
+  un velo interior propio.
 
 ## 222. TRANSVERSAL A (repaso de Simon 9-sep) · barrido de texto sobrante: «una línea explica»
 - Regla nueva en el estándar visual §5. Hecho hoy en «Dónde se pierde» (cabecera a una línea; el
@@ -2953,7 +2962,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   después — el caso que dio la regla) e Inicio (cabeceras de los cuatro bloques y sus paneles);
   después, barrido del resto (Antes/después, KPIs, Ajustes, Agentes › Configuración). Lo que vaya a
   tooltip tiene que ser prescindible: en móvil no hay cursor. · **Esfuerzo:** Confianza + Inicio
-  medio día; barrido 1 día · **Fecha:** 2026-09-09 · 🔵
+  medio día; barrido 1 día · **Fecha:** 2026-09-09 · 🟢 **HECHA el 2026-09-10**: Confianza (la vara a un dato con el
+  origen en tooltip, definiciones en el `title` de cada columna, dos datos en vez de dos párrafos), Inicio (cabeceras y
+  los cuatro paneles) y el barrido (Antes/después, KPIs no-shows, Ajustes › configuración/agenda/incidencias, Agentes ›
+  Configuración con `matiz` opcional por sección). KPIs de leads/cobros y el Banco de pruebas no tenían párrafos que quitar.
 
 ## 223. Dato · un informe guardado para una sede se vuelve «de toda la red» si el nombre no casa
 - `informes-pg.ts` traduce `clinica` (texto: el NOMBRE de la clínica, paridad con Airtable) a

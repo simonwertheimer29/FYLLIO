@@ -10,6 +10,7 @@
 // se migran a rutas top-level. Aquí solo queda el pipeline de presupuestos.
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Bell, Plus, Upload, ClipboardList, ICON_STROKE } from "../icons";
 import { EmptyState } from "../ui/Feedback";
@@ -125,8 +126,11 @@ export default function PresupuestosShell({
   vistaFija?: Tab;
 }) {
   const [tab, setTab] = useState<Tab>(vistaFija ?? vistaInicial);
-  // Rango temporal del tablero — control único compartido con Leads.
-  const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
+  // Rango temporal del tablero — control único compartido con Leads. MEJORAS 218:
+  // si el enlace trae su propia ventana de cierre (desde/hasta), arranca en
+  // «Histórico» — si no, escondería lo que el enlace pide enseñar.
+  const params = useSearchParams();
+  const [rango, setRango] = useState<RangoKanban>(params.get("desde") && params.get("hasta") ? "todo" : RANGO_DEFAULT);
   const [currentFilters, setCurrentFilters] = useState<Filters>(EMPTY_FILTERS);
   // Sprint 13.1 Bloque 2 — Clínica viene del GlobalHeader (ClinicContext).
   // El campo Filters.clinica se mantiene por backwards-compat pero no se

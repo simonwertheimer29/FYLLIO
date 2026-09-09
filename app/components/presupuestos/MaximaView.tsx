@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { Download, Phone, MessageCircle, Search, ICON_STROKE } from "../icons";
+import { Download, Phone, MessageCircle, Search, X, ICON_STROKE } from "../icons";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import type {
   PresupuestoIntervencion,
@@ -97,7 +98,33 @@ export default function MaximaView({
     return new URLSearchParams(window.location.search).get("doctor") ?? "";
   });
   const [filtroTratamiento, setFiltroTratamiento] = useState("");
-  const [pillActiva, setPillActiva] = useState<PillCategory>("todos");
+  // MEJORAS 218 — «Ver los casos» del mapa de fuga llega con el filtro PUESTO:
+  // ?estado=PERDIDO&desde=…&hasta=… (sobre la fecha de cierre). El estado fija el
+  // pill «Cerrados» y acota al estado pedido; los dos se enseñan como UN chip
+  // quitable, y elegir otro pill lo quita: el enlace no manda para siempre.
+  const params = useSearchParams();
+  const estadoUrl = params.get("estado");
+  const [estadoCierre, setEstadoCierre] = useState<"PERDIDO" | "ACEPTADO" | null>(
+    estadoUrl === "PERDIDO" || estadoUrl === "ACEPTADO" ? estadoUrl : null,
+  );
+  const [rangoCierre, setRangoCierre] = useState<{ desde: string; hasta: string } | null>(() => {
+    const d = params.get("desde");
+    const h = params.get("hasta");
+    const DIA = /^\d{4}-\d{2}-\d{2}$/;
+    return d && h && DIA.test(d) && DIA.test(h) ? { desde: d, hasta: h } : null;
+  });
+  const [pillActiva, setPillActivaCruda] = useState<PillCategory>(estadoUrl === "PERDIDO" || estadoUrl === "ACEPTADO" ? "cerrados" : "todos");
+  const quitarCierre = useCallback(() => {
+    setEstadoCierre(null);
+    setRangoCierre(null);
+  }, []);
+  const setPillActiva = useCallback(
+    (id: PillCategory) => {
+      setPillActivaCruda(id);
+      if (id !== "cerrados") quitarCierre();
+    },
+    [quitarCierre],
+  );
   const [searchQuery, setSearchQuery] = useState("");
 
   // Sort
@@ -168,6 +195,15 @@ export default function MaximaView({
     if (pill?.estadosVisuales) {
       items = items.filter((p) => pill.estadosVisuales!.includes(p.estadoVisual));
     }
+    // MEJORAS 218 — el estado y la ventana de cierre que trajo el enlace. Un
+    // cerrado sin fecha de cierre no cae en ninguna ventana: no se enseña.
+    if (estadoCierre) items = items.filter((p) => p.estado === estadoCierre);
+    if (rangoCierre) {
+      items = items.filter((p) => {
+        const dia = String((p.estado === "PERDIDO" ? p.fechaPerdida : p.fechaAceptado) ?? "").slice(0, 10);
+        return dia >= rangoCierre.desde && dia <= rangoCierre.hasta;
+      });
+    }
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -197,7 +233,7 @@ export default function MaximaView({
     });
 
     return sorted;
-  }, [data, enRango, selectedClinicaNombre, filtroDoctor, filtroMotivo, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
+  }, [data, enRango, selectedClinicaNombre, filtroDoctor, filtroMotivo, filtroTratamiento, pillActiva, estadoCierre, rangoCierre, searchQuery, sortField, sortDir]);
 
   // ─── Pill counts ────────────────────────────────────────────────────────────
 
@@ -280,6 +316,18 @@ export default function MaximaView({
             </>
           )}
         </p>
+        {(estadoCierre || rangoCierre) && (
+          <button
+            type="button"
+            onClick={quitarCierre}
+            title="Quitar el filtro que trajo el enlace"
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)]"
+          >
+            {estadoCierre === "PERDIDO" ? "Perdidos" : estadoCierre === "ACEPTADO" ? "Aceptados" : "Cerrados"}
+            {rangoCierre ? ` del ${formatDate(rangoCierre.desde)} al ${formatDate(rangoCierre.hasta)}` : ""}
+            <X size={12} strokeWidth={ICON_STROKE} aria-hidden />
+          </button>
+        )}
         <div className="flex gap-2">
           <ExportCsvButton clinicaId={selectedClinicaId} ids={filtered.map((p) => p.id)} />
           <button

@@ -4444,3 +4444,23 @@ la TABLA de pacientes: el mismo `AgendarPanel` de la ficha montado en `Pacientes
 de calendario en cada fila (`sujeto` paciente: id, nombre, doctor, próxima cita — la tabla ya lo
 tenía). Nada de esto está verificado en el navegador; `tsc`, `qa:frontera`, `qa:fuga`, `qa:atribucion`
 en verde. **Formato de entrega desde hoy:** qué se hizo · objetivo · qué ver y dónde, paso a paso.
+
+## 2026-09-10 — Repaso cerrado: regla A en todo el producto, dos primitivos de panel, «Ver los casos» en presupuestos
+
+- **Regla A (222).** Confianza tenía cuatro párrafos antes de la tabla y dos después; ahora la vara es
+  un dato («40 casos · medida el 3/9», origen en tooltip), las definiciones viven en el `title` de cada
+  columna y el cierre son dos datos con etiqueta. Inicio pierde las frases fijas de sus cuatro bloques
+  y paneles; el barrido deja cada sección de Ajustes y Agentes › Configuración en una línea (`Seccion`
+  gana `matiz`, que va a tooltip). Criterio aplicado: lo que fue a tooltip es prescindible; lo que
+  hacía falta se dijo en la propia etiqueta (las fechas de la ventana, «todo el mes»).
+- **Dos primitivos (221).** `PanelFlotante` gana «hoja» (toda altura, sin oscurecer) y «libre»
+  (posición dada) y absorbe los ocho drawers y el editor de cita; `Modal` nuevo absorbe los trece
+  modales y ConfirmDialog con un velo único (`--color-overlay`), Escape, clic fuera salvo con acción en
+  curso, scroll bloqueado y foco de vuelta. Decisiones de paso: en móvil todo modal sube como hoja
+  desde abajo (era solo el de presupuesto) y los botones del pie van a 40 px; el panel de acción deja
+  de bloquear el scroll y de oscurecer, porque la lista de la que salió el caso es su contexto (§4 ter);
+  el botón de «Registrar pago» al aceptar pierde el verde (una acción no es un éxito).
+- **Filtros por URL (218).** La tabla de presupuestos lee `estado`, `desde` y `hasta` y los enseña como
+  un chip quitable; el rango de cabecera arranca en «Histórico» si el enlace trae ventana. Sin eso, el
+  rango por defecto de dos semanas escondía justo lo que el enlace pedía enseñar.
+
