@@ -633,7 +633,7 @@ function SeccionDuraciones({ config, guardar }: SeccionProps) {
         <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Duración por tratamiento</h2>
       </div>
       <p className="mb-3 text-xs text-[var(--color-muted)]">
-        Una primera visita no dura lo que un implante. Sin duración, ese tratamiento no puede ofrecer huecos.
+        Sin duración, un tratamiento no puede ofrecer huecos.
         {sinDuracion > 0 && (
           <span className="font-semibold text-[var(--color-warning)]"> {sinDuracion} tratamiento(s) sin duración.</span>
         )}

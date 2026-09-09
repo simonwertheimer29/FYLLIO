@@ -112,9 +112,8 @@ export function IncidenciasView() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold text-[var(--color-foreground)]">Incidencias</h1>
-          <p className="mt-1 text-sm text-[var(--color-muted)]">
-            Los fallos que Fyllio capturó, agrupados por clínica, tipo y motivo. Sin contenido de conversación: motivo, tipo y
-            referencia. {datos ? `Caducan a los ${datos.plazoDias} días.` : ""}
+          <p className="mt-1 text-sm text-[var(--color-muted)]" title="Sin contenido de conversación: solo motivo, tipo y referencia.">
+            Los fallos que Fyllio capturó, por clínica, tipo y motivo{datos ? ` · caducan a los ${datos.plazoDias} días` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -248,8 +247,7 @@ export function IncidenciasView() {
       )}
 
       <p className="text-xs text-[var(--color-muted)]">
-        Lo que no está aquí: lo que muere antes de nuestro código (timeouts de la función, errores del framework, la
-        plataforma) y lo que ocurre en el navegador. Eso sigue en la consola de Vercel.
+        No están aquí los fallos que mueren antes de nuestro código ni los del navegador: siguen en el registro de la plataforma.
       </p>
     </div>
   );

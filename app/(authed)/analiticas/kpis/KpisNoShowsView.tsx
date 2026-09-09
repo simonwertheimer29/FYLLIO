@@ -109,9 +109,7 @@ export function KpisNoShowsView({ periodo }: { periodo: PeriodoKpi }) {
     <div className="space-y-12">
       {periodo !== "mes" && (
         <p className="text-[11px] text-[var(--color-muted)] rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2">
-          No-shows se mide siempre sobre el <strong>mes en curso</strong>: el motor
-          está congelado y todavía no sabe responder a otros periodos. Lo de abajo
-          no cambia con el selector.
+          No-shows se mide siempre sobre el <strong>mes en curso</strong>; el selector de periodo no le afecta.
         </p>
       )}
 

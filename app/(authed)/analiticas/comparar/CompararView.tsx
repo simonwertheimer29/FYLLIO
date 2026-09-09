@@ -104,9 +104,8 @@ export function CompararView() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold text-[var(--color-foreground)]">Antes y después</h1>
-          <p className="mt-1 text-sm text-[var(--color-muted)]">
-            La misma clínica, los mismos días antes y después de un cambio. Cada cifra lleva sus casos (n) y sus días con dato;
-            si no hay suficiente, se dice.
+          <p className="mt-1 text-sm text-[var(--color-muted)]" title="Cada cifra lleva sus casos (n) y sus días con dato; si no hay suficiente, se dice.">
+            La misma clínica, los mismos días antes y después de un cambio.
           </p>
         </div>
         <button

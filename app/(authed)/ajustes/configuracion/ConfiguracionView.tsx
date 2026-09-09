@@ -49,47 +49,47 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
   {
     key: "Metodos_Pago",
     label: "Métodos de pago",
-    help: "Lista de métodos disponibles al registrar un pago. La clínica hereda los globales si no añade ninguno.",
+    help: "Los métodos que se eligen al registrar un pago; sin ninguno propio, la clínica usa los globales.",
   },
   {
     key: "Plazos_Liquidacion",
     label: "Plazos de liquidación",
-    help: "Días por defecto entre que el paciente acepta presupuesto y se espera la liquidación. Las alertas automáticas usan este valor (default 90 días).",
+    help: "Días entre que el paciente acepta el presupuesto y se espera el pago; las alertas usan este valor (90 si no se cambia).",
   },
   {
     key: "Razones_No_Interesado",
     label: "Razones \"No Interesado\"",
-    help: "Frases que la coordinadora selecciona al transicionar un lead a No Interesado.",
+    help: "Los motivos que se eligen al marcar un lead como No interesado.",
   },
   {
     key: "Tipos_Paciente",
     label: "Tipos de paciente",
-    help: "Los tipos que NO son una aseguradora — normalmente solo \"Privado\". Es lo que se elige en la ficha de cada paciente junto a las aseguradoras de la pestaña siguiente.",
+    help: "Los tipos que no son una aseguradora, normalmente solo «Privado»; se eligen en la ficha del paciente.",
   },
   {
     key: "Tipos_Paciente_Aseguradora",
     label: "Aseguradoras",
-    help: "Las mutuas con las que trabaja la clínica. Un paciente con aseguradora ve el desglose de su cobertura en el portal, así que dar una de alta aquí es lo único que hace falta: no requiere ningún cambio de código.",
+    help: "Las mutuas con las que trabaja la clínica; el paciente con aseguradora ve su cobertura en el portal.",
   },
   {
     key: "Plantillas_Scope",
     label: "Plantillas WhatsApp",
-    help: "Plantillas de mensajes por categoría. Las globales sirven de referencia; cada clínica puede crear las suyas.",
+    help: "Plantillas de mensajes por categoría; las globales sirven de referencia y cada clínica crea las suyas.",
   },
   {
     key: "Horario_Laboral",
     label: "Horario laboral",
-    help: "Días y horas en los que esta clínica permite envíos automáticos. Las acciones del motor de automatizaciones que envíen WhatsApp respetan este horario.",
+    help: "Días y horas en los que esta clínica permite envíos automáticos por WhatsApp.",
   },
   {
     key: "Llamadas_IA",
     label: "Llamadas IA",
-    help: "Configuración de las llamadas IA salientes: activación por clínica, ventana horaria, mensaje personalizado, voz y límite por día.",
+    help: "Llamadas salientes con voz: activación, ventana horaria, mensaje, voz y límite por día.",
   },
   {
     key: "Motor_NoShows",
     label: "Motor No-shows",
-    help: "Motor de predicción de no-shows: activación de predicción, llamada IA automática para riesgo alto, plantillas extra y umbral de riesgo. Las salvaguardas (opt-out, cooldown, horario laboral) se aplican automáticamente.",
+    help: "Predicción de no-shows: activación, llamada automática si el riesgo es alto, plantillas y umbral de riesgo.",
   },
 ];
 

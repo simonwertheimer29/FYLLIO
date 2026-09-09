@@ -238,7 +238,7 @@ export function AgenteConfigView() {
               cualquiera sabe contestar ─────────────────────────────────── */}
           <Seccion
             titulo="Quiénes sois"
-            consecuencia="Cómo se presenta el agente y cómo trata a la gente. Sin esto, habla correcto pero genérico; con una o dos frases vuestras, suena a tu clínica."
+            consecuencia="Con una o dos frases vuestras el agente suena a tu clínica; sin ellas, correcto pero genérico."
           >
             <textarea
               value={config.quienesSois.presentacion ?? ""}
@@ -271,7 +271,7 @@ export function AgenteConfigView() {
           {/* ── GRUPO 2 · Qué sabe el agente ──────────────────────────── */}
           <Seccion
             titulo="Tratamientos y precios publicados"
-            consecuencia="Si cargas tu tabla de precios, el agente contesta cuánto cuesta; si no, lo aplaza y lo resuelve tu equipo. Un tratamiento sin precio se menciona, pero sin cifra."
+            consecuencia="Con precio, el agente contesta cuánto cuesta; sin precio, lo aplaza y lo resuelve tu equipo."
           >
             {config.tratamientos.map((t, i) => (
               <div key={i} className="flex flex-wrap items-start gap-2">
@@ -315,7 +315,7 @@ export function AgenteConfigView() {
 
           <Seccion
             titulo="Políticas publicadas"
-            consecuencia="Vías de pago, seguros con los que trabajáis, cancelaciones… Lo que publiques aquí, el agente lo contesta tal cual. Adaptarlo a una persona concreta (su descuento, su cobertura) siempre lo hace tu equipo."
+            consecuencia="Lo que publiques aquí el agente lo contesta tal cual; adaptarlo a una persona concreta lo hace siempre tu equipo."
           >
             {config.politicas.map((p, i) => (
               <div key={i} className="flex flex-wrap items-start gap-2">
@@ -358,7 +358,8 @@ export function AgenteConfigView() {
               dos horarios vivo en la pantalla. ─────────────────────────── */}
           <Seccion
             titulo="Horario de la clínica"
-            consecuencia="Un solo horario, dos consecuencias: el agente contesta «¿a qué hora abrís?» con él, y el reloj de los plazos de respuesta solo corre cuando estáis abiertos. Sin definirlo, el agente no da horarios y los plazos usan el estándar (L-V de 9:00 a 20:00)."
+            consecuencia="El agente contesta «¿a qué hora abrís?» con este horario y los plazos de respuesta solo corren cuando estáis abiertos."
+            matiz="Sin definirlo, el agente no da horarios y los plazos usan el estándar: de lunes a viernes, de 9:00 a 20:00."
           >
             {config.plazos.horario == null ? (
               <button
@@ -424,7 +425,8 @@ export function AgenteConfigView() {
               3 (reservar por su cuenta) está FUERA de A-F: ni se ofrece. ── */}
           <Seccion
             titulo="Agenda"
-            consecuencia="Es el aplazamiento más frecuente: «¿tenéis hueco el jueves?». Sin conexión, el agente recoge la disponibilidad de la persona y tu equipo confirma. Conectando tu agenda (solo lectura), pasa a informar de los huecos — reservar lo hace siempre tu equipo."
+            consecuencia="Con la agenda conectada (solo lectura) el agente informa de los huecos; sin ella, recoge la disponibilidad y tu equipo confirma."
+            matiz="Reservar lo hace siempre tu equipo. «¿Tenéis hueco el jueves?» es el aplazamiento más frecuente."
           >
             <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-3">
               <input type="radio" name="agenda" checked readOnly className="mt-0.5 accent-[var(--color-accent)]" />
@@ -454,7 +456,7 @@ export function AgenteConfigView() {
           {/* ── GRUPO 3 · Hasta dónde llega ───────────────────────────── */}
           <Seccion
             titulo="Hasta dónde llega"
-            consecuencia="Qué informa ya lo decide lo publicado de arriba. Aquí decides cuántas veces aplaza un tema antes de pasártelo, y qué pasa con las urgencias."
+            consecuencia="Cuántas veces aplaza un tema antes de pasártelo, y qué pasa con las urgencias."
           >
             <label className="block text-[13px] text-[var(--color-foreground)]">
               <span className="font-medium">Vueltas sobre un tema aplazado antes de derivarlo</span>
@@ -552,7 +554,7 @@ export function AgenteConfigView() {
 
           <Seccion
             titulo="Enlaces"
-            consecuencia="Reserva online, web, cómo llegar… El agente los comparte cuando vienen a cuento. Solo direcciones completas (https://…)."
+            consecuencia="El agente los comparte cuando vienen a cuento; solo direcciones completas (https://…)."
           >
             {config.enlaces.map((e, i) => (
               <div key={i} className="flex flex-wrap items-start gap-2">
@@ -580,7 +582,7 @@ export function AgenteConfigView() {
           {/* ── GRUPO 4 · Plazos de respuesta ─────────────────────────── */}
           <Seccion
             titulo="Plazos de respuesta"
-            consecuencia="Cuánto puede esperar cada cosa antes de marcarse «Fuera de plazo» en Seguimiento. El reloj solo corre cuando la clínica está abierta — con el horario de la sección «Horario de la clínica»."
+            consecuencia="Cuánto puede esperar cada cosa antes de marcarse «Fuera de plazo» en Seguimiento; el reloj solo corre con la clínica abierta."
           >
             <div className="grid gap-2 sm:grid-cols-2">
               {([
@@ -670,7 +672,7 @@ export function AgenteConfigView() {
               comparten el semáforo, los plazos y al paciente. ──────────── */}
           <Seccion
             titulo="Cadencias y recordatorios"
-            consecuencia="Cómo se persigue un presupuesto sin respuesta: cada cuánto se toca, cuántas veces antes de darlo por agotado (y recomendar llamada), y a qué hora salen los envíos. Es la misma decisión que los plazos de arriba — el agente en silencio."
+            consecuencia="Cada cuánto se toca un presupuesto sin respuesta, cuántas veces antes de recomendar llamada y a qué hora salen los envíos."
           >
             <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
               <span>Toques sin respuesta antes de dar la cadencia por agotada</span>
@@ -744,16 +746,15 @@ export function AgenteConfigView() {
                 </label>
               </>
             ) : (
-              <p className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
-                Estás viendo toda la red y la cadencia de presupuestos es por clínica: elige una en el
-                selector de clínica de la cabecera para ajustar la suya. Sin tocar nada, todas usan el
-                estándar — seguimiento a los 3, 7 y 10 días, máximo 3 recordatorios, envíos a las 9:00 y
-                rechazo automático a los 30 días.
+              <p
+                className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]"
+                title="Sin tocar nada, todas usan el estándar: seguimiento a los 3, 7 y 10 días, máximo 3 recordatorios, envíos a las 9:00 y rechazo automático a los 30 días."
+              >
+                La cadencia es por clínica: elige una en el selector de la cabecera para ajustar la suya.
               </p>
             )}
-            <p className="text-[12px] text-[var(--color-muted)]">
-              Además, fijo por ahora: el recordatorio de cita se propone la víspera a las 09:00, y hay un
-              tope de 30 envíos por clínica y día.
+            <p className="text-[12px] tabular-nums text-[var(--color-muted)]">
+              Fijo por ahora: recordatorio de cita la víspera a las 09:00 · tope de 30 envíos por clínica y día.
             </p>
           </Seccion>
 
@@ -853,18 +854,21 @@ function HORARIO_INICIAL() {
 function Seccion({
   titulo,
   consecuencia,
+  matiz,
   children,
 }: {
   titulo: string;
   /** LA CONSECUENCIA, no una advertencia: qué hace la máquina si lo
-   *  rellenas, y quién lo hace si no. */
+   *  rellenas, y quién lo hace si no. UNA línea (regla A, 9-sep). */
   consecuencia: string;
+  /** Lo prescindible, al pasar el cursor: en móvil no se ve, y no hace falta. */
+  matiz?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <h2 className="font-display text-[15px] font-semibold text-[var(--color-foreground)]">{titulo}</h2>
-      <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">{consecuencia}</p>
+      <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]" title={matiz}>{consecuencia}</p>
       <div className="mt-3 space-y-2">{children}</div>
     </section>
   );
