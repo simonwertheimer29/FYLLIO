@@ -101,6 +101,7 @@ const ITEMS: Item[] = [
       { label: "Informes", href: "/analiticas/informes" },
       { label: "Antes y después", href: "/analiticas/comparar" },
       { label: "Dónde se pierde", href: "/analiticas/fuga" },
+      { label: "Qué dicen", href: "/analiticas/conversacion" },
     ],
   },
   { label: "Ajustes", href: "/ajustes", Icono: Settings, soloAdmin: true },

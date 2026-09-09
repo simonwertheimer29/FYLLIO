@@ -9,9 +9,8 @@
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
-import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { runWithCliente } from "../../../lib/airtable";
-import { runWithClienteDb } from "../../../lib/db/context";
+import { resolverAlcanceAnalitico } from "../../../lib/auth/alcance-analitico";
 import { calcularFuga, VENTANAS_FUGA, VENTANA_FUGA_DEFAULT, type VentanaFuga } from "../../../lib/metricas/fuga";
 
 export const dynamic = "force-dynamic";
@@ -19,28 +18,15 @@ export const dynamic = "force-dynamic";
 export const GET = withAuth(async (session, req) => {
   if (!session.cliente) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const url = new URL(req.url);
-  const permitidas = session.rol === "admin" ? null : await listClinicaIdsForUser(session.userId);
   const diasRaw = Number(url.searchParams.get("dias") ?? VENTANA_FUGA_DEFAULT);
   const dias: VentanaFuga = (VENTANAS_FUGA as readonly number[]).includes(diasRaw) ? (diasRaw as VentanaFuga) : VENTANA_FUGA_DEFAULT;
   const cliente = session.cliente;
 
   try {
     return await runWithCliente(cliente, async () => {
-      const todas = await runWithClienteDb(cliente, (trx) =>
-        trx.selectFrom("clinicas").select(["id", "nombre"]).where("activa", "is not", false).orderBy("nombre").execute(),
-      );
-      const clinicas = (permitidas ? todas.filter((c) => permitidas.includes(c.id)) : todas).map((c) => ({ id: c.id, nombre: c.nombre }));
-      const puedeRed = permitidas === null;
-
-      const pedida = url.searchParams.get("clinicaId");
-      let clinicaId: string | null;
-      if (pedida == null || pedida === "") clinicaId = puedeRed ? null : (clinicas[0]?.id ?? null);
-      else if (pedida === "red") clinicaId = null;
-      else clinicaId = pedida;
-      if (clinicaId === null && !puedeRed) return NextResponse.json({ error: "No autorizado" }, { status: 403 });
-      if (clinicaId !== null && !clinicas.some((c) => c.id === clinicaId)) {
-        return NextResponse.json({ error: "Clínica no encontrada" }, { status: 404 });
-      }
+      const alcance = await resolverAlcanceAnalitico(session, url);
+      if (alcance instanceof NextResponse) return alcance;
+      const { clinicas, puedeRed, clinicaId } = alcance;
 
       const t0 = Date.now();
       const fuga = await calcularFuga({ clinicaId, dias });

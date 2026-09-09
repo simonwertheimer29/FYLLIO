@@ -4464,3 +4464,23 @@ en verde. **Formato de entrega desde hoy:** qué se hizo · objetivo · qué ver
   un chip quitable; el rango de cabecera arranca en «Histórico» si el enlace trae ventana. Sin eso, el
   rango por defecto de dos semanas escondía justo lo que el enlace pedía enseñar.
 
+## 2026-09-10 — 2.1: «Qué dicen» — lo que los pacientes le dicen al agente, agregado sin gastar modelo
+
+- **Qué se construyó.** Analíticas › Qué dicen: en 30/90/180 días completos hasta ayer, por sede o red,
+  nueve bloques —decisión al recibir el presupuesto, qué les frena, por qué rechazan, cuándo retomar,
+  qué preguntan y el agente aplaza, por qué entrega el caso, qué buscan los nuevos, con qué urgencia,
+  por qué no quieren cita— comparados con la ventana anterior. Todo sale del log persistido
+  (`camposRecogidos` del juicio, `aplazado` con su frase, `derivado` con su causa).
+- **Decisiones.** La unidad es la CONVERSACIÓN, no el turno, y de cada campo vale el ÚLTIMO valor con
+  contenido: quien repite «es caro» tres veces cuenta una, y quien se lo pensaba y acabó aceptando
+  cuenta como acepta (pero su objeción se conserva: es dato). Aplazados y entregas cuentan una vez por
+  conversación y tema, con todas sus frases. Los cubos usan el MISMO mapeo conservador que los modales
+  de cierre (`sugerirMotivoPerdida` / `sugerirMotivoLead`); lo que no casa va a «Otro» con la frase
+  literal, que es donde vive lo que el vocabulario aún no nombra. Sin color en las deltas: subir no es
+  ni bueno ni malo, es lo que dijeron.
+- **De paso.** 220: el objetivo «cita» recoge `motivo_no_cita` (solo si declina, sin insistir). 219:
+  el alcance de las pantallas analíticas (admin = red, coordinación = sus sedes, 403/404) vive en
+  `resolverAlcanceAnalitico` y lo usan tres rutas. `qa:conversacion`: cubos y agregación puros +
+  dos sedes en DEMO con reloj fijo (2020), incluida la sede por el último mensaje y el hilo sin sede
+  que solo cuenta en la red.
+

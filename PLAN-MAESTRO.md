@@ -92,7 +92,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 
 | # | Qué | MEJORAS |
 |---|---|---|
-| 2.1 | Inteligencia de conversación: objeciones, motivos de pérdida, qué frena | 176 |
+| 2.1 | Inteligencia de conversación: objeciones, motivos de pérdida, qué frena | 176 | ✅ 10-sep (Analíticas › Qué dicen; `qa:conversacion`; 219 y 220 cerradas con ello) |
 | 2.2 | Mapa de fuga por etapa en € | 177, 51, 48 | ✅ 9-sep (Analíticas › Dónde se pierde; `qa:fuga`; 48 ya cerrada; 51 sigue abierta: es una pregunta al piloto) |
 | 2.3 | Next Best Config: aplazados × capacidades de la clínica | 178, 89 |
 | 2.4 | Confianza del agente (vara, descartes, coincidencia) y madurez por clínica | 179, 184, 185 | ✅ 9-sep (Agentes › Configuración › «Cómo decide tu agente» + Inicio › Tu equipo + `envios_tal_cual` en la serie; `qa:confianza`) |

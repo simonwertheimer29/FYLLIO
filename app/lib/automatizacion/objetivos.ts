@@ -93,6 +93,9 @@ export const OBJETIVOS_POR_DEFECTO: readonly ObjetivoAgente[] = [
       { clave: "tratamiento_o_molestia", pregunta: "¿Qué tratamiento le interesa o qué molestia tiene?" },
       { clave: "urgencia", pregunta: "¿Dolor ahora, esta semana, o sin prisa?" },
       { clave: "disponibilidad", pregunta: "¿Qué días y franjas le vienen bien?" },
+      // MEJORAS 220 (2.1): cuando un lead declina, el porqué —hasta ahora la
+      // etapa «sin cita» del mapa de fuga solo tenía el motivo de la persona.
+      { clave: "motivo_no_cita", pregunta: "¿Por qué no quiere cita?", condicion: "solo si declina la cita; una vez, sin insistir" },
       {
         clave: "preferencia_doctor",
         pregunta: "¿Prefiere algún doctor?",

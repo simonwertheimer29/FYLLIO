@@ -2481,7 +2481,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   motivos literales de los aplazados están en cada turno y solo se ven en la ficha. ·
   **Propuesta:** agregado mensual por clínica: objeciones, motivos de pérdida, qué preguntan; sin
   coste de modelo. · **Severidad:** valor no enseñado · **Esfuerzo:** 3-4 días · **Fase 2** ·
-  **Fecha:** 2026-09-06 · 🔵
+  **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-10** — Analíticas › «Qué dicen» (`lib/metricas/conversacion` +
+  `conversacion.tipos` puro, `GET /api/metricas/conversacion`, `qa:conversacion`): por conversación (no por turno, vale
+  el último valor), en 30/90/180 días completos vs la ventana anterior: decisión, qué frena, por qué rechazan, cuándo
+  retomar, qué preguntan (aplazados por tema con las frases), por qué entrega, qué buscan, urgencia y por qué no quieren
+  cita (220). Cubos con el mismo mapeo conservador que los modales de cierre; «Otro» guarda las frases.
 
 ## 177. Fase 2 · Mapa de fuga por etapa en €
 - Dinero parado, motivo de pérdida y aplazados existen por separado. · **Propuesta:** lead sin
@@ -2919,7 +2923,9 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   comprobar si `api/agente/confianza` es la tercera copia. Varias copias del mismo filtro de acceso
   son varios sitios donde equivocarse (§5 del skill de ingeniería). · **Propuesta:**
   `resolverAlcanceAnalitico(session, url)` en `lib/auth` y las rutas lo llaman; un QA adversarial
-  único. · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🔵
+  único. · **Esfuerzo:** 1 h · **Fecha:** 2026-09-09 · 🟢 **HECHA el 2026-09-10** (`lib/auth/alcance-analitico.ts`,
+  `resolverAlcanceAnalitico(session, url)`; lo usan Antes/después, Dónde se pierde y Qué dicen. `api/agente/confianza`
+  queda con su propio `?clinica=` y lista de ids: es otra forma, no la cuarta copia).
 
 ## 220. Fase 2.1 (176) · el objetivo «cita» no recoge por qué un lead declina
 - El mapa de fuga enseña frases del agente solo en presupuestos: `que_le_frena` y `motivo_rechazo`
@@ -2927,7 +2933,9 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   cuando un lead dice «no, gracias» el agente no recoge nada y la etapa «sin cita» solo tiene el
   motivo que puso la persona. · **Propuesta:** al diseñar 176, un campo `motivo_no_cita` en «cita»
   (solo si declina) con el mismo mapeo conservador al vocabulario de seis; el mapa lo pinta sin
-  cambios. · **Esfuerzo:** entra en 176 · **Fecha:** 2026-09-09 · 🔵
+  cambios. · **Esfuerzo:** entra en 176 · **Fecha:** 2026-09-09 · 🟢 **HECHA el 2026-09-10** (`motivo_no_cita` en el
+  objetivo «cita», solo si declina y sin insistir; «Qué dicen» lo agrupa con el vocabulario de leads; el seed DEMO lo
+  rellena en los «No interesado». No cambia el hash de la vara: los objetivos van fuera del prompt fijo).
 
 ## 221. TRANSVERSAL B (repaso de Simon 9-sep) · censo de paneles y modales: tres familias, trece cascarones a mano
 - Censo del 9-sep (grep de `fixed inset-0|inset-y-0|role="dialog"|PanelFlotante|ConfirmDialog`):

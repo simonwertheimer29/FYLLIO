@@ -1665,6 +1665,8 @@ try {
           if (/resérvalo|allí estaré|me viene bien/.test(t)) { campos.disponibilidad = campos.disponibilidad ?? "la propuesta"; campos.urgencia = "sin prisa"; entregar = "cita"; }
           if (/cuánto cost|precio|financiación/.test(t) && !/tarde/.test(t)) aplazar = "precio_descuento";
           if (/muela|duele|dolor/.test(t)) { campos.urgencia = "dolor ahora"; campos.tratamiento_o_molestia = "dolor de muela"; urgencia = true; }
+          // MEJORAS 220 (2.1): el porqué de quien declina la cita, tal cual lo dijo.
+          if (intn === "No interesado") campos.motivo_no_cita = txt.slice(0, 80);
           if (/hablar con una persona|nadie me dice/.test(t)) { queja = true; malestar = true; }
         } else if (tema === "presupuesto") {
           if (intn === "Acepta sin condiciones") { campos.decision = "acepta"; entregar = "presupuesto"; }
