@@ -41,7 +41,7 @@ function rowToClinica(r: any): Clinica {
 /** Shim record-Airtable de una clínica (para los *Raw que leen fields crudos). */
 function clinicaShim(r: any): any {
   const f: Record<string, unknown> = {
-    "Nombre": r.nombre, "Ciudad": r.ciudad, "Activa": r.activa,
+    "Nombre": r.nombre, "Ciudad": r.ciudad, "Telefono": r.telefono, "Activa": r.activa,
     "Cliente": r.cliente, "Clínica ID": r.clinica_id_airtable,
   };
   for (const k of Object.keys(f)) if (f[k] === undefined || f[k] === null || f[k] === "") delete f[k];
@@ -203,6 +203,7 @@ export async function createClinicaCentralRawPg(fields: Record<string, unknown>)
   const row: Record<string, unknown> = {
     cliente: cliCtx(), nombre: fields["Nombre"] == null ? null : String(fields["Nombre"]),
     ciudad: fields["Ciudad"] == null ? null : String(fields["Ciudad"]),
+    telefono: fields["Telefono"] == null || String(fields["Telefono"]).trim() === "" ? null : String(fields["Telefono"]).trim(),
     activa: fields["Activa"] === undefined ? true : Boolean(fields["Activa"]),
     clinica_id_airtable: fields["Clínica ID"] == null ? null : String(fields["Clínica ID"]),
   };
@@ -215,6 +216,9 @@ export async function updateClinicaCentralRawPg(id: string, fields: Record<strin
   const set: Record<string, unknown> = {};
   if (fields["Nombre"] !== undefined) set.nombre = fields["Nombre"];
   if (fields["Ciudad"] !== undefined) set.ciudad = fields["Ciudad"];
+  // MEJORAS 73 — Ajustes mandaba el teléfono y aquí se perdía: ninguna clínica
+  // pudo guardarlo nunca. Vacío = quitarlo (null), no una cadena vacía.
+  if (fields["Telefono"] !== undefined) set.telefono = String(fields["Telefono"] ?? "").trim() || null;
   if (fields["Activa"] !== undefined) set.activa = Boolean(fields["Activa"]);
   return runWithClienteDb(cliCtx(), async (trx) => {
     const r = await trx.updateTable("clinicas").set(set as any).where("id", "=", id).returningAll().executeTakeFirstOrThrow();

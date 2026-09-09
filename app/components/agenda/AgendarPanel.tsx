@@ -1,8 +1,12 @@
 "use client";
 
-// G3 — AGENDAR DESDE LA FICHA DEL CASO. La pieza que ahorra el viaje: la
-// coordinadora tiene la conversación abierta, sabe qué quiere el paciente, y
-// cierra la cita AQUÍ — sin irse a la agenda ni al kanban.
+// G3 — AGENDAR DESDE LA FICHA. La pieza que ahorra el viaje: la coordinadora
+// tiene la conversación abierta, sabe qué quiere el paciente, y cierra la cita
+// AQUÍ — sin irse a la agenda ni al kanban.
+//
+// Dos sujetos (MEJORAS 15, 2.9): un LEAD (ficha del caso) o un PACIENTE (su
+// ficha). Antes «Agendar» en la ficha del paciente mandaba a la agenda vieja sin
+// preseleccionar a nadie y la coordinadora volvía a buscarlo a mano.
 //
 // PANEL FLOTANTE, no modal (regla del estándar, dictada 31-08): lo que hay
 // detrás es el CONTEXTO de la decisión — la conversación se sigue leyendo y
@@ -17,9 +21,12 @@
 //    slots: sin duración no se afirman huecos (motor, §4).
 //  · `libres: null` (una cita sin duración ese día) se dice con su motivo,
 //    jamás se pinta un hueco inventado.
-//  · Escribir pasa por PATCH /api/leads/[id] — el MISMO camino que el kanban:
-//    mueve el lead a Citado y upsertea la cita real (única por lead_id).
-//    Cero rutas nuevas de escritura.
+//  · Escribir NO abre rutas nuevas. Lead: PATCH /api/leads/[id], el MISMO
+//    camino que el kanban (mueve el lead a Citado y upsertea su cita real,
+//    única por lead_id; elegir otra hora la MUEVE). Paciente: POST
+//    /api/agenda/citas con `pacienteId`, el mismo camino que la rejilla de la
+//    agenda (crea una cita nueva; la que ya tenga no se toca desde aquí — un
+//    paciente puede tener revisión y tratamiento a la vez).
 //
 // Reutiliza el payload de /api/agenda/semana entero (doctores, franjas,
 // citas, libres, catálogo): un fetch por semana visible, el troceo en slots
@@ -37,7 +44,7 @@ import { ErrorState } from "../ui/Feedback";
 import { PanelFlotante } from "../ui/PanelFlotante";
 import { AlertTriangle, ChevronLeft, ChevronRight, ICON_STROKE } from "../icons";
 
-type LeadDeFicha = {
+export type LeadDeFicha = {
   id: string;
   nombre: string;
   estado: string;
@@ -45,6 +52,20 @@ type LeadDeFicha = {
   horaCita: string | null;
   doctorAsignadoId: string | null;
 };
+
+export type PacienteDeFicha = {
+  id: string;
+  nombre: string;
+  /** Doctor que ya lo lleva (link de la ficha), solo para preseleccionar. */
+  doctorSugeridoId: string | null;
+  /** Próxima cita ya en agenda (ISO fecha o fecha-hora), para decirlo: aquí se
+   *  crea OTRA, no se mueve esa. */
+  proximaCita: string | null;
+};
+
+export type SujetoAgendar =
+  | { tipo: "lead"; lead: LeadDeFicha }
+  | { tipo: "paciente"; paciente: PacienteDeFicha };
 
 // Espejo mínimo del payload de /api/agenda/semana (el servidor manda más;
 // aquí solo la forma que este modal lee).
@@ -67,20 +88,28 @@ function lunesDe(fecha: string): string {
   return sumaDias(fecha, 1 - diaSemanaISO(fecha));
 }
 
-export function AgendarLeadPanel({
-  lead,
+export function AgendarPanel({
+  sujeto,
   onClose,
   onHecho,
 }: {
-  lead: LeadDeFicha;
+  sujeto: SujetoAgendar;
   onClose: () => void;
   /** Cita cerrada: el caller recarga su ficha/cola. */
   onHecho: () => void;
 }) {
-  const yaCitado = lead.fechaCita != null;
-  const [desde, setDesde] = useState(() => lunesDe(lead.fechaCita ?? hoyISO()));
-  const [fecha, setFecha] = useState(() => lead.fechaCita ?? hoyISO());
-  const [doctorId, setDoctorId] = useState<string | null>(lead.doctorAsignadoId);
+  const lead = sujeto.tipo === "lead" ? sujeto.lead : null;
+  const paciente = sujeto.tipo === "paciente" ? sujeto.paciente : null;
+  const nombre = lead?.nombre ?? paciente?.nombre ?? "";
+  // Solo el lead ya citado se MUEVE (su cita es única por lead). Para un
+  // paciente con cita futura aquí se crea otra; se dice en el subtítulo.
+  const yaCitado = lead != null && lead.fechaCita != null;
+  const fechaInicial = lead?.fechaCita ?? hoyISO();
+  const [desde, setDesde] = useState(() => lunesDe(fechaInicial));
+  const [fecha, setFecha] = useState(() => fechaInicial);
+  const [doctorId, setDoctorId] = useState<string | null>(
+    lead?.doctorAsignadoId ?? paciente?.doctorSugeridoId ?? null,
+  );
   const [tratamientoId, setTratamientoId] = useState<string | null>(null);
   const [slot, setSlot] = useState<IntervaloMin | null>(null);
   const [semana, setSemana] = useState<Semana | null>(null);
@@ -121,19 +150,34 @@ export function AgendarLeadPanel({
     if (!slot || !doctor || guardando) return;
     setGuardando(true);
     try {
-      await cargarJSON(`/api/leads/${lead.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          estado: "Citado",
-          fechaCita: fecha,
-          horaCita: deMin(slot.inicio),
-          doctorAsignadoId: doctor.id,
-          tratamientoAgendaId: tratamientoId,
-        }),
-      });
+      if (lead) {
+        await cargarJSON(`/api/leads/${lead.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            estado: "Citado",
+            fechaCita: fecha,
+            horaCita: deMin(slot.inicio),
+            doctorAsignadoId: doctor.id,
+            tratamientoAgendaId: tratamientoId,
+          }),
+        });
+      } else if (paciente) {
+        await cargarJSON(`/api/agenda/citas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: paciente.nombre,
+            fecha,
+            hora: deMin(slot.inicio),
+            doctorId: doctor.id,
+            tratamientoId,
+            pacienteId: paciente.id,
+          }),
+        });
+      }
       toast.success(
-        `${yaCitado ? "Cita movida" : "Cita cerrada"} — ${fechaCorta(fecha)} a las ${deMin(slot.inicio)} con ${nombreCortoDoctor(doctor.nombre)}`,
+        `${yaCitado ? "Cita movida" : lead ? "Cita cerrada" : "Cita creada"} — ${fechaCorta(fecha)} a las ${deMin(slot.inicio)} con ${nombreCortoDoctor(doctor.nombre)}`,
       );
       onHecho();
       onClose();
@@ -148,16 +192,21 @@ export function AgendarLeadPanel({
     // El cascarón (flotante, sin oscurecer, X y Escape) vive en PanelFlotante,
     // §4 ter del estándar: lo que hay detrás es el CONTEXTO de esta decisión.
     <PanelFlotante
-      titulo={<>{yaCitado ? "Mover la cita de" : "Agendar a"} {lead.nombre}</>}
+      titulo={<>{yaCitado ? "Mover la cita de" : "Agendar a"} {nombre}</>}
       subtitulo={
-        yaCitado && lead.fechaCita ? (
+        lead && yaCitado && lead.fechaCita ? (
           <>
             Hoy citado el {fechaCorta(lead.fechaCita)}
             {lead.horaCita ? ` a las ${lead.horaCita}` : ""} — elegir otra hora la mueve.
           </>
+        ) : paciente?.proximaCita ? (
+          <>
+            Ya tiene cita el {fechaCorta(paciente.proximaCita.slice(0, 10))} — esta será otra cita;
+            aquella se mueve desde la agenda.
+          </>
         ) : undefined
       }
-      ariaLabel={`Agendar a ${lead.nombre}`}
+      ariaLabel={`Agendar a ${nombre}`}
       onCerrar={onClose}
       anclaje="pantalla"
       anchoRem={30}
@@ -186,7 +235,7 @@ export function AgendarLeadPanel({
               disabled={!slot || !doctor || guardando}
               className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
             >
-              {guardando ? "Guardando…" : yaCitado ? "Mover la cita" : "Cerrar la cita"}
+              {guardando ? "Guardando…" : yaCitado ? "Mover la cita" : lead ? "Cerrar la cita" : "Crear la cita"}
             </button>
           </div>
         </div>

@@ -281,7 +281,7 @@ export default function MaximaView({
           )}
         </p>
         <div className="flex gap-2">
-          <ExportCsvButton clinicaId={selectedClinicaId} />
+          <ExportCsvButton clinicaId={selectedClinicaId} ids={filtered.map((p) => p.id)} />
           <button
             onClick={fetchData}
             disabled={loading}
@@ -567,20 +567,27 @@ export default function MaximaView({
 // no llega; cuando llega el body, lo convierte en blob y dispara
 // download con el filename del header Content-Disposition.
 
-// OJO (a MEJORAS): esto exporta con el filtro de CLÍNICA, no con el filtro que
-// la coordinadora tiene puesto en la tabla. Antes recibía un `estado` que era
-// `pillActiva === "todos" ? null : null` —un ternario con la misma rama dos
-// veces— así que el parámetro no existía de verdad; se retira en vez de fingir
-// que se manda algo.
-function ExportCsvButton({ clinicaId }: { clinicaId: string | null }) {
+// MEJORAS 61 — exporta LO QUE SE VE: los ids de `filtered` (pill, doctor,
+// tratamiento, búsqueda, rango y orden ya aplicados) viajan en el body y el
+// servidor escribe exactamente esas filas, en ese orden, con sus columnas
+// oficiales. Antes solo viajaba la clínica: filtrabas "Intervención · 12" y te
+// llevabas los 123 (y un `estado` que era `pillActiva === "todos" ? null : null`,
+// la misma rama dos veces, retirado el 2026-07-29 en vez de fingir que se
+// mandaba algo).
+function ExportCsvButton({ clinicaId, ids }: { clinicaId: string | null; ids: string[] }) {
   const [busy, setBusy] = useState(false);
   async function handleClick() {
+    if (ids.length === 0) return;
     setBusy(true);
     try {
       const params = new URLSearchParams();
       if (clinicaId) params.set("clinicaId", clinicaId);
       const url = `/api/export/presupuestos.csv${params.toString() ? `?${params.toString()}` : ""}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
@@ -605,8 +612,12 @@ function ExportCsvButton({ clinicaId }: { clinicaId: string | null }) {
   return (
     <button
       onClick={handleClick}
-      disabled={busy}
-      title="Descarga CSV (Excel español, UTF-8)."
+      disabled={busy || ids.length === 0}
+      title={
+        ids.length === 0
+          ? "No hay filas que exportar con estos filtros."
+          : `Descarga las ${ids.length} filas que ves (CSV para Excel, UTF-8).`
+      }
       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors disabled:opacity-50 disabled:cursor-wait"
     >
       {busy ? (
@@ -614,7 +625,7 @@ function ExportCsvButton({ clinicaId }: { clinicaId: string | null }) {
       ) : (
         <>
           <Download size={14} strokeWidth={ICON_STROKE} aria-hidden />
-          Exportar CSV
+          Exportar {ids.length > 0 ? `${ids.length} ` : ""}CSV
         </>
       )}
     </button>

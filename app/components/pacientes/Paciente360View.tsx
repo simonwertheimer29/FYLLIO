@@ -32,6 +32,7 @@ import { formatTipo } from "../../lib/pagos-format";
 import { eur } from "../shared/Cifra";
 import { TZ_CLINICA } from "../../lib/time";
 import { PagoModal } from "./PagoModal";
+import { AgendarPanel } from "../agenda/AgendarPanel";
 import { cargarJSON, traeLista, ErrorDeCarga } from "../../lib/fetch-json";
 import {
   estadoConversacion,
@@ -515,6 +516,10 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
     | null
   >(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // MEJORAS 15 — «Agendar» abre el panel de agendar CON este paciente, al lado
+  // de su ficha. Antes mandaba a /no-shows?tab=agenda (zona congelada) sin
+  // preseleccionar a nadie: la coordinadora volvía a buscarlo a mano.
+  const [agendando, setAgendando] = useState(false);
 
   // Hilo WhatsApp (null = cargando). Se pide por presupuesto porque el
   // endpoint existente scope-a por presupuesto permitido (IDOR-safe).
@@ -681,9 +686,24 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
           telefono={paciente.telefono}
           pacienteId={paciente.id}
           onWhatsApp={scrollAConversacion}
-          onAgendar={() => router.push("/no-shows?tab=agenda")}
+          onAgendar={() => setAgendando(true)}
           onDatoGuardado={() => setReloadKey((k) => k + 1)}
         />
+        {agendando && (
+          <AgendarPanel
+            sujeto={{
+              tipo: "paciente",
+              paciente: {
+                id: paciente.id,
+                nombre: paciente.nombre,
+                doctorSugeridoId: paciente.doctorLinkId,
+                proximaCita,
+              },
+            }}
+            onClose={() => setAgendando(false)}
+            onHecho={() => setReloadKey((k) => k + 1)}
+          />
+        )}
 
         {/* ── Zona 2: conversación (todo el contacto, cronológico) ── */}
         <ZonaConversacion

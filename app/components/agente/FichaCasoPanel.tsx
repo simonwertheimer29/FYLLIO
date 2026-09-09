@@ -25,7 +25,7 @@ import { ErrorState } from "../ui/Feedback";
 import { fechaClinica, hoyISO } from "../../lib/time";
 import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, Ban, ICON_STROKE } from "../icons";
 import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
-import { AgendarLeadPanel } from "../agenda/AgendarLeadPanel";
+import { AgendarPanel } from "../agenda/AgendarPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
@@ -358,8 +358,8 @@ export function FichaCasoPanel({
         </button>
       )}
       {agendando && ficha.lead && (
-        <AgendarLeadPanel
-          lead={ficha.lead}
+        <AgendarPanel
+          sujeto={{ tipo: "lead", lead: ficha.lead }}
           onClose={() => setAgendando(false)}
           onHecho={alCambiar}
         />

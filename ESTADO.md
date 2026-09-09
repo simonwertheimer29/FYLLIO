@@ -84,9 +84,22 @@ cual el X %» con el reparto y el DISPARADOR DECLARADO hacia modo B (80 % sobre 
 provisional — decisión de Simon pendiente, MEJORAS 214). `envios_tal_cual` en la serie diaria (23 →
 24) y en Antes/después. El seed de DEMO mide los borradores enviados y marca dos turnos como error.
 `qa:confianza` 31/31 · `qa:metricas` en verde. Pendiente de mirar en el navegador (como 2.7).
-**Siguiente sesión, en frío: 2.9** (Inicio: lo que ya está en marcha, motivos honestos, pantallas de
-demo). Antes, Simon prueba en el navegador el formulario de 2.7, el bloque de 2.4 y los cuatro
-paneles de detalle de Inicio (abajo).
+**9-sep · 2.9 hecha (MEJORAS 15, 55, 61, 73; 156-160 y 4/42/43 ya estaban):** «Agendar» en la
+ficha del paciente abre el panel de agendar AL LADO con el paciente ya puesto y su doctor
+preseleccionado (`AgendarPanel`, antes `AgendarLeadPanel`: un `sujeto` lead o paciente; el paciente
+escribe por POST `/api/agenda/citas`, el camino de la rejilla, y crea otra cita sin mover la que
+tenga). Leads abre con tres cifras de negocio (sin contactar y la espera del más antiguo · citados
+esta semana · convertidos este mes de N cerrados), de los leads ya cargados, sin búsqueda ni rango.
+El CSV de la Tabla de Presupuestos exporta exactamente las filas visibles, en su orden y con el
+recuento en el nombre (`qa:export` 8/8). El portal del paciente lleva el teléfono de la sede como
+enlace `tel:`; de paso: NINGUNA clínica tenía teléfono porque el update de PG lo tiraba — Ajustes ya
+lo guarda (`qa:portal` 20/20). Sin verificar en el navegador: el panel desde la ficha del paciente y
+la franja de Leads. `tsc`, ESLint (sin avisos nuevos) y `qa:frontera` en verde; `next build` no se
+corrió.
+**Siguiente sesión, en frío: 2.1-2.3** (inteligencia de conversación 176 · mapa de fuga en € 177 ·
+Next Best Config 178) — orden pendiente de Simon. Antes, prueba en el navegador lo acumulado sin
+verificar: formulario de 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar desde
+la ficha del paciente y la cabecera de Leads.
 **9-sep (tarde) · El detalle de cada bloque de Inicio ya no se despliega en línea** (al abrir el del
 equipo, Dinero se iba de la pantalla): se abre en un panel flotante AL LADO del bloque, 32 rem, sin
 oscurecer, con el titular del bloque repetido en la cabecera. Cascarón nuevo `PanelFlotante`

@@ -132,10 +132,14 @@ function ContactoClinica({ clinica, telefono, label }: { clinica?: string; telef
     <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-6 py-4 text-left w-full max-w-sm">
       {label && <p className="fyllio-label text-[var(--color-muted)] mb-2">{label}</p>}
       {telefono && (
-        <p className="text-[17px] text-[var(--color-foreground)] mb-1 flex items-center gap-2">
+        // El paciente lee esto en el móvil: el número se toca y llama (MEJORAS 73).
+        <a
+          href={`tel:${telefono.replace(/[^\d+]/g, "")}`}
+          className="text-[17px] text-[var(--color-foreground)] mb-1 flex items-center gap-2 tabular-nums hover:underline"
+        >
           <Phone size={16} strokeWidth={1.5} aria-hidden className="text-[var(--color-muted)] shrink-0" />
           {telefono}
-        </p>
+        </a>
       )}
       {clinica && (
         <p className="text-[17px] text-[var(--color-foreground)] flex items-center gap-2">

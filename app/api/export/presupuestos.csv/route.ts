@@ -15,6 +15,13 @@
 //   hasta      ISO YYYY-MM-DD (filtra Fecha <= hasta)
 //   estado     PresupuestoEstado (PRESENTADO, ACEPTADO, etc.)
 //
+// POST { ids: string[] } (MEJORAS 61) — exporta EXACTAMENTE esas filas, en ese
+// orden: la Tabla manda los ids de lo que la coordinadora tiene delante (pill,
+// doctor, tratamiento, búsqueda, orden). Antes el botón mandaba solo la clínica
+// y "Intervención · 12" exportaba los 123. Los filtros de la Tabla viven en
+// cliente sobre el payload del kanban; replicarlos aquí sería una segunda
+// definición de cada uno, así que viaja el RESULTADO, no el criterio.
+//
 // Stream del CSV directamente al browser via Response body string.
 // Para volúmenes pequeños (<10k filas) cabe en memoria. Si crece,
 // migrar a ReadableStream chunked.
@@ -90,9 +97,24 @@ function ultimaAccionTexto(f: any): string {
   return `${t} hace ${dias}d`;
 }
 
-// ─── GET handler ───────────────────────────────────────────────────────
+// ─── Handlers ──────────────────────────────────────────────────────────
 
-export const GET = withAdmin(async (_session, req) => {
+export const GET = withAdmin(async (_session, req) => exportarCsv(req, null));
+
+export const POST = withAdmin(async (_session, req) => {
+  const body = (await req.json().catch(() => null)) as { ids?: unknown } | null;
+  const ids = Array.isArray(body?.ids)
+    ? (body!.ids as unknown[]).filter((x): x is string => typeof x === "string" && x.length > 0)
+    : null;
+  if (!ids) {
+    return NextResponse.json({ error: "Faltan los ids de las filas a exportar." }, { status: 400 });
+  }
+  return exportarCsv(req, ids);
+});
+
+/** `ids` = null exporta lo que filtren los query params; con ids, solo esas
+ *  filas y en ese orden (lo que se ve en la Tabla). */
+async function exportarCsv(req: Request, ids: string[] | null): Promise<NextResponse> {
   const url = new URL(req.url);
   const clinicaIdParam = url.searchParams.get("clinicaId");
   const desdeParam = url.searchParams.get("desde");
@@ -174,7 +196,15 @@ export const GET = withAdmin(async (_session, req) => {
 
   const lines: string[] = [csvLine(headers)];
 
-  for (const r of recs) {
+  // Con ids: las filas pedidas, en el orden pedido (el de la pantalla). Un id
+  // que ya no exista simplemente no sale — no se rellena con otra fila.
+  let filas: typeof recs = recs;
+  if (ids) {
+    const porId = new Map(recs.map((r) => [r.id, r] as const));
+    filas = ids.map((id) => porId.get(id)).filter((r): r is (typeof recs)[number] => r != null);
+  }
+
+  for (const r of filas) {
     const f = r.fields as any;
     const fechaPresentacion = f["Fecha"]
       ? String(f["Fecha"]).slice(0, 10)
@@ -220,7 +250,11 @@ export const GET = withAdmin(async (_session, req) => {
 
   const csv = "\uFEFF" + lines.join("\r\n");
   const todayIso = today.toISODate()!;
-  const filename = `fyllio_presupuestos_${todayIso}.csv`;
+  // El nombre dice cuántas filas van: si la coordinadora exportó 12 y el
+  // archivo se llama "12-filas", no hay duda de que es lo que veía.
+  const filename = ids
+    ? `fyllio_presupuestos_${todayIso}_${filas.length}-filas.csv`
+    : `fyllio_presupuestos_${todayIso}.csv`;
 
   return new NextResponse(csv, {
     status: 200,
@@ -230,7 +264,7 @@ export const GET = withAdmin(async (_session, req) => {
       "Cache-Control": "no-store",
     },
   });
-});
+}
 
 function shiftDay(iso: string, days: number): string {
   const d = DateTime.fromISO(iso, { zone: ZONE });

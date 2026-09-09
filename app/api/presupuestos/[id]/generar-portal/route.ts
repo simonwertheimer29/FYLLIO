@@ -13,6 +13,7 @@ import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 import { esAseguradora } from "../../../../lib/pacientes/tipos-paciente";
 import { getPaciente } from "../../../../lib/pacientes/pacientes";
+import { telefonoDeClinica } from "../../../../lib/clinicas-negocio";
 import type { Cliente } from "../../../../lib/airtable";
 
 const TTL_DAYS = 90;
@@ -145,8 +146,13 @@ export const POST = withPresupuestosAuth(
     // "¿tiene aseguradora?", no "¿se llama Adeslas?".
     const tieneAseguradora = await esAseguradora(tipoPaciente ?? null);
 
-    // Generate humanized description in parallel with saving
-    const descripcionHumanizada = await generarDescripcion(treatments);
+    // MEJORAS 73 — el teléfono de la sede viaja en el token: el portal es
+    // público y no puede consultar la base. Null si Ajustes no lo tiene; el
+    // portal entonces enseña solo el nombre (nunca un número inventado).
+    const [descripcionHumanizada, clinicaTelefono] = await Promise.all([
+      generarDescripcion(treatments),
+      clinica ? telefonoDeClinica(cliente, clinica) : Promise.resolve(null),
+    ]);
 
     const data: PortalData = {
       cliente,
@@ -155,7 +161,7 @@ export const POST = withPresupuestosAuth(
       treatments,
       amount,
       clinica,
-      clinicaTelefono: undefined,   // No clinic phone in Airtable yet
+      clinicaTelefono: clinicaTelefono ?? undefined,
       doctor,
       tipoPaciente,
       tieneAseguradora,

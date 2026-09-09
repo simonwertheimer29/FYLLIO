@@ -20,14 +20,16 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useClinic } from "../../../lib/context/ClinicContext";
-import { contarPipeline, textoPipeline, seVeLeadConRango } from "../../../lib/leads/pipeline";
+import { contarPipeline, textoPipeline, seVeLeadConRango, esLeadActivo } from "../../../lib/leads/pipeline";
+import { Cifra } from "../../../components/shared/Cifra";
+import { diaSemanaISO } from "../../../lib/agenda/disponibilidad";
 import { NewLeadModal } from "./NewLeadModal";
 import { AccionPanel } from "../../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
 import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
 import { esReactivable, labelMotivo } from "../../../lib/leads/motivos";
 import { haceTexto } from "../../../lib/presupuestos/estado-conversacion";
-import { hoyISO, horaClinica, fechaClinica } from "../../../lib/time";
+import { hoyISO, horaClinica, fechaClinica, sumaDias } from "../../../lib/time";
 import { cohorteLead, esNuevoUrgente } from "../../../lib/seguimiento/cohortes";
 import { AvisoFiltroClinica } from "../../../components/shared/AvisoFiltroClinica";
 import { AsistenciaModal } from "./AsistenciaModal";
@@ -133,7 +135,7 @@ function lineaEstado(
   // motor de cohortes (cita > conversación).
   if (lead.fechaCita && lead.fechaCita >= hoyIso) return null;
 
-  if (lead.conversacion === "sin_conversacion" || (!lead.llamado && lead.whatsappEnviados === 0)) {
+  if (sinContactar(lead)) {
     const espera = desde(lead.createdAt);
     // Sin tono de alarma: cuando toca, la etiqueta "Necesita atención" ya está
     // arriba, y dos señales rojas para el mismo hecho se pisan.
@@ -148,6 +150,57 @@ function lineaEstado(
   return {
     texto: espera ? `Sin respuesta ${espera} · ${enviados}` : `Contactado · ${enviados}`,
     tono: "muted",
+  };
+}
+
+/** Nadie le ha escrito ni llamado todavía: el motor no ve conversación o, si
+ *  el hilo no viene clasificado, no hay llamada ni WhatsApp registrados. UNA
+ *  definición para la línea de la card y para la cifra de la cabecera. */
+function sinContactar(lead: Lead): boolean {
+  return lead.conversacion === "sin_conversacion" || (!lead.llamado && lead.whatsappEnviados === 0);
+}
+
+/** Cifras de NEGOCIO de la cabecera (MEJORAS 55): lo que el tablero no dice
+ *  contando tarjetas. Sobre los leads cargados de la clínica elegida, sin
+ *  búsqueda ni rango. Semana = lunes a domingo; mes = el de hoy. */
+function cifrasNegocioLeads(leads: readonly Lead[], hoy: string, ahoraMs: number) {
+  const lunes = sumaDias(hoy, 1 - diaSemanaISO(hoy));
+  const domingo = sumaDias(lunes, 6);
+  const mes = hoy.slice(0, 7);
+  let sinContacto = 0;
+  let masAntiguoMs: number | null = null;
+  let citadosSemana = 0;
+  let citadosHoy = 0;
+  let convertidosMes = 0;
+  let cerradosMes = 0;
+  for (const l of leads) {
+    const activo = esLeadActivo(l.estado);
+    // Con cita por delante el trabajo es confirmar, no contactar (misma
+    // precedencia que la card y que el motor de cohortes: cita > conversación).
+    const conCitaDelante = l.fechaCita != null && l.fechaCita >= hoy;
+    if (activo && !conCitaDelante && sinContactar(l)) {
+      sinContacto++;
+      const alta = new Date(l.createdAt).getTime();
+      if (Number.isFinite(alta) && (masAntiguoMs == null || alta < masAntiguoMs)) masAntiguoMs = alta;
+    }
+    if (activo && l.fechaCita && l.fechaCita >= lunes && l.fechaCita <= domingo) {
+      citadosSemana++;
+      if (l.fechaCita === hoy) citadosHoy++;
+    }
+    // Solo cuentan los cerrados CON fecha de cierre: los anteriores al dato
+    // (MEJORAS 37) no se reparten por meses inventándoles una.
+    if (l.fechaCierre && l.fechaCierre.slice(0, 7) === mes) {
+      cerradosMes++;
+      if (l.convertido || l.estado === "Convertido") convertidosMes++;
+    }
+  }
+  return {
+    sinContacto,
+    esperaMasAntigua: masAntiguoMs == null ? null : haceTexto(ahoraMs - masAntiguoMs),
+    citadosSemana,
+    citadosHoy,
+    convertidosMes,
+    cerradosMes,
   };
 }
 
@@ -294,6 +347,14 @@ export function LeadsView({
   );
 
   const filteredLeads = useMemo(() => leadsBase.filter(enRango), [leadsBase, enRango]);
+
+  // Cifras de negocio (MEJORAS 55): clínica elegida, sin búsqueda ni rango —
+  // teclear un nombre no cambia cuántos leads siguen sin contactar.
+  const leadsClinica = useMemo(
+    () => (selectedClinicaId ? leads.filter((l) => l.clinicaId === selectedClinicaId) : leads),
+    [leads, selectedClinicaId],
+  );
+  const cifras = useMemo(() => cifrasNegocioLeads(leadsClinica, hoyISO(), Date.now()), [leadsClinica]);
 
   // Citados Hoy es derivada: Estado="Citados Hoy" legacy OR Estado="Citado"
   // con Fecha_Cita=hoy. Resto cae en su columna de Estado nativa.
@@ -509,6 +570,38 @@ export function LeadsView({
           <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
           Nuevo lead
         </button>
+      </div>
+
+      {/* Cifras de NEGOCIO, no de pantalla (MEJORAS 55): la línea de arriba
+          cuenta tarjetas («27 activos»); esto dice qué pasa con los leads.
+          Misma gramática que /cobros (Cifra). Clínica elegida; la búsqueda y
+          el rango no las tocan. */}
+      <div className="grid grid-cols-3 gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+        <Cifra
+          label="Sin contactar"
+          valor={cifras.sinContacto.toLocaleString("es-ES")}
+          detalle={
+            cifras.sinContacto === 0
+              ? "todos los activos ya contactados"
+              : cifras.esperaMasAntigua
+                ? `el más antiguo espera desde ${cifras.esperaMasAntigua}`
+                : undefined
+          }
+        />
+        <Cifra
+          label="Citados esta semana"
+          valor={cifras.citadosSemana.toLocaleString("es-ES")}
+          detalle={cifras.citadosHoy > 0 ? `${cifras.citadosHoy} hoy` : "de lunes a domingo"}
+        />
+        <Cifra
+          label="Convertidos este mes"
+          valor={cifras.convertidosMes.toLocaleString("es-ES")}
+          detalle={
+            cifras.cerradosMes > 0
+              ? `de ${cifras.cerradosMes} cerrado${cifras.cerradosMes === 1 ? "" : "s"} este mes`
+              : "ningún lead cerrado este mes"
+          }
+        />
       </div>
 
       {/* El filtro de clínica PERSISTE en localStorage: se puede llegar aquí

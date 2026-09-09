@@ -4299,3 +4299,40 @@ truncar.
 
 **Lo que no está verificado:** los cuatro paneles y el de agendar en el navegador (claro y oscuro,
 entre 1.024 y 1.536 px, y móvil). `tsc`, ESLint, `qa:frontera` y `next build` en verde.
+
+## 2026-09-09 — 2.9: las cuatro pantallas de demo que quedaban, sin una ruta nueva de escritura
+De las doce MEJORAS de 2.9, ocho ya estaban cerradas (156-160 el 6-sep, 4/42/43 en julio). Las
+cuatro vivas eran las «pantallas de demo»: 15, 55, 61 y 73. **Cuatro decisiones:**
+(1) **Agendar desde la ficha del paciente reutiliza el panel del lead, no la agenda vieja.**
+`AgendarLeadPanel` pasa a `AgendarPanel` con un `sujeto` (lead | paciente). El lead sigue por PATCH
+`/api/leads/[id]` (su cita es única y elegir otra hora la MUEVE); el paciente va por POST
+`/api/agenda/citas` con `pacienteId`, el mismo camino que la rejilla, y crea OTRA cita — un
+paciente puede tener revisión y tratamiento a la vez, y la que ya tiene se mueve desde la agenda,
+no desde aquí (el subtítulo lo dice). Descartado: mover el lead a «Citado» desde la ficha del
+paciente, porque el lead de un paciente convertido ya está cerrado y retrocedería el pipeline.
+(2) **La cabecera de Leads cuenta negocio, no pantalla, y sin tiempo de respuesta.** Tres `Cifra`
+sobre los leads ya cargados de la clínica elegida: sin contactar (misma función `sinContactar` que
+la línea de la card, no una copia), citados esta semana, convertidos este mes (solo cerrados CON
+fecha de cierre; a los anteriores al dato no se les inventa mes). La búsqueda y el rango no las
+tocan: teclear un nombre no cambia cuántos leads siguen sin contactar. El «tiempo medio de
+respuesta» que pedía la MEJORA se deja fuera a propósito: la única medida honesta ya existe (2.5,
+por cola, en Inicio) y aquí sería una tercera definición.
+(3) **El CSV exporta el RESULTADO, no el criterio.** Los filtros de la Tabla (pill, doctor,
+tratamiento, búsqueda, rango, orden) viven en cliente sobre el payload del kanban; replicarlos en
+el endpoint sería una segunda definición de cada uno. La Tabla manda por POST los ids de `filtered`
+y el servidor devuelve exactamente esas filas, en ese orden, con las 12 columnas oficiales y el
+recuento en el nombre del archivo. Un id inexistente no se rellena con otra fila. El GET sin ids
+sigue exportando todo. `qa:export` 8/8.
+(4) **El teléfono de la clínica se busca por NOMBRE al generar el token** (el único puente
+estable entre el presupuesto y `clinicas`) y viaja dentro del token: el portal es público y no
+consulta la base. Null = solo el nombre de la sede; nunca un número inventado. **Hallazgo de paso:**
+ninguna clínica de ningún cliente tenía teléfono porque `updateClinicaCentralRawPg` y
+`createClinicaCentralRawPg` ignoraban `Telefono` y el shim no lo devolvía — Ajustes › Clínica y
+equipo lo mandaba y se perdía en silencio desde el corte a Postgres. Arreglado (vacío = null,
+comprobado con PATCH + GET contra el dev server). El seed de DEMO pone un teléfono ficticio por
+sede (910 000 101-104); a las cuatro sedes DEMO se les puso hoy a mano el mismo valor. `qa:portal`
+20/20 con la comprobación nueva («el de la base, o ninguno»).
+
+**Lo que no está verificado:** el panel desde la ficha del paciente y la franja de Leads en el
+navegador. `tsc`, ESLint (sin avisos nuevos; los `any` que marca son anteriores) y `qa:frontera`
+en verde; `next build` no se corrió en esta sesión.

@@ -90,3 +90,21 @@ export async function listClinicasNegocioCamposRaw(
   }));
   return opts.maxRecords !== undefined ? recs.slice(0, opts.maxRecords) : recs;
 }
+
+/**
+ * Teléfono de una clínica por su NOMBRE (el único puente estable entre los
+ * registros de negocio y la tabla `clinicas`, ver cabecera). Lo usa el portal
+ * del paciente (MEJORAS 73): el presupuesto solo guarda el nombre de la sede,
+ * y el paciente que recibe miles de euros de presupuesto necesita a quién
+ * llamar. Null = la clínica no tiene teléfono cargado (se rellena en Ajustes ›
+ * Clínica y equipo); nunca se inventa uno.
+ */
+export async function telefonoDeClinica(cliente: Cliente, nombre: string): Promise<string | null> {
+  const n = nombre.trim();
+  if (!n) return null;
+  const fila = await runWithClienteDb(cliente, (trx) =>
+    trx.selectFrom("clinicas").select("telefono").where("nombre", "=", n).executeTakeFirst(),
+  );
+  const t = fila?.telefono?.trim();
+  return t ? t : null;
+}

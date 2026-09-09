@@ -86,6 +86,16 @@ const mesPrev = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1).toISOString()
 const clinicas = (await db.query("select id, nombre from clinicas where cliente='DEMO'")).rows;
 const CID = Object.fromEntries(clinicas.map((c) => [c.nombre, c.id]));
 const CENTRO = CID["Clínica Demo Centro"], NORTE = CID["Clínica Demo Norte"], SUR = CID["Clínica Demo Sur"], ESTE = CID["Clínica Demo Este"];
+// Teléfono de cada sede (MEJORAS 73): el portal del paciente lo enseña y se
+// toca para llamar. Ficticios pero bien formados; en real lo carga Ajustes ›
+// Clínica y equipo. Es lo único de `clinicas` que este seed escribe.
+const TELEFONO_SEDE = {
+  "Clínica Demo Centro": "910 000 101", "Clínica Demo Norte": "910 000 102",
+  "Clínica Demo Sur": "910 000 103", "Clínica Demo Este": "910 000 104",
+};
+for (const c of clinicas) {
+  if (TELEFONO_SEDE[c.nombre]) await db.query("update clinicas set telefono=$2 where id=$1", [c.id, TELEFONO_SEDE[c.nombre]]);
+}
 const staff = (await db.query("select id, nombre, rol, clinica_id from staff where cliente='DEMO'")).rows;
 const dentistas = staff.filter((s) => s.rol === "Dentista");
 const tratamientos = (await db.query("select id, nombre from tratamientos where cliente='DEMO'")).rows;

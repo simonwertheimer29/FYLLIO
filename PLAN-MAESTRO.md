@@ -18,7 +18,7 @@ va primero aunque no duela hoy.
 |---|---|---|---|---|
 | **0** | Las tres que duelen con RB en producción (+ log drain) | 🟠 **En curso** — hecho todo lo de ingeniería; quedan 165 (catálogo de Meta) y el cableado de consentimiento y plazo (abogado): bloqueantes externos, declarados | 2026-09-06 | — |
 | **1** | Cimientos baratos de la visión — dos irrecuperables | ✅ **Cerrada** (168-175 hechas; 175 por verificación) | 2026-09-06 | 2026-09-06 |
-| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; 2.4 ✅ 9-sep; quedan 2.1-2.3 y 2.9) | 2026-09-07 | — |
+| **2** | Inteligencia visible sin gastar modelo | 🟠 **En curso** (2.6 ✅ 7-sep; 2.5, 2.8 y 2.7 ✅ 8-sep; 2.4 y 2.9 ✅ 9-sep; quedan 2.1-2.3) | 2026-09-07 | — |
 | **3** | Decidir y ejecutar dentro de reglas | ⬜ Abierta | — | — |
 | **4** | El ERP y la infraestructura que ya se usa | ⬜ Abierta · parte independiente puede adelantarse | — | — |
 | **5** | Lo que la visión promete | ⬜ Abierta | — | — |
@@ -100,7 +100,7 @@ Todo sale de lo ya persistido (diagnóstico §2b y §2c).
 | 2.6 | Antes/después por clínica con n y ventana igual | 181 | ✅ 7-sep (Analíticas › Antes y después; `qa:antes-despues`) |
 | 2.7 | **Botón «el agente se equivocó aquí»** → caso candidato del eval | 182, 107 | ✅ 8-sep (Mensajería › panel «por qué» › «El agente se equivocó aquí» + `evals:candidatos`; `qa:candidatos`) |
 | 2.8 | «Ver por qué» por mensaje (inspector de decisiones) | 183 | ✅ 8-sep (Mensajería › «Ver por qué» + replay en el banco; `qa:por-que`) |
-| 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita + pantallas de demo | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73, 15 |
+| 2.9 | Inicio: lo que ya está en marcha + motivos honestos que el mapa necesita + pantallas de demo | 156, 157, 158, 159, 160, 4, 42, 43, 55, 61, 73, 15 | ✅ 9-sep (156-160 y 4/42/43 ya estaban; hoy 15 → `AgendarPanel` desde la ficha del paciente · 55 → cifras de negocio en Leads · 61 → el CSV exporta lo que se ve, `qa:export` · 73 → teléfono de la clínica en el portal, `qa:portal`) |
 | 2.10 | **Tanda «seed honesto»** (aprobada 6-sep, adelantada por la demo): el seed respeta el vocabulario real y lo comprueba con invariantes (§15) | 82, 110, 112 · ✅ 6-sep (demo:reset en verde con cuatro invariantes nuevas) |
 
 **Deja lista** la NBA: impacto y urgencia por caso ya existen.
@@ -290,3 +290,9 @@ tanda «seed honesto» es 82, 110 y 112.
   enviado tal cual, marcado como error— más el enlace al botón de 2.7. En Inicio › Tu equipo, la
   coincidencia con el disparador declarado hacia modo B (80 % sobre 50 envíos, PROVISIONAL, MEJORAS
   214). `envios_tal_cual` entra en la serie diaria. Siguiente: 2.9.
+- **2026-09-09 · 2.9 hecha (15, 55, 61, 73; las otras ocho ya estaban cerradas).** «Agendar» en la
+  ficha del paciente abre el panel de agendar con el paciente puesto (`AgendarPanel`, sujeto lead o
+  paciente; POST `/api/agenda/citas`); la cabecera de Leads dice negocio (sin contactar, citados esta
+  semana, convertidos este mes); el CSV de la Tabla exporta exactamente las filas visibles
+  (`qa:export`); el portal lleva el teléfono de la sede como enlace `tel:` (`qa:portal`), y de paso
+  se arregló que Ajustes no podía guardar ese teléfono. Fase 2: quedan 2.1-2.3.

@@ -282,6 +282,11 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   del cierre de cita, el momento de mayor valor.
 - **Esfuerzo:** horas.
 - **Fecha:** 2026-07-22 · 🔵 **Verificada el 2026-09-06: SIGUE ABIERTA** — `Paciente360View.tsx:684` manda a `/no-shows?tab=agenda` (zona congelada) sin el paciente. Arreglo: reutilizar `AgendarLeadPanel` (G3) desde la ficha del paciente con el paciente preseleccionado. **Fase 2** (2.9: pantalla de demo) · 3-4 h
+- **2026-09-09 · 🟢 CERRADA (2.9)**: el panel de agendar (G3) pasa a `AgendarPanel` con un
+  `sujeto` —lead o paciente— y «Agendar» en la ficha del paciente lo abre al lado con ese paciente
+  ya puesto (doctor de la ficha preseleccionado). Lead: PATCH `/api/leads/[id]` como siempre;
+  paciente: POST `/api/agenda/citas` con `pacienteId`, el mismo camino que la rejilla (crea OTRA
+  cita; si ya tiene una futura, el subtítulo lo dice y no la mueve). Cero rutas nuevas.
 
 ## 16. La "siguiente acción" vive en varios sitios
 - **Zona:** ficha (`derivarSituacion`, cliente) · panel de lead (`situacionLead` — usa los
@@ -974,6 +979,12 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio. **Fuera del alcance de la pasada visual del 2026-07-27** (añade
   estructura nueva, y el encargo excluía tocar la del tablero).
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-09-09 · 🟢 CERRADA (2.9)**: franja de tres `Cifra` bajo el título —«Sin contactar» (con la
+  espera del más antiguo), «Citados esta semana» (lunes a domingo, cuántos hoy) y «Convertidos este
+  mes» (de N cerrados con fecha de cierre)— calculadas en cliente sobre los leads ya cargados de la
+  clínica elegida, sin búsqueda ni rango. «Sin contactar» usa la MISMA función que la línea de la
+  card (`sinContactar`), no una segunda definición. El tiempo de respuesta NO entra: la única medida
+  honesta es la de 2.5 (por cola, en Inicio) y duplicarla aquí sería una tercera definición.
 
 ## 56. "Ver 151 anteriores" en No Interesado no lleva a nada útil
 - **Zona:** `app/(authed)/leads/LeadsView.tsx` (pie de columna)
@@ -1108,6 +1119,11 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Es la ÚNICA exportación del producto.
 - **Impacto:** medio — quien la usa para un informe se lleva datos que no pidió.
 - **Fecha:** 2026-07-29 · 🔵
+- **2026-09-09 · 🟢 CERRADA (2.9)**: viaja el RESULTADO, no el criterio: la Tabla manda por POST los
+  ids de `filtered` (pill, doctor, tratamiento, búsqueda, rango y orden) y el endpoint devuelve
+  exactamente esas filas, en ese orden, con las 12 columnas oficiales y el recuento en el nombre
+  (`…_12-filas.csv`). El botón dice cuántas exporta y se apaga con cero. GET sin ids sigue igual.
+  `qa:export` 8/8.
 
 ## 62. Las notas del presupuesto siguen enseñando el apaño de los pipes (D10)
 - **Zona:** `app/api/presupuestos/kanban/route.ts:102-128` (parseo de
@@ -1277,6 +1293,12 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio en conversión (una duda sin canal es una duda que no se
   resuelve).
 - **Fecha:** 2026-07-29 · 🔵
+- **2026-09-09 · 🟢 CERRADA (2.9)**: `telefonoDeClinica(cliente, nombre)` (lib/clinicas-negocio)
+  al generar el token; el portal lo enseña como enlace `tel:` (se toca y llama). Hallazgo de paso:
+  NINGUNA clínica de ningún cliente tenía teléfono porque `updateClinicaCentralRawPg` y
+  `createClinicaCentralRawPg` ignoraban `Telefono` —Ajustes › Clínica y equipo lo mandaba y se
+  perdía— y el shim no lo devolvía; arreglado (vacío = null). El seed de DEMO pone un teléfono
+  ficticio por sede. `qa:portal` 20/20 con la comprobación nueva («el de la base, o ninguno»).
 
 ## 74. Dos sintaxis de placeholder en la misma tabla de plantillas
 - **Zona:** `IntervencionSidePanel.tsx` (`replace(/\{importe\}/g, …)`) vs

@@ -211,6 +211,18 @@ try {
     portal.clinica !== "Clínica Demo",
     `clinica="${portal.clinica}"`,
   );
+  // MEJORAS 73 — el teléfono de la sede viaja en el token (el portal es público
+  // y no consulta la base). Se compara con la base: el de la clínica o ninguno,
+  // nunca uno inventado.
+  const [sede] = await rd(
+    "select c.telefono from presupuestos pr join clinicas c on c.id = pr.clinica_id where pr.id=$1",
+    [caso.presupuesto_id],
+  );
+  check(
+    "2 · el portal lleva el teléfono de la clínica (el de la base, o ninguno)",
+    (portal.clinicaTelefono ?? null) === (sede?.telefono ?? null),
+    `portal="${portal.clinicaTelefono ?? ""}" · base="${sede?.telefono ?? ""}"`,
+  );
   // La puerta por la que entraban los datos inventados: un id ilegible.
   const inexistente = await generar("00000000-0000-0000-0000-000000000000");
   check(
