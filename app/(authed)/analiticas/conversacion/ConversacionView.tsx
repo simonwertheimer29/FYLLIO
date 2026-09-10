@@ -67,7 +67,7 @@ export function ConversacionView() {
   }, [cargar]);
 
   return (
-    <div className="max-w-5xl space-y-5 p-4 lg:p-6">
+    <div className="space-y-5 p-4 lg:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold text-[var(--color-foreground)]">Qué dicen</h1>
@@ -136,7 +136,7 @@ export function ConversacionView() {
               </p>
             </Card>
           ) : (
-            <div className={`grid gap-4 lg:grid-cols-2 ${cargando ? "opacity-60" : ""}`}>
+            <div className={`grid gap-4 lg:grid-cols-2 xl:grid-cols-3 min-[2100px]:grid-cols-4 ${cargando ? "opacity-60" : ""}`}>
               {ORDEN_BLOQUES.map((id) => (
                 <TarjetaBloque key={id} id={id} bloque={datos.bloques[id]} />
               ))}

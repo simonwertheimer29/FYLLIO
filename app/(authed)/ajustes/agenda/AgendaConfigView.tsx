@@ -107,7 +107,7 @@ export default function AgendaConfigView() {
 
   if (!config) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div className="space-y-4">
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="h-32 animate-pulse rounded-xl bg-[var(--color-surface-muted)]" />
         ))}
@@ -116,8 +116,8 @@ export default function AgendaConfigView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5 pb-12">
-      <header>
+    <div className="grid gap-5 pb-12 2xl:grid-cols-2 [&>*]:min-w-0">
+      <header className="2xl:col-span-2">
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Agenda</h1>
         <p className="mt-0.5 text-xs text-[var(--color-muted)]">
           Especialidades, horarios de cada doctor, ausencias y duración de los tratamientos.

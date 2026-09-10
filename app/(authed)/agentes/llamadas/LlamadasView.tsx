@@ -190,7 +190,7 @@ export function LlamadasView({
     // y la fila de KPIs se salía por la derecha (de ahí el "Coste mes cortado"
     // del informe — no era el texto, era la rejilla desbordando).
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
-      <div className="max-w-screen-2xl mx-auto p-4 lg:p-6 space-y-5">
+      <div className="p-4 lg:p-6 space-y-5">
         <header>
           <div className="flex items-center gap-2">
             <Phone

@@ -482,7 +482,7 @@ export function PacientesView({
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {([
             ["todo", "Todo"],
             ["semana", "Esta semana"],

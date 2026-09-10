@@ -4499,3 +4499,31 @@ en verde. **Formato de entrega desde hoy:** qué se hizo · objetivo · qué ver
 - **Fase 2 cerrada.** Con 2.1 y 2.3 quedan hechas las nueve de «inteligencia visible sin gastar
   modelo». Sin verificar en el navegador nada del 10-sep.
 
+## 2026-09-10 — Censo de ancho: catorce pantallas con tope fijo, ninguna copia de panel fuera de los primitivos
+
+- **Cómo se midió.** `scripts/dev-censo-ancho.mjs` abre cada ruta del menú a 1280, 1440, 1920 y 2500 px
+  con sesión firmada y mide el blanco a la derecha del elemento más ancho y de la raíz de la vista
+  (24 px = el padding, lo correcto); `dev-censo-paneles.mjs` abre un drawer, un modal, un panel de
+  bloque y el de agendar a tres anchos y mide el `[role=dialog]`. Las dos tablas, antes y después, en
+  el informe de la sesión. Regla de Simon: la medida vale más que la captura, y se verifica a tres
+  anchos porque el corte de la agenda solo se veía en dos.
+- **Clase B (pantallas con `max-w` en la raíz): catorce.** Ninguna venía de un contenedor compartido:
+  cada vista se ponía su tope (`max-w-5xl` en las tres analíticas nuevas, `4xl` en Configuración del
+  agente y el catálogo, `3xl` en Ajustes › Agenda, `1400px` en KPIs y Cobros, `screen-2xl` en Inicio
+  y Llamadas, `100rem` en Agentes, `5xl` en la ficha del paciente, Incidencias y Clínica y equipo).
+  Fuera todos. Y no solo estirar: con más ancho, más columnas —Qué dicen 2 → 3 → 4 (a 2100 px), el
+  embudo de Dónde se pierde en rejilla a partir de xl (las flechas sobran), Configuración del agente,
+  Ajustes › Agenda, Clínica y equipo y el catálogo en dos columnas, la ficha con conversación y datos
+  lado a lado desde 2xl, Inicio con Dinero + Equipo a la izquierda y la máquina a la derecha desde
+  1800 px—. En Ajustes hay una barra más (224 px): ahí las dos columnas empiezan en 2xl, no en xl;
+  a xl dos tablas lado a lado desbordaban (lo cazó el censo, no el ojo).
+- **Clase A (paneles y modales): nada fuera de los primitivos.** Las hojas van a toda altura y pegadas
+  a la derecha en los tres anchos; los modales, centrados por diseño; el panel de bloque de Inicio
+  mide lo que su contenido, al lado de su bloque; el de agendar («pantalla») flota a 356 px de alto
+  arriba a la derecha, por decisión del 9-sep — si se quiere a toda altura, es cambiar su anclaje a
+  «hoja», no un cascarón nuevo.
+- **Falsos positivos que enseñaron algo del método:** Pacientes a 1280 y Ajustes › Configuración a
+  1280/1440 daban «desborde» (−66 y −526 px), pero `scrollWidth` dice que la página no desborda: lo
+  que asomaba era la tabla de pacientes y la tira de nueve pestañas, que scrollean dentro de su
+  `overflow-x-auto`. El censo ahora distingue el desborde real (`+N`) del contenido que scrollea.
+

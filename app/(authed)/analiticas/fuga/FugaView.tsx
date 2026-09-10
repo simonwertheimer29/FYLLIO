@@ -80,7 +80,7 @@ export function FugaView() {
   }, [cargar]);
 
   return (
-    <div className="max-w-5xl space-y-5 p-4 lg:p-6">
+    <div className="space-y-5 p-4 lg:p-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold text-[var(--color-foreground)]">Dónde se pierde</h1>
@@ -141,12 +141,13 @@ export function FugaView() {
 
           <Titular datos={datos} />
 
-          <ol className="space-y-0">
+          {/* En una columna es un embudo con flechas; con sitio, las etapas van en rejilla y las flechas sobran. */}
+          <ol className="grid gap-3 xl:grid-cols-2 min-[2100px]:grid-cols-4">
             {datos.etapas.map((e, i) => (
               <li key={e.etapa}>
                 <TarjetaEtapa etapa={e} />
                 {i < datos.etapas.length - 1 && (
-                  <div className="flex justify-center py-1" aria-hidden>
+                  <div className="flex justify-center py-1 xl:hidden" aria-hidden>
                     <ArrowDown size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)] opacity-60" />
                   </div>
                 )}

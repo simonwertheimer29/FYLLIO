@@ -108,7 +108,7 @@ export function IncidenciasView() {
   const ardiendo = grupos.filter((g) => g.refsUltimaHora >= umbral);
 
   return (
-    <div className="max-w-5xl space-y-5">
+    <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold text-[var(--color-foreground)]">Incidencias</h1>

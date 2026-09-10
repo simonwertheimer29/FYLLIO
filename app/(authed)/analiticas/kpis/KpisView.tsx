@@ -97,7 +97,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
   const doctorEfectivo = soporte.doctor ? doctor : "";
 
   return (
-    <div className="w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 space-y-6 overflow-x-hidden">
+    <div className="w-full px-3 sm:px-6 py-6 space-y-6 overflow-x-hidden">
       <header className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>

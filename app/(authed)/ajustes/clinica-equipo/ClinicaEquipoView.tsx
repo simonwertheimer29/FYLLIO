@@ -118,8 +118,8 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
   }
 
   return (
-    <div className="space-y-8 max-w-5xl">
-      <header>
+    <div className="grid gap-8 2xl:grid-cols-2 [&>*]:min-w-0">
+      <header className="2xl:col-span-2">
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Clínica y equipo</h1>
         <p className="text-sm text-[var(--color-muted)] mt-1">
           Gestiona las clínicas activas y los usuarios con acceso al sistema.
@@ -145,8 +145,8 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           </button>
         </div>
 
-        <Card padding="none" className="overflow-hidden">
-          <table className="w-full text-xs">
+        <Card padding="none" className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-xs">
             <thead className="bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
               <tr>
                 <th className="text-left font-semibold px-3 py-2">Nombre</th>
@@ -212,8 +212,8 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           </button>
         </div>
 
-        <Card padding="none" className="overflow-hidden">
-          <table className="w-full text-xs">
+        <Card padding="none" className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-xs">
             <thead className="bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
               <tr>
                 <th className="text-left font-semibold px-3 py-2">Nombre</th>

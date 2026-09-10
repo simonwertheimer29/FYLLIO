@@ -111,8 +111,8 @@ export function CatalogoAutomatizaciones({ isAdmin }: { isAdmin: boolean }) {
   }, [isAdmin, clinicas]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
-      <header>
+    <div className="grid gap-4 xl:grid-cols-2 min-[2100px]:grid-cols-3">
+      <header className="xl:col-span-2 min-[2100px]:col-span-3">
         <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
           Qué hace el sistema solo
         </h2>

@@ -174,7 +174,7 @@ export function InicioView() {
 
   return (
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
-      <div className="mx-auto max-w-screen-2xl p-4 lg:px-6 lg:py-4">
+      <div className="p-4 lg:px-6 lg:py-4">
         {/* ── Cabecera + línea 0 · desde ayer ── */}
         <header className="mb-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -263,7 +263,7 @@ export function InicioView() {
             <div className="fyllio-skeleton h-44" />
           </div>
         ) : (
-          <div className={`space-y-3 ${cargando ? "opacity-60" : ""}`}>
+          <div className={`grid gap-3 min-[1800px]:grid-cols-[3fr_2fr] ${cargando ? "opacity-60" : ""}`}>
             {/* ══ FILA 1 · DINERO PARADO (izq) · TU EQUIPO (der) ══ */}
             <div className="relative grid gap-3 lg:grid-cols-5">
               <section className="lg:col-span-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-5 py-4" data-bloque="dinero">
@@ -611,7 +611,7 @@ export function InicioView() {
                     Qué hizo Fyllio por ti este mes
                   </h2>
                 </div>
-                <ul className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4 min-[1800px]:grid-cols-2">
                   {data.fyllioMes.procesos.map((p) => {
                     const def = PROCESO[p.proceso];
                     return (
@@ -732,7 +732,7 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
   const porVencido = [...filas].filter((c) => c.vencido > 0).sort((a, b) => b.vencido - a.vencido);
   const porAgente = [...filas].sort((a, b) => b.agenteAtendidas - a.agenteAtendidas);
   return (
-    <section className="relative" data-bloque="clinicas">
+    <section className="relative min-[1800px]:col-span-2" data-bloque="clinicas">
       <Card padding="none" className="overflow-hidden">
         <div className="flex flex-wrap items-baseline justify-between gap-3 px-4 pt-2.5 pb-1.5">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-[var(--color-foreground)]">

@@ -241,6 +241,16 @@ Se usa en el móvil de la coordinadora. Cada pantalla que toques:
 - Instalable como app (manifest + iconos reales).
 - Verifica el layout en móvil, no solo en escritorio.
 
+## 6 bis. Escritorio ancho (regla fijada al montar la barra vertical; censo del 2026-09-10)
+
+**Toda pantalla ocupa el ancho disponible.** Ningún `max-w-*` en la raíz de una vista: el único
+margen es el padding (`p-4 lg:p-6`). Y **con más ancho, más columnas, no tarjetas más anchas**:
+una rejilla de dos columnas pasa a tres en `xl` y a cuatro a partir de ~2100 px; un embudo vertical
+pasa a rejilla; una ficha pone sus zonas lado a lado. Las barras y los gráficos no crecen hasta medir
+medio metro. En Ajustes hay una barra más (224 px): las dos columnas empiezan en `2xl`, no en `xl`.
+Se verifica a 1280, 1440 y 1920 (y a 2500 si hay dudas) con `scripts/dev-censo-ancho.mjs`: 24 px de
+blanco a la derecha es el padding; más, es una pantalla que se saltó la regla; negativo, un desborde.
+
 ## 7. Reglas de "nunca" (checklist final antes de dar por hecha una pantalla)
 
 - ❌ Nunca un hex escrito a mano → siempre `var(--color-*)`.

@@ -207,8 +207,10 @@ export function AgenteConfigView() {
   return (
     // El contenedor exterior (padding de página) lo pone AgenteView — esta
     // vista vive siempre dentro de su pestaña.
-    <div className="mx-auto max-w-4xl space-y-5">
-      <header>
+    // Toda la anchura (regla de la barra vertical): a partir de xl las secciones
+    // van en dos columnas; lo transversal (barrido, qué publicar, prompt) a lo ancho.
+    <div className="grid gap-5 xl:grid-cols-2">
+      <header className="xl:col-span-2">
         <h1 className="font-display flex items-center gap-2 text-xl font-semibold text-[var(--color-foreground)]">
           <Sparkles size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
           Configuración del agente
@@ -223,10 +225,12 @@ export function AgenteConfigView() {
       </header>
 
       {error && (
-        <ErrorState detail={`La configuración no se pudo cargar. ${error}`} onRetry={cargar} />
+        <div className="xl:col-span-2">
+          <ErrorState detail={`La configuración no se pudo cargar. ${error}`} onRetry={cargar} />
+        </div>
       )}
       {cargando && !config && !error && (
-        <div className="space-y-2.5">
+        <div className="space-y-2.5 xl:col-span-2">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-24 animate-pulse rounded-xl bg-[var(--color-surface-muted)]" />
           ))}
@@ -236,7 +240,7 @@ export function AgenteConfigView() {
       {config && barrido && (
         <>
           {/* ── EL BARRIDO: qué puede hacer con ESTA configuración ────── */}
-          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 xl:col-span-2">
             <h2 className="font-display text-[15px] font-semibold text-[var(--color-foreground)]">
               Con esta configuración, tu agente…
             </h2>
@@ -267,7 +271,7 @@ export function AgenteConfigView() {
           {/* ── 2.3 · QUÉ PUBLICAR PARA QUE RESUELVA MÁS: los aplazados de 30
               días cruzados con lo publicado. Lo que ninguna configuración
               arregla se dice sin botón (§4). ──────────────────────────── */}
-          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 xl:col-span-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2
                 className="font-display text-[15px] font-semibold text-[var(--color-foreground)]"
@@ -866,7 +870,7 @@ export function AgenteConfigView() {
           </section>
 
           {/* ── EL PROMPT, VISIBLE ────────────────────────────────────── */}
-          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 xl:col-span-2">
             <h2 className="font-display text-[15px] font-semibold text-[var(--color-foreground)]">
               Lo que se le dice al agente
             </h2>
