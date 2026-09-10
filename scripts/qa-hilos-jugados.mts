@@ -18,7 +18,6 @@ import {
   RUTA_FIXTURE,
   LIMITES_HILOS_JUGADOS,
   renderFixtureMd,
-  parsearVeredictos,
   desplazarHilo,
   diasEntre,
   compararDecisiones,
@@ -88,13 +87,7 @@ console.log("1 · lo puro");
 {
   const md = renderFixtureMd(fixture);
   ok("el md lleva los límites", LIMITES_HILOS_JUGADOS.every((l) => md.includes(l)));
-  ok("el md lleva el veredicto vacío para rellenar", md.includes("**Veredicto:** \n**Nota:** "));
-  const anotado = md.replace("**Veredicto:** \n**Nota:** ", "**Veredicto:** Dudoso\n**Nota:** aplazó bien pero la espera sobra");
-  const { porHilo, errores } = parsearVeredictos(anotado);
-  ok("veredicto ida y vuelta (mayúscula tolerada)", porHilo.qa_uno?.valor === "dudoso" && porHilo.qa_uno?.nota === "aplazó bien pero la espera sobra" && errores.length === 0, JSON.stringify(porHilo));
-  const malo = md.replace("**Veredicto:** \n", "**Veredicto:** regular\n");
-  ok("un veredicto fuera de bien/mal/dudoso es error, no se adivina", parsearVeredictos(malo).errores.length === 1);
-  ok("sin veredicto → null, sin error", parsearVeredictos(md).porHilo.qa_uno?.valor === null && parsearVeredictos(md).errores.length === 0);
+  ok("el md dice que se anota en la interfaz, no en él", md.includes("Se anota EN LA INTERFAZ") && md.includes("sin marcar"));
 }
 {
   const d = desplazarHilo(hilo, 5);

@@ -15,7 +15,7 @@ import { X, Sparkles, AlertTriangle, CheckCircle2, Repeat, Flag, ICON_STROKE } f
 import { fechaClinica, horaClinica } from "../../lib/time";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import {
-  FALLOS_CANDIDATO,
+  FALLOS_DE_ERROR,
   FALLOS_CON_TEXTO_OBLIGATORIO,
   TOPE_CORRECCION,
   ETIQUETA_ESTADO_CANDIDATO,
@@ -290,7 +290,7 @@ function CorreccionDelTurno({
 
   // Solo las opciones que tienen sentido en este turno: sin borrador no se
   // puede corregir el borrador; sin datos recogidos, tampoco un dato.
-  const opciones = FALLOS_CANDIDATO.filter(
+  const opciones = FALLOS_DE_ERROR.filter(
     (f) => (f !== "borrador" || turno.borrador != null) && (f !== "recogida" || turno.recogidos.length > 0),
   );
   const textoObligatorio = fallo != null && FALLOS_CON_TEXTO_OBLIGATORIO.has(fallo);
@@ -321,12 +321,31 @@ function CorreccionDelTurno({
     }
   };
 
+  // «Estuvo bien» (10-09): el otro lado del veredicto, un clic, sin formulario.
+  // Misma fila que el error (fallo = ninguno), nace ya revisada.
+  const marcarBien = async () => {
+    setGuardando(true);
+    try {
+      await cargarJSON<{ marcado: CandidatoMarcado }>("/api/agente/candidatos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefono, clave: turno.clave, fallo: "ninguno", correccion: null }),
+      });
+      toast.success("Marcado: estuvo bien.");
+      onMarcado();
+    } catch (e) {
+      toast.error(`No se pudo guardar. ${mensajeDeError(e)}`);
+    } finally {
+      setGuardando(false);
+    }
+  };
+  const estuvoBien = marcado?.fallo === "ninguno";
   if (!editando && marcado) {
     return (
       <div className="rounded-lg border border-[var(--color-border)] px-2.5 py-2 text-[12px] text-[var(--color-foreground)]">
         <p className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-          <Flag size={11} strokeWidth={ICON_STROKE} aria-hidden />
-          Marcado como error del agente
+          {estuvoBien ? <CheckCircle2 size={11} strokeWidth={ICON_STROKE} aria-hidden /> : <Flag size={11} strokeWidth={ICON_STROKE} aria-hidden />}
+          {estuvoBien ? "Revisado" : "Marcado como error del agente"}
         </p>
         <p className="mt-1 font-medium">{etiquetaFallo(marcado.fallo, decision)}</p>
         {marcado.correccion && <p className="mt-0.5 whitespace-pre-wrap text-[var(--color-muted)]">{marcado.correccion}</p>}
@@ -342,14 +361,27 @@ function CorreccionDelTurno({
 
   if (!editando) {
     return (
-      <button
-        type="button"
-        onClick={abrir}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
-      >
-        <Flag size={14} strokeWidth={ICON_STROKE} aria-hidden />
-        El agente se equivocó aquí
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={abrir}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
+        >
+          <Flag size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          El agente se equivocó aquí
+        </button>
+        {/* El veredicto positivo, en texto y sin borde: cierra la revisión de
+            un turno que acertó sin competir con el botón de error. */}
+        <button
+          type="button"
+          onClick={() => void marcarBien()}
+          disabled={guardando}
+          className="inline-flex items-center gap-1 px-1 py-2 text-[12.5px] font-medium text-[var(--color-muted)] transition-colors hover:text-[var(--color-foreground)] disabled:opacity-50"
+        >
+          <CheckCircle2 size={13} strokeWidth={ICON_STROKE} aria-hidden />
+          Estuvo bien
+        </button>
+      </div>
     );
   }
 

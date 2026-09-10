@@ -1,17 +1,33 @@
 {
-  "fecha": "2026-09-05",
+  "fecha": "2026-09-10",
   "modelo": "haiku",
   "origen": "sintetico",
-  "casos": 50,
+  "casos": 45,
   "turnos": 73,
-  "decision": { "aciertos": 66, "total": 67 },
-  "listo": { "aciertos": 21, "total": 21 },
-  "descartesJuez": { "n": 7, "total": 73 },
-  "etiquetasFueraVocabulario": { "n": 1, "turnos": 1 },
-  "costePorTurnoUsd": 0.00474,
-  "costeUsd": 0.3461,
-  "version": { "evaluador": "f3a180899dc9", "juez": "d79cf567c2db" },
-  "fallos": ["35:A→S"],
-  "salida": "evals/pasadas/2026-09-05-evaluador-post-auditoria.txt",
-  "nota": "Transcrita a mano de la salida del 5-sep (commit 2fbafc3); la versión es la de hoy porque el texto de los dos prompts no cambió desde esa pasada (comprobado con git diff el 2026-09-09). A partir de ahora la escribe qa:evals-evaluador al terminar una pasada entera."
+  "decision": {
+    "aciertos": 66,
+    "total": 67
+  },
+  "listo": {
+    "aciertos": 21,
+    "total": 21
+  },
+  "descartesJuez": {
+    "n": 11,
+    "total": 73
+  },
+  "etiquetasFueraVocabulario": {
+    "n": 1,
+    "turnos": 1
+  },
+  "costePorTurnoUsd": 0.00477,
+  "costeUsd": 0.3485,
+  "version": {
+    "evaluador": "df3978f4e98d",
+    "juez": "d79cf567c2db"
+  },
+  "fallos": [
+    "35:A→S"
+  ],
+  "salida": null
 }

@@ -67,8 +67,13 @@ export type SenalesHilo = {
 };
 
 export type EntradaEvaluador = {
-  /** Primer nombre; el resto de la identidad no viaja al modelo. */
+  /** Primer nombre; el resto de la identidad no viaja al modelo. Sin ficha
+   *  (paciente o lead) es el TELÉFONO: un desconocido no tiene nombre. */
   nombre: string;
+  /** MEJORAS 225 — nombre de PERFIL de WhatsApp de un desconocido. Es una
+   *  PISTA para dirigirse a la persona, no un dato recogido: el código quita
+   *  del juicio un `nombre` que solo conste aquí. */
+  nombrePerfil?: string | null;
   esPacienteConocido: boolean;
   clinica?: string | null;
   /** Objetivos ABIERTOS de la conversación, en orden de precedencia
@@ -387,7 +392,7 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 - «Solo si la menciona»: si se le preguntó y dijo que no tiene preferencia, el valor es «sin preferencia» (dato recogido, no null); si nadie lo mencionó, "no_aplica".
 - «Solo si el cliente tiene más de una clínica»: si el contexto no dice que las haya, "no_aplica".
 - COBRO: si la persona dice que NO puede pagar, eso ES la respuesta del objetivo — confirma_pago = «no puede, hay que renegociar», via_pago y fecha_pago = "no_aplica" (y anotas plan_pago). No dejes el objetivo a medias esperando un sí que ya te han dicho que no.
-- IDENTIFICAR: sus campos (nombre, es_paciente, que_necesita) casi siempre están YA en el hilo — «me llamo X», «nunca he ido», «quiero ortodoncia» SON los valores. Extráelos SIEMPRE que existan: dejarlos en null con la respuesta delante es el fallo más caro de este juicio, porque completar este objetivo es lo que ENTREGA el caso.
+- IDENTIFICAR: sus campos (nombre, es_paciente, que_necesita) casi siempre están YA en el hilo — «me llamo X», «nunca he ido», «quiero ortodoncia» SON los valores. Extráelos SIEMPRE que existan: dejarlos en null con la respuesta delante es el fallo más caro de este juicio, porque completar este objetivo es lo que ENTREGA el caso. Y al revés: el nombre de PERFIL de WhatsApp que ves en el contexto NO es un dato recogido — «nombre» solo si la persona lo dice en el hilo; entregar un caso por un nombre que nadie dio es el otro fallo caro.
 - PRESUPUESTO: «sí, adelante», «lo hacemos» ES decision = «acepta» — extráela, y los campos de las otras ramas («solo si se lo piensa», «solo si rechaza») pasan a "no_aplica". Una aceptación con decision en null es un caso que nunca llega a la clínica.
 Si la persona corrigió un dato, vale el último.
 
@@ -459,7 +464,14 @@ export function renderEntrada(e: EntradaEvaluador): {
   }
   lineas.push(`HOY es ${hoy} (${DIA_SEMANA[new Date(`${hoy}T12:00:00Z`).getUTCDay()]}).`);
   lineas.push(`CALENDARIO de los próximos 14 días (para fechas tipo «el viernes», usa EXACTAMENTE la fecha de aquí): ${calendario.join(" · ")}.`);
-  lineas.push(`Persona: ${e.nombre.split(" ")[0]}${e.esPacienteConocido ? " (paciente de la clínica)" : " (no consta como paciente)"}`);
+  if (e.nombrePerfil) {
+    // MEJORAS 225: la pista se declara como pista. No es un nombre dado.
+    lineas.push(
+      `Persona: sin ficha (no consta como paciente ni como lead). Su perfil de WhatsApp dice «${e.nombrePerfil}»: es una PISTA para dirigirte a ella, NO un nombre que haya dado — no lo apuntes como recogido salvo que lo diga en el hilo.`,
+    );
+  } else {
+    lineas.push(`Persona: ${e.nombre.split(" ")[0]}${e.esPacienteConocido ? " (paciente de la clínica)" : " (no consta como paciente)"}`);
+  }
   if (e.presupuestosVivos.length > 0) {
     // Cada presupuesto lleva su LETRA: el juicio «presupuestoReferido» la
     // devuelve y el código la traduce a id (borde canónico — el modelo no
@@ -870,6 +882,22 @@ export async function evaluarTurno(
   // etiquetas.ts): esta comparación es constante-contra-constante — era la
   // instancia viva del bug de «CITA» (barrido 17-08, A-1) y ya no puede
   // reaparecer por construcción.
+  // MEJORAS 225 — la PISTA del perfil no es un dato recogido. Si el modelo
+  // apunta como nombre algo que solo consta en el perfil de WhatsApp y ningún
+  // entrante lo dice, el CÓDIGO lo quita: sin nombre dicho no hay caso
+  // completo. (El prompt también lo dice; esto es la guarda.)
+  if (e.nombrePerfil) {
+    const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const dicho = norm(e.hilo.filter((m) => m.direccion === "Entrante").map((m) => m.contenido).join("\n"));
+    const campos = juicio.camposRecogidos as Record<string, Record<string, string | null> | undefined>;
+    for (const [etapa, clave] of [["identificar", "nombre"], ["cita", "nombre_completo"]] as const) {
+      const v = campos[etapa]?.[clave];
+      if (typeof v === "string" && v.trim() && v !== "no_aplica" && !dicho.includes(norm(v.trim().split(/\s+/)[0]))) {
+        delete campos[etapa]![clave];
+        console.warn(`[evaluador] ${etapa}.${clave}=«${v}» venía del perfil de WhatsApp, no del hilo — descartado (225)`);
+      }
+    }
+  }
   const abiertas = e.objetivosAbiertos.map((o) => o.etapa);
   // Campos faltantes de UNA etapa: contado, no opinado.
   const faltantesDe = (etapa: EtapaObjetivo): string[] => {

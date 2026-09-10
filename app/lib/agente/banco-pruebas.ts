@@ -31,7 +31,8 @@ import {
   type MensajeHilo,
 } from "./evaluador";
 import { conocimientoDeClinica, objetivosDeClinica } from "../automatizacion/pg";
-import { ordenarPorPrecedencia, type EtapaObjetivo } from "../automatizacion/objetivos";
+import { PRECEDENCIA_OBJETIVOS, type EtapaObjetivo } from "../automatizacion/objetivos";
+import { entradaDesdeContexto } from "./entrada-desde-contexto";
 
 // ─── Los escenarios: la situación la ELIGE quien prueba ────────────────────
 //
@@ -57,11 +58,18 @@ export type TurnoPrueba = { direccion: "Entrante" | "Saliente"; contenido: strin
 /** Qué objetivos están «abiertos» en cada escenario — la MISMA relación que
  *  produce el contexto real (deuda→cobro, presupuesto vivo→presupuesto,
  *  lead→cita+identificar). */
+// MEJORAS 225: la MISMA regla que contexto-conversacion — deuda→cobro,
+// presupuesto vivo→presupuesto, y «cita» para un lead activo o un PACIENTE
+// SIN CITA FUTURA (fase B), que es lo que son los tres escenarios de
+// paciente. Antes el banco no abría «cita» para ellos y el agente del banco
+// conversaba sin entregar mientras el de producción entregaba.
+// Un desconocido total (ni paciente ni lead) abre SOLO «identificar»: la cita
+// se abre cuando existe un lead activo, no antes (qa:banco-vs-runner lo vio).
 const OBJETIVOS_DEL_ESCENARIO: Record<EscenarioPrueba["tipo"], EtapaObjetivo[]> = {
-  lead_nuevo: ["cita", "identificar"],
-  presupuesto: ["presupuesto"],
-  cobro: ["cobro"],
-  al_dia: [],
+  lead_nuevo: ["identificar"],
+  presupuesto: ["presupuesto", "cita"],
+  cobro: ["cobro", "cita"],
+  al_dia: ["cita"],
 };
 
 /**
@@ -84,10 +92,7 @@ export function construirEntradaDePrueba(args: {
   hoy?: string;
 }): EntradaEvaluador {
   const e = args.escenario;
-  const abiertos = OBJETIVOS_DEL_ESCENARIO[e.tipo];
-  const objetivosAbiertos = ordenarPorPrecedencia(
-    args.objetivosConfig.filter((o) => abiertos.includes(o.etapa)),
-  );
+  const abiertos = new Set<EtapaObjetivo>(OBJETIVOS_DEL_ESCENARIO[e.tipo]);
   const base = Date.parse(`${args.hoy ?? hoyISO()}T09:00:00Z`);
   const hilo: MensajeHilo[] = [
     ...args.hilo.map((t, i) => ({
@@ -101,29 +106,41 @@ export function construirEntradaDePrueba(args: {
       timestamp: new Date(base + args.hilo.length * 60_000).toISOString(),
     },
   ];
-  return {
-    // Lead nuevo: el nombre NO consta — EXACTAMENTE como en producción, donde
-    // un desconocido lleva su TELÉFONO como nombre (y la plantilla neutra ya
-    // sabe no saludar a un número). «Prueba»/«Contacto» como nombre visible
-    // era el fallo del 22-08: el agente saludaba al placeholder en vez de a
-    // quien acababa de decir que se llama Simon.
-    nombre: e.nombre?.trim() || (e.tipo === "lead_nuevo" ? "+34600000000" : "Ana García"),
-    esPacienteConocido: e.tipo !== "lead_nuevo",
-    clinica: args.clinicaNombre,
-    objetivosAbiertos,
-    presupuestosVivos:
-      e.tipo === "presupuesto"
-        ? [{ id: "prueba-1", tratamiento: e.tratamiento?.trim() || "Ortodoncia invisible", importe: e.importe ?? 2400 }]
-        : [],
-    pendienteCobro: e.tipo === "cobro" ? (e.deuda ?? 600) : 0,
+  // MEJORAS 225: el MISMO constructor que el orquestador (entrada-desde-
+  // contexto). El banco fabrica el contexto; la entrada no la fabrica nadie
+  // más. El 22-08 se escribió aquí «como en producción» a mano y divergió.
+  const telefono = "+34600000000";
+  const nombreDado = e.nombre?.trim() || "";
+  return entradaDesdeContexto({
+    ctx: {
+      telefono,
+      // Lead nuevo: sin ficha. Su nombre es el TELÉFONO, y un nombre escrito
+      // en el escenario es su perfil de WhatsApp — una pista, como en
+      // producción. Los demás escenarios son pacientes fichados.
+      nombre: e.tipo === "lead_nuevo" ? nombreDado || telefono : nombreDado || "Ana García",
+      origenNombre: e.tipo === "lead_nuevo" ? (nombreDado ? "perfil" : "telefono") : "paciente",
+      pacienteId: e.tipo === "lead_nuevo" ? null : "prueba-paciente",
+      presupuestosVivos:
+        e.tipo === "presupuesto"
+          ? [{ id: "prueba-1", tratamiento: e.tratamiento?.trim() || "Ortodoncia invisible", importe: e.importe ?? 2400 }]
+          : [],
+      pendienteCobro: e.tipo === "cobro" ? (e.deuda ?? 600) : 0,
+      objetivosAbiertos: PRECEDENCIA_OBJETIVOS.filter((x) => abiertos.has(x)),
+      identidadAmbigua: null,
+    },
+    objetivosConfig: args.objetivosConfig,
+    conocimiento: args.conocimiento ?? null,
+    clinicaNombre: args.clinicaNombre,
     hilo,
-    aplazadosPendientes: [],
-    aplazadosPorClave: {},
-    conocimiento: args.conocimiento,
-    umbralInsistencia: undefined,
-    yaDerivado: args.derivadoPrevio,
+    tipoEntrante: "text",
+    aplazamientos: [],
+    semaforo: args.derivadoPrevio ? { verde: false, motivo: "derivado" } : { verde: true },
+    diasHastaProximaCita: null,
+    senales: null,
+    optOutVigente: false,
+    clinicasDelHilo: null,
     hoy: args.hoy,
-  };
+  });
 }
 
 // ─── El tope: corta CON MOTIVO, nunca en silencio ──────────────────────────

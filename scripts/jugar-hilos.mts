@@ -54,7 +54,6 @@ import {
   RUTA_FIXTURE,
   RUTA_FIXTURE_MD,
   renderFixtureMd,
-  parsearVeredictos,
   decisionDePersistido,
   type FixtureHilos,
   type HiloJugado,
@@ -83,37 +82,10 @@ function sacarFlag(nombre: string): string | null {
   argv.splice(i, 2);
   return v;
 }
-const modoVeredictos = argv.includes("--veredictos");
 const solo = sacarFlag("--solo");
 const topeTurnos = sacarFlag("--turnos");
-
-// ─── --veredictos: del Markdown anotado al fixture ─────────────────────────
-
-if (modoVeredictos) {
-  if (!existsSync(RUTA_FIXTURE) || !existsSync(RUTA_FIXTURE_MD)) {
-    console.error(`✗ Falta ${RUTA_FIXTURE} o ${RUTA_FIXTURE_MD} — juega primero (npm run hilos:jugar).`);
-    process.exit(1);
-  }
-  const fixture = JSON.parse(readFileSync(RUTA_FIXTURE, "utf8")) as FixtureHilos;
-  const { porHilo, errores } = parsearVeredictos(readFileSync(RUTA_FIXTURE_MD, "utf8"));
-  for (const e of errores) console.error(`✗ ${e}`);
-  const sinVeredicto: string[] = [];
-  for (const h of fixture.hilos) {
-    const v = porHilo[h.guion.id];
-    if (!v) {
-      sinVeredicto.push(`${h.guion.id} (no está en el md)`);
-      continue;
-    }
-    h.veredicto = v;
-    if (!v.valor) sinVeredicto.push(h.guion.id);
-  }
-  writeFileSync(RUTA_FIXTURE, JSON.stringify(fixture, null, 2));
-  const cuenta = { bien: 0, mal: 0, dudoso: 0 };
-  for (const h of fixture.hilos) if (h.veredicto.valor) cuenta[h.veredicto.valor]++;
-  console.log(`Veredictos guardados en ${RUTA_FIXTURE}: bien ${cuenta.bien} · mal ${cuenta.mal} · dudoso ${cuenta.dudoso} · sin veredicto ${sinVeredicto.length}`);
-  if (sinVeredicto.length) console.log(`  sin veredicto: ${sinVeredicto.join(", ")}`);
-  process.exit(errores.length ? 1 : 0);
-}
+// (Los veredictos se marcan EN LA INTERFAZ y los copia al fixture
+//  `db-seed-hilos-jugados --guardar-veredictos`; aquí no hay Markdown.)
 
 // ─── entorno y candados ─────────────────────────────────────────────────────
 
@@ -471,7 +443,7 @@ for (const g of guiones) {
 }
 linea();
 console.log(`Jugados ${fixture.hilos.length} hilos · agente $${fixture.coste.usdAgente.toFixed(4)} · paciente $${fixture.coste.usdPaciente.toFixed(4)} · total $${fixture.coste.usdTotal.toFixed(4)}`);
-console.log(`Fixture: ${RUTA_FIXTURE} · para anotar: ${RUTA_FIXTURE_MD} (luego npm run hilos:veredictos)`);
+console.log(`Fixture: ${RUTA_FIXTURE} (vista de lectura: ${RUTA_FIXTURE_MD}). Se anota en Mensajería › «Jugadas» › ver por qué.`);
 console.log("Apunta el coste en evals/pasadas/GASTO.md.");
 await app.end();
 await admin.end();

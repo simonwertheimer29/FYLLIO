@@ -32,18 +32,14 @@ import { requireCliente } from "../cliente-contexto";
 import { contextoDeConversacion } from "./contexto-conversacion";
 import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type EntradaEvaluador, type MensajeHilo, type SenalesHilo } from "./evaluador";
 import { persistirTurno } from "./persistir-turno";
+import { entradaDesdeContexto } from "./entrada-desde-contexto";
 import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
 import type { ConocimientoClinica } from "./conocimiento";
 import { semaforoDeContacto } from "../automatizacion/semaforo";
-import {
-  pendientesDeAplazados,
-  vueltasPorClave,
-  type ClaveAplazado,
-  type EventoAplazamiento,
-} from "../automatizacion/aplazamientos";
+import { type ClaveAplazado, type EventoAplazamiento } from "../automatizacion/aplazamientos";
 import type { ObjetivoAgente } from "../automatizacion/objetivos";
 import { hoyISO, horaClinica } from "../time";
-import { esLegible, etiquetaDeTipo, type TipoMensaje } from "../mensajeria/tipos-mensaje";
+import { type TipoMensaje } from "../mensajeria/tipos-mensaje";
 import { avisarFalloAgente, falloReintentable, type MotivoFalloAgente } from "./avisos";
 import { optOutDeTelefono, marcarOptOut } from "../contacto/optout";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
@@ -68,7 +64,9 @@ export type EntranteAEvaluar = {
   ahora?: Date;
 };
 
-const FRASE_RECUERDO_COBRO = /pago pendiente|pendiente de pago|pago que tienes pendiente|tienes un pago/i;
+// (La coletilla del cobro, el orden de objetivos, la pista de perfil y el
+// resto de la ENTRADA se construyen en entrada-desde-contexto — el mismo
+// constructor que usa el banco de pruebas. MEJORAS 225.)
 
 /** MEJORAS 145 — tope de turnos por conversación en 24 h. El banco de pruebas
  *  tenía 100/día; el camino real, nada: un bucle (dos bots, un número que
@@ -188,9 +186,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     });
     return fallo("configuracion_ilegible");
   }
-  const objetivosAbiertos = ctx.objetivosAbiertos
-    .map((etapa) => objetivosConfig.find((o) => o.etapa === etapa))
-    .filter((o): o is ObjetivoAgente => o != null);
+  // (los objetivos abiertos los resuelve el constructor de la entrada)
 
   const ahora = e.ahora ?? new Date();
 
@@ -272,9 +268,6 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   // 034 — el último entrante del hilo (el que dispara el turno, o el más
   // reciente si llegaron varios): si NO es legible, el turno deriva sin
   // modelo y sin inventar respuesta.
-  const ultimoEntrante = [...hilo].reverse().find((m) => m.direccion === "Entrante") ?? null;
-  const tipoUltimo = (ultimoEntrante?.tipo ?? e.tipo ?? "text") as TipoMensaje;
-  const ultimoNoLegible = !esLegible(tipoUltimo) ? { tipo: tipoUltimo, etiqueta: etiquetaDeTipo(tipoUltimo) } : null;
 
   const evsAplazamiento: EventoAplazamiento[] = datos.eventos
     .filter((x) => x.evento === "aplazado" || x.evento === "aplazado_resuelto")
@@ -284,16 +277,13 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       motivoTexto: x.motivo_texto,
       createdAt: x.created_at instanceof Date ? x.created_at.toISOString() : String(x.created_at),
     }));
-  const pendientes = pendientesDeAplazados(evsAplazamiento);
   // MEJORAS 123: vueltas desde el último resuelto, ráfaga = una vuelta.
-  const aplazadosPorClave = vueltasPorClave(evsAplazamiento);
 
   // EL SEMÁFORO (026): el agente calla mientras el ASUNTO derivado siga sin
   // resolver (hecho del sistema o resuelto_manual) o el hilo esté asumido.
   // La ESPERA no calla al evaluador: responder a quien escribe no es
   // contactar — la espera suspende lo PROACTIVO (cadencias).
   const sem = await semaforoDeContacto(e.telefono, { hoy: e.hoy });
-  const yaDerivado = !sem.verde && sem.motivo !== "espera";
 
   let diasHastaProximaCita: number | null = null;
   if (datos.proximaCita) {
@@ -306,7 +296,6 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
 
   // MEJORAS 120: ¿ya se le recordó el pago en esta conversación? Contado
   // de los salientes del hilo, no juzgado.
-  const cobroYaRecordado = hilo.some((m) => m.direccion === "Saliente" && FRASE_RECUERDO_COBRO.test(m.contenido));
 
   // MEJORAS 135: el opt-out, de su fuente única. Se lee siempre; un fallo
   // aquí no puede tumbar el turno (se degrada a «no consta», con log).
@@ -319,32 +308,23 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
 
   // 4 · Evaluar y persistir. La entrada se construye aparte y viaja en el
   //     resultado: es lo que un replay por versión necesita (hilos jugados).
-  const entrada: EntradaEvaluador = {
-    nombre: ctx.nombre,
-    esPacienteConocido: ctx.pacienteId != null,
-    objetivosAbiertos,
-    presupuestosVivos: ctx.presupuestosVivos.map((p) => ({ id: p.id, tratamiento: p.tratamiento, importe: p.importe })),
-    pendienteCobro: ctx.pendienteCobro,
-    hilo,
-    aplazadosPendientes: pendientes.flatMap((p) => p.motivos.map((motivo) => ({ clave: p.clave, motivo }))),
-    aplazadosPorClave,
+  //     MEJORAS 225: la entrada la construye entrada-desde-contexto, el MISMO
+  //     constructor que el banco de pruebas. Aquí solo se traen las piezas.
+  const entrada: EntradaEvaluador = entradaDesdeContexto({
+    ctx,
+    objetivosConfig,
     conocimiento,
-    umbralInsistencia: conocimiento.alcance.umbralInsistencia ?? undefined,
-    urgencias: conocimiento.alcance.urgencias ?? undefined,
+    clinicaNombre: nombreDe(clinicaConfig),
+    hilo,
+    tipoEntrante: e.tipo ?? null,
+    aplazamientos: evsAplazamiento,
+    semaforo: sem,
     diasHastaProximaCita,
-    yaDerivado,
-    hoy: e.hoy,
-    esperaVigente:
-      !sem.verde && sem.motivo === "espera" && sem.hasta
-        ? { hasta: sem.hasta, motivo: sem.esperaMotivo ?? null }
-        : null,
-    ultimoNoLegible,
-    cobroYaRecordado,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
     optOutVigente,
     clinicasDelHilo,
-    identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,
-  };
+    hoy: e.hoy,
+  });
   const evaluacion = await evaluarTurno(entrada);
 
   if (!evaluacion.actuar) return { estado: "saltado", motivo: "sin_actuar" };

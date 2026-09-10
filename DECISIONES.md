@@ -4548,3 +4548,27 @@ como `peticion_queja`). Los hilos largos que buscábamos no llegan porque el age
 eso ES el hallazgo. Simon anota veredicto por hilo en `fixture.md` → `hilos:veredictos`. Hallazgo
 de paso → MEJORAS 224 (el evaluador no distingue autor en los salientes).
 
+## 2026-09-10 — 225 arreglada: el banco y el webhook construyen la MISMA entrada, y el perfil de WhatsApp es pista
+Simon: «en el banco el agente NO deriva al primer turno con esas mismas situaciones, y en el runner
+sí». Repro con el mismo mensaje y la misma clínica: banco «sigue», producción «entrega caso
+completo»; la entrada de producción con el nombre del banco → «sigue». El orquestador pasaba el
+nombre de PERFIL de WhatsApp como `nombre`, el modelo lo apuntaba como recogido y el código cerraba
+el caso; el banco ponía el teléfono «exactamente como producción» (22-08), y además no abría «cita»
+para pacientes ni pasaba lo mismo en `clinica` y en el orden de objetivos. Cuarta vez que la prueba
+verificó algo distinto de lo que corre (servidor de 31 días, borrador que nadie enviaba, índice del
+commit): lección §25 del skill de ingeniería. Arreglo en tres partes: (1) `entrada-desde-contexto`
+es el ÚNICO constructor de la entrada — orquestador y banco lo llaman con piezas distintas (base /
+sintéticas) y la misma construcción; (2) el perfil viaja como `nombrePerfil`, el render lo declara
+pista, el prompt lo dice y el CÓDIGO quita del juicio un nombre recogido que no esté en ningún
+entrante; (3) `qa:banco-vs-runner` compara campo a campo los dos caminos sobre el fixture de hilos
+jugados, sin modelo. Medido: la vara no se mueve (66/67, ¿Listo? 21/21; descartes del control
+7→11 de 73); `hilos:replay` sobre las mismas conversaciones: 18 de 31 turnos cambian, y a nivel de
+DECISIÓN cambian tres — `lead_precio` y `caso_completo` (Dani) dejan de entregarse al primer
+mensaje (el nombre venía del perfil), y `queja_economica` pasa de seguir a entregar como caso
+completo (paciente fichado que da todos los datos: discutible, para anotar). El resto son campos
+(«no_aplica» que aparece/desaparece, redacción de valores) y borradores que el control tumba ahora
+(económica, agenda, datos sensibles). Anotación EN LA INTERFAZ, no en Markdown: «Estuvo bien» junto
+al «se equivocó aquí» (misma fila, `fallo = ninguno`, nace revisada; 046), `demo:reset` copia las
+marcas al fixture antes de vaciar y el seed las repone por `mensaje_id`. Los quince hilos se
+volvieron a jugar con el arreglo: los de antes llevaban el fallo dentro.
+

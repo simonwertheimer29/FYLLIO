@@ -21,9 +21,11 @@ dotenv.config();
 process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "DEMO";
 
 import pg from "pg";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { runWithCliente } from "../app/lib/airtable";
+import { marcarCandidato } from "../app/lib/agente/candidatos-eval";
 import { hoyISO } from "../app/lib/time";
-import { RUTA_FIXTURE, desplazarHilo, diasEntre, type FixtureHilos } from "../app/lib/agente/hilos-jugados";
+import { RUTA_FIXTURE, RUTA_FIXTURE_MD, desplazarHilo, diasEntre, renderFixtureMd, veredictoDeHilo, type FixtureHilos } from "../app/lib/agente/hilos-jugados";
 import { crearQ, candadoDemo, clinicaDemo, doctorDemo, construirMundo, type Q } from "./hilos-jugados-mundo.mts";
 
 if (!existsSync(RUTA_FIXTURE)) {
@@ -41,6 +43,44 @@ const q: Q = crearQ(app);
 await candadoDemo(q);
 
 const fixture = JSON.parse(readFileSync(RUTA_FIXTURE, "utf8")) as FixtureHilos;
+
+// ─── --guardar-veredictos: de la interfaz al fixture ───────────────────────
+// Simon marca en Mensajería («se equivocó aquí» / «estuvo bien»); eso vive en
+// casos_candidatos_eval, que el reset vacía. Antes de vaciar (demo:reset lo
+// llama primero) las marcas de los hilos jugados se copian al fixture por su
+// mensaje_id, que es estable entre resiembras; el seed las vuelve a poner.
+if (process.argv.includes("--guardar-veredictos")) {
+  const r = await q(
+    `select mensaje_id, fallo, correccion, marcado_por, marcado_por_nombre, marcado_en, estado
+       from casos_candidatos_eval where mensaje_id like 'jug\\_%'`,
+  );
+  const porMensaje = new Map<string, any>(r.rows.map((x: any) => [String(x.mensaje_id), x]));
+  let n = 0;
+  for (const h of fixture.hilos) {
+    for (const t of h.turnos) {
+      const m = porMensaje.get(t.mensajeId);
+      if (!m) continue;
+      t.marca = {
+        fallo: String(m.fallo),
+        correccion: m.correccion ?? null,
+        porId: String(m.marcado_por),
+        porNombre: m.marcado_por_nombre ?? null,
+        en: new Date(m.marcado_en).toISOString(),
+        estado: String(m.estado),
+      };
+      n++;
+    }
+    h.veredicto = veredictoDeHilo(h);
+  }
+  writeFileSync(RUTA_FIXTURE, JSON.stringify(fixture, null, 2));
+  writeFileSync(RUTA_FIXTURE_MD, renderFixtureMd(fixture));
+  const cuenta = { bien: 0, mal: 0, dudoso: 0, sin: 0 };
+  for (const h of fixture.hilos) cuenta[h.veredicto.valor ?? "sin"]++;
+  console.log(`hilos jugados: ${n} marcas de la interfaz copiadas al fixture · veredictos: bien ${cuenta.bien} · mal ${cuenta.mal} · dudoso ${cuenta.dudoso} · sin marcar ${cuenta.sin}`);
+  await app.end();
+  process.exit(0);
+}
+
 const hoy = hoyISO();
 const doctor = await doctorDemo(q);
 
@@ -59,6 +99,7 @@ async function ins(tabla: string, row: Record<string, unknown>): Promise<string>
 let nMensajes = 0;
 let nEventos = 0;
 let nOptOuts = 0;
+let nMarcas = 0;
 for (const original of fixture.hilos) {
   const g = original.guion;
   const delta = diasEntre(fixture.jugadoEl, hoy) - g.haceDias;
@@ -110,7 +151,17 @@ for (const original of fixture.hilos) {
   // el evento `opt_out` viaja en el fixture como uno más y se copia con su
   // actor. No se vuelve a marcar: sería un segundo evento.
   if (h.eventos.some((e) => e.evento === "opt_out")) nOptOuts++;
+  // Las marcas de la interfaz vuelven por el escritor real (marcarCandidato
+  // copia lo persistido del turno, que ya está). La fecha de marcado es la
+  // de la resiembra: es lo único que no se conserva.
+  for (const t of h.turnos) {
+    if (!t.marca) continue;
+    await runWithCliente("DEMO", () =>
+      marcarCandidato({ telefono: g.telefono, clave: t.mensajeId, fallo: t.marca!.fallo, correccion: t.marca!.correccion, por: { id: t.marca!.porId, nombre: t.marca!.porNombre } }),
+    );
+    nMarcas++;
+  }
   console.log(`  ${g.id}: ${h.mensajes.length} mensajes · ${h.eventos.length} eventos · hace ${g.haceDias} días · ${clinica.nombre}`);
 }
-console.log(`hilos jugados: ${fixture.hilos.length} hilos · ${nMensajes} mensajes · ${nEventos} eventos · ${nOptOuts} opt-out (fixture del ${fixture.jugadoEl.slice(0, 10)})`);
+console.log(`hilos jugados: ${fixture.hilos.length} hilos · ${nMensajes} mensajes · ${nEventos} eventos · ${nOptOuts} opt-out · ${nMarcas} marcas de la interfaz (fixture del ${fixture.jugadoEl.slice(0, 10)})`);
 await app.end();

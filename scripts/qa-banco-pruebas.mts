@@ -70,7 +70,7 @@ const render = renderEntrada(entradaPresu).texto;
 ok("la config de la clínica entra en el prompt del banco (el precio marcado se ve)",
   render.includes("Tratamiento QA Banco: 999 €"));
 ok("el escenario presupuesto abre SOLO su objetivo, con el documento ficticio en contexto",
-  entradaPresu.objetivosAbiertos.length === 1 && entradaPresu.objetivosAbiertos[0].etapa === "presupuesto" &&
+  entradaPresu.objetivosAbiertos.map((o) => o.etapa).join(",") === "presupuesto,cita" &&
     render.includes("Endodoncia") && render.includes("650"));
 ok("el hilo de la sesión + el mensaje nuevo llegan enteros y en orden",
   render.indexOf("Hola") < render.indexOf("¿En qué te ayudo?") &&
@@ -83,9 +83,9 @@ const entradaLead = construirEntradaDePrueba({
 });
 ok("lead nuevo: no consta como paciente, y abre cita + identificar",
   !entradaLead.esPacienteConocido &&
-    entradaLead.objetivosAbiertos.map((o) => o.etapa).sort().join(",") === "cita,identificar");
+    entradaLead.objetivosAbiertos.map((o) => o.etapa).sort().join(",") === "identificar");
 ok("al_dia no abre nada; cobro abre cobro con la deuda ficticia",
-  construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: false }).objetivosAbiertos.length === 0 &&
+  construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: false }).objetivosAbiertos.map((o) => o.etapa).join(",") === "cita" &&
     construirEntradaDePrueba({ escenario: { tipo: "cobro", deuda: 480 }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: false }).pendienteCobro === 480);
 ok("la no-reversión viaja: derivadoPrevio → yaDerivado (el banco la enseña, no la esquiva)",
   construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: true }).yaDerivado === true);

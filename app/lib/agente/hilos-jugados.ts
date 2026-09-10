@@ -11,12 +11,14 @@
 //     de versión: `hilos:replay` rejuega esa entrada contra el prompt de hoy
 //     y compara decisión a decisión. Es el replay por versión que la 168
 //     pedía y que nada más da;
-//   · Simon lee los hilos en un Markdown (no JSON) y deja un VEREDICTO por
-//     hilo que vuelve al fixture. Sin veredicto esto es demo, no prueba.
+//   · Simon anota EN LA INTERFAZ (Mensajería › «Jugadas» › ver por qué ›
+//     «se equivocó aquí» / «estuvo bien»); las marcas se copian al fixture
+//     (`hilos:veredictos`, y solas antes de cada reset) y el seed las vuelve
+//     a poner. Sin veredicto esto es demo, no prueba.
 //
-// Aquí no hay base ni modelo: tipos, render del Markdown, parseo de
-// veredictos, desplazamiento de fechas y la comparación de decisiones. Lo
-// que toca base vive en scripts/ (jugar, seed, replay).
+// Aquí no hay base ni modelo: tipos, una vista Markdown de LECTURA,
+// desplazamiento de fechas y la comparación de decisiones. Lo que toca base
+// vive en scripts/ (jugar, seed, replay).
 //
 // LÍMITES — escritos aquí para que viajen con el fixture y no se olviden.
 // Ver también evals/README.md («Hilos jugados»).
@@ -140,6 +142,10 @@ export type TurnoJugado = {
   modelo: string | null;
   latenciaMs: number | null;
   decision: DecisionTurno | null;
+  /** Marca puesta EN LA INTERFAZ («se equivocó aquí» / «estuvo bien»), copiada
+   *  al fixture por `hilos:veredictos`; el seed la vuelve a poner tras el
+   *  reset (la clave es el `mensajeId`, estable entre resiembras). */
+  marca?: { fallo: string; correccion: string | null; porId: string; porNombre: string | null; en: string; estado: string } | null;
 };
 
 export type FinMotivo = "derivado" | "fin_paciente" | "opt_out" | "max_turnos" | "semaforo_rojo" | "fallo";
@@ -322,7 +328,19 @@ const ETIQUETA_DESCARTE: Record<string, string> = {
   juez_no_respondio: "el control no contestó",
 };
 
-const VEREDICTOS: readonly Veredicto[] = ["bien", "mal", "dudoso"];
+/** El veredicto de un hilo, DERIVADO de las marcas por turno: algún turno
+ *  marcado como error → «mal»; todos los turnos con juicio marcados «estuvo
+ *  bien» → «bien»; marcas a medias → «dudoso»; sin marcas → null. */
+export function veredictoDeHilo(h: HiloJugado): { valor: Veredicto | null; nota: string | null } {
+  const conJuicio = h.turnos.filter((t) => t.decision != null);
+  const marcados = conJuicio.filter((t) => t.marca);
+  if (marcados.length === 0) return { valor: null, nota: null };
+  const errores = marcados.filter((t) => t.marca!.fallo !== "ninguno");
+  const nota = errores.map((t) => `t${t.n}: ${t.marca!.fallo}${t.marca!.correccion ? ` — ${t.marca!.correccion}` : ""}`).join(" · ") || null;
+  if (errores.length > 0) return { valor: "mal", nota };
+  if (marcados.length === conJuicio.length) return { valor: "bien", nota: null };
+  return { valor: "dudoso", nota: `${marcados.length}/${conJuicio.length} turnos marcados` };
+}
 
 function hora(iso: string): string {
   const d = new Date(iso);
@@ -350,7 +368,7 @@ export function renderFixtureMd(f: FixtureHilos): string {
   L.push("");
   L.push(`Jugados el ${f.jugadoEl.slice(0, 10)} · paciente: ${f.modeloPaciente} · agente: el de producción (evaluador + control) · coste de la jugada: $${f.coste.usdTotal.toFixed(2)}.`);
   L.push("");
-  L.push("**Cómo anotar.** Lee cada hilo como lo leería la coordinadora. Debajo de cada uno hay `**Veredicto:**` — escribe `bien`, `mal` o `dudoso` — y `**Nota:**` para decir qué falló o qué te chirría. Luego `npm run hilos:veredictos` lo guarda en el fixture. `dudoso` no es una respuesta de segunda: marca lo que exige una decisión de producto.");
+  L.push("**Esto es una vista de lectura.** Se anota EN LA INTERFAZ: Mensajería › filtro «Jugadas» › «ver por qué» de cada turno › «El agente se equivocó aquí» o «Estuvo bien». Los veredictos de aquí salen de esas marcas (`npm run hilos:veredictos` las copia al fixture; `demo:reset` lo hace solo antes de vaciar la demo).");
   L.push("");
   L.push("**Lo que esto NO es** (viaja en el fixture; también en evals/README):");
   for (const l of f.limites) L.push(`- ${l}`);
@@ -385,37 +403,10 @@ export function renderFixtureMd(f: FixtureHilos): string {
       }
       L.push("");
     }
-    L.push(`**Veredicto:** ${h.veredicto.valor ?? ""}`);
-    L.push(`**Nota:** ${h.veredicto.nota ?? ""}`);
+    L.push(`**Veredicto (marcado en la interfaz):** ${h.veredicto.valor ?? "sin marcar"}${h.veredicto.nota ? ` — ${h.veredicto.nota}` : ""}`);
     L.push("");
     L.push("---");
   });
   L.push("");
   return L.join("\n");
-}
-
-/** Lee los veredictos del Markdown anotado. Devuelve por id de guion; un
- *  valor fuera de {bien, mal, dudoso} es error (no se adivina). */
-export function parsearVeredictos(md: string): { porHilo: Record<string, { valor: Veredicto | null; nota: string | null }>; errores: string[] } {
-  const porHilo: Record<string, { valor: Veredicto | null; nota: string | null }> = {};
-  const errores: string[] = [];
-  const bloques = md.split(/<!-- hilo:([^\s>]+) -->/);
-  // split deja: [preámbulo, id1, cuerpo1, id2, cuerpo2, …]
-  for (let i = 1; i < bloques.length; i += 2) {
-    const id = bloques[i];
-    const cuerpo = bloques[i + 1] ?? "";
-    // Solo espacios en la misma línea: un veredicto vacío NO puede tragarse
-    // la línea siguiente («**Nota:** …» leído como veredicto).
-    const v = /\*\*Veredicto:\*\*[ \t]*([^\n]*)/.exec(cuerpo);
-    const n = /\*\*Nota:\*\*[ \t]*([^\n]*)/.exec(cuerpo);
-    const crudo = (v?.[1] ?? "").trim().toLowerCase();
-    let valor: Veredicto | null = null;
-    if (crudo) {
-      if ((VEREDICTOS as readonly string[]).includes(crudo)) valor = crudo as Veredicto;
-      else errores.push(`${id}: veredicto «${crudo}» no es bien/mal/dudoso`);
-    }
-    const nota = (n?.[1] ?? "").trim() || null;
-    porHilo[id] = { valor, nota };
-  }
-  return { porHilo, errores };
 }

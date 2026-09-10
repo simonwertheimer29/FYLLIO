@@ -5,7 +5,11 @@
 // MEJORAS 182). Sin db, sin Node. El módulo de servidor lo reexporta.
 
 /** Qué falló, en código cerrado. El texto libre va aparte (`correccion`). */
-export const FALLOS_CANDIDATO = ["decision", "entendio_mal", "borrador", "recogida", "otro"] as const;
+/** `ninguno` (10-09) = «estuvo bien»: el veredicto positivo, misma fila. No
+ *  es una opción del formulario de error; tiene su propio botón. */
+export const FALLOS_CANDIDATO = ["decision", "entendio_mal", "borrador", "recogida", "otro", "ninguno"] as const;
+/** Los que el formulario «se equivocó aquí» ofrece (todos menos `ninguno`). */
+export const FALLOS_DE_ERROR = FALLOS_CANDIDATO.filter((f) => f !== "ninguno");
 export type FalloCandidato = (typeof FALLOS_CANDIDATO)[number];
 
 export type DecisionAgente = "siguio" | "entrego";
@@ -34,6 +38,8 @@ export function etiquetaFallo(fallo: FalloCandidato, decision: DecisionAgente): 
       return "Apuntó mal un dato";
     case "otro":
       return "Otra cosa";
+    case "ninguno":
+      return "Estuvo bien";
   }
 }
 

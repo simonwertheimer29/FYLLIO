@@ -53,3 +53,13 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - repro banco vs runner (3 guiones × 3 llamadas) · **$0,05 medido** · pregunta de Simon: ¿deciden igual los dos
   caminos? NO en `lead_precio` (el nombre de perfil cierra el caso; MEJORAS 225), SÍ en urgencia y
   presupuesto · ac. **$0,38** (tope $5)
+- Anunciado tras el arreglo de la 225 (pista de perfil + constructor único): vara completa (~$0,35),
+  hilos:replay de los 15 (~$0,30) y volver a jugar los 15 (~$0,30) → ~$1 más, dentro del tope.
+- qa:evals-evaluador COMPLETA tras la 225 (73 turnos) · **$0,35 medido** ($0,3485) → 66/67 (99 %), ¿Listo? 21/21,
+  descartes del control 11/73 (antes 7/73). Escribe `ultima-pasada.json` con el hash nuevo (df3978f4e98d).
+  Salida en `2026-09-10-225-vara-y-replay.txt` · ac. $0,73
+- hilos:replay (31 turnos, fixture pre-225) · **$0,17 medido** · 13 iguales · 18 distintos; 3 cambian de DECISIÓN
+  (lead_precio y caso_completo dejan de entregarse al primer turno; queja_economica pasa a entregar) · ac. $0,90
+- hilos:jugar de nuevo, 15 hilos con el arreglo (35 turnos) · **$0,28 medido** ($0,18 agente + $0,09 paciente) · el
+  fixture que queda es este; los desconocidos ya no se entregan al primer mensaje (lead_precio y caso_completo
+  entregan en el 2.º, cuando dan el nombre) · ac. **$1,18** (tope $5)

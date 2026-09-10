@@ -464,6 +464,34 @@ de un módulo de servidor y el build de Vercel murió con «Can't resolve 'dns'�
 > → `db/context` → `pg`. Vercel: nueve errores. El build también fallaba en local; nadie lo vio
 > porque el gate miró el árbol equivocado.
 
+### 25. Se verifica LO QUE SE USA, por construcción — cuatro veces verificamos otra cosa
+Cuatro veces en un mes la prueba miró algo distinto de lo que corría en producción, y las cuatro
+dieron verde mientras producción hacía otra cosa:
+1. **El servidor de 31 días**: la vara se midió contra un servidor con código viejo.
+2. **El borrador que nadie enviaba**: el flujo se probó con el agente redactando, y en modo A la
+   persona no lo mandaba — el hilo real nunca tenía esa respuesta.
+3. **El índice del commit** (a583fb1): el hook construyó HEAD, no lo que se iba a commitear.
+4. **El banco ≠ el orquestador** (MEJORAS 225, 10-sep): banco y webhook montaban la entrada del
+   evaluador cada uno a su manera. Con el mismo mensaje el banco decía «sigue» y producción
+   entregaba el caso al primer turno por el nombre de perfil de WhatsApp. El banco, cuya única
+   razón de existir es probar producción, no podía verlo: no ejecutaba la misma construcción.
+Reglas:
+- **Una construcción, un sitio.** Lo que producción calcula antes de llamar al modelo (entrada,
+  contexto, render) vive en UN constructor puro; producción trae datos de la base y la prueba trae
+  datos sintéticos, pero los dos llaman a la misma función. Un «como en producción» escrito a mano
+  en la prueba es una divergencia esperando fecha.
+- **La prueba corre el camino real o declara qué parte NO corre.** Si el banco no envía el
+  borrador, lo dice en su cabecera y algo más (los hilos jugados) sí lo envía.
+- **Un QA que compara los dos caminos** (`qa:banco-vs-runner` sobre el fixture de hilos jugados):
+  campo a campo, sin modelo. Divergen → rojo. Es el equivalente de `qa:frontera` para este error.
+- **Antes de dar por bueno un resultado verde, preguntar qué corrió exactamente**: qué código, qué
+  árbol, qué entrada, quién envió. Si la respuesta no es «lo mismo que producción», el verde no
+  vale.
+> **Nos lo enseñó:** la jugada de hilos del 10-sep. Trece de quince hilos acabaron en entrega al
+> primer turno; el banco, con los mismos mensajes, no lo hacía. El repro aisló el `nombre`: el
+> orquestador pasaba «Marta L.» (perfil de WhatsApp), el modelo lo apuntaba como recogido y el
+> código cerraba el caso. El banco ponía el teléfono «exactamente como producción». Era mentira.
+
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo
 debe cumplir, se añade aquí como mandamiento con su línea de "Nos lo enseñó". Las

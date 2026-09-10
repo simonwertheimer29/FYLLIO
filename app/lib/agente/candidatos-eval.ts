@@ -98,6 +98,9 @@ export async function marcarCandidato(args: {
     tecnico: { ...tecnico, entrada: undefined },
   };
   const decision: DecisionAgente = turno.entrega ? "entrego" : "siguio";
+  // «Estuvo bien» (10-09): veredicto positivo, misma fila, sin cola de revisión.
+  const estadoInicial: EstadoCandidato = fallo === "ninguno" ? "descartado" : "pendiente";
+  const notaInicial = fallo === "ninguno" ? "Estuvo bien: no cambia la vara." : null;
 
   // Hilos jugados (10-09): el candidato HEREDA el origen del hilo. Un hilo
   // con paciente simulado es sintético por los dos lados y no puede entrar
@@ -111,20 +114,24 @@ export async function marcarCandidato(args: {
     const r = await sql<FilaMarcado>`
       insert into casos_candidatos_eval
         (cliente, clinica_id, origen, telefono, mensaje_id, mensaje_paciente, entrada, juicio, borrador,
-         decision_agente, causa_entrega, version, fallo, correccion, marcado_por, marcado_por_nombre)
+         decision_agente, causa_entrega, version, fallo, correccion, marcado_por, marcado_por_nombre,
+         estado, nota_revision)
       values
         (${cliente}, ${clinicaId}, ${origen}, ${args.telefono}, ${turno.clave}, ${mensajePaciente}, ${tecnico.entrada},
          ${JSON.stringify(juicio)}::jsonb, ${turno.borrador}, ${decision}, ${turno.entrega?.causa ?? null},
          ${tecnico.version ? JSON.stringify(tecnico.version) : null}::jsonb, ${fallo}, ${correccion},
-         ${args.por.id}, ${args.por.nombre})
+         ${args.por.id}, ${args.por.nombre},
+         ${estadoInicial}, ${notaInicial})
       on conflict (cliente, mensaje_id) do update set
         fallo = excluded.fallo, correccion = excluded.correccion,
         marcado_por = excluded.marcado_por, marcado_por_nombre = excluded.marcado_por_nombre, marcado_en = now(),
         mensaje_paciente = excluded.mensaje_paciente, entrada = excluded.entrada, juicio = excluded.juicio,
         borrador = excluded.borrador, decision_agente = excluded.decision_agente, causa_entrega = excluded.causa_entrega,
         version = excluded.version,
-        -- Volver a marcar reabre la revisión: lo aceptado se decidió sobre otra corrección.
-        estado = 'pendiente', revisado_en = null, nota_revision = null
+        -- Volver a marcar reabre la revisión: lo aceptado se decidió sobre otra
+        -- corrección. Un «estuvo bien» (ninguno) nace ya revisado: no hay nada
+        -- que llevar a la vara.
+        estado = excluded.estado, revisado_en = null, nota_revision = excluded.nota_revision
       returning id, fallo, correccion, marcado_por_nombre, marcado_en, estado`.execute(trx);
     const fila = r.rows[0];
     if (!fila) throw new Error("marcarCandidato: la escritura no devolvió fila");

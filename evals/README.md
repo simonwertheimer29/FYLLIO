@@ -150,10 +150,13 @@ Para qué sirven, en orden de valor:
    entero), cambios de tema, insistencia real, cadencias que entran en medio, caminos que nadie
    escribió a mano.
 
-**Cómo se anotan.** `fixture.md` es la vista para leer (nada de JSON): cada hilo con su transcripción
-y, bajo cada mensaje del paciente, lo que el agente decidió. Simon deja `**Veredicto:**` (bien ·
-mal · dudoso) y `**Nota:**`; `npm run hilos:veredictos` lo guarda en el fixture. **Sin veredicto
-esto es demo, no prueba.**
+**Cómo se anotan: en la interfaz, no en un fichero.** Mensajería › filtro «Jugadas» › «ver por qué»
+de cada turno: «El agente se equivocó aquí» (el botón que ya existía, con su formulario) o «Estuvo
+bien» (un clic; misma fila con `fallo = ninguno`, nace revisada y no entra en la vara). El veredicto
+del hilo se DERIVA de las marcas por turno (algún error → mal; todo marcado bien → bien; a medias →
+dudoso). Como el reset vacía la base, `demo:reset` copia primero esas marcas al fixture por su
+`mensaje_id` (estable entre resiembras) y el seed las vuelve a poner; `npm run hilos:veredictos` hace
+esa copia a mano. `fixture.md` es solo una vista de lectura. **Sin veredicto esto es demo, no prueba.**
 
 **⚠️ Lo que esto NO es** (también viaja dentro del fixture, `limites`):
 
