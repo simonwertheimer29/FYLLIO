@@ -3007,3 +3007,27 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   una promesa suya ni un turno de conversación. Medir con la vara y con `hilos:replay` antes y
   después. · **Impacto:** medio (cada recordatorio de cita entra en un hilo vivo). · **Esfuerzo:**
   1-2 h + una pasada de vara ($0,35) + replay ($0,80). · **Fecha:** 2026-09-10 · 🔵
+
+## 225. Agente · el banco y el webhook NO dan la misma entrada al evaluador: el nombre de perfil de WhatsApp cierra un «caso completo» al primer mensaje
+- Repro `scripts/repro-banco-vs-runner.mts` (10-09, $0,05), mismo mensaje y misma clínica. `lead_precio`
+  («q precio tiene un blanqueamiento?»): el BANCO sigue; PRODUCCIÓN (orquestador) deriva `caso_completo`.
+  La entrada de producción con el nombre del banco («+34600000000») → sigue: el `nombre` lo explica. El
+  orquestador pasa `ctx.nombre` = nombre de PERFIL de WhatsApp («Marta L.», origen `perfil`); el modelo lo
+  apunta como `identificar.nombre = Marta` y el código cierra el caso al primer turno. El banco pone el
+  TELÉFONO como nombre «exactamente como producción» (arreglo del 22-08): premisa falsa cuando Meta manda
+  perfil. Otras diferencias de entrada: orden de `objetivosAbiertos` (banco cita→identificar; orquestador
+  identificar→cita), `clinica` (banco el nombre; orquestador `null`: el evaluador de producción no sabe en
+  qué clínica está), `senales` (solo producción las calcula). En `urgencia_ambigua` y
+  `presupuesto_financiacion` los dos caminos deciden IGUAL: la carilla como urgencia es del agente, no del
+  camino. · **Principio:** un dato que el paciente no dio no es un dato recogido (el código decide, §
+  evaluador); dos caminos al mismo juez con la misma situación tienen que dar lo mismo (banco = producción,
+  regla dura del banco). · **Propuesta:** (1) el orquestador distingue `nombre` (fichado: paciente/lead) de
+  `nombrePerfil` (pista): el evaluador recibe el perfil como pista en el render («su perfil de WhatsApp
+  dice Marta L.») y `identificar.nombre` solo cuenta si el paciente lo dice; (2) el banco construye la
+  entrada con el MISMO constructor que el orquestador (extraer `entradaDesdeContexto` de
+  `evaluar-entrante` y llamarlo desde `banco-pruebas` con un contexto sintético; `clinica` y el orden de
+  objetivos dejan de divergir solos); (3) el repro pasa a QA (`qa:banco-vs-runner`) sobre el fixture de
+  hilos jugados. Medir antes/después con la vara y `hilos:replay`: varios hilos cambiarán de decisión, y
+  eso es lo que se quiere ver. · **Impacto:** ALTO — hoy cualquier desconocido con nombre de perfil se
+  «entrega» al primer mensaje, y el banco no lo enseña. · **Esfuerzo:** 2-3 h + ~$1,2 de modelo. ·
+  **Fecha:** 2026-09-10 · 🔴

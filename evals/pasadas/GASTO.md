@@ -50,3 +50,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   descartó dos borradores con horquillas de precio inventadas · ac. **$0,33** (tope $5)
 - Dos jugadas fallidas antes (temperature rechazada por sonnet 5; estado PENDIENTE no existe en presupuestos):
   **$0,00** — murieron antes de llamar al modelo.
+- repro banco vs runner (3 guiones × 3 llamadas) · **$0,05 medido** · pregunta de Simon: ¿deciden igual los dos
+  caminos? NO en `lead_precio` (el nombre de perfil cierra el caso; MEJORAS 225), SÍ en urgencia y
+  presupuesto · ac. **$0,38** (tope $5)
