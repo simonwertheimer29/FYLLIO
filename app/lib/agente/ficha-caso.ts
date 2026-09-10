@@ -37,11 +37,14 @@ import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
 import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
 import { optOutDeTelefono, type EstadoOptOut } from "../contacto/optout";
 import { consentimientoDeTelefono, type EstadoConsentimiento } from "../contacto/consentimiento";
+import { hiloJugado } from "../mensajeria/hilo-jugado";
 
 export type FichaCaso = {
   telefono: string;
   nombre: string;
   esPaciente: boolean;
+  /** Hilo jugado (10-09): paciente simulado, agente real con traza. Del dato. */
+  jugada: boolean;
   /** Para el aislamiento del caller (mejor esfuerzo, del contexto). */
   clinicaId: string | null;
   /** false = el agente NO ha evaluado este hilo (caso a): la ficha lo dice,
@@ -289,10 +292,13 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
         ? ultEntrante
         : null;
 
+  const jugada = await hiloJugado(telefono);
+
   return {
     telefono,
     nombre: ctx.nombre,
     esPaciente: ctx.pacienteId != null,
+    jugada,
     clinicaId: ctx.clinicaId ?? null,
     evaluado,
     espera:

@@ -49,6 +49,11 @@ export type PayloadEvaluacion = {
   /** Aditivo (21-08) — de QUÉ presupuesto habla el turno (id resuelto por
    *  código desde la letra del juicio). Mata el proxy del activo. */
   presupuestoReferidoId?: string | null;
+  /** Hilos jugados (10-09) — `true` SOLO lo escribe el seed de la demo: el
+   *  turno se derivó del hilo a mano, no lo juzgó el agente. «Ver por qué»
+   *  lo dice en vez de enseñar una versión que no existe. Producción nunca
+   *  lo pone. */
+  sembrado?: boolean;
   /** Aditivo (31-08) — el COSTE del turno: tokens del evaluador (+ juez,
    *  sumados) y el modelo con el que se tarifa. Antes se devolvía y se tiraba;
    *  el «cuánto costó este mes» del Inicio sale de sumar esto. Los turnos

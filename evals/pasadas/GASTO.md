@@ -36,3 +36,17 @@ de esta carpeta. Pendiente al reabrir crédito: vara del evaluador post-equilibr
 
 ## Sesión 2026-09-09 (plan maestro 2.4 — confianza del agente)
 - **Sin gasto de modelo.** La vara que enseña el producto (`ultima-pasada.json`) se transcribió de la pasada del 5-sep (66/67) en vez de volver a pasarla (~$0,35): el texto de los dos prompts no cambió desde 2fbafc3 (comprobado con `git diff`), así que el hash de hoy ES el medido. `qa:confianza` y `qa:metricas` no llaman al modelo.
+
+## Sesión 2026-09-10 (hilos jugados — el seed conversacional) — TOPE DECLARADO $5
+Anunciado antes de correr: jugar 15 hilos (paciente sonnet ≈ $0,01/turno + agente haiku
+≈ $0,009/turno, ≤ 7 turnos) ≈ **$2**; un replay de muestra para verificar la mecánica ≈ $0,15;
+margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
+- hilos:jugar --solo lead_precio (humo, 1 turno) · **$0,01 medido** · la mecánica de punta a punta · ac. $0,01
+- hilos:jugar (15 hilos, 33 turnos) · **$0,27 medido** ($0,17 agente + $0,09 paciente) · la jugada que puebla el
+  fixture. Mucho menos de lo anunciado ($2): el agente ENTREGA en el primer turno en 13 de 15 hilos, así que
+  los hilos son de 1-5 turnos — eso es el hallazgo, no un ahorro · ac. $0,28
+- hilos:replay --solo cadencia_en_medio,insistencia_precio (8 turnos) · **$0,05 medido** · verificación de la
+  mecánica del replay: 8/8 iguales (misma versión f3a180899dc9/d79cf567c2db: mide estabilidad); el control
+  descartó dos borradores con horquillas de precio inventadas · ac. **$0,33** (tope $5)
+- Dos jugadas fallidas antes (temperature rechazada por sonnet 5; estado PENDIENTE no existe en presupuestos):
+  **$0,00** — murieron antes de llamar al modelo.

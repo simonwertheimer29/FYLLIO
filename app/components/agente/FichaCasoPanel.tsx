@@ -210,6 +210,14 @@ export function FichaCasoPanel({
           </p>
         </div>
       )}
+      {/* ── Hilo jugado (10-09): una línea, no una alarma. Dice de dónde sale
+          la conversación para que nadie lea a un paciente simulado como real,
+          y señala dónde está la prueba de que el agente decidió de verdad. */}
+      {ficha.jugada && (
+        <p className="text-[11.5px] leading-snug text-[var(--color-muted)]">
+          Conversación jugada: la escribió un paciente simulado y el agente decidió de verdad en cada turno. La traza está en «ver por qué».
+        </p>
+      )}
       {/* ── MEJORAS 135 · pidió no recibir mensajes: lo único que cambia lo
           que la coordinadora hará ahora mismo (no escribirle si no escribe
           él). Revertir es de una persona y queda en el log con su nombre. */}

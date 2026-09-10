@@ -4527,3 +4527,24 @@ en verde. **Formato de entrega desde hoy:** qué se hizo · objetivo · qué ver
   que asomaba era la tabla de pacientes y la tira de nueve pestañas, que scrollean dentro de su
   `overflow-x-auto`. El censo ahora distingue el desborde real (`+N`) del contenido que scrollea.
 
+## 2026-09-10 — Hilos jugados: el seed conversacional, y el replay por versión que faltaba
+Diagnóstico y OK de Simon el mismo día. Las conversaciones del seed estaban escritas a mano y el log
+del agente se derivaba de ellas: métricas inventadas. Ahora quince hilos (uno por categoría, dos en
+queja y urgencia) los JUEGA un paciente-modelo (sonnet, perfil + objetivo) contra el agente REAL por
+el camino del webhook (`demo-entrante`, no el banco: el banco es puro y no persiste, y sin persistir
+no hay «ver por qué»). Se jugaron UNA vez ($0,27 medido, tope declarado $5) y viven como fixture
+(`evals/hilos-jugados/`); `demo:reset` los resiembra corridos en fechas sin rejugar. Lo que más vale:
+cada turno guarda la ENTRADA exacta del evaluador y sus hashes, y `hilos:replay` la rejuega contra
+el prompt de hoy decisión a decisión — el «v2 mejor que v1» sobre las mismas conversaciones que la
+168 pedía. Marca del dato (`fuente='Simulacion'` → chip y filtro «Jugadas», línea en la ficha);
+segundo testigo: el seed rico escribe `sembrado: true` y «ver por qué» lo dice en vez de enseñar
+una versión que no existe. Origen sintético siempre; el candidato de «se equivocó aquí» lo hereda
+(045). Límites escritos en tres sitios (README, fixture, lib): paciente-modelo dócil y coherente,
+modo A simplificado (todo borrador se envía tal cual), sin saltos de tiempo, no es corpus, las
+métricas siguen siendo seed. Lo que enseñó la jugada, antes de que Simon anote: 13 de 15 hilos
+acabaron en entrega, casi todos en el PRIMER turno (`caso_completo` con solo un nombre de perfil
+y «blanqueamiento»; la carilla despegada sin dolor como `urgencia`; la pregunta de financiación
+como `peticion_queja`). Los hilos largos que buscábamos no llegan porque el agente cierra antes:
+eso ES el hallazgo. Simon anota veredicto por hilo en `fixture.md` → `hilos:veredictos`. Hallazgo
+de paso → MEJORAS 224 (el evaluador no distingue autor en los salientes).
+

@@ -262,7 +262,7 @@ export interface Tabla_casos_candidatos_eval {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
   clinica_id: string | null;
-  origen: Generated<"real" | "banco">;
+  origen: Generated<"real" | "banco" | "sintetico">;
   telefono: string;
   mensaje_id: string;
   mensaje_paciente: string | null;

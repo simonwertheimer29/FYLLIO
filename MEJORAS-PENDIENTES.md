@@ -2991,3 +2991,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   llega un nombre sin match, error, no null. · **Impacto:** bajo hoy (dos informes en DEMO, ambos
   globales a propósito), alto el día que un piloto genere informes por sede. · **Esfuerzo:** 1-2 h ·
   **Fecha:** 2026-09-09 · 🔵
+
+## 224. Agente · el evaluador no distingue el AUTOR de los salientes: una plantilla pasa por «yo dije»
+- Hallazgo de paso al diseñar los hilos jugados (10-09). El hilo que ve el evaluador (`MensajeHilo`)
+  lleva dirección, contenido, timestamp y tipo, pero NO `autor`: un recordatorio de cita o un
+  seguimiento de cadencia (`autor = 'cadencia'`, texto de plantilla) le llega igual que un borrador
+  suyo enviado por la coordinadora. Puede «recordar» como propio algo que dijo una plantilla
+  («como te decía, tu cita es mañana a las 10:30»), disculparse por una insistencia que no fue suya,
+  o contar como «ya se le escribió N veces» toques que no eran conversación. Es de PRODUCCIÓN, no
+  del runner: el hilo jugado `cadencia_en_medio` lo expone. · **Principio:** el modelo juzga el
+  texto, el código decide (§ evaluador); lo que el modelo no sabe distinguir hay que dárselo
+  etiquetado. · **Propuesta:** `MensajeHilo.autor` ('persona' | 'agente' | 'cadencia') desde
+  `contexto-conversacion`, y en el render del hilo marcar los de cadencia como «[mensaje automático
+  de la clínica]» — tres líneas de contexto, coste cero. Regla en el prompt: lo automático no es
+  una promesa suya ni un turno de conversación. Medir con la vara y con `hilos:replay` antes y
+  después. · **Impacto:** medio (cada recordatorio de cita entra en un hilo vivo). · **Esfuerzo:**
+  1-2 h + una pasada de vara ($0,35) + replay ($0,80). · **Fecha:** 2026-09-10 · 🔵

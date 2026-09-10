@@ -125,3 +125,54 @@ negativo, que es de la fase 2 — así que hoy no se puede resolver ni midiendo.
 
 Las tandas: **1A** (20 casos) · **1B** (los MISMOS 20, reordenados, otro día) · **2** (los 30
 restantes).
+
+---
+
+## Hilos jugados (`hilos-jugados/`) — el seed conversacional, y lo que NO es
+
+Desde el 10-09 la demo lleva quince conversaciones que **no están escritas a mano**: un modelo
+(sonnet) hace de paciente con un perfil y un objetivo, y el agente **real** —evaluador y control,
+el mismo camino que el webhook— contesta turno a turno hasta que el caso se cierra, deriva o se
+agota. Se jugaron **una vez** y se guardaron como fixture (`fixture.json`); `demo:reset` las
+resiembra corridas en fechas sin volver a jugar. En Mensajería llevan el chip y el filtro
+**«Jugadas»**, que sale del dato (`fuente = 'Simulacion'` en el entrante), y su «ver por qué» es
+traza real: versión, entrada, usage, latencia. Los turnos sembrados a mano por el seed rico dicen
+«sembrado» en ese mismo sitio.
+
+Para qué sirven, en orden de valor:
+
+1. **Replay por versión** (`npm run hilos:replay`, ~$0,80). Cada turno guarda la ENTRADA exacta que
+   vio el evaluador. Cuando cambia el prompt, el control, el conocimiento o los objetivos, se
+   rejuega esa entrada y se compara decisión a decisión. Es lo único que dice «v2 mejor que v1»
+   sobre las mismas conversaciones. Se corre con la vara, no en cada reset.
+2. **Demo honesta**: los casos que se abren delante de alguien los decidió el agente de verdad.
+3. **Lo que la vara no ve**: hilos largos (el evaluador no tiene memoria y rederiva del hilo
+   entero), cambios de tema, insistencia real, cadencias que entran en medio, caminos que nadie
+   escribió a mano.
+
+**Cómo se anotan.** `fixture.md` es la vista para leer (nada de JSON): cada hilo con su transcripción
+y, bajo cada mensaje del paciente, lo que el agente decidió. Simon deja `**Veredicto:**` (bien ·
+mal · dudoso) y `**Nota:**`; `npm run hilos:veredictos` lo guarda en el fixture. **Sin veredicto
+esto es demo, no prueba.**
+
+**⚠️ Lo que esto NO es** (también viaja dentro del fixture, `limites`):
+
+- **El paciente es un modelo.** Escribe frases completas, contesta lo que se le pregunta, no manda
+  cuatro mensajes seguidos, no se calla tres días y vuelve con «hola», no cambia de idioma, no
+  miente, no manda un audio de dos minutos. Se le pide ruido en el perfil; sigue siendo un modelo
+  imitando ruido. Y comparte distribución con el agente: se entienden demasiado bien. Es fuzzing
+  con criterio sobre el vecindario de lo que escribimos, no realidad.
+- **Modo A simplificado.** El runner envía cada borrador del agente tal cual, como si la coordinadora
+  lo mandara sin tocarlo (autor persona, sugerido por IA). En la clínica alguien lo edita, lo
+  retrasa o no lo manda.
+- **Sin saltos de tiempo.** Todos los mensajes llevan la hora real de la jugada; las cadencias que
+  entran en medio usan la plantilla real, pero el agente ve minutos entre mensajes, no días.
+- **No es corpus real.** Origen `sintetico` siempre. Un candidato de «el agente se equivocó aquí»
+  marcado sobre un hilo jugado hereda ese origen y **no entra en la vara como real**. El corpus real
+  se pide en la reunión con RB (§D.2 bis), y cuando llegue se mide por separado.
+- **Las métricas de la demo siguen siendo seed.** Quince hilos son unos pocos puntos honestos dentro
+  de cientos derivados a mano: arreglan los casos que se abren, no los números.
+
+Guiones: `scripts/hilos-jugados-guiones.mts` (uno por categoría; dos en queja y urgencia, donde el
+agente puede fallar de formas distintas). Runner: `scripts/jugar-hilos.mts` (solo DEMO, solo con el
+interruptor encendido). QA sin modelo: `npm run qa:hilos`.

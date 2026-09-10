@@ -19,6 +19,7 @@
 import {
   AlertTriangle,
   Sparkles,
+  Bot,
   UserCheck,
   Hourglass,
   MessageCircle,
@@ -71,6 +72,16 @@ export const FILTROS: Array<{
     label: "Sin evaluar",
     Icono: AlertTriangle,
     ayuda: "El agente debía evaluar el último mensaje y no lo hizo",
+  },
+  // Hilos jugados (10-09): los escribió un paciente simulado y el agente REAL
+  // los juzgó turno a turno, con su traza en «ver por qué». La marca sale del
+  // dato (fuente del entrante), no de una lista: en una demo se señalan de
+  // golpe; dentro de un mes se sigue sabiendo cuáles son.
+  {
+    id: "jugadas",
+    label: "Jugadas",
+    Icono: Bot,
+    ayuda: "Paciente simulado, agente real: cada turno lo decidió el agente y tiene traza",
   },
 ];
 
@@ -223,6 +234,7 @@ export function ListaConversaciones({
           c.estadoFlujo != null ||
           c.agenteAlMando ||
           c.sinEvaluar ||
+          c.jugada ||
           (diasSinRespuesta != null && diasSinRespuesta >= 1) ||
           c.origenNombre === "perfil" ||
           c.origenNombre === "telefono";
@@ -297,6 +309,15 @@ export function ListaConversaciones({
                         Decirlo evita leer la lista creyendo que todos lo están. */}
                     {c.origenNombre === "perfil" && <Marca tono="neutro">Sin ficha</Marca>}
                     {c.origenNombre === "telefono" && <Marca tono="neutro">Sin nombre</Marca>}
+                    {/* Hilo jugado: paciente simulado, agente real con traza. Discreto
+                        a propósito — es una marca para quien enseña, no una alarma. */}
+                    {c.jugada && (
+                      <span title="Paciente simulado, agente real: cada turno lo decidió el agente y tiene traza">
+                        <Marca tono="neutro" Icono={Bot}>
+                          Jugada
+                        </Marca>
+                      </span>
+                    )}
                     {/* Chip, no una línea entera en mayúsculas: el nombre de la
                         clínica se comía un renglón de cada fila. */}
                     {mostrarClinica && c.clinicaNombre && (

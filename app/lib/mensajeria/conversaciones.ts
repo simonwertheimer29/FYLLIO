@@ -53,7 +53,7 @@ import { esLeadActivo } from "../leads/pipeline";
 //     que un caso normal sin borrador. Excluye los hilos en manos de una
 //     persona (derivado sin resolver / asumido), donde el agente calla por
 //     diseño.
-export type FiltroBandeja = "necesitan-de-mi" | "agente" | "sin-respuesta" | "sin-evaluar";
+export type FiltroBandeja = "necesitan-de-mi" | "agente" | "sin-respuesta" | "sin-evaluar" | "jugadas";
 
 /** El orden REORDENA, no filtra (dictado): recientes (default) o antiguos
  *  primero — «lo que llevo más tiempo sin tocar». Se aplica ANTES del corte
@@ -111,6 +111,10 @@ export type Conversacion = {
   /** MEJORAS 122 — todas las clínicas por las que ha pasado el hilo. Más de
    *  una = la conversación cruza la red y el hilo etiqueta cada mensaje. */
   clinicasDelHilo: string[];
+  /** Hilo JUGADO (10-09): algún entrante lleva `fuente = 'Simulacion'` — lo
+   *  escribió un paciente simulado y el agente real lo juzgó, con traza. La
+   *  marca sale del dato del hilo, no de una lista. */
+  jugada: boolean;
 };
 
 /**
@@ -196,6 +200,8 @@ export async function listarConversaciones(args: {
                   filter (where clinica_id is not null))[1]     as clinica_id,
                (array_agg(nombre_perfil order by "timestamp" desc)
                   filter (where nombre_perfil is not null and nombre_perfil <> ''))[1] as nombre_perfil,
+               -- Hilo jugado (10-09): la marca es del HILO — basta un entrante simulado.
+               bool_or(coalesce(fuente, '') = 'Simulacion') as jugada,
                -- MEJORAS 122: TODAS las clínicas por las que ha pasado el hilo
                -- (el aislamiento es «cualquiera de ellas», no «la última»).
                array_remove(array_agg(distinct clinica_id), null) as clinicas_ids
@@ -266,7 +272,8 @@ export async function listarConversaciones(args: {
              -- hilo sigue VIVO (mismo criterio que la cola: presupuesto no
              -- cerrado / lead activo), la cadencia lo trabaja.
              pr.estado as pr_estado,
-             l.estado  as lead_estado
+             l.estado  as lead_estado,
+             k.jugada
         from ultimo u
         join caso k using (telefono)
         left join pend p on p.telefono = u.telefono
@@ -382,6 +389,8 @@ export async function listarConversaciones(args: {
         return x.sinRespuestaDesde != null;
       case "sin-evaluar":
         return x.f.sin_evaluar === true;
+      case "jugadas":
+        return x.f.jugada === true;
       case null:
         return true;
     }
@@ -416,6 +425,7 @@ export async function listarConversaciones(args: {
       estadoFlujo,
       sinEvaluar: f.sin_evaluar === true,
       clinicasDelHilo: clinicasDe(f),
+      jugada: f.jugada === true,
     })),
     sinClinica,
     sinEvaluar,

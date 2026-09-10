@@ -19,6 +19,7 @@ import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import { porQueDeHilo, type TurnoExplicado } from "./por-que";
 import { clinicasDelHilo } from "../mensajeria/acceso-hilo";
+import { hiloJugado } from "../mensajeria/hilo-jugado";
 import {
   motivoCorreccionInvalida,
   type CandidatoMarcado,
@@ -98,6 +99,10 @@ export async function marcarCandidato(args: {
   };
   const decision: DecisionAgente = turno.entrega ? "entrego" : "siguio";
 
+  // Hilos jugados (10-09): el candidato HEREDA el origen del hilo. Un hilo
+  // con paciente simulado es sintético por los dos lados y no puede entrar
+  // en la vara como real, por bien anotado que esté.
+  const origen: "real" | "sintetico" = (await hiloJugado(args.telefono)) ? "sintetico" : "real";
   return runWithClienteDb(cliente, async (trx) => {
     const paciente = turno.entranteId
       ? await sql<{ contenido: string | null }>`select contenido from mensajes_whatsapp where id = ${turno.entranteId} limit 1`.execute(trx)
@@ -108,7 +113,7 @@ export async function marcarCandidato(args: {
         (cliente, clinica_id, origen, telefono, mensaje_id, mensaje_paciente, entrada, juicio, borrador,
          decision_agente, causa_entrega, version, fallo, correccion, marcado_por, marcado_por_nombre)
       values
-        (${cliente}, ${clinicaId}, 'real', ${args.telefono}, ${turno.clave}, ${mensajePaciente}, ${tecnico.entrada},
+        (${cliente}, ${clinicaId}, ${origen}, ${args.telefono}, ${turno.clave}, ${mensajePaciente}, ${tecnico.entrada},
          ${JSON.stringify(juicio)}::jsonb, ${turno.borrador}, ${decision}, ${turno.entrega?.causa ?? null},
          ${tecnico.version ? JSON.stringify(tecnico.version) : null}::jsonb, ${fallo}, ${correccion},
          ${args.por.id}, ${args.por.nombre})
@@ -151,7 +156,7 @@ export async function anotarCorrecciones(telefono: string, turnos: TurnoExplicad
 
 export type CandidatoCompleto = CandidatoMarcado & {
   clinicaId: string | null;
-  origen: "real" | "banco";
+  origen: "real" | "banco" | "sintetico";
   telefono: string;
   mensajeId: string;
   mensajePaciente: string | null;
@@ -169,7 +174,7 @@ export async function listarCandidatos(opts: { estado: EstadoCandidato | "todos"
   const cliente = requireCliente("listarCandidatos");
   const r = await runWithClienteDb(cliente, (trx) =>
     sql<FilaMarcado & {
-      clinica_id: string | null; origen: "real" | "banco"; telefono: string; mensaje_id: string; mensaje_paciente: string | null;
+      clinica_id: string | null; origen: "real" | "banco" | "sintetico"; telefono: string; mensaje_id: string; mensaje_paciente: string | null;
       entrada: string | null; juicio: unknown; borrador: string | null; decision_agente: DecisionAgente; causa_entrega: string | null;
       version: unknown; revisado_en: Date | null; nota_revision: string | null;
     }>`

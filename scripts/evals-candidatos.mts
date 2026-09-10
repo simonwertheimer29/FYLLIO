@@ -95,7 +95,7 @@ async function main() {
       console.log("");
     }
     if (estado === "pendiente") {
-      console.log("Para decidir: --aceptar <id> | --descartar <id> [--nota \"…\"]. La copia a evals/ va anonimizada y con origen real.");
+      console.log("Para decidir: --aceptar <id> | --descartar <id> [--nota \"…\"]. La copia a evals/ va anonimizada y con el origen del candidato: real, o sintetico si el hilo es jugado (nunca entra como real).");
     }
   });
 }

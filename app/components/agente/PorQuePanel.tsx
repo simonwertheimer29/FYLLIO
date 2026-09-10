@@ -215,6 +215,11 @@ export function PorQuePanel({
                 <Fila k="Conocimiento" v={t.version.conocimiento ?? "ninguno publicado"} />
                 <Fila k="Objetivos" v={t.version.objetivos ?? "ninguno abierto"} />
               </>
+            ) : t.sembrado ? (
+              // Hilos jugados (10-09): el segundo testigo. Un turno sembrado por
+              // el seed no tiene versión porque nadie lo juzgó; decirlo evita
+              // leer una traza inventada como si fuera del agente.
+              <Fila k="Versión" v="sembrado: este turno no lo juzgó el agente" />
             ) : (
               <Fila k="Versión" v="anterior al registro de versiones" />
             )}

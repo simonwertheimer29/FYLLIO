@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 // Fase C: tres lentes sobre la lista completa; sin filtro = todo. El nombre
 // viejo `necesita-persona` se acepta y se remapea — hay enlaces guardados.
-const FILTROS: FiltroBandeja[] = ["necesitan-de-mi", "agente", "sin-respuesta", "sin-evaluar"];
+const FILTROS: FiltroBandeja[] = ["necesitan-de-mi", "agente", "sin-respuesta", "sin-evaluar", "jugadas"];
 
 export const GET = withAuth(async (session, req) => {
   if (!session.cliente) {

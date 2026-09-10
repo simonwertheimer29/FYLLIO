@@ -1579,28 +1579,10 @@ try {
   //  del agente enviado por la persona (sugerido_por_ia), no como «autor
   //  agente» — el agente aún no envía solo.
   {
-    // Dos hilos más, para que existan las causas que el resto del seed no
-    // produce: una QUEJA (con malestar) y una URGENCIA. Van sobre leads en
-    // espera (le escribimos y ahora contesta esto): la causa ES el texto.
-    {
-      const { rows: enEspera } = await db.query(
-        `select m.lead_id, m.telefono, l.clinica_id, max(m."timestamp") as ult
-           from mensajes_whatsapp m join leads l on l.id = m.lead_id
-          where m.cliente = 'DEMO' and l.cliente = 'DEMO' and l.estado = 'Contactado'
-          group by m.lead_id, m.telefono, l.clinica_id
-          having count(*) = 3 order by max(m."timestamp") desc limit 2`,
-      );
-      const extras = [
-        { txt: "Llevo dos días esperando respuesta y nadie me dice nada. Quiero hablar con una persona, por favor.", ts: hAgo(3) },
-        { txt: "Se me ha roto una muela y me duele bastante. ¿Podéis verme hoy o mañana como muy tarde?", ts: hAgo(1) },
-      ];
-      for (let i = 0; i < Math.min(2, enEspera.length); i++) {
-        await ins("mensajes_whatsapp", {
-          lead_id: enEspera[i].lead_id, telefono: enEspera[i].telefono, clinica_id: enEspera[i].clinica_id, direccion: "Entrante",
-          contenido: extras[i].txt, timestamp: extras[i].ts, fuente: "Modo_A_manual", procesado_por_ia: true,
-        });
-      }
-    }
+    // (10-09) Los dos hilos de QUEJA y URGENCIA que este bloque escribía a
+    // mano se retiraron: esas causas las producen ahora los HILOS JUGADOS
+    // (db-seed-hilos-jugados.mts, después de este seed), donde el agente real
+    // las decidió turno a turno con su traza. Aquí solo queda el volumen.
 
     const { rows: msgs } = await db.query(
       `select id, telefono, lead_id, presupuesto_id, paciente_id, direccion, contenido, clinica_id,
@@ -1689,7 +1671,10 @@ try {
           ? { motivo: "economica", frase: "Te lo podemos dejar con un descuento si lo cierras esta semana." }
           : null;
         const payload = {
-          v: 1, tema: temaMsg, peticionOQueja: queja, malestar, urgenciaMedica: urgencia, mencionaAntecedenteMedico: false,
+          // `sembrado: true` (10-09): este turno se DERIVÓ del hilo, no lo juzgó
+          // el agente. «Ver por qué» lo dice en vez de enseñar una versión que
+          // no existe; los hilos jugados (db-seed-hilos-jugados) no lo llevan.
+          v: 1, sembrado: true, tema: temaMsg, peticionOQueja: queja, malestar, urgenciaMedica: urgencia, mencionaAntecedenteMedico: false,
           vuelveSobreAplazado: null, camposRecogidos: { [temaMsg]: campos }, hiloTruncado: false, borradorDescartado: descartado,
           respuesta: siguienteSaliente ? String(siguienteSaliente.contenido) : "",
           esperaHasta: esperaDias ? dias(m.ts, esperaDias) : null,
@@ -1808,7 +1793,10 @@ try {
       if (inv.entrega_sin_objetivo) malas.push(`${inv.entrega_sin_objetivo} entrega(s) sin objetivo`);
       if (inv.aplazado_sin_clave) malas.push(`${inv.aplazado_sin_clave} aplazado(s) sin clave`);
       if (inv.borrador_sin_evaluacion) malas.push(`${inv.borrador_sin_evaluacion} borrador(es) del agente sin evaluación previa`);
-      if (!inv.evaluaciones || inv.completos < 3 || inv.otras_entregas < 2 || inv.claves < 3) malas.push(`poco log: ${JSON.stringify(inv)}`);
+      // (10-09) Las entregas por queja/urgencia ya no nacen aquí: las ponen los
+      // hilos jugados (db-seed-hilos-jugados, después de este seed). Este seed
+      // solo exige que el volumen tenga entregas completas y claves.
+      if (!inv.evaluaciones || inv.completos < 3 || inv.claves < 3) malas.push(`poco log: ${JSON.stringify(inv)}`);
       if (malas.length) throw new Error(`[seed] log del agente incoherente: ${malas.join(" · ")}`);
       console.log(`  log coherente con los hilos: ${inv.completos} entregas completas · ${inv.otras_entregas} por queja/urgencia/insistencia · ${inv.claves} claves de aplazado`);
     }

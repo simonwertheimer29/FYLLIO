@@ -73,6 +73,9 @@ export type TurnoExplicado = {
   correccion?: CandidatoMarcado | null;
   tecnico: {
     version: VersionTurno | null;
+    /** Hilos jugados (10-09): el turno lo sembró el seed de la demo, no lo
+     *  juzgó el agente. Sale del payload (`sembrado: true`), no del tenant. */
+    sembrado: boolean;
     modelo: string | null;
     latenciaMs: number | null;
     costeUsd: number | null;
@@ -243,6 +246,7 @@ export async function porQueDeHilo(telefono: string): Promise<TurnoExplicado[]> 
       borrador: payload?.respuesta?.trim() ? payload.respuesta : null,
       tecnico: {
         version: payload?.version ?? null,
+        sembrado: payload?.sembrado === true,
         modelo: payload?.modelo ?? null,
         latenciaMs: typeof payload?.latenciaMs === "number" ? payload.latenciaMs : null,
         costeUsd: payload ? costeUsdDeTurno(payload.usage, payload.modelo) : null,

@@ -30,7 +30,7 @@ import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import { contextoDeConversacion } from "./contexto-conversacion";
-import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type MensajeHilo, type SenalesHilo } from "./evaluador";
+import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type EntradaEvaluador, type MensajeHilo, type SenalesHilo } from "./evaluador";
 import { persistirTurno } from "./persistir-turno";
 import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
 import type { ConocimientoClinica } from "./conocimiento";
@@ -118,7 +118,10 @@ function senalesDelHilo(
  *  trabajos (MEJORAS 164) decide con él si pide reintento: solo un `fallo`
  *  reintentable merece un 5xx. */
 export type ResultadoTurno =
-  | { estado: "evaluado" }
+  /** `entrada`: lo que se le dio al evaluador (hilos jugados, 10-09). Los
+   *  hilos jugados la guardan en su fixture para rejugar el turno contra
+   *  otra versión del prompt sin base ni contexto. */
+  | { estado: "evaluado"; entrada: EntradaEvaluador }
   | { estado: "saltado"; motivo: "ya_evaluado" | "sin_actuar" }
   | { estado: "fallo"; motivo: MotivoFalloAgente; reintentable: boolean };
 
@@ -314,8 +317,9 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     console.error("[evaluar-entrante] opt-out no comprobable:", err instanceof Error ? err.message : err);
   }
 
-  // 4 · Evaluar y persistir.
-  const evaluacion = await evaluarTurno({
+  // 4 · Evaluar y persistir. La entrada se construye aparte y viaja en el
+  //     resultado: es lo que un replay por versión necesita (hilos jugados).
+  const entrada: EntradaEvaluador = {
     nombre: ctx.nombre,
     esPacienteConocido: ctx.pacienteId != null,
     objetivosAbiertos,
@@ -340,7 +344,8 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     optOutVigente,
     clinicasDelHilo,
     identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,
-  });
+  };
+  const evaluacion = await evaluarTurno(entrada);
 
   if (!evaluacion.actuar) return { estado: "saltado", motivo: "sin_actuar" };
 
@@ -396,5 +401,5 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       console.error("[evaluar-entrante] notificación:", err instanceof Error ? err.message : err);
     }
   }
-  return { estado: "evaluado" };
+  return { estado: "evaluado", entrada };
 }

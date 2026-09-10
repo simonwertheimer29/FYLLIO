@@ -104,3 +104,11 @@ se aplaza: no hay documento que consultar).
 
 No es QA (eso es `npm run qa:entrante` y compañía) y no toca producción: solo DEMO, y el
 interruptor de cada clínica real seguirá apagado hasta que se decida encenderlo.
+
+## Los hilos jugados (10-09): esta misma secuencia, en bucle, con un paciente-modelo
+
+`npm run hilos:jugar` hace exactamente lo de arriba —recibir, evaluar, persistir— pero el que
+escribe es un modelo con un perfil y un objetivo (quince guiones), y cada borrador del agente se
+envía tal cual como lo haría la coordinadora. Lo jugado se guarda como fixture y `demo:reset` lo
+resiembra sin volver a jugar; en Mensajería llevan el filtro «Jugadas». Qué es, qué no es y cómo se
+anotan: `evals/README.md` § «Hilos jugados».

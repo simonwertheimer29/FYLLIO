@@ -132,6 +132,9 @@ export interface RecibirMensajeParams {
   leadId?: string;
   timestamp?: string;
   wabaMessageId?: string;
+  /** Hilos jugados (10-09): `Simulacion` marca el entrante de un paciente
+   *  simulado. Ausente = la fuente normal del canal (manual / WABA). */
+  fuente?: FuenteMensaje;
   /** Nombre de perfil de WhatsApp del contacto. Meta lo manda en cada entrante
    *  y hasta hoy se descartaba. Es el último recurso para poner nombre a un
    *  hilo de alguien que no es paciente ni lead. */
@@ -318,7 +321,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Direccion: "Entrante",
       Contenido: params.contenido,
       Timestamp: ts,
-      Fuente: "Modo_A_manual",
+      Fuente: params.fuente ?? "Modo_A_manual",
       Procesado_por_IA: false,
       Nombre_perfil: params.nombrePerfil ?? null,
       Clinica_id: params.clinicaId ?? null,
@@ -447,7 +450,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
       Direccion: "Entrante",
       Contenido: params.contenido,
       Timestamp: ts,
-      Fuente: "Modo_B_WABA",
+      Fuente: params.fuente ?? "Modo_B_WABA",
       Procesado_por_IA: false,
       Nombre_perfil: params.nombrePerfil ?? null,
       Clinica_id: params.clinicaId ?? null,

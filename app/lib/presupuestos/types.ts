@@ -305,7 +305,10 @@ export interface ConfiguracionAutomatizacion {
 /** `Modo_A_manual_pendiente` (MEJORAS 130): el saliente se registró y se abrió
  *  wa.me, pero nadie ha dicho «ya lo envié». Los lectores que deciden con el
  *  saliente lo EXCLUYEN hasta que se confirme (pasa a `Modo_A_manual`). */
-export type FuenteMensaje = "Modo_A_manual" | "Modo_A_manual_pendiente" | "Modo_B_WABA" | "Plantilla_automatica" | "Respuesta_IA";
+/** `Simulacion` (hilos jugados, 10-09): el ENTRANTE lo escribió un paciente
+ *  simulado por un modelo y el agente real lo juzgó. Es la marca del hilo
+ *  jugado — sale del dato, no de una lista. Solo DEMO la escribe. */
+export type FuenteMensaje = "Modo_A_manual" | "Modo_A_manual_pendiente" | "Modo_B_WABA" | "Plantilla_automatica" | "Respuesta_IA" | "Simulacion";
 
 export const FUENTE_PENDIENTE_CONFIRMAR: FuenteMensaje = "Modo_A_manual_pendiente";
 export type DireccionMensaje = "Entrante" | "Saliente";
