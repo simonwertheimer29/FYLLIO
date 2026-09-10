@@ -2510,7 +2510,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - `aplazados` por clave (con `NATURALEZA_DE_CLAVE`) y `capacidadesDe(conocimiento)` existen y no
   se cruzan. · **Propuesta:** «14 conversaciones se atascaron en plan de pago: publica tu plan» /
   «conecta la agenda: 9 preguntas de huecos». · **Severidad:** valor · **Esfuerzo:** 2-3 días ·
-  **Fase 2** · **Fecha:** 2026-09-06 · 🔵
+  **Fase 2** · **Fecha:** 2026-09-06 · 🟢 **HECHA el 2026-09-10** — Agentes › Configuración › «Qué publicar para que
+  resuelva más» (`lib/agente/siguiente-config.ts`, puro; `qa:siguiente-config`): los aplazados de 30 días por tema (de
+  «Qué dicen») cruzados con lo publicado; cada tema lleva a su sección («Ir a la sección»), lo ya publicado se declara
+  cubierto y sigue a la vista, y lo que ninguna configuración arregla (dudas clínicas, cambio de tratamiento, el dato de
+  IVA/validez de 89) se dice sin botón. 89 sigue abierta: es el dato, no la pantalla.
 
 ## 179. Fase 2 · Confianza del agente
 - Vara 66/67, descartes 10 %, coincidencia agente-humano: nada se ve. · **Propuesta:** bloque en

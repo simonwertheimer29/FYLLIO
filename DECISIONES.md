@@ -4484,3 +4484,18 @@ en verde. **Formato de entrega desde hoy:** qué se hizo · objetivo · qué ver
   dos sedes en DEMO con reloj fijo (2020), incluida la sede por el último mensaje y el hilo sin sede
   que solo cuenta en la red.
 
+## 2026-09-10 — 2.3: «Qué publicar para que resuelva más» — los aplazados cruzados con lo publicado
+
+- **Qué se construyó.** En Agentes › Configuración, sobre las secciones, un bloque con los temas en
+  los que el agente se atascó en 30 días (los aplazados por tema de «Qué dicen», por conversación, con
+  la frase) y qué publicar para cada uno: forma de pago, aseguradoras, garantías y descuentos llevan a
+  Políticas; huecos y dato de la cita, a Agenda. `siguienteConfig` es puro (`qa:siguiente-config`).
+- **Decisiones.** Lo ya publicado no desaparece: se marca cubierto con la lectura «si sigue
+  aplazándose, revísalo con estas frases delante», porque una política que existe y no contesta es el
+  siguiente problema. Lo que ninguna configuración arregla se dice sin botón —dudas clínicas al doctor,
+  cambio de tratamiento a cada caso, y el dato del presupuesto (IVA, validez) que el sistema todavía no
+  guarda (MEJORAS 89)—: antes de tocar el prompt, mirar si el dato está. Carga aparte de la
+  configuración: si falla, el formulario sigue editable y el bloque lo dice.
+- **Fase 2 cerrada.** Con 2.1 y 2.3 quedan hechas las nueve de «inteligencia visible sin gastar
+  modelo». Sin verificar en el navegador nada del 10-sep.
+

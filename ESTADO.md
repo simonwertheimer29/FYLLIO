@@ -159,9 +159,16 @@ los ocho drawers y el editor de cita, `Modal` nuevo con velo único para los tre
 ConfirmDialog (215 y 216 caen con ello)—; la tabla de presupuestos lee `estado`/`desde`/`hasta` y el
 mapa de fuga aterriza con el filtro puesto en las tres tablas. `tsc`, ESLint sin avisos nuevos y
 `next build` en verde en cada tanda. Sin verificar en el navegador. Detalle en DECISIONES 10-sep.
-**En curso (10-sep): 2.1 (176) y después 2.3 (178)**, en ese orden por Simon. Pendiente de probar en
-el navegador: formulario de 2.7, bloque de 2.4, los cuatro paneles de Inicio, el panel de agendar
-desde la ficha, la cabecera de Leads, el mapa «Dónde se pierde» y todo lo del 10-sep.
+**10-sep · fase 2 cerrada con 2.1 y 2.3:** Analíticas › «Qué dicen» (176; por conversación, vale el
+último valor; `qa:conversacion`) y, en Agentes › Configuración, «Qué publicar para que resuelva más»
+(178: los aplazados de 30 días por tema cruzados con lo publicado; lo que ninguna configuración arregla
+se dice sin botón; `qa:siguiente-config`). De paso, 219 (alcance analítico único) y 220
+(`motivo_no_cita`). 89 sigue abierta: el dato de IVA y validez no existe, y el bloque lo dice.
+**Siguiente sesión, en frío: probar en el navegador** lo acumulado sin verificar —formulario de 2.7,
+bloque de 2.4, los cuatro paneles de Inicio, agendar desde la ficha, cabecera de Leads, «Dónde se
+pierde», y todo lo del 10-sep (regla A, PanelFlotante/Modal en los 22 sitios, chip de presupuestos,
+«Qué dicen», el bloque de qué publicar)— y decidir la fase 3 del plan maestro. `npm run demo:reset`
+antes: el seed ya rellena `motivo_no_cita`.
 **9-sep (tarde) · El detalle de cada bloque de Inicio ya no se despliega en línea** (al abrir el del
 equipo, Dinero se iba de la pantalla): se abre en un panel flotante AL LADO del bloque, 32 rem, sin
 oscurecer, con el titular del bloque repetido en la cabecera. Cascarón nuevo `PanelFlotante`

@@ -19,6 +19,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useClinic } from "../../../lib/context/ClinicContext";
 import { cargarJSON, mensajeDeError } from "../../../lib/fetch-json";
+import { siguienteConfig } from "../../../lib/agente/siguiente-config";
+import type { Cubo } from "../../../lib/metricas/conversacion.tipos";
 import { ErrorState } from "../../../components/ui/Feedback";
 import {
   Sparkles,
@@ -74,6 +76,13 @@ export function AgenteConfigView() {
   const [guardando, setGuardando] = useState(false);
   const [verPrompt, setVerPrompt] = useState(false);
   const [verSystem, setVerSystem] = useState(false);
+  // 2.3 (MEJORAS 178) · lo que el agente aplazó en 30 días, por tema, de «Qué
+  // dicen»; se cruza con lo publicado para decir qué configurar. Carga aparte:
+  // si falla, la configuración sigue editable y el bloque lo dice.
+  // Llevan la clínica para la que se cargaron: si no es la elegida, es que
+  // están por llegar (así el efecto no toca estado al arrancar).
+  const [atascos, setAtascos] = useState<{ para: string | null; cubos: Cubo[] } | null>(null);
+  const [errorAtascos, setErrorAtascos] = useState<{ para: string | null; mensaje: string } | null>(null);
 
   const nombreClinica =
     clinicas.find((c) => c.id === selectedClinicaId)?.nombre ?? null;
@@ -107,6 +116,24 @@ export function AgenteConfigView() {
       setCargando(false);
     }
   }, [selectedClinicaId, clinicas]);
+
+  useEffect(() => {
+    let vivo = true;
+    const para = selectedClinicaId ?? null;
+    cargarJSON<{ bloques: { preguntas: { cubos: Cubo[] } } }>(
+      `/api/metricas/conversacion?dias=30&clinicaId=${encodeURIComponent(para ?? "red")}`,
+      { validar: (d) => Array.isArray((d as { bloques?: { preguntas?: { cubos?: unknown } } })?.bloques?.preguntas?.cubos) },
+    )
+      .then((d) => {
+        if (vivo) setAtascos({ para, cubos: d.bloques.preguntas.cubos });
+      })
+      .catch((e) => {
+        if (vivo) setErrorAtascos({ para, mensaje: mensajeDeError(e) });
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [selectedClinicaId]);
 
   useEffect(() => {
     void cargar();
@@ -162,6 +189,9 @@ export function AgenteConfigView() {
   // El barrido y el bloque, EN VIVO sobre el formulario: la lista cambia
   // mientras escribes, que es como la clínica ve la consecuencia.
   const barrido = useMemo(() => (config ? capacidadesDe(config) : null), [config]);
+  const atascosVigentes = atascos && atascos.para === (selectedClinicaId ?? null) ? atascos.cubos : null;
+  const errorAtascosVigente = errorAtascos && errorAtascos.para === (selectedClinicaId ?? null) ? errorAtascos.mensaje : null;
+  const recomendaciones = useMemo(() => (config && atascosVigentes ? siguienteConfig(atascosVigentes, config) : null), [config, atascosVigentes]);
   const bloque = useMemo(() => (config ? renderConocimiento(config).join("\n") : ""), [config]);
 
   if (session.rol !== "admin") {
@@ -234,6 +264,63 @@ export function AgenteConfigView() {
             </div>
           </section>
 
+          {/* ── 2.3 · QUÉ PUBLICAR PARA QUE RESUELVA MÁS: los aplazados de 30
+              días cruzados con lo publicado. Lo que ninguna configuración
+              arregla se dice sin botón (§4). ──────────────────────────── */}
+          <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2
+                className="font-display text-[15px] font-semibold text-[var(--color-foreground)]"
+                title="Las preguntas que el agente aplazó en los últimos 30 días, por tema, cruzadas con lo que tienes publicado. Cada conversación cuenta una vez por tema."
+              >
+                Qué publicar para que resuelva más
+              </h2>
+              <span className="text-[11px] text-[var(--color-muted)]">últimos 30 días · {nombreClinica ?? "toda la red"}</span>
+            </div>
+            {errorAtascosVigente ? (
+              <p className="mt-2 text-[12.5px] text-[var(--color-danger)]">No se pudo leer lo que el agente aplazó. {errorAtascosVigente}</p>
+            ) : !recomendaciones ? (
+              <div className="mt-2.5 space-y-1.5">
+                <div className="h-5 animate-pulse rounded-lg bg-[var(--color-surface-muted)]" />
+                <div className="h-5 w-3/4 animate-pulse rounded-lg bg-[var(--color-surface-muted)]" />
+              </div>
+            ) : recomendaciones.length === 0 ? (
+              <p className="mt-2 text-[12.5px] text-[var(--color-muted)]">El agente no aplazó nada en 30 días: lo publicado contesta lo que preguntan.</p>
+            ) : (
+              <ul className="mt-2.5 space-y-2">
+                {recomendaciones.map((r) => (
+                  <li key={r.clave} className="flex gap-2.5 text-[13px]">
+                    <span className="w-8 shrink-0 text-right font-display text-base font-bold tabular-nums text-[var(--color-foreground)]">{r.n}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[var(--color-foreground)]">
+                        {r.n === 1 ? "conversación se atascó" : "conversaciones se atascaron"} en <b className="font-semibold">{r.etiqueta.toLowerCase()}</b>
+                        {r.ejemplos[0] && (
+                          <span className="text-[var(--color-muted)]" title={r.ejemplos.map((e) => `«${e}»`).join("\n")}>
+                            {" "}· «{r.ejemplos[0]}»
+                          </span>
+                        )}
+                      </p>
+                      <p className={`mt-0.5 flex items-start gap-1.5 text-[12.5px] ${r.accion == null ? "text-[var(--color-muted)]" : r.cubierto ? "text-[var(--color-muted)]" : "text-[var(--color-foreground)]"}`}>
+                        {r.cubierto && <Check size={14} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-success)]" aria-hidden />}
+                        <span>
+                          {r.accion ?? r.porque}
+                          {r.seccion && (
+                            <>
+                              {" "}
+                              <a href={`#${r.seccion}`} className="font-medium text-[var(--color-accent)] hover:underline">
+                                Ir a la sección
+                              </a>
+                            </>
+                          )}
+                        </span>
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           {/* ── GRUPO 1 · Quiénes sois — lo primero del onboarding: lo que
               cualquiera sabe contestar ─────────────────────────────────── */}
           <Seccion
@@ -270,6 +357,7 @@ export function AgenteConfigView() {
 
           {/* ── GRUPO 2 · Qué sabe el agente ──────────────────────────── */}
           <Seccion
+            id="tratamientos"
             titulo="Tratamientos y precios publicados"
             consecuencia="Con precio, el agente contesta cuánto cuesta; sin precio, lo aplaza y lo resuelve tu equipo."
           >
@@ -314,6 +402,7 @@ export function AgenteConfigView() {
           </Seccion>
 
           <Seccion
+            id="politicas"
             titulo="Políticas publicadas"
             consecuencia="Lo que publiques aquí el agente lo contesta tal cual; adaptarlo a una persona concreta lo hace siempre tu equipo."
           >
@@ -357,6 +446,7 @@ export function AgenteConfigView() {
               se DICE y MIDE los plazos. Dos campos eran el hallazgo de los
               dos horarios vivo en la pantalla. ─────────────────────────── */}
           <Seccion
+            id="horario"
             titulo="Horario de la clínica"
             consecuencia="El agente contesta «¿a qué hora abrís?» con este horario y los plazos de respuesta solo corren cuando estáis abiertos."
             matiz="Sin definirlo, el agente no da horarios y los plazos usan el estándar: de lunes a viernes, de 9:00 a 20:00."
@@ -424,6 +514,7 @@ export function AgenteConfigView() {
           {/* ── AGENDA: la decisión de los tres niveles (PLAN §11). El nivel
               3 (reservar por su cuenta) está FUERA de A-F: ni se ofrece. ── */}
           <Seccion
+            id="agenda"
             titulo="Agenda"
             consecuencia="Con la agenda conectada (solo lectura) el agente informa de los huecos; sin ella, recoge la disponibilidad y tu equipo confirma."
             matiz="Reservar lo hace siempre tu equipo. «¿Tenéis hueco el jueves?» es el aplazamiento más frecuente."
@@ -852,11 +943,14 @@ function HORARIO_INICIAL() {
 }
 
 function Seccion({
+  id,
   titulo,
   consecuencia,
   matiz,
   children,
 }: {
+  /** Ancla en la página: «Ir a la sección» del bloque de qué publicar (2.3). */
+  id?: string;
   titulo: string;
   /** LA CONSECUENCIA, no una advertencia: qué hace la máquina si lo
    *  rellenas, y quién lo hace si no. UNA línea (regla A, 9-sep). */
@@ -866,7 +960,7 @@ function Seccion({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <section id={id} className="scroll-mt-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <h2 className="font-display text-[15px] font-semibold text-[var(--color-foreground)]">{titulo}</h2>
       <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]" title={matiz}>{consecuencia}</p>
       <div className="mt-3 space-y-2">{children}</div>

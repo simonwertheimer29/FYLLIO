@@ -63,6 +63,7 @@
     "qa:confianza": "tsx scripts/qa-confianza.mts",
     "qa:fuga": "tsx scripts/qa-fuga.mts",
     "qa:conversacion": "tsx scripts/qa-conversacion.mts",
+    "qa:siguiente-config": "tsx scripts/qa-siguiente-config.mts",
     "qa:atribucion": "tsx scripts/qa-atribucion-sedes.mts",
     "evals:candidatos": "tsx scripts/evals-candidatos.mts",
     "metricas:backfill": "tsx scripts/metricas-backfill.mts",
