@@ -3086,7 +3086,24 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   «servicio no publicado» — afirmar que la clínica hace/ofrece X sin X en lo publicado ni en la lista →
   descarte, categoría `clinica`; (c) un caso en la vara. · **Impacto:** ALTO — una clínica que no hace
   sedación recibe a una paciente con pánico que viene por la sedación. · **Esfuerzo:** 1-2 h. ·
-  **Fecha:** 2026-09-11 · 🔴
+  **Fecha:** 2026-09-11 · ✅ HECHA el 11-09 (tarde), por orden de Simon: veto determinista
+  `vetoServicioDeterminista` (frases-firma de oferta con objeto no habitual ni publicado, categoría
+  `clinica`), lista cerrada de habituales en el prompt del evaluador y regla nueva en el control;
+  QA en `qa:conocimiento` E2. Por qué el control no lo cazó: su regla clínica juzga EFECTO y
+  PROCEDIMIENTO de un tratamiento, dice «nombrar un tratamiento NO infringe» y «ante la duda, deja
+  pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
+  invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
+
+## 231. Cola · una duda clínica entregada por «la red» sale como «Listos para cerrar»
+- Nuria (replay 11-09): cita declinada + duda de sedación anotada + nada más que recoger → el agente
+  entrega por «la red» con causa `caso_completo`, y la cola la etiqueta «El agente terminó su parte —
+  queda cerrarlo» en la cohorte «Listos para cerrar». No hay nada que cerrar: hay una pregunta clínica
+  que alguien tiene que contestar. En producción la coordinadora la leerá como cita hecha. ·
+  **Principio:** la etiqueta dice lo que pasó (facilidad, §2). · **Propuesta:** causa propia
+  `pendiente_sin_recoger` (o `duda_pendiente`) para la entrega de «la red» cuando lo que hay son
+  aplazados y no un objetivo completo; cohorte «Necesita respuesta» con detalle «pregunta sin
+  responder», y el título «Tiene una pregunta que el agente no puede contestar». · **Impacto:** MEDIO. ·
+  **Esfuerzo:** 1-2 h (causa nueva en el union, cola, ficha, semáforo). · **Fecha:** 2026-09-11 · 🟡
 
 ## 230. Agente · tras un entrante NO legible que derivó, un texto posterior no reabre al agente
 - Fernando (hilo 15): manda un audio, el agente deriva por «no lo leo» (no_legible), y los dos textos

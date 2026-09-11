@@ -45,7 +45,7 @@ export const SYSTEM_PROMPT_JUEZ = `Eres el revisor de cumplimiento de una clíni
 
 Tu ÚNICA tarea es detectar si el borrador incumple una de estas cuatro reglas:
 
-1) CLÍNICA — el borrador AFIRMA algo sobre dolor, resultado, duración, riesgos, seguridad o conveniencia de un tratamiento, aunque sea cierto en general. Infringe: «no duele», «no tiene riesgos», «queda perfecto», «se termina en unos X meses», «puedes esperar sin problema», «es reversible», «no pasa nada por dejarlo». OJO, también infringe la versión SUAVE que tranquiliza describiendo el procedimiento: «se hace con anestesia», «con técnicas que minimizan las molestias», «hoy en día apenas se nota» — describir cómo se hace un tratamiento para calmar ES afirmar un hecho clínico en nombre de la clínica. NO infringe: empatizar con el miedo o la duda, decir que el doctor lo explicará/valorará/resolverá en su caso, anunciar una valoración o revisión, nombrar un tratamiento o su precio sin afirmar nada sobre su efecto o procedimiento, o decir que se anota la duda para el doctor.
+1) CLÍNICA — el borrador AFIRMA algo sobre dolor, resultado, duración, riesgos, seguridad o conveniencia de un tratamiento, aunque sea cierto en general. Infringe: «no duele», «no tiene riesgos», «queda perfecto», «se termina en unos X meses», «puedes esperar sin problema», «es reversible», «no pasa nada por dejarlo». OJO, también infringe la versión SUAVE que tranquiliza describiendo el procedimiento: «se hace con anestesia», «con técnicas que minimizan las molestias», «hoy en día apenas se nota» — describir cómo se hace un tratamiento para calmar ES afirmar un hecho clínico en nombre de la clínica. NO infringe: empatizar con el miedo o la duda, decir que el doctor lo explicará/valorará/resolverá en su caso, anunciar una valoración o revisión, nombrar un tratamiento o su precio sin afirmar nada sobre su efecto o procedimiento, o decir que se anota la duda para el doctor. TAMBIÉN infringe (misma categoría) AFIRMAR QUE LA CLÍNICA OFRECE un servicio o técnica que NO está en los DATOS QUE CONSTAN ni es lo que toda clínica dental hace (revisiones, limpiezas, valoraciones, empastes, endodoncias, ortodoncia, implantes, blanqueamiento, extracciones, coronas, carillas, prótesis, radiografías, urgencias): «sí, hacemos sedación consciente», «ofrecemos láser», «contamos con cirugía guiada» sin que conste son servicios INVENTADOS — la persona vendrá por eso. Correcto: «se lo confirmo con la clínica» o «lo anoto para que te lo confirmen».
 
 2) ECONÓMICA — el borrador promete o insinúa precios, descuentos, cuotas, plazos o condiciones de pago que NO estén en los datos que constan. Infringe: «te lo dejamos en 6 cuotas», «hay un 10 % si pagas al contado», inventar financiación. NO infringe: citar un importe que SÍ consta, o decir que un asesor confirmará las opciones de pago.
 
@@ -248,6 +248,65 @@ export function vetoAgendaDeterminista(
     for (const re of FIRMAS_DISPONIBILIDAD) {
       const m = re.exec(borrador);
       if (m) return m[0];
+    }
+  }
+  return null;
+}
+
+// ─── El veto determinista de SERVICIO NO PUBLICADO (MEJORAS 229, 11-09) ────
+//
+// «Sí, hacemos sedación consciente» a una paciente con pánico, sin que la
+// clínica lo tenga publicado, y el juez lo dejó pasar. Misma familia que la
+// agenda: afirmar algo que no consta. Y misma solución: las frases-firma de
+// OFERTA («sí, hacemos / ofrecemos / tenemos / contamos con X») se cazan en
+// código cuando X no es un tratamiento habitual de una clínica dental ni
+// aparece en lo publicado. El juez sigue después para las variantes libres.
+
+const FIRMAS_OFERTA: RegExp[] = [
+  /\b(?:s[ií],?\s+)?(?:hacemos|ofrecemos|realizamos|tenemos|contamos con|disponemos de|trabajamos con|practicamos|aplicamos)\s+(?:la\s+|el\s+|los\s+|las\s+|un\s+|una\s+|servicio de\s+|tratamiento de\s+|tratamientos de\s+)?([a-záéíóúñü][\wáéíóúñü-]*(?:\s+[a-záéíóúñü][\wáéíóúñü-]*){0,3})/gi,
+];
+
+/** Lo que una clínica dental hace por definición: se confirma sin que
+ *  conste (el prompt del evaluador lleva la MISMA lista). Todo lo demás se
+ *  anota, no se afirma. */
+export const SERVICIOS_HABITUALES = [
+  "revision", "revisiones", "limpieza", "limpiezas", "valoracion", "valoraciones", "empaste", "empastes",
+  "endodoncia", "endodoncias", "ortodoncia", "implante", "implantes", "blanqueamiento", "blanqueamientos",
+  "extraccion", "extracciones", "corona", "coronas", "carilla", "carillas", "protesis", "radiografia",
+  "radiografias", "urgencia", "urgencias", "consulta", "consultas", "tratamiento", "tratamientos",
+  "primera visita", "primeras visitas", "visita", "visitas", "cita", "citas", "presupuesto", "presupuestos",
+  "diagnostico", "diagnosticos", "seguimiento", "ajuste", "ajustes", "todo tipo",
+] as const;
+
+const normalizarTexto = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+/** null = nada que vetar; si no, la frase-firma exacta. `publicado` es el
+ *  texto de DATOS QUE CONSTAN (lo mismo que ve el juez): un servicio que
+ *  aparece ahí SÍ se puede afirmar. */
+export function vetoServicioDeterminista(borrador: string, publicado: string): string | null {
+  const pub = normalizarTexto(publicado);
+  const palabrasPublicadas = new Set(pub.split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+  for (const re of FIRMAS_OFERTA) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(borrador)) !== null) {
+      // Solo la CABEZA del sintagma: «sedación consciente para extracciones»
+      // se juzga por «sedación consciente», no por el complemento habitual
+      // que lleva detrás (la primera versión dejaba pasar justo el caso de
+      // Nuria por el «para extracciones»).
+      const objeto = normalizarTexto(m[1] ?? "")
+        .split(/\s+(?:para|de|del|en|con|sin|por|a|al|y|o|que|como|si)\s+|[,.;:!?]/)[0]
+        .trim();
+      if (!objeto) continue;
+      // Una FUNCIÓN del equipo, no un servicio («tenemos disponibilidad» es
+      // de la agenda; «hacemos lo posible», «tenemos que» es lenguaje).
+      if (/^(que|lo|todo lo|en cuenta|claro|razon|un hueco|hueco|disponibilidad|horario|horarios|abierto|abierta|muy|mucho|mucha|un equipo|equipo)\b/.test(objeto)) continue;
+      const habitual = SERVICIOS_HABITUALES.some((h) => objeto.includes(h));
+      if (habitual) continue;
+      const enPublicado = objeto.split(/\s+/).some((w) => w.length >= 4 && palabrasPublicadas.has(w));
+      if (enPublicado) continue;
+      return m[0];
     }
   }
   return null;

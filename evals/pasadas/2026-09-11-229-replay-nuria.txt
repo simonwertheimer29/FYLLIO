@@ -1,0 +1,39 @@
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+Replay de 1 hilos · 5 turnos con entrada · fixture jugado el 2026-09-11 · coste estimado $0.05
+
+━━ aplazamiento_dato · Nuria pregunta por parking y sedación · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Tengo que hacerme una extracción y la verdad es…»
+       descarte del control: clinica → —
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»
+       hoy:   «¡Hola Nuria! Es muy normal tener miedo a una extracción; es una preocupación que vemos a menudo. La »
+  t2 ≠ distinto · «Ahora mismo no tengo dolor, es una revisión que ya me la pro…»
+       descarte del control: clinica → —
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es algo que el equipo te confi»
+[evaluador] borrador descartado (clinica): «el equipo te lo confirma enseguida y te explica todas las opciones que tenemos»
+  t3 ≠ distinto · «Perdona, es que aún no tengo cita para eso, solo quería sabe…»
+       decisión: sigue → deriva
+       causa: — → caso_completo
+       cola: — → normal
+       descarte del control: — → clinica
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: no_aplica → quiere confirmar sedación consciente antes de programar
+       antes: «Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es una duda muy normal antes d»
+       hoy:   «Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por aquí para»
+  t4 ≠ distinto · «Vale, genial, entonces me lo confirma el doctor en la cita. …»
+       tema: cita → otro
+       aplazados: duda_clinica → —
+       antes: «Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opc»
+       hoy:   «Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opc»
+[evaluador] borrador descartado (agenda): «Para cerrar tu cita, ¿te vendría mejor un sábado por la mañana o por la tarde, o prefieres entre semana?»
+  t5 ≠ distinto · «Vale, perfecto que me lo confirmen. Por cierto, ¿abrís los s…»
+       aplazados: duda_clinica,otro → duda_clinica
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por aquí para»
+
+════════════════════════════════════════════════════════════════════════
+Turnos: 0 iguales · 5 distintos · coste medido $0.0333
+Versión (evaluador/control) del fixture: df3978f4e98d/d79cf567c2db · de hoy: 2b246298c6a8/c7036710f657
+Cambiaron: aplazamiento_dato t1 · aplazamiento_dato t2 · aplazamiento_dato t3 · aplazamiento_dato t4 · aplazamiento_dato t5
+Apunta el coste en evals/pasadas/GASTO.md.

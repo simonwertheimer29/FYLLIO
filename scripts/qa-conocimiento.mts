@@ -224,6 +224,27 @@ ok("anunciar al EQUIPO pasa: «el equipo te confirma la cita» no la reserva el 
 ok("nivel 2 (huecosConstan): la disponibilidad se permite, reservar-él se veta IGUAL",
   vetoAgendaDeterminista("Tenemos hueco el martes a las 16:00.", { huecosConstan: true }) == null &&
   vetoAgendaDeterminista("Te reservo el martes a las 16:00.", { huecosConstan: true }) != null);
+
+// ─── E2 · El veto determinista de SERVICIO NO PUBLICADO (MEJORAS 229, 11-09) ──
+console.log("\nE2 · veto determinista de servicio: «sí, hacemos X» solo si X consta o es habitual");
+{
+  const { vetoServicioDeterminista } = await import("../app/lib/agente/juez-borrador");
+  const sinPublicar = "Presupuesto emitido: ninguno.\nHorario: abrimos de 9 a 20.";
+  const conLaser = `${sinPublicar}\nTratamiento publicado: blanqueamiento con láser (250 €)`;
+  const vs = (b: string, pub = sinPublicar) => vetoServicioDeterminista(b, pub);
+  ok("«Sí, hacemos sedación consciente para extracciones» sin que conste → VETO (el caso de Nuria)",
+    vs("¡Hola Nuria! Sí, hacemos sedación consciente para extracciones y es una opción muy común.") != null);
+  ok("«ofrecemos láser» sin que conste → veto; con el láser publicado → pasa",
+    vs("Ofrecemos láser para el blanqueamiento.") != null && vs("Ofrecemos láser para el blanqueamiento.", conLaser) == null);
+  ok("«contamos con cirugía guiada» → veto", vs("Contamos con cirugía guiada por ordenador.") != null);
+  ok("lo HABITUAL pasa: revisiones de ortodoncia, limpiezas, extracciones, urgencias",
+    vs("Sí, hacemos revisiones de ortodoncia.") == null && vs("Hacemos limpiezas y extracciones.") == null && vs("Sí, tenemos urgencias.") == null);
+  ok("lenguaje, no servicio: «hacemos lo posible», «tenemos que», «tenemos disponibilidad» (agenda) → no veta",
+    vs("Hacemos lo posible por verte pronto.") == null && vs("Tenemos que valorarlo.") == null && vs("Tenemos disponibilidad por las tardes.") == null);
+  ok("remitir no es afirmar: «te lo confirma la clínica» → pasa",
+    vs("Lo de la sedación te lo confirma la clínica enseguida; lo anoto para el doctor.") == null);
+  ok("la frase devuelta es la firma exacta", (vs("Sí, hacemos sedación consciente.") ?? "").toLowerCase().startsWith("sí, hacemos sedación"));
+}
 // MEJORAS 136 (auditoría 2026-09-05): el veto es léxico — sin firmas en
 // catalán e inglés, un hilo en otro idioma pasaba de largo.
 ok("catalán: «tenim disponibilitat dimarts» y «et reservo» → vetados",

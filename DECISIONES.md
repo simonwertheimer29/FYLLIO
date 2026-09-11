@@ -4641,3 +4641,19 @@ Hallazgo colateral del replay (MEJORAS 229): el agente afirmó «sí, hacemos se
 conste y el control no lo cazó. QA: `qa:estado-persona` (nuevo, puro), casos en `qa:parseo` y
 `qa:ficha`; `qa:banco-vs-runner` 0 divergencias.
 
+## 2026-09-11 (tarde) — 229 hecha: «sí, hacemos sedación consciente» se veta en código, como la agenda
+
+Por qué el control no lo cazó: su regla clínica juzga el EFECTO y el PROCEDIMIENTO de un tratamiento
+(«no duele», «se hace con anestesia»), dice explícitamente que «nombrar un tratamiento NO infringe» y
+cierra con «ante la duda, deja pasar». Ofrecer un servicio que no existe no estaba en ninguna de sus
+cinco reglas: la afirmación cayó en el hueco entre «nombrar» (permitido) y «afirmar un hecho clínico»
+(prohibido). Es la misma familia que la agenda —afirmar lo que no se ve— y allí la lección fue que las
+frases-firma no dependen de la obediencia de un prompt. Arreglo: `vetoServicioDeterminista`
+(juez-borrador.ts) caza «sí, hacemos / ofrecemos / tenemos / contamos con X» cuando X no es un
+tratamiento habitual de una clínica dental (lista cerrada, la MISMA que ahora lleva el prompt del
+evaluador) ni aparece en los DATOS QUE CONSTAN; corre antes del juez, categoría `clinica`. El juez
+también aprende la regla (variantes libres). Hueco declarado: «ortodoncia invisible de marca» pasa el
+veto porque contiene «ortodoncia». QA determinista en `qa:conocimiento` E2; la vara no cambia (mide
+decisiones, no texto; el veto se mide donde se midió el de agenda). Anotada la 231: Nuria entregada
+por «la red» sale como «Listos para cerrar» con una duda clínica pendiente — la etiqueta no encaja.
+

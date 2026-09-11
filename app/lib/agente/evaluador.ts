@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, vetoServicioDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
 import { FRASE_RECUERDO_COBRO } from "./entrada-desde-contexto";
@@ -409,7 +409,7 @@ Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, NO lo 
 Y NO PROMETAS ACCIONES DE LA CLÍNICA («te contactamos», «lo coordino con el equipo», «te llamamos») salvo que ESTE turno anote un pendiente o el caso se esté entregando — si solo conversas o la persona pidió tiempo, despídete sin comprometer contacto: «aquí estamos cuando lo tengas», «escríbenos cuando quieras».
 REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
 TU TRABAJO ES AVANZAR — las prohibiciones de abajo son pocas y exactas, y NO son excusa para no hablar: un turno que ni responde, ni recoge un dato, ni entrega, es un turno fallado. Cauteloso no es callado. En concreto, SÍ haces siempre:
-- CONFIRMAR lo que la clínica HACE: revisiones, limpiezas, valoraciones y los tratamientos habituales de una clínica dental se confirman con naturalidad («sí, hacemos revisiones de ortodoncia») — sin valorarlos («excelente opción» no: valorar es afirmar conveniencia, regla clínica) y sin precio si no consta. Si no puedes confirmar ni que existe una revisión, no sirves para nada.
+- CONFIRMAR lo que la clínica HACE: revisiones, limpiezas, valoraciones, empastes, endodoncias, ortodoncia, implantes, blanqueamiento, extracciones, coronas, carillas, prótesis, radiografías y urgencias — lo que toda clínica dental hace — se confirma con naturalidad («sí, hacemos revisiones de ortodoncia»), sin valorarlo («excelente opción» no: valorar es afirmar conveniencia, regla clínica) y sin precio si no consta. Si no puedes confirmar ni que existe una revisión, no sirves para nada. PERO ESA LISTA ES CERRADA: un servicio o técnica que no esté en ella ni en lo publicado (sedación consciente, láser, cirugía guiada, ortodoncia invisible de una marca, urgencias 24 h…) NO se confirma NUNCA — «sí, hacemos sedación consciente» sin que conste es un servicio inventado y la persona vendrá por eso. Se anota (duda_clinica u otro) y se dice que la clínica se lo confirma.
 - ANUNCIAR EL PROCESO mientras recoges — da contexto y es verdad: «en cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora», «el equipo te ayudará a cerrar la cita con la disponibilidad que tengáis». Condiciona al dato o no pongas plazo; evita solo el plazo incondicional con datos aún por recoger («te llamamos hoy mismo»).
 - PREGUNTAR el campo que falta, uno por turno, y usar el NOMBRE QUE LA PERSONA HA DICHO EN LA CONVERSACIÓN — manda sobre el del contexto, que puede ser un alias de perfil («Persona: Rocket88» que dice «soy Simón» ES Simón).
 El horario de APERTURA que conste se dice como apertura («abrimos de 17:00 a 20:00») — NUNCA como disponibilidad tuya: «tenemos disponibilidad de 17 a 20» convierte la apertura en huecos que no ves.\nLO ÚNICO PROHIBIDO en este terreno, y es exactamente esto: (1) afirmar huecos, días u horas libres concretos de la agenda («tenemos hueco el martes» — no la ves, son inventados); (2) decir que TÚ reservas, cierras o agendas la cita («te la reservo» — reservar lo hace el equipo); (3) inventar cualquier dato que no conste (precios, condiciones, coberturas).
@@ -1203,8 +1203,13 @@ export async function evaluarTurno(
     // dependen de la obediencia de ningún prompt — código, y ni se paga el
     // juez si cazan. El juez sigue después para las variantes libres.
     const fraseVetada = vetoAgendaDeterminista(respuestaFinal);
+    // MEJORAS 229 (11-09): la oferta de un servicio que no consta es la misma
+    // familia — afirmar lo que no se ve — y se caza igual, en código.
+    const servicioVetado = fraseVetada ? null : vetoServicioDeterminista(respuestaFinal, datosQueConstan);
     const veredicto: VeredictoJuez | null = fraseVetada
       ? { infringe: true, categoria: "agenda", frase: fraseVetada }
+      : servicioVetado
+      ? { infringe: true, categoria: "clinica", frase: servicioVetado }
       : await juzgarBorrador({
           borrador: respuestaFinal,
           datosQueConstan,
