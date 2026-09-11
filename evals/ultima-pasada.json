@@ -1,5 +1,5 @@
 {
-  "fecha": "2026-09-10",
+  "fecha": "2026-09-11",
   "modelo": "haiku",
   "origen": "sintetico",
   "casos": 45,
@@ -13,17 +13,17 @@
     "total": 21
   },
   "descartesJuez": {
-    "n": 11,
+    "n": 8,
     "total": 73
   },
   "etiquetasFueraVocabulario": {
     "n": 1,
     "turnos": 1
   },
-  "costePorTurnoUsd": 0.00477,
-  "costeUsd": 0.3485,
+  "costePorTurnoUsd": 0.00481,
+  "costeUsd": 0.3511,
   "version": {
-    "evaluador": "df3978f4e98d",
+    "evaluador": "5cab7cbc26c8",
     "juez": "d79cf567c2db"
   },
   "fallos": [
