@@ -4657,3 +4657,46 @@ veto porque contiene «ortodoncia». QA determinista en `qa:conocimiento` E2; la
 decisiones, no texto; el veto se mide donde se midió el de agenda). Anotada la 231: Nuria entregada
 por «la red» sale como «Listos para cerrar» con una duda clínica pendiente — la etiqueta no encaja.
 
+## 2026-09-11 (noche) — Fase 1 EN SOMBRA: el modelo elige su acto en paralelo, y no decide nada
+
+Aprobada por Simon con tres correcciones: (1) los desacuerdos entre modelo y código son EL DATO, no un
+error — no se puntúa ni se penaliza, quién tenía razón lo dice él caso a caso; (2) se juzga LEYENDO
+la conversación con las dos opciones delante, no en una tabla; (3) NO es producto: pantalla aparte,
+fuera del menú, que no exista para nadie más. Y para el futuro (4): que el dato quede cruzable.
+Lo que no se toca: objetivos como contrato de la entrega, vetos y juez sobre el texto, entregas
+obligatorias por hechos. Cómo queda: `app/lib/agente/actos.ts` (puro) — catálogo CERRADO de ocho
+actos (contestar · recoger · acompañar · reconocer · aclarar · cerrar · atender · parar) y
+`actoDelCodigo`, que cuenta el acto que HIZO el código desde las MISMAS banderas con las que
+`evaluarTurno` decide (viaja como `evaluacion.acto`, no se persiste en el payload del producto).
+`sombra.ts`: al final de `evaluarEntranteConversacion`, tras persistir y avisar, se le pide al mismo
+haiku con la MISMA entrada renderizada que decida él — situación en sus palabras, un acto, por qué y
+el mensaje que enviaría (prompt aparte, sin las reglas de flujo; con las reglas de contenido: nada
+que no conste, ni agenda, ni hechos clínicos; la urgencia y la queja llegan a una persona lo diga
+quien lo diga). Se guarda en `agente_sombra` (migración 047: cliente, teléfono, mensaje_id, turno,
+entrada, situación, acto_modelo/acto_codigo, los dos mensajes, decisión del código, versiones, coste,
+veredicto de Simon) — una fila por (cliente, mensaje_id, versión de la sombra); recalcular con el
+mismo prompt reemplaza y conserva el veredicto. `sombraDelTurno` nunca lanza: un fallo es un turno
+sin sombra, contado en el visor. `AGENTE_SOMBRA` = demo (defecto) · todos · off. Visor `/sombra` +
+`/api/sombra`: solo admin del cliente DEMO (o ids en `SOMBRA_VISOR_USUARIOS`); coordinación, otro
+cliente y sin sesión reciben 404/401 — probado intentando entrar (`scripts/dev-captura-sombra.mjs`).
+Por turno: el mensaje del paciente, la situación, y si difieren dos columnas (hizo el código / habría
+hecho el modelo) con sus mensajes; si coinciden, una y la redacción del modelo plegada; cuatro
+botones de veredicto + nota; lo técnico plegado. El mensaje del modelo NO pasa por el juez (no se
+envía): se le pasan los vetos deterministas solo para enseñar si lo cazarían. `sombra:hilos`
+(= `hilos:replay --sombra`) rejuega el fixture con el acto exacto del código de hoy y guarda la
+sombra bajo DEMO con los mensajeId estables; `qa:actos` (puro) afirma la precedencia del acto del
+código y el borde del JSON.
+**Primera lectura (36 turnos del fixture, haiku, $0,34):** 35 con sombra (Fernando t1 derivó sin
+juicio → sin acto), **20 desacuerdos (57 %)**. Los pares que más se repiten: código «reconocer» →
+modelo «acompañar» ×4 (Nuria y Carlos: ante el miedo o la insistencia el modelo acompaña en vez de
+«ya te lo dije»); código «recoger» → modelo «contestar» ×2 (Marta: no pide datos a quien solo
+pregunta precio); código «atender» → modelo «recoger» ×2 (Sonia con la carilla y la boda, Marta
+«llamadme»: el modelo sigue recogiendo donde el código entrega); código «cerrar» → modelo «recoger»
+(Lucía: pide un dato más); y UN «aclarar» (la hija de Carmen, t1), el acto que el código no puede
+elegir. Dos mensajes del modelo caerían en los vetos (Jorge: «ofrecemos financiación en cuotas»).
+Matiz que la sombra destapa y hay que leer sabiéndolo: **el acto del código es su INTENCIÓN (las
+banderas), no el texto** — Pablo t1 sale «recoger» y el borrador no pidió nada, porque el modelo no
+obedeció al prompt de producción. Nada de esto decide: la lectura y los veredictos son de Simon.
+Pendiente de comprobar en un móvil real: a 390 px el cascarón mide ~570 px en headless, igual que
+«Qué dicen» (pre-existente, no de esta pantalla).
+

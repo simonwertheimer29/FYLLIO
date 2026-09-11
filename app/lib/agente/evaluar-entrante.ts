@@ -32,6 +32,7 @@ import { requireCliente } from "../cliente-contexto";
 import { contextoDeConversacion } from "./contexto-conversacion";
 import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type EntradaEvaluador, type MensajeHilo, type SenalesHilo } from "./evaluador";
 import { persistirTurno } from "./persistir-turno";
+import { sombraDelTurno } from "./sombra";
 import { entradaDesdeContexto } from "./entrada-desde-contexto";
 import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
 import type { ConocimientoClinica } from "./conocimiento";
@@ -381,5 +382,21 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       console.error("[evaluar-entrante] notificación:", err instanceof Error ? err.message : err);
     }
   }
+  // 6 · FASE 1 EN SOMBRA (11-09): el modelo elige su acto en paralelo con la
+  //     MISMA entrada; se persiste al lado del acto del código (agente_sombra)
+  //     y se lee en /sombra. NO decide nada: el turno ya está persistido y
+  //     avisado arriba, y sombraDelTurno nunca lanza (un fallo se ve en el
+  //     visor como turno sin sombra). Corre solo donde AGENTE_SOMBRA lo diga
+  //     (por defecto, el cliente DEMO).
+  await sombraDelTurno({
+    entrada,
+    evaluacion,
+    telefono: e.telefono,
+    mensajeId: e.mensajeId,
+    entrante: e.contenido,
+    origen: "produccion",
+    clinicaId: clinicaConfig,
+    persona: ctx.nombre,
+  });
   return { estado: "evaluado", entrada };
 }

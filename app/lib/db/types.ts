@@ -283,6 +283,43 @@ export interface Tabla_casos_candidatos_eval {
   created_at: Generated<Date>;
 }
 
+/** 047 — LA SOMBRA del agente (fase 1, 11-09-2026): por turno, el acto que
+ *  eligió el modelo y el que hizo el código, con la situación en palabras del
+ *  modelo, su mensaje y el veredicto de Simon. Instrumentación: no decide. */
+export interface Tabla_agente_sombra {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string | null;
+  origen: "produccion" | "hilos_jugados";
+  telefono: string;
+  mensaje_id: string;
+  turno: number | null;
+  hilo_etiqueta: string | null;
+  persona: string | null;
+  entrante: string;
+  entrada: string | null;
+  situacion: string;
+  acto_modelo: "contestar" | "recoger" | "acompanar" | "reconocer" | "aclarar" | "cerrar" | "atender" | "parar" | "ilegible";
+  acto_crudo: string | null;
+  por_que: string | null;
+  mensaje_modelo: string;
+  veto_modelo: string | null;
+  acto_codigo: "contestar" | "recoger" | "acompanar" | "reconocer" | "aclarar" | "cerrar" | "atender" | "parar";
+  mensaje_codigo: string;
+  decision_codigo: ColumnType<unknown, string | null, string | null>;
+  coinciden: boolean;
+  version_sombra: string;
+  version_evaluador: string | null;
+  modelo: string | null;
+  usage: ColumnType<unknown, string | null, string | null>;
+  latencia_ms: number | null;
+  veredicto: "modelo" | "codigo" | "los_dos" | "ninguno" | null;
+  veredicto_nota: string | null;
+  veredicto_por: string | null;
+  veredicto_en: Date | null;
+  created_at: Generated<Date>;
+}
+
 /** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o
  *  red = null, día, métrica); `definicion_v` versiona la definición. */
 export interface Tabla_metricas_diarias {
@@ -570,4 +607,5 @@ export interface DB
   ocupaciones_externas: Tabla_ocupaciones_externas;
   inicio_snapshots: Tabla_inicio_snapshots;
   casos_candidatos_eval: Tabla_casos_candidatos_eval;
+  agente_sombra: Tabla_agente_sombra;
 }

@@ -1,0 +1,255 @@
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Replay de 15 hilos · 36 turnos con entrada · fixture jugado el 2026-09-11 · coste estimado $0.36
+Con SOMBRA (haiku, versión 91215ba0eadc): +$0.14 estimados · se persiste en agente_sombra (DEMO)
+
+━━ lead_precio · Desconocida pregunta cuánto cuesta un blanqueamiento · veredicto: sin anotar
+  t1 ≠ distinto · «Hola! He visto vuestro anuncio en instagram, cuanto cuesta u…»
+       aplazados: — → precio_descuento
+       campo cita.urgencia: — → no_aplica
+       antes: «¡Hola! Nos encanta que nos hayas encontrado. El blanqueamiento dental depende de cada caso, así que »
+       hoy:   «¡Hola! Nos alegra que te hayas fijado en nosotros. El precio del blanqueamiento depende de cada caso»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Marta llega por un anuncio de Instagram interesada en blanqueamiento dental y pregunta por precio. Es una pers»
+  t2 ≠ distinto · «Marta, pero mas o menos por encima cuanto suele costar?»
+       aplazados: — → precio_descuento
+       descarte del control: economica → —
+       antes: «Gracias, Marta. Para poder ayudarte, ¿me dices tu nombre completo?»
+       hoy:   «Entiendo que quieras una idea, Marta. El precio del blanqueamiento varía según el estado de tus dien»
+       sombra: modelo=contestar · código=recoger ≠ DIFIEREN · «Marta busca información de precios antes de comprometerse con una cita, desconfiada o queriendo saber si está »
+  t3 ≠ distinto · «Marta Lopez. Pero en plan, un precio aproximado no me podeis…»
+       aplazados: — → precio_descuento
+       campo cita.nombre_completo: Marta López → Marta Lopez
+       campo identificar.es_paciente: — → no_aplica
+       campo identificar.nombre: Marta López → Marta Lopez
+       antes: «Perfecto, Marta López. El blanqueamiento es un tratamiento que personalizamos según el estado de cad»
+       hoy:   «Perfecto, Marta. Entiendo que quieras una idea, pero el precio del blanqueamiento realmente varía se»
+       sombra: modelo=contestar · código=recoger ≠ DIFIEREN · «Marta busca información de precios antes de comprometerse con una cita, y la clínica le ha pedido datos dos ve»
+  t4 ≠ distinto · «Vale nada, pues que me llamen mejor y me cuentan precio y es…»
+       aplazados: — → precio_descuento
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: prefiere que la llamen → prefiere que le llamen para hablar de precio y detalles
+       antes: «Perfecto, Marta López. Te llamamos enseguida para explicarte el presupuesto del blanqueamiento y res»
+       hoy:   «Perfecto, Marta López. Entendido, alguien del equipo te llamará para explicarte el precio exacto del»
+       sombra: modelo=recoger · código=atender ≠ DIFIEREN · «Marta está interesada en blanqueamiento pero quiere evitar el proceso de cita: prefiere que la clínica la llam»
+
+━━ presupuesto_financiacion · Jorge quiere saber cuánto sería al mes · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas, soy Jorge. Me pasasteis un presupuesto de 3200€…»
+       tema: presupuesto → cobro
+       antes: «Hola Jorge, gracias por escribir. Entiendo que te gustaría fraccionar el implante en pagos mensuales»
+       hoy:   «Hola Jorge, gracias por escribir. Entiendo que te gustaría fraccionar el implante en pagos mensuales»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Jorge ha recibido un presupuesto de implante y está interesado, pero necesita saber si puede pagarlo en cuotas»
+  t2 ≠ distinto · «Vale, pero antes de nada necesito saber más o menos cuánto s…»
+       tema: cobro → presupuesto
+       aplazados: dato_presupuesto,plan_pago → plan_pago
+       campo presupuesto.como_pagar: — → no_aplica
+       campo presupuesto.cuando_retomar: — → no_aplica
+       campo presupuesto.disponibilidad_primera_cita: — → no_aplica
+       antes: «Claro, Jorge. Es una pregunta muy lógica. El equipo de administración te dará la cifra exacta según »
+       hoy:   «Jorge, lo entiendo perfectamente. El importe mensual depende de cuántos meses quieras fraccionar y d»
+       sombra: modelo=acompanar · código=reconocer ≠ DIFIEREN · «Jorge necesita una cifra aproximada de la cuota mensual antes de comprometerse con el tratamiento. Es una preg»
+  t3 ✓ igual · «Vale, pues que me llame alguien de administración con esa ci…»
+       sombra: modelo=atender · código=atender (coinciden) · «Jorge está decidido a avanzar con el implante pero necesita claridad en el coste mensual antes de comprometers»
+
+━━ cobro_vencido · Lucía pide cita de revisión con un pago pendiente · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Soy Lucía, me hicieron una endodoncia hace un m…»
+       campo cita.nombre_completo: Lucía → —
+       campo cita.tratamiento_o_molestia: revisión de corona tras endodoncia; molestia al morder → revisión por molestia al morder tras endodoncia; corona alta
+       antes: «¡Hola Lucía! Claro, te hacemos una revisión sin problema. El doctor valorará la corona y ajustará lo»
+       hoy:   «¡Hola Lucía! Claro, te ayudamos con eso. Es normal que después de una endodoncia haya que revisar el»
+       sombra: modelo=recoger · código=acompanar ≠ DIFIEREN · «Lucía tiene una molestia real tras una endodoncia reciente y busca una revisión urgente esta semana. Necesita »
+[evaluador] borrador descartado (agenda): «Te agendamos para jueves o viernes por la tarde»
+  t2 ≠ distinto · «Vale perfecto! Pues jueves o viernes por la tarde me viene g…»
+       campo cita.nombre_completo: Lucía → —
+       campo cobro.confirma_pago: — → no puede confirmar ahora
+       campo cobro.fecha_pago: — → no_aplica
+       campo cobro.via_pago: — → no_aplica
+       sombra: modelo=recoger · código=cerrar ≠ DIFIEREN · «Lucía está decidida a venir esta semana y ha dado su disponibilidad (jueves o viernes por la tarde), pero ha p»
+
+━━ recordatorio_cita · Andrés contesta al recordatorio: no puede mañana · veredicto: sin anotar
+  t1 ✓ igual · «Hola, no voy a poder ir mañana, me ha salido un viaje de tra…»
+       sombra: modelo=atender · código=contestar ≠ DIFIEREN · «Andrés tiene que cancelar su cita de mañana por un viaje de trabajo imprevisto y pide reprogramar para la sema»
+
+━━ cadencia_en_medio · Elena pregunta por los retenedores y la cadencia le escribe encima · veredicto: sin anotar
+  t1 ≠ distinto · «El presupuesto de ortodoncia que me pasasteis, ¿incluye los …»
+       campo presupuesto.cuando_retomar: — → no_aplica
+       antes: «Buena pregunta, Elena. Los detalles exactos del presupuesto —qué incluye y qué no— te los confirma u»
+       hoy:   «Buena pregunta, Elena. Es un detalle importante que el equipo te aclara enseguida — te confirman exa»
+       sombra: modelo=acompanar · código=recoger ≠ DIFIEREN · «Elena pregunta por un detalle específico del presupuesto de ortodoncia que ya tiene en mano: si incluye los re»
+  t2 ≠ distinto · «Vale, pero necesito saber si van incluidos antes de decidir …»
+       campo presupuesto.que_le_frena: — → necesita confirmar si los retenedores van incluidos en el presupuesto
+       antes: «Entiendo perfectamente, Elena. Es un dato importante para tu decisión. Un asesor te lo aclara hoy mi»
+       hoy:   «Entiendo perfectamente, Elena. Es un dato importante para tu decisión. Un asesor te contacta hoy mis»
+       sombra: modelo=atender · código=reconocer ≠ DIFIEREN · «Elena necesita una respuesta clara sobre qué incluye el presupuesto antes de poder decidir, y está siendo razo»
+  t3 ≠ distinto · «Ya os he escrito, no me insistáis. Dejadme pensarlo hasta el…»
+       campo presupuesto.como_pagar: no_aplica → —
+       campo presupuesto.cuando_retomar: 2026-10-11 → mes que viene (2026-10-11)
+       campo presupuesto.disponibilidad_primera_cita: no_aplica → —
+       campo presupuesto.motivo_rechazo: no_aplica → —
+       campo presupuesto.que_le_frena: necesita aclaración sobre qué incluye el presupuesto (retenedores) → necesita confirmación sobre qué incluye el presupuesto (retenedores)
+       antes: «Entendido, Elena. Respetamos tu tiempo. Un asesor te aclara el tema de los retenedores antes de fin »
+       hoy:   «Entendido, Elena. Respetamos tu tiempo. Un asesor te aclara el tema de los retenedores en cuanto pue»
+       sombra: modelo=parar · código=atender ≠ DIFIEREN · «Elena está molesta por la insistencia de la clínica después de haber pedido tiempo para pensar. Necesita espac»
+
+━━ queja_trato · Rosa esperó cuarenta minutos y quiere hablar con un responsable · veredicto: sin anotar
+  t1 ≠ distinto · «Buenos días. Ayer estuve en la clínica esperando cuarenta mi…»
+       aplazados: otro → —
+       campo cita.disponibilidad: no_aplica → —
+       campo cita.nombre_completo: no_aplica → —
+       campo cita.tratamiento_o_molestia: no_aplica → —
+       campo cita.urgencia: no_aplica → —
+       antes: «Rosa, lamento mucho lo que pasó ayer. Tienes toda la razón en reclamarlo, y queremos que alguien del»
+       hoy:   «Rosa, lamento mucho lo que pasó ayer. Tienes toda la razón en reclamarlo. Alguien del equipo respons»
+       sombra: modelo=atender · código=atender (coinciden) · «Rosa está molesta por una mala experiencia ayer: espera prolongada y trato deficiente. Necesita que alguien de»
+
+━━ queja_economica · Pablo dice que le cobraron 150 € más de lo presupuestado · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas, soy Pablo. Os he pagado 1.250€ por un tratamien…»
+       campo cita.disponibilidad: no_aplica → —
+       campo cita.motivo_no_cita: no_aplica → —
+       campo cita.urgencia: no_aplica → —
+       antes: «Hola Pablo, gracias por escribir. Veo que hay una diferencia entre el presupuesto y lo que pagaste. »
+       hoy:   «Hola Pablo, gracias por escribir. Veo que tienes una pregunta sobre la diferencia entre el presupues»
+       sombra: modelo=atender · código=recoger ≠ DIFIEREN · «Pablo está molesto porque ha pagado más de lo presupuestado y necesita una explicación clara sobre esa diferen»
+  t2 ≠ distinto · «Vale, pero quiero dejarlo claro: si no hay justificación de …»
+       campo cita.clinica_preferida: — → no_aplica
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: — → no_aplica
+       campo cita.nombre_completo: — → Pablo
+       campo cita.preferencia_doctor: — → no_aplica
+       campo cita.tratamiento_o_molestia: — → no_aplica
+       campo cita.urgencia: — → no_aplica
+       antes: «Entiendo perfectamente, Pablo. Tienes razón en querer claridad por escrito. Administración revisa ah»
+       hoy:   «Entiendo perfectamente tu preocupación, Pablo. Tienes razón en querer claridad sobre esos 150€. Admi»
+       sombra: modelo=atender · código=atender (coinciden) · «Pablo está molesto y desconfiado: pagó más de lo presupuestado y necesita certeza, no promesas vagas. Para la »
+
+━━ urgencia_dolor · Miguel no ha dormido: dolor fuerte e hinchazón · veredicto: sin anotar
+  t1 ≠ distinto · «hola buenas, tengo una muela de abajo que me duele muchisimo…»
+       campo cita.tratamiento_o_molestia: dolor en muela de abajo, hinchazón de mejilla → dolor en muela de abajo, hinchazón de mejilla desde anoche
+       sombra: modelo=atender · código=atender (coinciden) · «Miguel tiene dolor agudo desde anoche en una muela inferior con inflamación en la mejilla, ha intentado medica»
+
+━━ urgencia_ambigua · Sonia: se le ha despegado una carilla y el sábado tiene una boda · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas! Se me ha despegado una carilla de un diente del…»
+       sombra: modelo=recoger · código=atender ≠ DIFIEREN · «Sonia tiene una urgencia real (carilla despegada) con plazo muy ajustado (boda el sábado 12 de septiembre, es »
+
+━━ opt_out · Teresa pide que dejen de escribirle · veredicto: sin anotar
+  t1 ≠ distinto · «Hola, no me escribáis más, no me interesa el presupuesto del…»
+       decisión: deriva → sigue
+       causa: caso_completo → —
+       cola: normal → —
+       campo presupuesto.como_pagar: no_aplica → —
+       campo presupuesto.cuando_retomar: no_aplica → —
+       campo presupuesto.disponibilidad_primera_cita: no_aplica → —
+       campo presupuesto.motivo_rechazo: no le interesa el blanqueamiento → —
+       campo presupuesto.que_le_frena: no_aplica → —
+       sombra: modelo=reconocer · código=parar ≠ DIFIEREN · «Teresa rechaza el presupuesto de blanqueamiento de forma directa y pide que no le escribamos más. Está decidid»
+
+━━ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas tardes! Quería pedir una primera cita para ortod…»
+       aplazados: — → duda_clinica
+       descarte del control: agenda → —
+       antes: «Gracias. Para poder ayudarte, ¿me dices tu nombre completo?»
+       hoy:   «¡Hola! Nos encanta que te intereses por ortodoncia invisible. Para poder ayudarte con la primera cit»
+       sombra: modelo=recoger · código=acompanar ≠ DIFIEREN · «Dani llega con una intención clara: quiere ortodoncia invisible y sabe que no es paciente. Es una entrada dire»
+  t2 ≠ distinto · «Daniel Arribas»
+       descarte del control: agenda → —
+       campo identificar.es_paciente: no → false
+       campo identificar.nombre: Daniel → Daniel Arribas
+       antes: «Gracias, Daniel. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»
+       hoy:   «Perfecto, Daniel. ¿Tienes alguna molestia o urgencia ahora, o es una consulta sin prisa?»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Daniel quiere una cita de ortodoncia invisible y ya ha dado su nombre completo. Está decidido y cooperativo, a»
+  t3 ≠ distinto · «Sin prisa, es solo para informarme y ver lo de la ortodoncia…»
+       descarte del control: agenda → —
+       antes: «Gracias, Daniel. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Perfecto, Daniel. ¿Qué días y franjas te vienen mejor para venir? Así te buscamos la cita que mejor »
+       sombra: modelo=recoger · código=recoger (coinciden) · «Daniel es un nuevo paciente interesado en ortodoncia invisible, sin urgencia clínica, que quiere informarse. N»
+  t4 ✓ igual · «Por las tardes mejor, y cualquier día menos los viernes»
+       sombra: modelo=cerrar · código=cerrar (coinciden) · «Daniel quiere una primera cita de ortodoncia invisible sin urgencia y ha dado ya nombre, motivo y disponibilid»
+
+━━ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende» · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas, soy Carlos, ya he estado ahí antes. Quería sabe…»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Carlos es un paciente conocido que pregunta por precio de implante, pero la clínica necesita primero entender »
+  t2 ✓ igual · «Ya, pero dame un número aproximado, el más básico que tengái…»
+       sombra: modelo=recoger · código=reconocer ≠ DIFIEREN · «Carlos insiste en un precio aproximado porque quiere una idea antes de comprometerse con una cita. Necesita cl»
+[evaluador] borrador descartado (agenda): «Un asesor te llamará para cerrar la cita»
+  t3 ≠ distinto · «Vale pero un rango, ¿más o menos de mil euros anda la cosa o…»
+       descarte del control: — → agenda
+       campo cita.motivo_no_cita: no_aplica → —
+       antes: «Carlos, entiendo que quieras una orientación. Los implantes en nuestra clínica pueden oscilar entre »
+       hoy:   «Gracias por tu mensaje, Carlos. Preferimos dártelo exacto antes que a medias — seguimos por aquí par»
+       sombra: modelo=acompanar · código=reconocer ≠ DIFIEREN · «Carlos insiste en un rango de precio porque necesita una orientación antes de comprometerse con una cita. Está»
+  t4 ≠ distinto · «Nada, ni un número me dais. Dejadlo, ya llamaré o iré a otro…»
+       campo cita.motivo_no_cita: quiere precio antes de venir; no confía en que se lo den sin cita → quiere el precio antes de venir; considera ir a otra clínica
+       antes: «Carlos, entiendo tu frustración. No podemos darte un número sin verte porque sería engañarte — cada »
+       hoy:   «Carlos, entiendo tu frustración. Un asesor te contacta enseguida para resolver esto directamente — a»
+       sombra: modelo=atender · código=atender (coinciden) · «Carlos está frustrado porque ha pedido tres veces un precio y no lo ha conseguido; siente que la clínica le es»
+
+━━ aplazamiento_dato · Nuria pregunta por parking y sedación · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Tengo que hacerme una extracción y la verdad es…»
+       descarte del control: clinica → —
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»
+       hoy:   «¡Hola Nuria! Es muy normal tener miedo a una extracción; es una preocupación que vemos a menudo. La »
+       sombra: modelo=acompanar · código=acompanar (coinciden) · «Nuria tiene miedo a una extracción y pregunta por sedación consciente; necesita tranquilidad y saber que la cl»
+  t2 ≠ distinto · «Ahora mismo no tengo dolor, es una revisión que ya me la pro…»
+       descarte del control: clinica → —
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es algo que el equipo te confi»
+       sombra: modelo=acompanar · código=reconocer ≠ DIFIEREN · «Nuria tiene miedo a una extracción programada y quiere saber sobre sedación antes de la cita; está tranquila p»
+[evaluador] borrador descartado (clinica): «el equipo te lo confirma enseguida y te explica todas las opciones que tenemos»
+  t3 ≠ distinto · «Perdona, es que aún no tengo cita para eso, solo quería sabe…»
+       decisión: sigue → deriva
+       causa: — → caso_completo
+       cola: — → normal
+       descarte del control: — → clinica
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: no_aplica → quiere confirmar sedación consciente antes de programar
+       antes: «Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es una duda muy normal antes d»
+       hoy:   «Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por aquí para»
+       sombra: modelo=acompanar · código=reconocer ≠ DIFIEREN · «Nuria tiene miedo a una extracción que le han mencionado y necesita saber si la clínica ofrece sedación consci»
+  t4 ≠ distinto · «Vale, genial, entonces me lo confirma el doctor en la cita. …»
+       tema: cita → otro
+       aplazados: duda_clinica → —
+       antes: «Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opc»
+       hoy:   «Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opc»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Nuria está tranquilizándose sobre la sedación (ya acepta que el doctor se lo explique en cita) y ahora plantea»
+[evaluador] borrador descartado (agenda): «Para cerrar tu cita, ¿te vendría mejor un sábado por la mañana o por la tarde, o prefieres entre semana?»
+  t5 ≠ distinto · «Vale, perfecto que me lo confirmen. Por cierto, ¿abrís los s…»
+       aplazados: duda_clinica,otro → duda_clinica
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por aquí para»
+       sombra: modelo=contestar · código=reconocer ≠ DIFIEREN · «Nuria está organizando su cita y necesita información práctica (horarios de sábado) antes de comprometerse con»
+
+━━ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde e…»
+       escribe otra persona: — → Lucía (hija de Carmen Ruiz)
+       antes: «¡Hola Lucía! Claro, sin problema. Para poder cerrar tu cita, necesito saber: ¿qué tratamiento te int»
+       hoy:   «¡Hola Lucía! Claro, te ayudamos a pedir cita. ¿Qué tratamiento te interesa o qué molestia tienes?»
+       sombra: modelo=aclarar · código=recoger ≠ DIFIEREN · «Lucía escribe desde el móvil de su madre Carmen, pero la cita que solicita es para ella misma, no para Carmen.»
+  t2 ≠ distinto · «Nada de molestias, es que hace años que no voy al dentista y…»
+       descarte del control: agenda → —
+       escribe otra persona: — → Lucía (hija de Carmen Ruiz)
+       campo cita.nombre_completo: Lucía → —
+       antes: «Gracias, Lucía. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Perfecto, Lucía. Una revisión general es lo ideal después de tanto tiempo. ¿Qué días y franjas te vi»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Lucía (hija de Carmen) quiere una revisión general tras años sin ir al dentista. Es una solicitud clara y sin »
+  t3 ≠ distinto · «Por la tarde mejor, entre semana cualquier día me vale»
+       decisión: deriva → sigue
+       causa: caso_completo → —
+       cola: normal → —
+       descarte del control: agenda → —
+       escribe otra persona: — → Lucía (hija de Carmen)
+       campo cita.disponibilidad: entre semana, por la tarde → entre semana por la tarde
+       antes: «Ya tengo todo lo que necesito, Carmen. Alguien del equipo te contacta con los horarios disponibles.»
+       hoy:   «Perfecto, Lucía. Para cerrar tu cita de revisión, necesito tu nombre completo, por favor.»
+       sombra: modelo=recoger · código=recoger (coinciden) · «Lucía está decidida y colaboradora: ya ha dado el tratamiento (revisión general) y su disponibilidad (tardes, »
+
+━━ audio_no_legible · Fernando manda un audio y luego escribe · veredicto: sin anotar
+  t1 ✓ igual · «[Audio recibido]»
+       sombra: NO guardada (sin_acto_del_codigo)
+  t2 · sin entrada (sin juicio) — no se rejuega
+  t3 · sin entrada (sin juicio) — no se rejuega
+
+════════════════════════════════════════════════════════════════════════
+Turnos: 7 iguales · 29 distintos · 1 sin tarifa · coste medido $0.2252
+Sombra (haiku, versión 91215ba0eadc): 35 guardadas · 20 desacuerdos (57 %) · 1 SIN sombra · coste medido $0.1160 · léela en /sombra
+Versión (evaluador/control) del fixture: df3978f4e98d/d79cf567c2db · de hoy: 2b246298c6a8/c7036710f657
+Cambiaron: lead_precio t1 · lead_precio t2 · lead_precio t3 · lead_precio t4 · presupuesto_financiacion t1 · presupuesto_financiacion t2 · cobro_vencido t1 · cobro_vencido t2 · cadencia_en_medio t1 · cadencia_en_medio t2 · cadencia_en_medio t3 · queja_trato t1 · queja_economica t1 · queja_economica t2 · urgencia_dolor t1 · opt_out t1 · caso_completo t1 · caso_completo t2 · caso_completo t3 · insistencia_precio t3 · insistencia_precio t4 · aplazamiento_dato t1 · aplazamiento_dato t2 · aplazamiento_dato t3 · aplazamiento_dato t4 · aplazamiento_dato t5 · telefono_compartido t1 · telefono_compartido t2 · telefono_compartido t3
+Apunta el coste en evals/pasadas/GASTO.md.

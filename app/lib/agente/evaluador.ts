@@ -25,6 +25,7 @@ import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from 
 import { eur } from "../dinero";
 import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, vetoServicioDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { hashVersion, type VersionTurno } from "./version";
+import { actoDelCodigo, type Acto } from "./actos";
 import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
 import { FRASE_RECUERDO_COBRO } from "./entrada-desde-contexto";
 import {
@@ -245,6 +246,12 @@ export type EvaluacionTurno = {
   entradaRenderizada?: string;
   /** MEJORAS 171 — las señales del hilo contadas por código, para el payload. */
   senales?: SenalesHilo | null;
+  /** FASE 1 EN SOMBRA (11-09) — el ACTO que hizo el código este turno,
+   *  contado desde sus propias banderas (actos.ts). Solo lo lee la sombra
+   *  para ponerlo al lado del que el modelo habría elegido; no se persiste
+   *  en el payload del producto y no decide nada. Ausente cuando el turno
+   *  se decidió sin juicio (no-reversión, no legible, fallback). */
+  acto?: Acto;
 };
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
@@ -625,7 +632,7 @@ const ETAPAS_VALIDAS: readonly EtapaObjetivo[] = ["cobro", "presupuesto", "cita"
  *  la comparación (pasada 3, 2026-08-14) — Sonnet corre con su comportamiento
  *  por defecto (thinking adaptativo) y techo de tokens con holgura, porque la
  *  pregunta es qué da el modelo tal cual, no recortado. */
-const MODELOS = {
+export const MODELOS = {
   haiku: { id: "claude-haiku-4-5-20251001", maxTokens: 900 },
   sonnet: { id: "claude-sonnet-5", maxTokens: 2500 },
 } as const;
@@ -1052,6 +1059,20 @@ export async function evaluarTurno(
     }
   }
 
+  // FASE 1 EN SOMBRA (11-09): el ACTO que hizo el código este turno, contado
+  // desde las MISMAS banderas con las que decide abajo (actos.ts). Solo lo
+  // lee la sombra para compararlo con el que el modelo habría elegido.
+  const acto = actoDelCodigo({
+    estado,
+    pideNoContacto: juicio.pideNoContacto,
+    insiste,
+    vuelveSobreAplazado: juicio.vuelveSobreAplazado != null,
+    casoCompleto,
+    dudaClinicaAnotada: aplazamientos.some((a) => a.clave === "duda_clinica"),
+    esperaHasta,
+    recoge: recogeEsteTurno && objetivoActivo != null && camposFaltantes.length > 0,
+  });
+
   // La derivación, por precedencia: urgencia > petición/queja > insistencia
   // > caso completo. Los aplazamientos anotados viajan igual — van a la ficha.
   const base = {
@@ -1106,6 +1127,7 @@ export async function evaluarTurno(
     } satisfies VersionTurno,
     entradaRenderizada,
     senales: e.senales ?? null,
+    acto,
   };
 
   if (juicio.urgenciaMedica) {
