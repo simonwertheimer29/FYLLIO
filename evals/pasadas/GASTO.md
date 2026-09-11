@@ -63,3 +63,8 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - hilos:jugar de nuevo, 15 hilos con el arreglo (35 turnos) · **$0,28 medido** ($0,18 agente + $0,09 paciente) · el
   fixture que queda es este; los desconocidos ya no se entregan al primer mensaje (lead_precio y caso_completo
   entregan en el 2.º, cuando dan el nombre) · ac. **$1,18** (tope $5)
+
+## Sesión 2026-09-11
+- hilos:replay --solo caso_completo (2 turnos) · **$0,02 medido** · pregunta de Simon: ¿el banco haría lo mismo con
+  Daniela? Misma entrada por construcción (qa:banco-vs-runner extendido a todos los turnos) y misma decisión:
+  entrega con nombre + necesidad porque a un desconocido solo se le abre «identificar», nunca «cita» · ac. $1,20

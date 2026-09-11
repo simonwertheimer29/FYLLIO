@@ -63,20 +63,23 @@ const corto = (v: unknown) => {
 
 let fallos = 0;
 let comparados = 0;
-for (const h of fixture.hilos) {
-  const t1 = h.turnos[0];
-  if (!t1?.entrada) continue;
-  const runner = t1.entrada;
-  // Solo comparable cuando el turno 1 arranca el hilo (sin cadencia previa
-  // ni pasos): el banco no fabrica cadencias.
-  if (runner.hilo.length !== 1) {
-    console.log(`  · ${h.guion.id}: el turno 1 no abre el hilo (${runner.hilo.length} mensajes) — no comparable`);
+for (const h of fixture.hilos) for (const t of h.turnos) {
+  if (!t.entrada) continue;
+  const runner = t.entrada;
+  const etiqueta = `${h.guion.id} t${t.n}`;
+  // No comparable: el banco no fabrica cadencias (un saliente de plantilla
+  // en el hilo) ni entrantes que no sean texto.
+  if (h.mensajes.some((m) => m.autor === "cadencia")) {
+    if (t.n === 1) console.log(`  · ${h.guion.id}: lleva cadencia y el banco no las fabrica — no comparable`);
     continue;
   }
   if (runner.ultimoNoLegible) {
-    console.log(`  · ${h.guion.id}: el turno 1 es ${runner.ultimoNoLegible.tipo} y el banco solo escribe texto — no comparable`);
+    console.log(`  · ${etiqueta}: el entrante es ${runner.ultimoNoLegible.tipo} y el banco solo escribe texto — no comparable`);
     continue;
   }
+  // Un turno posterior al primero: el banco recibe el hilo previo tal cual
+  // (los mensajes anteriores al entrante de este turno) y el mismo derivado.
+  const previos = runner.hilo.slice(0, -1).map((m) => ({ direccion: m.direccion, contenido: m.contenido }));
   // Los objetivos configurados: los del fixture (los de la clínica ese día)
   // completados con los de defecto por etapa, para que el banco tenga los
   // mismos a su alcance.
@@ -84,12 +87,12 @@ for (const h of fixture.hilos) {
   for (const o of OBJETIVOS_POR_DEFECTO) if (!objetivosConfig.some((x) => x.etapa === o.etapa)) objetivosConfig.push(o);
   const banco = construirEntradaDePrueba({
     escenario: escenarioDe(h.guion),
-    hilo: [],
-    mensaje: t1.entrante,
+    hilo: previos,
+    mensaje: t.entrante,
     conocimiento: runner.conocimiento ?? null,
     objetivosConfig,
     clinicaNombre: runner.clinica ?? null,
-    derivadoPrevio: false,
+    derivadoPrevio: runner.yaDerivado,
     hoy: h.hoy,
   });
   comparados++;
@@ -106,13 +109,13 @@ for (const h of fixture.hilos) {
   if (presu(banco) !== presu(runner)) dif.push(`presupuestosVivos: banco=${presu(banco)} · runner=${presu(runner)}`);
   const hilo = (x: EntradaEvaluador) => x.hilo.map((m) => `${m.direccion}:${m.contenido}`).join("|");
   if (hilo(banco) !== hilo(runner)) dif.push(`hilo: banco=${corto(hilo(banco))} · runner=${corto(hilo(runner))}`);
-  if (dif.length === 0) console.log(`  ✓ ${h.guion.id}: misma entrada`);
+  if (dif.length === 0) console.log(`  ✓ ${etiqueta}: misma entrada`);
   else {
     fallos++;
-    console.log(`  ✗ ${h.guion.id}: DIVERGEN`);
+    console.log(`  ✗ ${etiqueta}: DIVERGEN`);
     for (const d of dif) console.log(`      ${d}`);
   }
 }
-console.log(`\n${comparados} hilos comparados · ${fallos} divergen${fixture.hilos.length - comparados ? ` · ${fixture.hilos.length - comparados} no comparables` : ""}`);
+console.log(`\n${comparados} turnos comparados · ${fallos} divergen`);
 if (comparados === 0) console.log("  (nada comparable: ¿el fixture es anterior a la 225? vuelve a jugar)");
 process.exit(fallos ? 1 : 0);
