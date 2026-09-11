@@ -71,3 +71,14 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - qa:banco (un turno real, cero escritura) tras la sesión del banco · **$0,01** · ac. $1,21
 - Anunciado: volver a jugar los 15 hilos con la sesión y «cita» abierta al desconocido (~$0,30), hilos:replay
   (~$0,17) y la vara completa (~$0,35) tras el commit de jerga — ~$0,8 más, dentro del tope.
+- hilos:jugar, 15 hilos con la sesión del banco y «cita» abierta al desconocido (37 turnos) · **$0,31 medido**
+  ($0,20 agente + $0,10 paciente) · qa:banco-vs-runner pasa de 5 divergencias (todas el objetivo «cita» del
+  desconocido, el fixture era anterior) a 31 turnos iguales · ac. **$1,52** (tope $5)
+- hilos:replay, 36 turnos del fixture nuevo · **$0,20 medido** · misma versión (df3978f4e98d/d79cf567c2db): mide
+  ESTABILIDAD, no un cambio de prompt · 32 iguales · 4 distintos (queja_economica t2, opt_out t1, caso_completo t2,
+  insistencia_precio t4) · ac. **$1,72** (tope $5)
+- qa:evals-evaluador COMPLETA · **ABORTADA sin cifra fiable**: el crédito de la API de Anthropic se agotó a mitad de la
+  pasada («credit balance is too low»), 15/73 evaluaciones en fallback → el script corta con salida 2 y NO escribe
+  `ultima-pasada.json` (la última válida sigue siendo la del 10-09, misma versión df3978f4e98d). Gasto estimado de lo que
+  sí corrió: ~$0,25 · ac. **~$1,97** (tope $5). PENDIENTE: recargar crédito y volver a pasarla (~$0,35). OJO: con el
+  crédito a cero el agente de producción también está en fallback (casos «Sin respuesta del agente» + campana).

@@ -4598,4 +4598,10 @@ viven en «cita» desde la fase A, e «identificar» es transitorio, así que da
 cierra. Hallazgo colateral (MEJORAS 227): los hilos jugados TAMPOCO pueden probar la insistencia — se
 juegan en menos de un minuto y los eventos llevan `created_at` real, así que el hilo entero cabe en la
 ventana de ráfaga; en el fixture ninguna entrega es por «insistencia» y las vueltas nunca pasan de 1.
+Medido tras los dos commits (banco 82e0d34, jerga 2ea182b): los quince hilos rejugados ($0,31) dejan
+`qa:banco-vs-runner` en 31/31 turnos iguales; `hilos:replay` sobre el fixture nuevo ($0,20): 32 de 36
+iguales, 4 con diferencias de campo o redacción y NINGUNA de decisión — misma versión del agente
+(df3978f4e98d), mide estabilidad. La vara completa NO se pudo medir: el crédito de la API se agotó a
+mitad (15/73 en fallback), el script cortó con salida 2 sin escribir `ultima-pasada.json`. Queda
+pendiente al recargar (~$0,35); ni el banco ni la jerga tocan el prompt, así que el hash no cambia.
 

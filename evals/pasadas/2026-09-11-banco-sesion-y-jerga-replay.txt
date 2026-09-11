@@ -1,0 +1,112 @@
+# 2026-09-11 · tras la sesión del banco (82e0d34) y el censo de jerga (2ea182b)
+
+## hilos:replay (36 turnos, fixture rejugado el 11-09)
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+Replay de 15 hilos · 36 turnos con entrada · fixture jugado el 2026-09-11 · coste estimado $0.36
+
+━━ lead_precio · Desconocida pregunta cuánto cuesta un blanqueamiento · veredicto: sin anotar
+  t1 ✓ igual · «Hola! He visto vuestro anuncio en instagram, cuanto cuesta u…»
+[evaluador] borrador descartado (economica): «el blanqueamiento suele oscilar entre 300 y 600 euros dependiendo del tipo y el estado de tus dientes»
+  t2 ✓ igual · «Marta, pero mas o menos por encima cuanto suele costar?»
+  t3 ✓ igual · «Marta Lopez. Pero en plan, un precio aproximado no me podeis…»
+  t4 ✓ igual · «Vale nada, pues que me llamen mejor y me cuentan precio y es…»
+
+━━ presupuesto_financiacion · Jorge quiere saber cuánto sería al mes · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas, soy Jorge. Me pasasteis un presupuesto de 3200€…»
+  t2 ✓ igual · «Vale, pero antes de nada necesito saber más o menos cuánto s…»
+  t3 ✓ igual · «Vale, pues que me llame alguien de administración con esa ci…»
+
+━━ cobro_vencido · Lucía pide cita de revisión con un pago pendiente · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas! Soy Lucía, me hicieron una endodoncia hace un m…»
+[evaluador] borrador descartado (agenda): «Tenemos jueves 17 y viernes 18 por la tarde»
+  t2 ✓ igual · «Vale perfecto! Pues jueves o viernes por la tarde me viene g…»
+
+━━ recordatorio_cita · Andrés contesta al recordatorio: no puede mañana · veredicto: sin anotar
+  t1 ✓ igual · «Hola, no voy a poder ir mañana, me ha salido un viaje de tra…»
+
+━━ cadencia_en_medio · Elena pregunta por los retenedores y la cadencia le escribe encima · veredicto: sin anotar
+  t1 ✓ igual · «El presupuesto de ortodoncia que me pasasteis, ¿incluye los …»
+  t2 ✓ igual · «Vale, pero necesito saber si van incluidos antes de decidir …»
+  t3 ✓ igual · «Ya os he escrito, no me insistáis. Dejadme pensarlo hasta el…»
+
+━━ queja_trato · Rosa esperó cuarenta minutos y quiere hablar con un responsable · veredicto: sin anotar
+  t1 ✓ igual · «Buenos días. Ayer estuve en la clínica esperando cuarenta mi…»
+
+━━ queja_economica · Pablo dice que le cobraron 150 € más de lo presupuestado · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas, soy Pablo. Os he pagado 1.250€ por un tratamien…»
+  t2 ≠ distinto · «Vale, pero quiero dejarlo claro: si no hay justificación de …»
+       campo cita.clinica_preferida: — → no_aplica
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: — → no_aplica
+       campo cita.nombre_completo: — → Pablo
+       campo cita.preferencia_doctor: — → no_aplica
+       campo cita.tratamiento_o_molestia: — → no_aplica
+       campo cita.urgencia: — → no_aplica
+       antes: «Entiendo perfectamente, Pablo. Tienes razón en querer claridad por escrito. Administración revisa ah»
+       hoy:   «Entiendo perfectamente, Pablo. Tienes razón en pedir claridad y confirmación por escrito. Administra»
+
+━━ urgencia_dolor · Miguel no ha dormido: dolor fuerte e hinchazón · veredicto: sin anotar
+  t1 ✓ igual · «hola buenas, tengo una muela de abajo que me duele muchisimo…»
+
+━━ urgencia_ambigua · Sonia: se le ha despegado una carilla y el sábado tiene una boda · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas! Se me ha despegado una carilla de un diente del…»
+
+━━ opt_out · Teresa pide que dejen de escribirle · veredicto: sin anotar
+  t1 ≠ distinto · «Hola, no me escribáis más, no me interesa el presupuesto del…»
+       campo presupuesto.motivo_rechazo: no le interesa el blanqueamiento → no le interesa
+
+━━ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos · veredicto: sin anotar
+[evaluador] borrador descartado (agenda): «Para poder cerrar tu primera cita sin volver a preguntar»
+  t1 ✓ igual · «Hola buenas tardes! Quería pedir una primera cita para ortod…»
+  t2 ≠ distinto · «Daniel Arribas»
+       descarte del control: agenda → —
+       antes: «Gracias, Daniel. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»
+       hoy:   «Perfecto, Daniel. Veo que te interesa ortodoncia invisible y que es tu primera vez con nosotros. Par»
+[evaluador] borrador descartado (agenda): «Para poder cerrar tu cita de consulta de ortodoncia invisible»
+  t3 ✓ igual · «Sin prisa, es solo para informarme y ver lo de la ortodoncia…»
+  t4 ✓ igual · «Por las tardes mejor, y cualquier día menos los viernes»
+
+━━ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende» · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas, soy Carlos, ya he estado ahí antes. Quería sabe…»
+  t2 ✓ igual · «Ya, pero dame un número aproximado, el más básico que tengái…»
+  t3 ✓ igual · «Vale pero un rango, ¿más o menos de mil euros anda la cosa o…»
+  t4 ≠ distinto · «Nada, ni un número me dais. Dejadlo, ya llamaré o iré a otro…»
+       campo cita.motivo_no_cita: quiere precio antes de venir; no confía en que se lo den sin cita → quiere precio antes de venir; considera ir a otra clínica
+       antes: «Carlos, entiendo tu frustración. No podemos darte un número sin verte porque sería engañarte — cada »
+       hoy:   «Carlos, entiendo tu frustración. No podemos darte un número sin verte porque sería engañarte — cada »
+
+━━ aplazamiento_dato · Nuria pregunta por parking y sedación · veredicto: sin anotar
+[evaluador] borrador descartado (clinica): «trabajamos con sedación consciente para que los procedimientos sean más cómodos»
+  t1 ✓ igual · «Hola buenas! Tengo que hacerme una extracción y la verdad es…»
+[evaluador] borrador descartado (clinica): «La sedación consciente es una opción que ofrecemos para que los pacientes estén más tranquilos durante procedimientos como las extracciones.»
+  t2 ✓ igual · «Ahora mismo no tengo dolor, es una revisión que ya me la pro…»
+  t3 ✓ igual · «Perdona, es que aún no tengo cita para eso, solo quería sabe…»
+  t4 ✓ igual · «Vale, genial, entonces me lo confirma el doctor en la cita. …»
+[evaluador] borrador descartado (agenda): «Sí, abrimos sábados — te lo confirman con los horarios exactos cuando cierres la cita.»
+  t5 ✓ igual · «Vale, perfecto que me lo confirmen. Por cierto, ¿abrís los s…»
+
+━━ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde e…»
+[evaluador] borrador descartado (agenda): «Así cerramos tu cita sin más vueltas.»
+  t2 ✓ igual · «Nada de molestias, es que hace años que no voy al dentista y…»
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad»
+  t3 ✓ igual · «Por la tarde mejor, entre semana cualquier día me vale»
+
+━━ audio_no_legible · Fernando manda un audio y luego escribe · veredicto: sin anotar
+  t1 ✓ igual · «[Audio recibido]»
+  t2 · sin entrada (sin juicio) — no se rejuega
+  t3 · sin entrada (sin juicio) — no se rejuega
+
+════════════════════════════════════════════════════════════════════════
+Turnos: 32 iguales · 4 distintos · 1 sin tarifa · coste medido $0.2046
+Versión (evaluador/control) del fixture: df3978f4e98d/d79cf567c2db · de hoy: df3978f4e98d/d79cf567c2db
+Misma versión: este replay mide ESTABILIDAD (temperature 0 no es determinismo), no un cambio de prompt.
+Cambiaron: queja_economica t2 · opt_out t1 · caso_completo t2 · insistencia_precio t4
+Apunta el coste en evals/pasadas/GASTO.md.
+exit: 0
+
+## qa:evals-evaluador — ABORTADA: el crédito de la API se agotó a mitad (15/73 en fallback; salida 2, no escribe ultima-pasada.json)
+errores de crédito: 19
+✗ 15/73 evaluaciones en fallback: la medición no es fiable (API/crédito).
+exit: 2

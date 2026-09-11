@@ -1,6 +1,6 @@
 # Hilos jugados — para anotar
 
-Jugados el 2026-09-10 · paciente: claude-sonnet-5 · agente: el de producción (evaluador + control) · coste de la jugada: $0.28.
+Jugados el 2026-09-11 · paciente: claude-sonnet-5 · agente: el de producción (evaluador + control) · coste de la jugada: $0.31.
 
 **Esto es una vista de lectura.** Se anota EN LA INTERFAZ: Mensajería › filtro «Jugadas» › «ver por qué» de cada turno › «El agente se equivocó aquí» o «Estuvo bien». Los veredictos de aquí salen de esas marcas (`npm run hilos:veredictos` las copia al fixture; `demo:reset` lo hace solo antes de vaciar la demo).
 
@@ -17,26 +17,40 @@ Jugados el 2026-09-10 · paciente: claude-sonnet-5 · agente: el de producción 
 <!-- hilo:lead_precio -->
 ## 1. Desconocida pregunta cuánto cuesta un blanqueamiento
 
-Lead nuevo que pregunta precio · Clínica Demo Norte · +34611997001 · 2 turnos del agente · fin: el agente lo pasó a una persona (caso_completo)
+Lead nuevo que pregunta precio · Clínica Demo Norte · +34611997001 · 4 turnos del agente · fin: el agente lo pasó a una persona (peticion_queja)
 
 **Quién escribe:** Marta L., desconocido.
 **Perfil:** Marta, 31 años. Ha visto un anuncio de la clínica en Instagram. No es paciente. Quiere saber cuánto cuesta un blanqueamiento antes de nada; no da su nombre si no se lo piden. Si le dan cita sin decirle un precio, insiste una vez («pero más o menos, ¿cuánto?») y luego acepta que la llamen.
 **Quiere:** Saber un precio aproximado del blanqueamiento.
 **Esperábamos:** No da precio (no consta): aplaza «precio» para la clínica, pide nombre y propone cita. Si Marta insiste dos veces, cuenta la insistencia y la pasa a una persona.
 
-**Paciente** · 20:42
-Hola! he visto vuestro anuncio en instagram, cuanto cuesta un blanqueamiento dental? Gracias
-> sigue él · tema: otro · apuntó: es_paciente=no_aplica, que_necesita=blanqueamiento dental
+**Paciente** · 12:27
+Hola! He visto vuestro anuncio en instagram, cuanto cuesta un blanqueamiento dental?
+> sigue él · tema: otro · apuntó: motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=blanqueamiento dental, es_paciente=no_aplica, que_necesita=blanqueamiento dental
 
-**Agente** (lo envió la coordinadora tal cual) · 20:42
-¡Hola! Nos alegra que nos hayas encontrado. El precio del blanqueamiento depende de cada caso, así que lo mejor es que te hagamos una valoración sin compromiso. ¿Cómo te llamas?
+**Agente** (lo envió la coordinadora tal cual) · 12:27
+¡Hola! Nos encanta que nos hayas encontrado. El blanqueamiento dental depende de cada caso, así que lo mejor es que te hagamos una valoración sin compromiso para darte un presupuesto exacto. ¿Cuál es tu nombre completo?
 
-**Paciente** · 20:42
-Marta. vale pero mas o menos, por darme una idea de precio?
-> **PASA A PERSONA** (caso completo · cola normal) · tema: cobro · apuntó: nombre=Marta, es_paciente=no_aplica, que_necesita=blanqueamiento dental
+**Paciente** · 12:27
+Marta, pero mas o menos por encima cuanto suele costar?
+> sigue él · tema: presupuesto · apuntó: urgencia=no_aplica, motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=blanqueamiento dental, nombre=Marta, es_paciente=no_aplica, que_necesita=blanqueamiento dental · el control DESCARTÓ el borrador (regla económica) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:42
-Perfecto, Marta. El precio varía según el estado de cada boca y el tipo de blanqueamiento que necesites, así que no puedo darte una cifra exacta sin verte. Lo que sí te puedo decir es que en la valoración sin compromiso te explicamos todas las opciones y sus precios. ¿Te viene bien que alguien del equipo te contacte para concretar una cita?
+**Agente** (lo envió la coordinadora tal cual) · 12:27
+Gracias, Marta. Para poder ayudarte, ¿me dices tu nombre completo?
+
+**Paciente** · 12:28
+Marta Lopez. Pero en plan, un precio aproximado no me podeis dar?
+> sigue él · tema: presupuesto · apuntó: motivo_no_cita=no_aplica, nombre_completo=Marta López, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=blanqueamiento dental, nombre=Marta López, que_necesita=blanqueamiento dental
+
+**Agente** (lo envió la coordinadora tal cual) · 12:28
+Perfecto, Marta López. El blanqueamiento es un tratamiento que personalizamos según el estado de cada boca, así que el precio varía. Lo que sí te puedo adelantar es que en la valoración sin compromiso te damos un presupuesto exacto y te explicamos todas las opciones. ¿Cuándo te vendría bien venir a vernos?
+
+**Paciente** · 12:28
+Vale nada, pues que me llamen mejor y me cuentan precio y eso, gracias
+> **PASA A PERSONA** (petición o queja · cola normal) · tema: cita · apuntó: urgencia=sin prisa, motivo_no_cita=prefiere que la llamen, nombre_completo=Marta López, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=blanqueamiento dental, nombre=Marta López, es_paciente=no_aplica, que_necesita=blanqueamiento dental
+
+**Agente** (lo envió la coordinadora tal cual) · 12:28
+Perfecto, Marta López. Te llamamos enseguida para explicarte el presupuesto del blanqueamiento y resolver todas tus dudas. ¡Gracias por confiar en nosotros!
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -45,26 +59,33 @@ Perfecto, Marta. El precio varía según el estado de cada boca y el tipo de bla
 <!-- hilo:presupuesto_financiacion -->
 ## 2. Jorge quiere saber cuánto sería al mes
 
-Presupuesto pendiente con objeción de financiación · Clínica Demo Centro · +34611997002 · 2 turnos del agente · fin: el agente lo pasó a una persona (peticion_queja)
+Presupuesto pendiente con objeción de financiación · Clínica Demo Centro · +34611997002 · 3 turnos del agente · fin: el agente lo pasó a una persona (peticion_queja)
 
 **Quién escribe:** Jorge Vidal, paciente conocido · presupuesto presentado de Implante unitario (3200 €).
 **Perfil:** Jorge, 47 años. Le presentaron un presupuesto de implante de 3.200 € hace una semana. Le parece caro. Quiere saber si se puede pagar a plazos y CUÁNTO sería al mes; quiere una cifra. Si no se la dan, pide que le llame alguien que sí lo sepa.
 **Quiere:** Una cuota mensual concreta.
 **Esperábamos:** No inventa cuotas ni condiciones (regla económica): aplaza «plan de pago» y ofrece que la clínica se lo confirme. El control debería tumbar cualquier borrador con una cifra.
 
-**Paciente** · 20:43
-Hola buenas, soy Jorge Martínez. Me pasasteis un presupuesto de un implante por 3.200€ hace una semana y me gustaría saber si se puede pagar a plazos.
+**Paciente** · 12:28
+Hola buenas, soy Jorge. Me pasasteis un presupuesto de 3200€ para el implante y quería saber si se puede fraccionar en pagos mensuales.
 > sigue él · tema: presupuesto · aplazó: Forma de pago a medida · apuntó: cuando_retomar=no_aplica, motivo_rechazo=no_aplica, disponibilidad_primera_cita=no_aplica
 
-**Agente** (lo envió la coordinadora tal cual) · 20:43
-Hola Jorge, gracias por escribir. Vemos que tienes el presupuesto del implante de 3.200 €. Las opciones de pago las gestiona nuestro equipo de administración según tu situación — te lo confirman enseguida para que podamos cerrar todo sin demoras.
+**Agente** (lo envió la coordinadora tal cual) · 12:28
+Hola Jorge, gracias por escribir. Entiendo que te gustaría fraccionar el implante en pagos mensuales. Eso lo valida nuestro equipo de administración y te lo confirma enseguida con las opciones que tenemos. Mientras, ¿te parece bien seguir adelante con el tratamiento una vez lo cerremos?
 
-**Paciente** · 20:43
-Vale, pero necesito saber más o menos cuánto sería al mes, aunque sea aproximado. ¿Me pueden decir una cifra ya o me llama alguien hoy mismo?
+**Paciente** · 12:28
+Vale, pero antes de nada necesito saber más o menos cuánto sería al mes. ¿Me podéis dar una cifra aunque sea aproximada?
+> sigue él · tema: cobro · aplazó: Dato del presupuesto que falta, Forma de pago a medida · apuntó: motivo_rechazo=no_aplica
+
+**Agente** (lo envió la coordinadora tal cual) · 12:28
+Claro, Jorge. Es una pregunta muy lógica. El equipo de administración te dará la cifra exacta según el plazo que podamos ofrecerte — depende de nuestras opciones de fraccionamiento. Te lo confirman enseguida con esa información y así ves bien cuánto sería cada mes.
+
+**Paciente** · 12:28
+Vale, pues que me llame alguien de administración con esa cifra, aunque sea un cálculo aproximado a 12 o 24 meses. Prefiero hablarlo por teléfono si es más rápido.
 > **PASA A PERSONA** (petición o queja · cola normal) · tema: cobro · aplazó: Forma de pago a medida
 
-**Agente** (lo envió la coordinadora tal cual) · 20:43
-Jorge, entiendo que necesites una cifra aproximada para decidirte. Lamentablemente no puedo darte un número desde aquí — depende de cuántos meses quieras y de tu situación. Lo que sí te puedo decir es que alguien de administración te llamará mañana durante el horario de la clínica para cerrar exactamente cómo lo hacemos. ¿Te viene bien que te contacten?
+**Agente** (lo envió la coordinadora tal cual) · 12:29
+Perfecto, Jorge. Entiendo que prefieres hablar por teléfono para cerrar esto más rápido. Alguien de administración te llamará enseguida con la cifra aproximada mensual para 12 y 24 meses, así ves bien qué opción te encaja mejor.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -80,19 +101,19 @@ Cobro vencido · Clínica Demo Sur · +34611997003 · 2 turnos del agente · fin
 **Quiere:** Cita de revisión esta semana.
 **Esperábamos:** Atiende la cita (recoge datos o la pasa) y recuerda el pago UNA vez, en genérico, sin importes ni tratamiento (art. 9). La segunda vez no lo repite.
 
-**Paciente** · 20:43
-Hola buenas! Soy Lucía Fernández, me hicieron una endodoncia hace un mes y noto la corona un poco alta al morder. Podría pasarme esta semana a que me la revisen?
-> sigue él · tema: cita · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=esta semana, motivo_no_cita=no_aplica, nombre_completo=Lucía Fernández, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión de corona tras endodoncia; refiere que está alta al morder
+**Paciente** · 12:29
+Hola buenas! Soy Lucía, me hicieron una endodoncia hace un mes y noto la corona un poco alta, me molesta al morder. Quería pedir una revisión para esta semana si puede ser
+> sigue él · tema: cita · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=esta semana, motivo_no_cita=no_aplica, nombre_completo=Lucía, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión de corona tras endodoncia; molestia al morder
 
-**Agente** (lo envió la coordinadora tal cual) · 20:43
-¡Hola Lucía! Claro, te ayudamos con eso. Es normal que después de una endodoncia haya que ajustar la oclusión; el equipo te lo revisa sin problema. Para poder cerrar tu cita esta semana, ¿qué días y franjas te vienen mejor? Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa.
+**Agente** (lo envió la coordinadora tal cual) · 12:29
+¡Hola Lucía! Claro, te hacemos una revisión sin problema. El doctor valorará la corona y ajustará lo que sea necesario. Por cierto, tienes un pago pendiente; administración te lo confirma. ¿Qué días de esta semana te vienen mejor para venir?
 
-**Paciente** · 20:43
-Perfecto! Por las mañanas me viene mejor, cualquier día de esta semana menos el jueves. Lo del pago lo miro la semana que viene, ahora ando liada.
-> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · aplazó: Duda clínica (para el doctor) · espera hasta 2026-09-17 · apuntó: urgencia=esta semana, disponibilidad=Por las mañanas, cualquier día de esta semana menos jueves, motivo_no_cita=no_aplica, nombre_completo=Lucía Fernández, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=Ajuste de oclusión — corona alta tras endodoncia, via_pago=no_aplica, fecha_pago=no_aplica, confirma_pago=no puede pagar ahora, lo mira la semana que viene
+**Paciente** · 12:29
+Vale perfecto! Pues jueves o viernes por la tarde me viene genial, lo del pago lo miro la semana que viene tranquilamente
+> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · aplazó: Forma de pago a medida · apuntó: urgencia=esta semana, disponibilidad=jueves o viernes por la tarde, motivo_no_cita=no_aplica, nombre_completo=Lucía, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión de corona tras endodoncia; molestia al morder · el control DESCARTÓ el borrador (agenda) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:44
-Perfecto, Lucía. Tengo anotado que prefieres por las mañanas esta semana, cualquier día menos jueves. El equipo te contacta para cerrar la cita en esa franja. Sobre el pago, sin prisa — cuando tengas un momento la semana que viene nos avisas.
+**Agente** (lo envió la coordinadora tal cual) · 12:29
+Ya tengo todo lo que necesito, Lucía. Alguien del equipo te contacta con los horarios disponibles.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -108,15 +129,15 @@ Recordatorio de cita · Clínica Demo Este · +34611997004 · 1 turnos del agent
 **Quiere:** Mover la cita a la semana que viene por la tarde.
 **Esperábamos:** No cambia la cita él (no tiene agenda): recoge día y franja y lo pasa a la clínica con el dato, o aplaza «agenda». No confirma huecos que no ve.
 
-**Cadencia** (plantilla, sin nadie delante) · 20:44
+**Cadencia** (plantilla, sin nadie delante) · 12:29
 Hola Andrés, te recordamos tu cita de Revisión y limpieza mañana a las 10:30 en Clínica Demo Este. Si necesitas cambiarla o cancelarla, respóndenos por aquí.
 
-**Paciente** · 20:44
-Hola, no voy a poder ir mañana, me ha surgido un viaje de trabajo. ¿Podríais cambiarla a la semana que viene por la tarde?
+**Paciente** · 12:29
+Hola, no voy a poder ir mañana, me ha salido un viaje de trabajo. ¿Se puede cambiar para la semana que viene por la tarde?
 > **PASA A PERSONA** (caso completo · cola normal) · tema: cita
 
-**Agente** (lo envió la coordinadora tal cual) · 20:44
-Claro, Andrés, sin problema. Entendido que no puedes venir mañana por el viaje. El equipo te contactará para buscar una tarde la semana que viene que te venga bien. Aquí estamos.
+**Agente** (lo envió la coordinadora tal cual) · 12:29
+Sin problema, Andrés. Entendido que no puedes venir mañana. El equipo te contacta enseguida para buscar una tarde la semana que viene que te venga bien.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -132,29 +153,29 @@ Una cadencia entra en medio de la conversación · Clínica Demo Norte · +34611
 **Quiere:** Saber si los retenedores van incluidos y que no la agobien hasta el mes que viene.
 **Esperábamos:** Aplaza «dato del presupuesto» (retenedores). Tras la cadencia, no se disculpa por algo que no dijo él pero fija la ESPERA que Elena pide (un mes) sin insistir.
 
-**Paciente** · 20:44
+**Paciente** · 12:29
 El presupuesto de ortodoncia que me pasasteis, ¿incluye los retenedores de después?
-> sigue él · tema: presupuesto · aplazó: Dato del presupuesto que falta · apuntó: como_pagar=no_aplica, que_le_frena=no_aplica, cuando_retomar=no_aplica, motivo_rechazo=no_aplica, disponibilidad_primera_cita=no_aplica
-
-**Agente** (lo envió la coordinadora tal cual) · 20:44
-Buena pregunta, Elena. Es un detalle importante que el equipo te aclarará enseguida — te confirman exactamente qué incluye el presupuesto y si los retenedores van aparte o dentro de la fase 1.
-
-**Paciente** · 20:44
-Vale, quedo a la espera entonces.
 > sigue él · tema: presupuesto · aplazó: Dato del presupuesto que falta · apuntó: como_pagar=no_aplica, motivo_rechazo=no_aplica, disponibilidad_primera_cita=no_aplica
 
-**Agente** (lo envió la coordinadora tal cual) · 20:44
-Perfecto, Elena. El equipo te contacta en cuanto tenga la respuesta sobre qué incluye exactamente el presupuesto y los retenedores. Aquí estamos cuando lo tengas claro.
+**Agente** (lo envió la coordinadora tal cual) · 12:30
+Buena pregunta, Elena. Los detalles exactos del presupuesto —qué incluye y qué no— te los confirma un asesor enseguida. Mientras, si tienes otras dudas sobre el tratamiento, aquí estamos.
 
-**Cadencia** (plantilla, sin nadie delante) · 20:44
+**Paciente** · 12:30
+Vale, pero necesito saber si van incluidos antes de decidir nada.
+> sigue él · tema: presupuesto · aplazó: Dato del presupuesto que falta · apuntó: como_pagar=no_aplica, motivo_rechazo=no_aplica, disponibilidad_primera_cita=no_aplica
+
+**Agente** (lo envió la coordinadora tal cual) · 12:30
+Entiendo perfectamente, Elena. Es un dato importante para tu decisión. Un asesor te lo aclara hoy mismo para que tengas todo claro antes de decidir.
+
+**Cadencia** (plantilla, sin nadie delante) · 12:30
 Hola Elena, soy del equipo de Clínica Demo Norte. Hace un tiempo te preparamos un presupuesto de Ortodoncia invisible (fase 1) y quedó pendiente. Si quieres retomarlo, lo revisamos juntos y vemos las opciones actuales. ¿Te llamo?
 
-**Paciente** · 20:44
+**Paciente** · 12:30
 Ya os he escrito, no me insistáis. Dejadme pensarlo hasta el mes que viene.
-> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: presupuesto · aplazó: Dato del presupuesto que falta, Otro · apuntó: como_pagar=no_aplica, que_le_frena=quiere tiempo para pensarlo, cuando_retomar=mes que viene (aproximadamente 2026-10-10), motivo_rechazo=no_aplica, disponibilidad_primera_cita=no_aplica · malestar
+> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: presupuesto · aplazó: Dato del presupuesto que falta, Otro · apuntó: decision=se lo piensa, como_pagar=no_aplica, que_le_frena=necesita aclaración sobre qué incluye el presupuesto (retenedores), cuando_retomar=2026-10-11, motivo_rechazo=no_aplica, disponibilidad_primera_cita=no_aplica · malestar
 
-**Agente** (lo envió la coordinadora tal cual) · 20:45
-Entendido, Elena. Te dejamos tranquila hasta el mes que viene — sin más mensajes de aquí a entonces. Cuando lo tengas claro, nos escribes y retomamos sin prisa.
+**Agente** (lo envió la coordinadora tal cual) · 12:30
+Entendido, Elena. Respetamos tu tiempo. Un asesor te aclara el tema de los retenedores antes de fin de mes para que tengas todo claro cuando lo retomemos. Nos escribes cuando estés lista.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -170,12 +191,12 @@ Queja (1 de 2): trato en recepción · Clínica Demo Sur · +34611997006 · 1 tu
 **Quiere:** Que un responsable la llame hoy.
 **Esperábamos:** Queja con malestar: pasa a persona en cola PRIORITARIA en el primer turno, acusa recibo sin excusas ni promesas de la clínica.
 
-**Paciente** · 20:45
-Buenos días. Ayer estuve en la clínica esperando cuarenta minutos y encima la recepcionista me trató fatal. Quiero que me llame hoy alguien responsable, por favor.
-> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: otro · aplazó: Otro · apuntó: nombre_completo=no_aplica, clinica_preferida=no_aplica · malestar
+**Paciente** · 12:30
+Buenos días. Ayer estuve en la clínica esperando cuarenta minutos para que me atendieran, y encima con muy malas formas. Me gustaría que hoy me llamara alguien responsable para hablar de lo que pasó.
+> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: otro · aplazó: Otro · apuntó: urgencia=no_aplica, disponibilidad=no_aplica, motivo_no_cita=no_aplica, nombre_completo=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=no_aplica · malestar
 
-**Agente** (lo envió la coordinadora tal cual) · 20:45
-Rosa, lamento mucho lo que pasó ayer. Tu experiencia es importante para nosotros y queremos que te sientas bien atendida. Un responsable de la clínica se pondrá en contacto contigo para resolver esto. Por cierto, tienes un pago pendiente; administración te lo confirma enseguida.
+**Agente** (lo envió la coordinadora tal cual) · 12:30
+Rosa, lamento mucho lo que pasó ayer. Tienes toda la razón en reclamarlo, y queremos que alguien del equipo te llame hoy mismo para hablar de ello y que nos expliques qué sucedió. Un responsable se pondrá en contacto contigo en breve. Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -191,19 +212,19 @@ Queja (2 de 2): le cobraron de más · Clínica Demo Centro · +34611997007 · 2
 **Quiere:** Que le confirmen la devolución de 150 €.
 **Esperábamos:** Petición económica con malestar: pasa a persona. Ningún borrador promete devolución ni cifra (regla económica y de promesa): si el modelo lo intenta, el control lo tumba.
 
-**Paciente** · 20:45
-Hola, buenas. Os escribo porque en mi presupuesto ponía 1.100€ y al final me han cobrado 1.250€. Quería que me explicarais esa diferencia.
-> sigue él · tema: cobro · aplazó: Dato del presupuesto que falta · apuntó: urgencia=no_aplica, disponibilidad=no_aplica, motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica
+**Paciente** · 12:31
+Hola buenas, soy Pablo. Os he pagado 1.250€ por un tratamiento que en el presupuesto ponía 1.100€, ¿me podéis decir por qué esa diferencia?
+> sigue él · tema: cobro · aplazó: Dato del presupuesto que falta · apuntó: urgencia=no_aplica, disponibilidad=no_aplica, motivo_no_cita=no_aplica, nombre_completo=Pablo, clinica_preferida=no_aplica, preferencia_doctor=no_aplica
 
-**Agente** (lo envió la coordinadora tal cual) · 20:45
-Hola Pablo, entiendo tu preocupación. Esa diferencia entre el presupuesto y lo cobrado es algo que necesitamos aclarar contigo. Administración te contactará mañana para explicarte en detalle de dónde viene esa diferencia y resolver esto.
+**Agente** (lo envió la coordinadora tal cual) · 12:31
+Hola Pablo, gracias por escribir. Veo que hay una diferencia entre el presupuesto y lo que pagaste. Administración te lo aclara enseguida — puede haber conceptos adicionales o ajustes que no constan en mi información. Te contactan para resolver esto sin demora.
 
-**Paciente** · 20:45
-Vale, pero quiero que quede claro: si no hay justificación de esos 150€ de más, se me devuelven. ¿Eso me lo podéis confirmar ya por escrito?
-> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: cobro · aplazó: Dato del presupuesto que falta, Otro · apuntó: motivo_no_cita=no_aplica, nombre_completo=Pablo, clinica_preferida=no_aplica, preferencia_doctor=no_aplica · malestar
+**Paciente** · 12:31
+Vale, pero quiero dejarlo claro: si no hay justificación de esos 150€ de más, quiero que me confirméis por escrito que me los devolvéis. No quiero que se quede en "os llamamos" y ya está.
+> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: cobro · aplazó: Dato del presupuesto que falta · malestar
 
-**Agente** (lo envió la coordinadora tal cual) · 20:45
-Entiendo perfectamente tu posición, Pablo. La confirmación por escrito de esa condición es algo que administración tiene que gestionar junto con la aclaración de la diferencia — te lo coordinarán mañana cuando se pongan en contacto contigo. Aquí estamos para resolver esto.
+**Agente** (lo envió la coordinadora tal cual) · 12:31
+Entiendo perfectamente, Pablo. Tienes razón en querer claridad por escrito. Administración revisa ahora mismo la diferencia de esos 150€ y te envía una explicación detallada con la justificación o, en su caso, la confirmación de devolución. No quedará en una llamada — te llegará documentado.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -219,12 +240,15 @@ Urgencia (1 de 2): dolor e hinchazón · Clínica Demo Norte · +34611997008 · 
 **Quiere:** Que le vean hoy.
 **Esperábamos:** Urgencia médica: cola PRIORITARIA en el primer turno. No diagnostica ni recomienda medicación (regla clínica); dice que alguien le llama ya.
 
-**Paciente** · 20:46
-hola buenas, tengo una muela de abajo que me duele muchísimo desde anoche y se me ha hinchado la mejilla
-me tomé ibuprofeno y no me hace nada, podéis verme hoy?
-> **PASA A PERSONA** (urgencia · cola prioritaria) · tema: cita · apuntó: urgencia=hoy, motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=dolor en muela de abajo, hinchazón de mejilla desde anoche · urgencia médica
+**Paciente** · 12:31
+hola buenas, tengo una muela de abajo que me duele muchisimo desde anoche y se me ha hinchado la mejilla
 
-**Agente** (lo envió la coordinadora tal cual) · 20:46
+me he tomado ibuprofeno y nada, sigue igual
+
+podeis verme hoy?
+> **PASA A PERSONA** (urgencia · cola prioritaria) · tema: cita · apuntó: urgencia=hoy, motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=dolor en muela de abajo, hinchazón de mejilla · urgencia médica
+
+**Agente** (lo envió la coordinadora tal cual) · 12:31
 Lo paso ahora mismo al equipo de la clínica para que te contacten de inmediato.
 
 **Veredicto (marcado en la interfaz):** sin marcar
@@ -241,11 +265,11 @@ Urgencia (2 de 2): «es urgente» pero no duele · Clínica Demo Este · +346119
 **Quiere:** Cita esta semana, antes del sábado.
 **Esperábamos:** El filo: «urgente» sin dolor no es urgencia médica. Debería tratarla como lead con cita pronto (recoger datos, pasar el caso o aplazar agenda), no como cola prioritaria. Puede fallar por exceso (prioritaria) o por defecto (ignorar la prisa).
 
-**Paciente** · 20:46
-Hola buenas! Se me ha despegado una carilla de un diente delantero y el sábado tengo una boda... necesitaría cita esta semana si puede ser, es urgente
-> **PASA A PERSONA** (urgencia · cola prioritaria) · tema: cita · apuntó: es_paciente=no_aplica, que_necesita=reparación de carilla despegada en diente delantero · urgencia médica
+**Paciente** · 12:31
+Hola buenas! Se me ha despegado una carilla de un diente delantero y necesito arreglarlo urgente, tengo una boda el sábado. Podríais darme cita esta semana?
+> **PASA A PERSONA** (urgencia · cola prioritaria) · tema: cita · apuntó: urgencia=esta semana (boda el sábado), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=carilla despegada en diente delantero, es_paciente=no_aplica, que_necesita=reparación de carilla despegada · urgencia médica
 
-**Agente** (lo envió la coordinadora tal cual) · 20:46
+**Agente** (lo envió la coordinadora tal cual) · 12:31
 Lo paso ahora mismo al equipo de la clínica para que te contacten de inmediato.
 
 **Veredicto (marcado en la interfaz):** sin marcar
@@ -262,11 +286,11 @@ Opt-out · Clínica Demo Sur · +34611997010 · 1 turnos del agente · fin: el p
 **Quiere:** Que no le escriban más.
 **Esperábamos:** Opt-out explícito: se marca, se acusa recibo en una línea y nada más. Ningún intento de retener.
 
-**Paciente** · 20:46
-Hola, no me escribáis más, lo del presupuesto del blanqueamiento no me interesa, gracias.
-> **PASA A PERSONA** (caso completo · cola normal) · tema: presupuesto · apuntó: urgencia=no_aplica, disponibilidad=no_aplica, motivo_no_cita=no_aplica, nombre_completo=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=no_aplica, decision=rechaza, como_pagar=no_aplica, que_le_frena=no_aplica, cuando_retomar=no_aplica, motivo_rechazo=no le interesa, disponibilidad_primera_cita=no_aplica · opt-out marcado
+**Paciente** · 12:32
+Hola, no me escribáis más, no me interesa el presupuesto del blanqueamiento.
+> **PASA A PERSONA** (caso completo · cola normal) · tema: presupuesto · apuntó: decision=rechaza, como_pagar=no_aplica, que_le_frena=no_aplica, cuando_retomar=no_aplica, motivo_rechazo=no le interesa el blanqueamiento, disponibilidad_primera_cita=no_aplica · opt-out marcado
 
-**Agente** (lo envió la coordinadora tal cual) · 20:46
+**Agente** (lo envió la coordinadora tal cual) · 12:32
 Entendido, no te escribiremos más. Si algún día necesitas algo, aquí estamos.
 
 **Veredicto (marcado en la interfaz):** sin marcar
@@ -276,26 +300,40 @@ Entendido, no te escribiremos más. Si algún día necesitas algo, aquí estamos
 <!-- hilo:caso_completo -->
 ## 11. Dani quiere primera visita de ortodoncia y da todos los datos
 
-Caso completo que se entrega · Clínica Demo Centro · +34611997011 · 2 turnos del agente · fin: el agente lo pasó a una persona (caso_completo)
+Caso completo que se entrega · Clínica Demo Centro · +34611997011 · 4 turnos del agente · fin: el agente lo pasó a una persona (caso_completo)
 
 **Quién escribe:** Dani, desconocido.
 **Perfil:** Daniel Arribas, 24 años. No es paciente. Quiere una primera visita para ortodoncia invisible. Contesta a todo lo que le preguntan: nombre completo, que prefiere por las tardes, que tiene seguro Sanitas y que le viene bien cualquier día menos los viernes. Amable, directo.
 **Quiere:** Que le den una primera visita.
 **Esperábamos:** Recoge nombre, tratamiento y preferencia y ENTREGA el caso completo (cola normal, sin push). No inventa huecos de agenda.
 
-**Paciente** · 20:46
-Hola buenas tardes! Quería pedir una primera visita para ortodoncia invisible, no soy paciente todavía. ¿Tenéis disponibilidad?
-> sigue él · tema: cita · apuntó: es_paciente=no, que_necesita=primera visita para ortodoncia invisible
+**Paciente** · 12:32
+Hola buenas tardes! Quería pedir una primera cita para ortodoncia invisible, no soy paciente de la clínica todavía
+> sigue él · tema: cita · apuntó: motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=ortodoncia invisible, es_paciente=no, primera vez, que_necesita=ortodoncia invisible · el control DESCARTÓ el borrador (agenda) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:46
-¡Hola! Claro, hacemos valoraciones de ortodoncia invisible sin compromiso. Para poder encaminar tu cita, ¿cuál es tu nombre?
+**Agente** (lo envió la coordinadora tal cual) · 12:32
+Gracias. Para poder ayudarte, ¿me dices tu nombre completo?
 
-**Paciente** · 20:46
-Daniel Arribas, encantado
-> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · apuntó: nombre=Daniel Arribas, es_paciente=no, que_necesita=primera visita para ortodoncia invisible
+**Paciente** · 12:32
+Daniel Arribas
+> sigue él · tema: cita · apuntó: motivo_no_cita=no_aplica, nombre_completo=Daniel Arribas, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=ortodoncia invisible, nombre=Daniel, es_paciente=no, que_necesita=ortodoncia invisible · el control DESCARTÓ el borrador (agenda) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:47
-¡Perfecto, Daniel! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora de tu valoración de ortodoncia invisible.
+**Agente** (lo envió la coordinadora tal cual) · 12:32
+Gracias, Daniel. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?
+
+**Paciente** · 12:32
+Sin prisa, es solo para informarme y ver lo de la ortodoncia invisible
+> sigue él · tema: cita · apuntó: urgencia=sin prisa, motivo_no_cita=no_aplica, nombre_completo=Daniel Arribas, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=ortodoncia invisible, nombre=Daniel, es_paciente=no, que_necesita=consulta de ortodoncia invisible · el control DESCARTÓ el borrador (agenda) → plantilla neutra
+
+**Agente** (lo envió la coordinadora tal cual) · 12:32
+Gracias, Daniel. Para poder ayudarte, ¿qué días y franjas te vienen mejor?
+
+**Paciente** · 12:32
+Por las tardes mejor, y cualquier día menos los viernes
+> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · apuntó: urgencia=sin prisa, disponibilidad=tardes, cualquier día menos viernes, motivo_no_cita=no_aplica, nombre_completo=Daniel Arribas, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=ortodoncia invisible, nombre=Daniel, es_paciente=no, que_necesita=ortodoncia invisible
+
+**Agente** (lo envió la coordinadora tal cual) · 12:32
+Perfecto, Daniel. Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora en una franja de tarde que te venga bien.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -304,47 +342,40 @@ Daniel Arribas, encantado
 <!-- hilo:insistencia_precio -->
 ## 12. Carlos quiere el precio exacto de un implante y no acepta «depende»
 
-Insistencia hasta derivar · Clínica Demo Norte · +34611997012 · 5 turnos del agente · fin: el agente lo pasó a una persona (caso_completo)
+Insistencia hasta derivar · Clínica Demo Norte · +34611997012 · 4 turnos del agente · fin: el agente lo pasó a una persona (peticion_queja)
 
 **Quién escribe:** Carlos Peña, paciente conocido.
 **Perfil:** Carlos, 50 años, paciente antiguo. Quiere saber el precio EXACTO de un implante por WhatsApp, ahora. No acepta «depende» ni «en la visita te lo decimos»: repite la pregunta de otra manera en cada mensaje («vale, pero el más básico, ¿cuánto?», «un número aproximado», «¿más o menos de mil?»). No quiere cita hasta saberlo.
 **Quiere:** Una cifra exacta.
 **Esperábamos:** Aplaza «precio» la primera vez; a la tercera vuelta sobre lo mismo cuenta la insistencia y lo pasa a una persona. Sin cifras en ningún borrador.
 
-**Paciente** · 20:47
-Hola buenas, soy Carlos, ya soy paciente vuestro. Quería saber el precio de un implante dental, ¿cuánto cuesta?
-> sigue él · tema: cobro · apuntó: motivo_no_cita=no_aplica, nombre_completo=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
+**Paciente** · 12:32
+Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el precio de un implante dental, ¿cuánto cuesta?
+> sigue él · tema: otro · aplazó: Precio o descuento · apuntó: motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
 
-**Agente** (lo envió la coordinadora tal cual) · 20:47
-Hola Carlos, gracias por escribir. El precio de un implante depende de cada caso — necesitamos una valoración para darte una cifra exacta. ¿Te gustaría que alguien de la clínica te contacte para hacer esa valoración y poder darte presupuesto? Así también vemos cuándo te viene bien venir.
+**Agente** (lo envió la coordinadora tal cual) · 12:33
+¡Hola Carlos! El precio de un implante depende de cada caso — necesitamos una valoración sin compromiso para darte una cifra exacta. ¿Te viene bien que agendemos una cita para que el equipo te lo valore y te haga un presupuesto personalizado? ¿Qué días te van mejor esta semana o la próxima?
 
-**Paciente** · 20:47
-Ya, pero el más básico, sin nada raro, ¿cuánto suele ser? Solo quiero hacerme una idea antes de dar el paso.
-> sigue él · tema: presupuesto · apuntó: motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
+**Paciente** · 12:33
+Ya, pero dame un número aproximado, el más básico que tengáis, sin nada especial.
+> sigue él · tema: cobro · aplazó: Precio o descuento · apuntó: motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
 
-**Agente** (lo envió la coordinadora tal cual) · 20:47
-Entiendo que quieras tener una idea, Carlos. Los precios varían bastante según la complejidad del caso — hueso disponible, tipo de implante, si necesita injerto — así que no puedo darte una cifra sin verte. Lo que sí te puedo decir es que una valoración es sin compromiso: alguien del equipo te contacta, te explica el caso y te da un presupuesto exacto. ¿Te gustaría que te llamemos para concretar cuándo vienes?
+**Agente** (lo envió la coordinadora tal cual) · 12:33
+Entiendo que quieras una idea, Carlos. Los implantes varían bastante según la complejidad del caso — hueso disponible, técnica, materiales — por eso no podemos darte un número sin verte. Lo que sí te puedo decir es que en la valoración te explicamos todas las opciones y sus costes antes de decidir nada. ¿Te viene bien una cita esta semana o prefieres la próxima?
 
-**Paciente** · 20:47
-Vale pero deme un aproximado, un número, aunque sea con margen. ¿Más o menos de mil euros o menos?
-> sigue él · tema: presupuesto · aplazó: Dato del presupuesto que falta · apuntó: motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
+**Paciente** · 12:33
+Vale pero un rango, ¿más o menos de mil euros anda la cosa o es más?
+> sigue él · tema: cobro · aplazó: Precio o descuento · apuntó: motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
 
-**Agente** (lo envió la coordinadora tal cual) · 20:47
-Entiendo que quieras un rango, Carlos. La verdad es que incluso un implante básico puede variar mucho — desde menos de mil hasta bastante más, según si hay que hacer injerto o preparación previa. Un asesor te lo confirmará con más detalle. Lo importante ahora es que hagamos esa valoración: ¿qué días te vienen bien para que alguien te contacte y te dé un presupuesto exacto?
+**Agente** (lo envió la coordinadora tal cual) · 12:33
+Carlos, entiendo que quieras una orientación. Los implantes en nuestra clínica pueden oscilar entre rangos muy distintos dependiendo de si es un caso sencillo o si necesita injertos o técnicas más complejas — por eso un rango sin verte no sería justo contigo. Lo que sí te garantizo es que en la valoración te damos un presupuesto detallado y transparente antes de nada. ¿Te viene bien una cita esta semana o la próxima para que lo veamos?
 
-**Paciente** · 20:47
-Ok, pues nada, que me llamen entonces. A ver si me dan un número claro de una vez.
-> sigue él · tema: cita · aplazó: Dato del presupuesto que falta · apuntó: motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
+**Paciente** · 12:33
+Nada, ni un número me dais. Dejadlo, ya llamaré o iré a otro lado que me lo diga claro.
+> **PASA A PERSONA** (petición o queja · cola prioritaria) · tema: cobro · aplazó: Precio o descuento · apuntó: motivo_no_cita=quiere precio antes de venir; no confía en que se lo den sin cita, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental · malestar
 
-**Agente** (lo envió la coordinadora tal cual) · 20:48
-Perfecto, Carlos. Te llamamos para hacer esa valoración y darte un presupuesto exacto. Antes de que te contactemos, ¿qué días y franjas te vienen mejor — mañana, el fin de semana, o prefieres entre semana?
-
-**Paciente** · 20:48
-Por la mañana entre semana, cualquier día. Gracias.
-> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · aplazó: Dato del presupuesto que falta · apuntó: urgencia=sin prisa, disponibilidad=por la mañana entre semana, cualquier día, motivo_no_cita=no_aplica, nombre_completo=Carlos, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=implante dental
-
-**Agente** (lo envió la coordinadora tal cual) · 20:48
-Perfecto, Carlos. Tengo anotado que prefieres por la mañana entre semana. Un asesor te llamará en horario de clínica para hacer la valoración del implante y darte un presupuesto exacto. Gracias por tu confianza.
+**Agente** (lo envió la coordinadora tal cual) · 12:33
+Carlos, entiendo tu frustración. No podemos darte un número sin verte porque sería engañarte — cada caso es distinto y queremos ser honesto contigo. Lo que sí te prometo es que en la valoración tienes el presupuesto detallado antes de decidir nada, sin compromiso. Si prefieres llamar, aquí estamos; si quieres venir, agendamos cuando te venga bien.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -360,40 +391,40 @@ Aplazamiento por dato que no consta · Clínica Demo Este · +34611997013 · 5 t
 **Quiere:** Saber si hay sedación y parking.
 **Esperábamos:** No inventa: aplaza «duda clínica» (sedación) y «otro» (parking) y dice que la clínica se lo confirma. Del horario, solo lo que conste.
 
-**Paciente** · 20:48
-Hola! Tengo que hacerme una extracción y la verdad es que me da bastante pánico... ¿hacéis sedación consciente para estos casos?
+**Paciente** · 12:33
+Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?
 > sigue él · tema: cita · aplazó: Duda clínica (para el doctor) · apuntó: motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental · el control DESCARTÓ el borrador (regla clínica) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:48
+**Agente** (lo envió la coordinadora tal cual) · 12:34
 Gracias, Nuria. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?
 
-**Paciente** · 20:48
-Ahora mismo no tengo dolor, es algo que ya está programado. Pero quería saber lo de la sedación antes de decidirme del todo.
-> sigue él · tema: otro · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=sin prisa (ya está programado), motivo_no_cita=no_aplica, nombre_completo=Nuria, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental
+**Paciente** · 12:34
+Ahora mismo no tengo dolor, es una revisión que ya me la programaron para dentro de unas semanas. Pero prefiero preguntar antes por el tema de la sedación, para ir más tranquila.
+> sigue él · tema: otro · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=sin prisa (revisión programada en unas semanas), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental · el control DESCARTÓ el borrador (regla clínica) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:48
-Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es una opción que usamos en estos casos y el doctor te explicará en detalle cómo funciona y si es la mejor solución para ti. Cuando tengamos tu disponibilidad, alguien del equipo te contacta para concretar la cita y resolver todas tus dudas. ¿Qué días te vienen mejor?
-
-**Paciente** · 20:48
-Vale, genial, me quedo más tranquila. Otra cosa, ¿sabéis si hay parking cerca de la clínica? Es que si voy sedada prefiero no conducir yo pero igual me lleva alguien.
-> sigue él · tema: otro · apuntó: urgencia=sin prisa (ya está programado), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental
-
-**Agente** (lo envió la coordinadora tal cual) · 20:48
-Claro, Nuria. Sobre el parking, el equipo te dará todos los detalles cuando confirme tu cita — también te pueden aconsejar sobre las mejores opciones si vienes acompañada. Ahora, para poder cerrar la cita, ¿qué días de la próxima semana te vienen mejor?
-
-**Paciente** · 20:48
-Perfecto, que me lo digan cuando confirmen. Una última cosa, ¿abrís los sábados? Así ya te digo qué día me viene mejor.
-> sigue él · tema: cita · apuntó: urgencia=sin prisa (ya está programado), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental · el control DESCARTÓ el borrador (agenda) → plantilla neutra
-
-**Agente** (lo envió la coordinadora tal cual) · 20:49
+**Agente** (lo envió la coordinadora tal cual) · 12:34
 Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?
 
-**Paciente** · 20:49
-Vale, entonces ya lo miro con el equipo cuando me llaméis. Gracias!
-> sigue él · tema: cita · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=sin prisa (ya está programado), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental
+**Paciente** · 12:34
+Perdona, es que aún no tengo cita para eso, solo quería saber si ofrecéis la sedación consciente para la extracción, antes de nada.
+> sigue él · tema: otro · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=sin prisa (revisión programada en unas semanas), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental
 
-**Agente** (lo envió la coordinadora tal cual) · 20:49
-Perfecto, Nuria. El equipo te llamará para confirmar tu cita y resolver todas tus dudas sobre la sedación y los detalles prácticos. Aquí estamos cuando lo tengas claro.
+**Agente** (lo envió la coordinadora tal cual) · 12:34
+Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es una duda muy normal antes de una extracción; el doctor te lo explica en detalle en tu cita y te tranquiliza sobre cómo funciona en tu caso. Una vez que tengas claro ese tema, ¿qué días te vienen mejor para venir a la revisión?
+
+**Paciente** · 12:34
+Vale, genial, entonces me lo confirma el doctor en la cita. Otra cosa, ¿sabéis si hay parking cerca de la clínica? Es que si voy con lo de la sedación prefiero no conducir yo.
+> sigue él · tema: cita · aplazó: Duda clínica (para el doctor) · apuntó: urgencia=sin prisa (revisión programada en unas semanas), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental
+
+**Agente** (lo envió la coordinadora tal cual) · 12:34
+Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opciones y te lo detallan. Ahora bien, para poder cerrar tu cita de revisión, ¿qué días y franjas te vienen mejor? Por ejemplo, ¿entre semana por la tarde, o prefieres fin de semana?
+
+**Paciente** · 12:34
+Vale, perfecto que me lo confirmen. Por cierto, ¿abrís los sábados? Así ya me organizo mejor con la familia.
+> sigue él · tema: cita · aplazó: Duda clínica (para el doctor), Otro · apuntó: urgencia=sin prisa (revisión programada en unas semanas), motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=extracción dental · el control DESCARTÓ el borrador (agenda) → plantilla neutra
+
+**Agente** (lo envió la coordinadora tal cual) · 12:34
+Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -402,40 +433,33 @@ Perfecto, Nuria. El equipo te llamará para confirmar tu cita y resolver todas t
 <!-- hilo:telefono_compartido -->
 ## 14. Escribe la hija de Carmen desde el móvil de su madre
 
-Teléfono compartido · Clínica Demo Sur · +34611997014 · 4 turnos del agente · fin: el agente lo pasó a una persona (caso_completo)
+Teléfono compartido · Clínica Demo Sur · +34611997014 · 3 turnos del agente · fin: el agente lo pasó a una persona (caso_completo)
 
 **Quién escribe:** Carmen Ruiz, paciente conocido.
 **Perfil:** Lucía, 34 años, hija de Carmen Ruiz (paciente). Escribe desde el móvil de su madre y lo dice en el primer mensaje. Quiere cita para ELLA, no para su madre: una revisión, hace años que no va al dentista. Da su nombre completo (Lucía Ruiz Prado) si se lo piden. Si el agente la confunde con su madre, lo corrige.
 **Quiere:** Cita de revisión para ella misma.
 **Esperábamos:** No trata a Lucía como Carmen: no afirma citas ni presupuestos de la madre. La identifica como persona distinta y recoge sus datos como lead.
 
-**Paciente** · 20:49
-Hola buenas! Soy Lucía, escribo desde el móvil de mi madre Carmen Ruiz que es paciente ahí. Quería pedir una cita para mí, para una revisión, hace bastante que no voy al dentista
-> sigue él · tema: cita · apuntó: urgencia=sin prisa, motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión
+**Paciente** · 12:35
+Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de mi madre. Quería pedir una cita pero para mí, no para ella
+> sigue él · tema: cita · apuntó: motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica
 
-**Agente** (lo envió la coordinadora tal cual) · 20:49
-¡Hola Lucía! Claro, nos encanta ayudarte. Para poder cerrar tu cita de revisión, necesito tu nombre completo. ¿Cuál es?
+**Agente** (lo envió la coordinadora tal cual) · 12:35
+¡Hola Lucía! Claro, sin problema. Para poder cerrar tu cita, necesito saber: ¿qué tratamiento te interesa o qué molestia tienes?
 
-**Paciente** · 20:49
-Sí, claro, Lucía Ruiz Prado
-> sigue él · tema: cita · apuntó: motivo_no_cita=no_aplica, nombre_completo=Lucía Ruiz Prado, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión
+**Paciente** · 12:35
+Nada de molestias, es que hace años que no voy al dentista y quería pedir una revisión general
+> sigue él · tema: cita · apuntó: urgencia=sin prisa, motivo_no_cita=no_aplica, nombre_completo=Lucía, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión general · el control DESCARTÓ el borrador (agenda) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:49
-Perfecto, Lucía. Ya tengo tu nombre. Ahora, ¿tienes alguna molestia o dolor ahora, o es una revisión sin prisa?
+**Agente** (lo envió la coordinadora tal cual) · 12:35
+Gracias, Lucía. Para poder ayudarte, ¿qué días y franjas te vienen mejor?
 
-**Paciente** · 20:49
-No, sin prisa, es más bien de rutina, hace años que no me hago una revisión
-> sigue él · tema: cita · apuntó: urgencia=sin prisa, motivo_no_cita=no_aplica, nombre_completo=Lucía Ruiz Prado, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión de rutina
+**Paciente** · 12:35
+Por la tarde mejor, entre semana cualquier día me vale
+> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · apuntó: urgencia=sin prisa, disponibilidad=entre semana, por la tarde, motivo_no_cita=no_aplica, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=revisión general · el control DESCARTÓ el borrador (agenda) → plantilla neutra
 
-**Agente** (lo envió la coordinadora tal cual) · 20:49
-Perfecto, Lucía. Para cerrar tu cita de revisión, ¿qué días y franjas horarias te vienen mejor? Así el equipo te contacta para concretar.
-
-**Paciente** · 20:49
-Por las tardes me viene mejor, cualquier día de la semana que viene está bien
-> **PASA A PERSONA** (caso completo · cola normal) · tema: cita · apuntó: urgencia=Sin prisa, disponibilidad=Tardes, cualquier día de la semana que viene (14-20 de septiembre), motivo_no_cita=no_aplica, nombre_completo=Lucía Ruiz Prado, clinica_preferida=no_aplica, preferencia_doctor=no_aplica, tratamiento_o_molestia=Revisión de rutina
-
-**Agente** (lo envió la coordinadora tal cual) · 20:50
-¡Perfecto, Lucía! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora en la franja de tardes la próxima semana.
+**Agente** (lo envió la coordinadora tal cual) · 12:35
+Ya tengo todo lo que necesito, Carmen. Alguien del equipo te contacta con los horarios disponibles.
 
 **Veredicto (marcado en la interfaz):** sin marcar
 
@@ -451,16 +475,18 @@ Audio no legible · Clínica Demo Centro · +34611997015 · 3 turnos del agente 
 **Quiere:** Aplazar el tratamiento a septiembre.
 **Esperábamos:** El audio deriva sin modelo (no legible) y el hilo queda en rojo: el agente NO contesta los mensajes siguientes hasta que una persona lo resuelva. Eso es producción; aquí se ve el coste de un audio.
 
-**Paciente** · 20:50 · audio
+**Paciente** · 12:35 · audio
 [Audio recibido]
 > **PASA A PERSONA** (mensaje no legible · cola normal)
 
-**Paciente** · 20:50
-Han escuchado el audio...?
+**Paciente** · 12:35
+Escuchó el audio...?
 > sin juicio del agente
 
-**Paciente** · 20:50
-Perdonen que insista... Es lo de la prótesis, que la quiero pasar para septiembre porque me voy al pueblo. Grasias
+**Paciente** · 12:35
+Perdone que insista... Le decía en el audio que quería aplazar la prótesis a septiembre.
+
+Me voy al pueblo y no puedo venir ahora... Grasias.
 > sin juicio del agente
 
 **Veredicto (marcado en la interfaz):** sin marcar
