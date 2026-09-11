@@ -68,3 +68,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - hilos:replay --solo caso_completo (2 turnos) · **$0,02 medido** · pregunta de Simon: ¿el banco haría lo mismo con
   Daniela? Misma entrada por construcción (qa:banco-vs-runner extendido a todos los turnos) y misma decisión:
   entrega con nombre + necesidad porque a un desconocido solo se le abre «identificar», nunca «cita» · ac. $1,20
+- qa:banco (un turno real, cero escritura) tras la sesión del banco · **$0,01** · ac. $1,21
+- Anunciado: volver a jugar los 15 hilos con la sesión y «cita» abierta al desconocido (~$0,30), hilos:replay
+  (~$0,17) y la vara completa (~$0,35) tras el commit de jerga — ~$0,8 más, dentro del tope.

@@ -15,6 +15,8 @@ dotenv.config({ path: ".env.local" });
 import { readFileSync } from "node:fs";
 import { evaluarTurno } from "../app/lib/agente/evaluador";
 import { construirEntradaDePrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
+import { SESION_NUEVA, avanzarSesion } from "../app/lib/agente/sesion-prueba";
+import { relojDelBanco } from "../app/lib/agente/banco-pruebas";
 import { OBJETIVOS_POR_DEFECTO } from "../app/lib/automatizacion/objetivos";
 
 if (!process.env.ANTHROPIC_API_KEY) { console.error("✗ sin clave"); process.exit(2); }
@@ -39,16 +41,18 @@ async function correr(etiqueta: string, override?: string): Promise<number[]> {
   const aguantes: number[] = [];
   for (let rep = 1; rep <= 3; rep++) {
     const hilo: TurnoPrueba[] = [];
+    let sesion = SESION_NUEVA;
     let turnoDeriva = GUION.length + 1; // no derivó en el guion
     for (let t = 0; t < GUION.length; t++) {
       const entrada = construirEntradaDePrueba({
         escenario: { tipo: "lead_nuevo" },
         hilo, mensaje: GUION[t],
         conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO,
-        clinicaNombre: "Clínica Aguante", derivadoPrevio: false, hoy: "2026-08-22",
+        clinicaNombre: "Clínica Aguante", sesion, hoy: "2026-08-22",
       });
       const ev = await evaluarTurno(entrada, override ? { _promptOverride: override } as any : undefined);
       if (ev.fallback) { console.error("  ⚠ fallback — pasada no fiable"); process.exit(2); }
+      sesion = avanzarSesion(sesion, ev, { instante: relojDelBanco("2026-08-22", hilo.length), entrante: GUION[t] });
       hilo.push({ direccion: "Entrante", contenido: GUION[t] });
       hilo.push({ direccion: "Saliente", contenido: ev.respuesta });
       if (ev.decision === "deriva") {

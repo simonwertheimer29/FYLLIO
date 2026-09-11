@@ -19,6 +19,32 @@
 //   · La config se lee EN CADA TURNO: cambias la configuración, y el
 //     siguiente mensaje de la misma conversación ya responde con la nueva —
 //     ese es el ciclo (probar → ajustar → probar).
+//   · LO QUE PRODUCCIÓN PERSISTE ENTRE TURNOS, EL BANCO LO LLEVA EN SU
+//     SESIÓN (11-09, `sesion-prueba`): aplazados, espera, opt-out, derivado.
+//     Antes pasaba esas piezas vacías y la insistencia no se podía probar.
+//
+// LO QUE EL BANCO SIGUE SIN LLEVAR — declarado, no escondido (censo del
+// 11-09, tras la cuarta divergencia; `qa:banco-vs-runner` exige que cada
+// campo de la entrada esté comparado o en esta lista):
+//   · `senales`: producción las cuenta sobre marcas de tiempo REALES (minutos
+//     desde el último saliente, hora local, fuera de horario); el reloj del
+//     banco es sintético. Van a null: el prompt del banco no lleva esas tres
+//     líneas y el de producción sí.
+//   · `diasHastaProximaCita`: el banco no tiene citas. La regla del
+//     antecedente médico con cita próxima (023) y el modo «paciente CON cita
+//     futura» (sin objetivo abierto) no se pueden probar aquí.
+//   · `clinicasDelHilo`: el banco es de UNA clínica; la red (MEJORAS 122) no.
+//   · `identidadAmbigua`: siempre null; la guarda del número compartido
+//     (MEJORAS 139) no se prueba aquí.
+//   · `tipoEntrante`: siempre texto; un audio o una foto (034), no.
+//   · El hilo no lleva cadencias (salientes de plantilla) ni un lead FICHADO
+//     (con nombre y sin ficha de paciente): el escenario «lead nuevo» es el
+//     desconocido total, y el lead con ficha —el caso más frecuente en
+//     producción— no tiene escenario.
+//   · `presupuestosVivos`: uno como máximo; el juicio «de cuál habla» con
+//     varios (letras A, B) no se prueba.
+//   · Los salientes del banco cuentan como enviados; en modo A producción
+//     los tiene pendientes hasta que una persona los manda (mandamiento 25).
 
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
@@ -32,7 +58,8 @@ import {
 } from "./evaluador";
 import { conocimientoDeClinica, objetivosDeClinica } from "../automatizacion/pg";
 import { PRECEDENCIA_OBJETIVOS, type EtapaObjetivo } from "../automatizacion/objetivos";
-import { entradaDesdeContexto } from "./entrada-desde-contexto";
+import { entradaDesdeContexto, type SemaforoParaEntrada } from "./entrada-desde-contexto";
+import { avanzarSesion, type EstadoSesionPrueba } from "./sesion-prueba";
 
 // ─── Los escenarios: la situación la ELIGE quien prueba ────────────────────
 //
@@ -63,10 +90,11 @@ export type TurnoPrueba = { direccion: "Entrante" | "Saliente"; contenido: strin
 // SIN CITA FUTURA (fase B), que es lo que son los tres escenarios de
 // paciente. Antes el banco no abría «cita» para ellos y el agente del banco
 // conversaba sin entregar mientras el de producción entregaba.
-// Un desconocido total (ni paciente ni lead) abre SOLO «identificar»: la cita
-// se abre cuando existe un lead activo, no antes (qa:banco-vs-runner lo vio).
+// Un desconocido total (ni paciente ni lead) abre «identificar» Y «cita»
+// (11-09, contexto-conversacion): con solo nombre y tratamiento el caso no
+// le ahorra trabajo a nadie — urgencia y disponibilidad viven en «cita».
 const OBJETIVOS_DEL_ESCENARIO: Record<EscenarioPrueba["tipo"], EtapaObjetivo[]> = {
-  lead_nuevo: ["identificar"],
+  lead_nuevo: ["cita", "identificar"],
   presupuesto: ["presupuesto", "cita"],
   cobro: ["cobro", "cita"],
   al_dia: ["cita"],
@@ -86,26 +114,36 @@ export function construirEntradaDePrueba(args: {
   conocimiento: EntradaEvaluador["conocimiento"];
   objetivosConfig: Awaited<ReturnType<typeof objetivosDeClinica>>;
   clinicaNombre: string | null;
-  /** true si un turno anterior de ESTA sesión derivó: la no-reversión es
-   *  parte del agente y el banco la enseña, no la esquiva. */
-  derivadoPrevio: boolean;
+  /** Lo que producción habría persistido en los turnos anteriores de ESTA
+   *  sesión (aplazados, espera, opt-out, derivado) — `sesion-prueba`. */
+  sesion: EstadoSesionPrueba;
   hoy?: string;
 }): EntradaEvaluador {
   const e = args.escenario;
   const abiertos = new Set<EtapaObjetivo>(OBJETIVOS_DEL_ESCENARIO[e.tipo]);
-  const base = Date.parse(`${args.hoy ?? hoyISO()}T09:00:00Z`);
+  const hoy = args.hoy ?? hoyISO();
   const hilo: MensajeHilo[] = [
     ...args.hilo.map((t, i) => ({
       direccion: t.direccion,
       contenido: t.contenido,
-      timestamp: new Date(base + i * 60_000).toISOString(),
+      timestamp: relojDelBanco(hoy, i),
     })),
     {
       direccion: "Entrante" as const,
       contenido: args.mensaje,
-      timestamp: new Date(base + args.hilo.length * 60_000).toISOString(),
+      timestamp: relojDelBanco(hoy, args.hilo.length),
     },
   ];
+  // EL SEMÁFORO del banco, con la precedencia de semaforo.ts (el derivado
+  // manda sobre la espera) y la espera vencida a «hoy» fuera (fecha
+  // inclusive, semaforo.ts:156). Es lo que producción lee de su log.
+  const s = args.sesion;
+  const esperaViva = s.espera && s.espera.hasta >= hoy ? s.espera : null;
+  const semaforo: SemaforoParaEntrada = s.derivado
+    ? { verde: false, motivo: "derivado_sin_resolver" }
+    : esperaViva
+      ? { verde: false, motivo: "espera", hasta: esperaViva.hasta, esperaMotivo: esperaViva.motivo }
+      : { verde: true };
   // MEJORAS 225: el MISMO constructor que el orquestador (entrada-desde-
   // contexto). El banco fabrica el contexto; la entrada no la fabrica nadie
   // más. El 22-08 se escribió aquí «como en producción» a mano y divergió.
@@ -133,14 +171,26 @@ export function construirEntradaDePrueba(args: {
     clinicaNombre: args.clinicaNombre,
     hilo,
     tipoEntrante: "text",
-    aplazamientos: [],
-    semaforo: args.derivadoPrevio ? { verde: false, motivo: "derivado" } : { verde: true },
+    aplazamientos: s.aplazamientos,
+    semaforo,
     diasHastaProximaCita: null,
     senales: null,
-    optOutVigente: false,
+    optOutVigente: s.optOut,
     clinicasDelHilo: null,
     hoy: args.hoy,
   });
+}
+
+/** El reloj SINTÉTICO del banco: el mensaje i de la sesión ocurre a las
+ *  09:00Z de «hoy» + i pasos. El paso son 30 minutos, POR ENCIMA de la
+ *  ventana de ráfaga de `vueltasPorClave` (15 min): cada turno del banco es
+ *  una vuelta distinta, y así insistir tres veces se puede probar en tres
+ *  mensajes. Con el paso de un minuto de antes, tres insistencias eran una
+ *  ráfaga —una sola vuelta— y el umbral no llegaba nunca. Lo usan el hilo
+ *  y la sesión (el instante del aplazado es el del entrante que lo causó). */
+export const PASO_DEL_BANCO_MS = 30 * 60_000;
+export function relojDelBanco(hoy: string, indice: number): string {
+  return new Date(Date.parse(`${hoy}T09:00:00Z`) + indice * PASO_DEL_BANCO_MS).toISOString();
 }
 
 // ─── El tope: corta CON MOTIVO, nunca en silencio ──────────────────────────
@@ -191,10 +241,13 @@ export type ResultadoPrueba = {
   evaluacion: EvaluacionTurno;
   usados: number;
   tope: number;
+  /** La sesión tras este turno: el cliente la devuelve con el siguiente. */
+  sesion: EstadoSesionPrueba;
 };
 
 /**
- * Un turno del banco: tope → config VIGENTE de la clínica → evaluarTurno.
+ * Un turno del banco: tope → config VIGENTE de la clínica → evaluarTurno →
+ * la sesión avanza como si producción hubiera persistido el turno.
  * La config se carga aquí, en cada turno, a propósito (regla del ciclo).
  * Ilegible → LANZA (mismo contrato que producción: el banco no prueba una
  * config que producción no aceptaría).
@@ -205,13 +258,14 @@ export async function probarTurno(args: {
   escenario: EscenarioPrueba;
   hilo: TurnoPrueba[];
   mensaje: string;
-  derivadoPrevio: boolean;
+  sesion: EstadoSesionPrueba;
 }): Promise<ResultadoPrueba> {
   const { usados, tope } = await consumirTurnoDePrueba(args.clinicaId);
   const [conocimiento, objetivosConfig] = await Promise.all([
     conocimientoDeClinica(args.clinicaId),
     objetivosDeClinica(args.clinicaId),
   ]);
+  const hoy = hoyISO();
   const entrada = construirEntradaDePrueba({
     escenario: args.escenario,
     hilo: args.hilo,
@@ -219,8 +273,13 @@ export async function probarTurno(args: {
     conocimiento,
     objetivosConfig,
     clinicaNombre: args.clinicaNombre,
-    derivadoPrevio: args.derivadoPrevio,
+    sesion: args.sesion,
+    hoy,
   });
   const evaluacion = await evaluarTurno(entrada);
-  return { evaluacion, usados, tope };
+  const sesion = avanzarSesion(args.sesion, evaluacion, {
+    instante: relojDelBanco(hoy, args.hilo.length),
+    entrante: args.mensaje,
+  });
+  return { evaluacion, usados, tope, sesion };
 }

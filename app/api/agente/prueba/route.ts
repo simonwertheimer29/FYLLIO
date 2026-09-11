@@ -25,6 +25,7 @@ import {
   type TurnoPrueba,
 } from "../../../lib/agente/banco-pruebas";
 import { ConocimientoIlegibleError } from "../../../lib/agente/conocimiento";
+import { leerSesionPrueba } from "../../../lib/agente/sesion-prueba";
 import type { Session } from "../../../lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -108,6 +109,14 @@ export const POST = withAuth(async (session, req) => {
         contenido: String(t?.contenido ?? "").slice(0, 1000),
       }))
     : [];
+  // La sesión (11-09): lo que producción habría persistido en los turnos
+  // anteriores — aplazados, espera, opt-out, derivado. Viaja del cliente
+  // como el hilo; ausente = conversación nueva; mal formada = 400, porque
+  // entra en la entrada del modelo.
+  const sesion = leerSesionPrueba(body.sesion);
+  if (!sesion) {
+    return NextResponse.json({ error: "La sesión de prueba no es válida — empieza la conversación de nuevo" }, { status: 400 });
+  }
 
   try {
     return await runWithCliente(session.cliente, async () => {
@@ -124,7 +133,7 @@ export const POST = withAuth(async (session, req) => {
         escenario,
         hilo,
         mensaje,
-        derivadoPrevio: body.derivadoPrevio === true,
+        sesion,
       });
       return NextResponse.json(r);
     });

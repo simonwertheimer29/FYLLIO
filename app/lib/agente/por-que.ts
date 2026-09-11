@@ -33,6 +33,9 @@ import { costeUsdDeTurno } from "./coste";
 import { contextoDeConversacion } from "./contexto-conversacion";
 import { esLegible } from "../mensajeria/tipos-mensaje";
 import type { EscenarioPrueba, TurnoPrueba } from "./banco-pruebas";
+import type { EstadoSesionPrueba } from "./sesion-prueba";
+import type { ClaveAplazado, EventoAplazamiento } from "../automatizacion/aplazamientos";
+import { optOutDeTelefono } from "../contacto/optout";
 import type { VersionTurno } from "./version";
 import type { SenalesHilo } from "./evaluador";
 import type { CandidatoMarcado } from "./candidatos-eval.tipos";
@@ -268,8 +271,11 @@ export type ReplayDeHilo = {
   hilo: TurnoPrueba[];
   /** El entrante que provocó el turno: el banco lo deja escrito para pulsar Enviar. */
   mensaje: string;
-  /** Un turno anterior ya había entregado el caso: la no-reversión se enseña, no se esquiva. */
-  derivadoPrevio: boolean;
+  /** Lo que producción había persistido ANTES de ese mensaje (aplazados,
+   *  espera, derivado) y el opt-out vigente de hoy — la sesión del banco
+   *  (11-09). Sin esto el replay volvía a probar el turno con la memoria
+   *  vacía: sin aplazados, la insistencia no se reproducía. */
+  sesion: EstadoSesionPrueba;
 };
 
 const TOPE_HILO_REPLAY = 40;
@@ -289,6 +295,36 @@ export async function replayDeHilo(telefono: string, hasta: string): Promise<Rep
     .filter((m) => !m.pendiente && (m.tipo == null || esLegible(m.tipo)) && m.contenido.trim() !== "");
   const hilo: TurnoPrueba[] = previos.slice(-TOPE_HILO_REPLAY).map((m) => ({ direccion: m.direccion, contenido: m.contenido }));
   const derivadoPrevio = eventos.some((e) => e.evento === "derivado" && e.created_at < objetivo.ts);
+  // 11-09 — el log que producción leyó antes de ese turno (evaluar-entrante
+  // §3 y semaforo.ts), SIN el filtro de mensaje_id de leerHilo: un
+  // `aplazado_resuelto` lo emite una persona desde la ficha, sin mensaje.
+  const cliente = requireCliente("replayDeHilo");
+  const log = await runWithClienteDb(cliente, (trx) =>
+    sql<{ evento: string; clave_aplazado: string | null; motivo_texto: string | null; hasta: string | null; created_at: Date }>`
+      select evento, clave_aplazado, motivo_texto, hasta::text as hasta, created_at
+        from eventos_automatizacion
+       where tipo_caso = 'conversacion' and caso_id = ${telefono}
+         and evento in ('aplazado', 'aplazado_resuelto', 'espera_fijada', 'espera_levantada')
+         and created_at < ${objetivo.ts}::timestamptz
+       order by created_at asc, id asc`.execute(trx),
+  );
+  const filas = log.rows.map((r) => ({ ...r, createdAt: new Date(r.created_at).toISOString() }));
+  const aplazamientos: EventoAplazamiento[] = filas
+    .filter((r) => (r.evento === "aplazado" || r.evento === "aplazado_resuelto") && r.clave_aplazado)
+    .map((r) => ({
+      evento: r.evento as "aplazado" | "aplazado_resuelto",
+      clave: r.clave_aplazado as ClaveAplazado,
+      motivoTexto: r.motivo_texto,
+      createdAt: r.createdAt,
+    }));
+  const esperas = filas.filter((r) => r.evento === "espera_fijada" && r.hasta);
+  const ultimaEspera = esperas[esperas.length - 1] ?? null;
+  const espera =
+    ultimaEspera && !filas.some((r) => r.evento === "espera_levantada" && r.createdAt > ultimaEspera.createdAt)
+      ? { hasta: String(ultimaEspera.hasta).slice(0, 10), motivo: ultimaEspera.motivo_texto }
+      : null;
+  // El opt-out, como el contexto: la situación es la de HOY.
+  const optOut = (await optOutDeTelefono(telefono)).activo;
 
   const ctx = await contextoDeConversacion(telefono);
   const vivo = ctx.presupuestosVivos[0] ?? null;
@@ -300,5 +336,11 @@ export async function replayDeHilo(telefono: string, hasta: string): Promise<Rep
       : ctx.pacienteId
         ? { tipo: "al_dia", nombre }
         : { tipo: "lead_nuevo", nombre };
-  return { clinicaId: ctx.clinicaId, escenario, hilo, mensaje: objetivo.contenido, derivadoPrevio };
+  return {
+    clinicaId: ctx.clinicaId,
+    escenario,
+    hilo,
+    mensaje: objetivo.contenido,
+    sesion: { aplazamientos, espera, optOut, derivado: derivadoPrevio },
+  };
 }

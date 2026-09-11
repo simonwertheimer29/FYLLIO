@@ -33,6 +33,8 @@ import {
   TopeDePruebasError,
   TOPE_PRUEBAS_DIA,
 } from "../app/lib/agente/banco-pruebas";
+import { SESION_NUEVA, avanzarSesion } from "../app/lib/agente/sesion-prueba";
+import { relojDelBanco } from "../app/lib/agente/banco-pruebas";
 import { renderEntrada } from "../app/lib/agente/evaluador";
 import { parseConocimiento } from "../app/lib/agente/conocimiento";
 import { OBJETIVOS_POR_DEFECTO } from "../app/lib/automatizacion/objetivos";
@@ -63,7 +65,7 @@ const entradaPresu = construirEntradaDePrueba({
   conocimiento: CONOCIMIENTO_MARCADO,
   objetivosConfig: OBJETIVOS_POR_DEFECTO,
   clinicaNombre: "Clínica QA",
-  derivadoPrevio: false,
+  sesion: SESION_NUEVA,
   hoy: "2026-08-22",
 });
 const render = renderEntrada(entradaPresu).texto;
@@ -79,16 +81,45 @@ const entradaLead = construirEntradaDePrueba({
   escenario: { tipo: "lead_nuevo", nombre: "Lucía" },
   hilo: [], mensaje: "Hola, ¿hacéis ortodoncia?",
   conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO,
-  clinicaNombre: null, derivadoPrevio: false, hoy: "2026-08-22",
+  clinicaNombre: null, sesion: SESION_NUEVA, hoy: "2026-08-22",
 });
 ok("lead nuevo: no consta como paciente, y abre cita + identificar",
   !entradaLead.esPacienteConocido &&
-    entradaLead.objetivosAbiertos.map((o) => o.etapa).sort().join(",") === "identificar");
+    entradaLead.objetivosAbiertos.map((o) => o.etapa).sort().join(",") === "cita,identificar");
 ok("al_dia no abre nada; cobro abre cobro con la deuda ficticia",
-  construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: false }).objetivosAbiertos.map((o) => o.etapa).join(",") === "cita" &&
-    construirEntradaDePrueba({ escenario: { tipo: "cobro", deuda: 480 }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: false }).pendienteCobro === 480);
+  construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, sesion: SESION_NUEVA }).objetivosAbiertos.map((o) => o.etapa).join(",") === "cita" &&
+    construirEntradaDePrueba({ escenario: { tipo: "cobro", deuda: 480 }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, sesion: SESION_NUEVA }).pendienteCobro === 480);
 ok("la no-reversión viaja: derivadoPrevio → yaDerivado (el banco la enseña, no la esquiva)",
-  construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, derivadoPrevio: true }).yaDerivado === true);
+  construirEntradaDePrueba({ escenario: { tipo: "al_dia" }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null, sesion: { ...SESION_NUEVA, derivado: true } }).yaDerivado === true);
+
+// ── La SESIÓN (11-09): lo que producción persiste entre turnos, el banco lo
+//    arrastra. Sin modelo: se hace avanzar la sesión con evaluaciones mínimas
+//    (lo que persistir-turno escribiría) y se mira la entrada del turno
+//    siguiente — la misma entrada que vería producción tras leer su log.
+const HOY = "2026-08-22";
+const base = { escenario: { tipo: "al_dia" as const }, hilo: [], mensaje: "x", conocimiento: null, objetivosConfig: OBJETIVOS_POR_DEFECTO, clinicaNombre: null };
+const aplaza = (clave: "plan_pago" | "duda_clinica", motivo: string) =>
+  ({ decision: "sigue" as const, aplazamientos: [{ clave, motivo }], esperaHasta: null, esperaLevantar: false });
+let s = avanzarSesion(SESION_NUEVA, aplaza("plan_pago", "quiere cuotas"), { instante: relojDelBanco(HOY, 0), entrante: "¿me lo dejáis en cuotas?" });
+s = avanzarSesion(s, aplaza("plan_pago", "vuelve a preguntar (2ª vez)"), { instante: relojDelBanco(HOY, 2), entrante: "¿y las cuotas?" });
+const e3 = construirEntradaDePrueba({ ...base, escenario: { tipo: "presupuesto" }, sesion: s, hoy: HOY });
+ok("la sesión arrastra los aplazados: dos turnos que aplazan plan_pago → pendiente con dos motivos y DOS vueltas (el paso del banco supera la ventana de ráfaga)",
+  e3.aplazadosPendientes.filter((a) => a.clave === "plan_pago").length === 2 && e3.aplazadosPorClave.plan_pago === 2);
+ok("una emisión por clave y turno, como persistir-turno: el mismo tema dos veces en un turno cuenta una",
+  avanzarSesion(SESION_NUEVA, { decision: "sigue", aplazamientos: [{ clave: "duda_clinica", motivo: "a" }, { clave: "duda_clinica", motivo: "b" }], esperaHasta: null, esperaLevantar: false }, { instante: relojDelBanco(HOY, 0), entrante: "x" }).aplazamientos.length === 1);
+const conEspera = avanzarSesion(SESION_NUEVA, { decision: "sigue", aplazamientos: [], esperaHasta: "2026-08-25", esperaLevantar: false }, { instante: relojDelBanco(HOY, 0), entrante: "hablamos el lunes" });
+const eEspera = construirEntradaDePrueba({ ...base, sesion: conEspera, hoy: HOY });
+ok("la espera fijada en un turno es la espera VIGENTE del siguiente, con la frase como motivo, y no deriva",
+  eEspera.esperaVigente?.hasta === "2026-08-25" && eEspera.esperaVigente?.motivo === "«hablamos el lunes»" && eEspera.yaDerivado === false);
+ok("la espera vencida a «hoy» no se pasa (fecha inclusive, como el semáforo)",
+  construirEntradaDePrueba({ ...base, sesion: conEspera, hoy: "2026-08-25" }).esperaVigente?.hasta === "2026-08-25" &&
+    construirEntradaDePrueba({ ...base, sesion: conEspera, hoy: "2026-08-26" }).esperaVigente == null);
+ok("levantar la espera la quita; derivar manda sobre ella (precedencia del semáforo)",
+  avanzarSesion(conEspera, { decision: "sigue", aplazamientos: [], esperaHasta: null, esperaLevantar: true }, { instante: relojDelBanco(HOY, 2), entrante: "x" }).espera === null &&
+    (() => { const e = construirEntradaDePrueba({ ...base, sesion: { ...conEspera, derivado: true }, hoy: HOY }); return e.yaDerivado === true && e.esperaVigente == null; })());
+ok("el opt-out de un turno queda para los siguientes; un fallback no mueve nada",
+  avanzarSesion(SESION_NUEVA, { decision: "sigue", aplazamientos: [], esperaHasta: null, esperaLevantar: false, pideNoContacto: true }, { instante: relojDelBanco(HOY, 0), entrante: "x" }).optOut === true &&
+    avanzarSesion(s, { fallback: true, decision: "sigue", aplazamientos: [{ clave: "otro", motivo: "z" }], esperaHasta: null, esperaLevantar: false }, { instante: relojDelBanco(HOY, 4), entrante: "x" }) === s);
 
 // ─── B · CERO ESCRITURA: foto de TODAS las tablas ──────────────────────────
 console.log("\nB · cero escritura: recuentos + checksums antes/después de un turno REAL");
@@ -138,7 +169,7 @@ await runWithCliente("DEMO", async () => {
     escenario: { tipo: "presupuesto", tratamiento: "Ortodoncia", importe: 2400 },
     hilo: [],
     mensaje: "Hola, ¿me podéis recordar cuánto era el presupuesto?",
-    derivadoPrevio: false,
+    sesion: SESION_NUEVA,
   });
 });
 const evaluacion = resultado!.evaluacion;

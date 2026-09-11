@@ -116,7 +116,7 @@ async function main() {
       r?.hilo.map((t) => `${t.direccion[0]}:${t.contenido}`).join("|") === "E:hola, quiero cita|S:¿Qué día te viene bien?|S:te llamo ahora",
       `replay: el hilo previo sin el audio (no legible) (${r?.hilo.map((t) => t.contenido).join("|")})`,
     );
-    check(r?.derivadoPrevio === true, "replay: hubo una entrega antes → derivadoPrevio");
+    check(r?.sesion.derivado === true, "replay: hubo una entrega antes → sesion.derivado");
     check(r?.escenario.tipo === "lead_nuevo", `replay: un teléfono desconocido es un lead nuevo (${r?.escenario.tipo})`);
     check((await replayDeHilo(TEL, "qa-pq-2")) === null, "replay: un saliente no se reproduce (null)");
     check((await replayDeHilo(TEL, "no-existe")) === null, "replay: un mensaje que no está → null");

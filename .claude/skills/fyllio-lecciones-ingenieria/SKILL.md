@@ -487,10 +487,25 @@ Reglas:
 - **Antes de dar por bueno un resultado verde, preguntar qué corrió exactamente**: qué código, qué
   árbol, qué entrada, quién envió. Si la respuesta no es «lo mismo que producción», el verde no
   vale.
+- **Lo que producción escribe en el turno N y lee en el N+1, la prueba lo lleva en su SESIÓN** y lo
+  hace avanzar con la MISMA regla que la escritura (`sesion-prueba.ts` ↔ persistir-turno). Un estado
+  vacío «porque el banco no escribe» es la divergencia mejor disfrazada: en el turno 1, vacío ES lo
+  correcto, y el QA que solo mira el turno 1 da verde.
+- **El QA de los dos caminos exige que TODO campo de la entrada esté comparado o declarado** con su
+  porqué (`COMPARABLES` / `DECLARADOS` en `qa:banco-vs-runner`): un campo nuevo sin decidir es rojo.
+  La siguiente divergencia se decide al añadir el campo, no se descubre en un mes.
 > **Nos lo enseñó:** la jugada de hilos del 10-sep. Trece de quince hilos acabaron en entrega al
 > primer turno; el banco, con los mismos mensajes, no lo hacía. El repro aisló el `nombre`: el
 > orquestador pasaba «Marta L.» (perfil de WhatsApp), el modelo lo apuntaba como recogido y el
 > código cerraba el caso. El banco ponía el teléfono «exactamente como producción». Era mentira.
+>
+> **Y la cuarta divergencia (11-09): el banco no arrastraba lo que producción PERSISTE entre
+> turnos.** El QA comparaba solo el turno 1, donde «aplazados vacíos» es lo correcto. Al comparar
+> todos los turnos: producción veía «plan_pago» pendiente y sus vueltas; el banco pasaba `[]` — y
+> con él, la espera pactada y el opt-out. Nada de lo probado en el banco sobre insistencia probaba
+> nada. Y encima el reloj sintético del banco (un minuto entre mensajes) metía la conversación
+> entera en la ventana de ráfaga de `vueltasPorClave`: aunque hubiera contado, tres insistencias
+> eran UNA vuelta. Los hilos jugados tienen el mismo agujero por otra vía (MEJORAS 227).
 
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo

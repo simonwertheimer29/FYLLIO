@@ -25,7 +25,8 @@ import {
   RefreshCw,
   ICON_STROKE,
 } from "../../../components/icons";
-import { ETIQUETA_CLAVE, type ClaveAplazado } from "../../../lib/automatizacion/aplazamientos";
+import { ETIQUETA_CLAVE, pendientesDeAplazados, vueltasPorClave, type ClaveAplazado } from "../../../lib/automatizacion/aplazamientos";
+import { SESION_NUEVA, type EstadoSesionPrueba } from "../../../lib/agente/sesion-prueba";
 import { legibleCampo } from "../../../components/agente/FichaCasoPanel";
 // El vocabulario en palabras y los bloques son los MISMOS que enseña «Ver
 // por qué» en Mensajería (2.8): un solo diccionario para las dos pantallas.
@@ -84,7 +85,10 @@ export function BancoPruebasView() {
   const replayRef = useRef<ReplayDeHilo | null>(null);
   const replayPedido = useRef(false);
   const clinicaActualRef = useRef(selectedClinicaId);
-  const [derivadoDeReplay, setDerivadoDeReplay] = useState(false);
+  // La SESIÓN (11-09): lo que producción persiste entre turnos —aplazados,
+  // espera, opt-out, derivado— viaja aquí, opaca, como el hilo. El servidor
+  // la devuelve tras cada turno y se manda tal cual con el siguiente.
+  const [sesion, setSesion] = useState<EstadoSesionPrueba>(SESION_NUEVA);
   useEffect(() => {
     clinicaActualRef.current = selectedClinicaId;
   }, [selectedClinicaId]);
@@ -92,11 +96,11 @@ export function BancoPruebasView() {
     setEscenario(r.escenario);
     setTurnos(r.hilo.map((t) => ({ direccion: t.direccion, contenido: t.contenido, real: true })));
     setTexto(r.mensaje);
-    setDerivadoDeReplay(r.derivadoPrevio);
+    setSesion(r.sesion);
   }, []);
   const soltarReplay = useCallback(() => {
     replayRef.current = null;
-    setDerivadoDeReplay(false);
+    setSesion(SESION_NUEVA);
   }, []);
 
   useEffect(() => {
@@ -105,7 +109,7 @@ export function BancoPruebasView() {
       aplicarReplay(r);
     } else {
       setTurnos([]);
-      setDerivadoDeReplay(false);
+      setSesion(SESION_NUEVA);
     }
     setEstado(null);
     void cargarEstado();
@@ -139,7 +143,7 @@ export function BancoPruebasView() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [turnos]);
 
-  const derivadoPrevio = derivadoDeReplay || turnos.some((t) => t.evaluacion?.decision === "deriva");
+  const derivadoPrevio = sesion.derivado;
   const ultimaEvaluacion = [...turnos].reverse().find((t) => t.evaluacion)?.evaluacion ?? null;
   // El panel enseña el último estado COMPLETO (23-08): tras derivar, un
   // mensaje más devolvía actuar:false y borraba lo recogido — justo cuando
@@ -151,7 +155,7 @@ export function BancoPruebasView() {
     if (!mensaje || enviando || !selectedClinicaId) return;
     setEnviando(true);
     try {
-      const r = await cargarJSON<{ evaluacion: EvaluacionTurno; usados: number; tope: number }>(
+      const r = await cargarJSON<{ evaluacion: EvaluacionTurno; usados: number; tope: number; sesion: EstadoSesionPrueba }>(
         "/api/agente/prueba",
         {
           method: "POST",
@@ -161,11 +165,12 @@ export function BancoPruebasView() {
             escenario,
             hilo: turnos.map((t) => ({ direccion: t.direccion, contenido: t.contenido })),
             mensaje,
-            derivadoPrevio,
+            sesion,
           }),
         },
       );
       setTexto("");
+      setSesion(r.sesion);
       setTurnos((prev) => [
         ...prev,
         { direccion: "Entrante", contenido: mensaje },
@@ -401,7 +406,7 @@ export function BancoPruebasView() {
               decidió — y si el control de seguridad descartó su borrador.
             </p>
           ) : (
-            <PorDentro ev={ultimaConContenido} />
+            <PorDentro ev={ultimaConContenido} sesion={sesion} />
           )}
           <p className="mt-3 border-t border-[var(--color-border)] pt-2 text-[11.5px] leading-relaxed text-[var(--color-muted)]">
             Cada mensaje usa la configuración vigente: cambia algo en «Configuración» y el siguiente
@@ -431,7 +436,11 @@ function siguientePaso(ev: EvaluacionTurno): string {
 
 /** La evaluación del último turno, ESTRUCTURADA con la forma de la ficha del
  *  caso (22-08): bloques, no párrafo corrido. */
-function PorDentro({ ev }: { ev: EvaluacionTurno }) {
+function PorDentro({ ev, sesion }: { ev: EvaluacionTurno; sesion: EstadoSesionPrueba }) {
+  // Lo acumulado en TODA la conversación (la sesión), no solo este turno:
+  // es lo que hace visible que la insistencia cuenta — cada vuelta suma.
+  const pendientes = pendientesDeAplazados(sesion.aplazamientos);
+  const vueltas = vueltasPorClave(sesion.aplazamientos);
   if (ev.fallback) {
     return (
       <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-danger)]">
@@ -491,6 +500,18 @@ function PorDentro({ ev }: { ev: EvaluacionTurno }) {
               · {ETIQUETA_CLAVE[a.clave as ClaveAplazado] ?? a.clave} — «{a.motivo}»
             </span>
           ))}
+        </Bloque>
+      )}
+      {pendientes.length > 0 && (
+        <Bloque titulo="Pendiente para tu equipo en toda la conversación">
+          {pendientes.map((p) => {
+            const n = vueltas[p.clave] ?? 0;
+            return (
+              <span key={p.clave} className="block">
+                · {ETIQUETA_CLAVE[p.clave]} — preguntado {n} {n === 1 ? "vez" : "veces"}
+              </span>
+            );
+          })}
         </Bloque>
       )}
       {ev.esperaHasta && (

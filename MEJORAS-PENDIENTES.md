@@ -3031,3 +3031,34 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   eso es lo que se quiere ver. · **Impacto:** ALTO — hoy cualquier desconocido con nombre de perfil se
   «entrega» al primer mensaje, y el banco no lo enseña. · **Esfuerzo:** 2-3 h + ~$1,2 de modelo. ·
   **Fecha:** 2026-09-10 · 🔴
+
+## 226. Banco de pruebas · lo que sigue sin poder probarse ahí (censo del 11-09, tras la cuarta divergencia)
+- Con la sesión ya arrastrando aplazados, espera, opt-out y derivado, el banco sigue pasando vacío o
+  distinto —a sabiendas, declarado en la cabecera de `banco-pruebas.ts` y en `DECLARADOS` de
+  `qa:banco-vs-runner`—: (1) `senales` a null: producción manda tres líneas (minutos desde el último
+  saliente, hora local, fuera de horario) que cambian la respuesta; (2) `diasHastaProximaCita` a null:
+  ni la regla del antecedente médico con cita próxima (023) ni el modo «paciente con cita futura, sin
+  objetivo» se pueden probar; (3) `clinicasDelHilo` null: la red (122) no; (4) `identidadAmbigua`
+  null: la guarda del número compartido (139) no; (5) solo texto: un audio o una foto (034) no; (6) sin
+  cadencias en el hilo: «el paciente contesta al recordatorio» no; (7) sin escenario de lead FICHADO
+  (con nombre, sin ficha de paciente), el caso más frecuente en producción — «lead nuevo» es el
+  desconocido total; (8) un solo presupuesto vivo: el juicio «de cuál habla» con letras no. ·
+  **Principio:** la prueba corre el camino real o declara qué parte no corre (§25). · **Propuesta:**
+  dos escenarios nuevos, por valor: «lead con ficha» y «paciente con cita el [día]» (dos campos del
+  escenario); un control «hora del mensaje» que calcule las señales con el reloj sintético; un botón
+  «manda un audio». Red, número compartido y cadencias se prueban con los hilos jugados, no aquí. ·
+  **Impacto:** MEDIO — hoy la clínica prueba su agente solo con desconocidos y pacientes sin cita. ·
+  **Esfuerzo:** 2-3 h. · **Fecha:** 2026-09-11 · 🟡
+
+## 227. Hilos jugados · no pueden probar la insistencia: el hilo entero cabe en la ventana de ráfaga
+- `vueltasPorClave` cuenta una vuelta por aplazado separado más de 15 min del anterior (034, a
+  propósito: una ráfaga de tres mensajes es una vuelta). `hilos:jugar` juega cada hilo en menos de un
+  minuto y los eventos llevan `created_at` real, así que en el fixture las vueltas nunca pasan de 1 y
+  ninguna entrega es por «insistencia»: `insistencia_precio` (cinco turnos insistiendo) no la dispara.
+  La insistencia se prueba hoy solo con casos escritos a mano (`qa:evals-evaluador`) y en el banco
+  (desde hoy, con su reloj de 30 min). · **Principio:** un bug que depende del reloj no se prueba con
+  el reloj real (§16). · **Propuesta:** que el jugador pueda fijar el instante del mensaje Y del
+  evento (hoy lo pone la base) y avance 30 min por turno, como el banco; alternativa más barata: que
+  las vueltas se cuenten por el `timestamp` del mensaje que causó el aplazado (join por `mensaje_id`)
+  en vez del `created_at` del evento. · **Impacto:** MEDIO — la insistencia es una de las seis causas
+  de entrega y ningún hilo jugado la ejercita. · **Esfuerzo:** 1-2 h. · **Fecha:** 2026-09-11 · 🟡

@@ -188,8 +188,9 @@ await runWithCliente("DEMO", async () => {
       fallo(tel, `cobro ${abiertos.includes("cobro") ? "abierto sin" : "cerrado con"} pendiente (pendiente SQL=${pacienteEsperado ? pendientePorPaciente.get(pacienteEsperado.id) : "sin paciente"})`);
     if (abiertos.includes("presupuesto") !== esperaPresu)
       fallo(tel, `presupuesto: lib=${abiertos.includes("presupuesto")} sql=${esperaPresu}`);
-    if (abiertos.includes("cita") !== esperaCita)
-      fallo(tel, `cita: lib=${abiertos.includes("cita")} sql=${esperaCita}`);
+    // 11-09: el desconocido total abre «cita» junto a «identificar».
+    if (abiertos.includes("cita") !== (esperaCita || esperaIdent))
+      fallo(tel, `cita: lib=${abiertos.includes("cita")} sql=${esperaCita || esperaIdent}`);
     if (abiertos.includes("identificar") !== esperaIdent)
       fallo(tel, `identificar: lib=${abiertos.includes("identificar")} esperado=${esperaIdent}`);
     if (abiertos.includes("identificar") && (ctx.pacienteId || ctx.leadActivo))
@@ -212,10 +213,12 @@ await runWithCliente("DEMO", async () => {
     if (abiertos.length === 0) nSinObjetivo++;
   });
 
-  // Teléfono sintético: sin fila en ninguna tabla → identificar, y nada más.
+  // Teléfono sintético: sin fila en ninguna tabla → cita + identificar (11-09:
+  // con solo nombre y tratamiento el caso no le ahorra trabajo a nadie), y
+  // nada más.
   const fantasma = await contextoDeConversacion("+34600000001");
-  if (fantasma.objetivosAbiertos.join() !== "identificar")
-    fallo("+34600000001", `sintético: esperaba [identificar], salió [${fantasma.objetivosAbiertos.join(", ")}]`);
+  if (fantasma.objetivosAbiertos.join() !== "cita,identificar")
+    fallo("+34600000001", `sintético: esperaba [cita, identificar], salió [${fantasma.objetivosAbiertos.join(", ")}]`);
   if (fantasma.nombre !== "+34600000001" || fantasma.origenNombre !== "telefono")
     fallo("+34600000001", "sintético: el nombre debería caer al propio número");
 });
@@ -225,7 +228,7 @@ await runWithCliente("DEMO", async () => {
 // datos reales, y no es verdad: una rama cubierta solo por un caso que existe
 // dentro de este script no está probada contra el producto.
 console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCobro} · presupuesto=${nPresu} · cita=${nCita} · identificar=${nIdent} · sin objetivo=${nSinObjetivo} · número compartido (guarda)=${nAmbiguos}`);
-console.log(`Cobertura SINTÉTICA (1 caso): identificar`);
+console.log(`Cobertura SINTÉTICA (1 caso): cita + identificar`);
 
 const ramasReales = [["cobro", nCobro], ["presupuesto", nPresu], ["cita", nCita], ["identificar", nIdent]] as const;
 // Las CUATRO ramas las tiene que ejercitar el seed (endurecido con el paso 5,

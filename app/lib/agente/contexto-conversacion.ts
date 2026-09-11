@@ -272,7 +272,18 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   // del QA: 167 hilos del DEMO salían a identificar y la mayoría eran leads
   // cerrados, no desconocidos.
   const leadCualquiera = filas.leads[0] ?? null;
-  if (!paciente && !leadCualquiera) abiertos.add("identificar");
+  if (!paciente && !leadCualquiera) {
+    abiertos.add("identificar");
+    // 11-09 (decisión de Simon): al desconocido total se le abre TAMBIÉN
+    // «cita», no solo «identificar». Un caso entregado con nombre y
+    // tratamiento no le ahorra trabajo a nadie: la coordinadora tiene que
+    // llamar igual para preguntar cuándo puede venir. La urgencia y la
+    // disponibilidad viven en el objetivo «cita» desde la fase A — y
+    // «identificar» es transitorio por diseño (evaluador: completarlo pasa
+    // el activo a lo que siga abierto a medias), así que dar el nombre no
+    // cierra el caso: lo encamina.
+    abiertos.add("cita");
+  }
   const objetivosAbiertos = PRECEDENCIA_OBJETIVOS.filter((e) => abiertos.has(e));
 
   const nombre =

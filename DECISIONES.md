@@ -4572,3 +4572,30 @@ al «se equivocó aquí» (misma fila, `fallo = ninguno`, nace revisada; 046), `
 marcas al fixture antes de vaciar y el seed las repone por `mensaje_id`. Los quince hilos se
 volvieron a jugar con el arreglo: los de antes llevaban el fallo dentro.
 
+## 2026-09-11 — La cuarta divergencia del banco: no arrastraba lo que producción persiste entre turnos
+
+`qa:banco-vs-runner` comparaba solo el turno 1, donde «aplazados vacíos» es lo correcto. Al comparar
+todos los turnos (3ef021f) apareció que el banco pasaba `aplazamientos: []` en cada turno: producción
+veía «plan_pago» pendiente y sus vueltas, el banco no. Todo lo probado en el banco sobre insistencia
+no probaba nada. El censo de lo demás que el banco pasa vacío o distinto destapó dos piezas más de la
+MISMA clase —estado que producción escribe en el turno N y lee en el N+1—: la espera pactada y el
+opt-out (el derivado sí viajaba, a mano). Arreglo: `sesion-prueba.ts` — la sesión del banco ES lo que
+producción habría persistido; el servidor la devuelve tras cada turno, el cliente la devuelve con el
+siguiente, y `avanzarSesion` la hace avanzar con la regla de persistir-turno (una emisión por clave y
+turno, levantar antes de fijar, el derivado no se revierte). El reloj del banco pasa de 1 a 30
+minutos entre mensajes: con 1, tres insistencias caían en la ventana de ráfaga de 15 min de
+`vueltasPorClave` y eran UNA vuelta — el umbral no llegaba nunca. «Reproducir en el banco» desde una
+conversación real trae ahora su log. `qa:banco-vs-runner` reconstruye la sesión desde el log del
+fixture con la misma función y compara todos los turnos (28 comparados: los aplazados pendientes y
+las vueltas de `insistencia_precio` y `aplazamiento_dato` salen iguales por los dos caminos), y exige
+que TODO campo de la entrada esté en COMPARABLES o DECLARADOS con su porqué: la quinta no se descubre
+dentro de un mes, se decide al añadir el campo. Lo que el banco sigue sin llevar, declarado en su
+cabecera y en MEJORAS 226: señales del hilo, cita próxima, red, número compartido, entrantes no
+legibles, cadencias, lead FICHADO, varios presupuestos. Decisión de producto del mismo día: el
+desconocido total abre «identificar» Y «cita» — con solo nombre y tratamiento el caso no le ahorra
+trabajo a nadie (la coordinadora llama igual para preguntar cuándo puede); urgencia y disponibilidad
+viven en «cita» desde la fase A, e «identificar» es transitorio, así que dar el nombre encamina, no
+cierra. Hallazgo colateral (MEJORAS 227): los hilos jugados TAMPOCO pueden probar la insistencia — se
+juegan en menos de un minuto y los eventos llevan `created_at` real, así que el hilo entero cabe en la
+ventana de ráfaga; en el fixture ninguna entrega es por «insistencia» y las vueltas nunca pasan de 1.
+

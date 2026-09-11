@@ -19,6 +19,7 @@ process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "
 import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
 import { probarTurno, type EscenarioPrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
+import { SESION_NUEVA } from "../app/lib/agente/sesion-prueba";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("✗ Falta ANTHROPIC_API_KEY — no se puede calibrar.");
@@ -43,12 +44,12 @@ await runWithCliente("DEMO", async () => {
   for (const conv of CONVERSACIONES) {
     console.log(`\n════ ESCENARIO: ${conv.escenario.tipo} ════`);
     const hilo: TurnoPrueba[] = [];
-    let derivado = false;
+    let sesion = SESION_NUEVA;
     for (const mensaje of conv.mensajes) {
       console.log(`\nPaciente: «${mensaje}»`);
       const r = await probarTurno({
         clinicaId: CLINICA, clinicaNombre: "Clínica Calibración",
-        escenario: conv.escenario, hilo, mensaje, derivadoPrevio: derivado,
+        escenario: conv.escenario, hilo, mensaje, sesion,
       });
       const ev = r.evaluacion;
       if (ev.fallback) { fallbacks++; console.log("  ⚠ FALLBACK"); continue; }
@@ -61,7 +62,7 @@ await runWithCliente("DEMO", async () => {
       if (ev.borradorDescartado) console.log(`  · JUEZ descartó (${ev.borradorDescartado.motivo}): «${ev.borradorDescartado.frase ?? ""}»`);
       hilo.push({ direccion: "Entrante", contenido: mensaje });
       hilo.push({ direccion: "Saliente", contenido: ev.respuesta });
-      if (ev.decision === "deriva") derivado = true;
+      sesion = r.sesion;
     }
   }
 });
