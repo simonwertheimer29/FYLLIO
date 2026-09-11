@@ -1,0 +1,204 @@
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+Replay de 15 hilos · 36 turnos con entrada · fixture jugado el 2026-09-11 · coste estimado $0.36
+
+━━ lead_precio · Desconocida pregunta cuánto cuesta un blanqueamiento · veredicto: sin anotar
+  t1 ≠ distinto · «Hola! He visto vuestro anuncio en instagram, cuanto cuesta u…»
+       aplazados: — → precio_descuento
+       antes: «¡Hola! Nos encanta que nos hayas encontrado. El blanqueamiento dental depende de cada caso, así que »
+       hoy:   «¡Hola! Nos alegra que te hayas fijado en nosotros. El precio del blanqueamiento depende de cada caso»
+  t2 ≠ distinto · «Marta, pero mas o menos por encima cuanto suele costar?»
+       tema: presupuesto → otro
+       aplazados: — → precio_descuento
+       descarte del control: economica → —
+       antes: «Gracias, Marta. Para poder ayudarte, ¿me dices tu nombre completo?»
+       hoy:   «Marta, entiendo que quieras una idea. El precio del blanqueamiento varía según el estado de tus dien»
+  t3 ≠ distinto · «Marta Lopez. Pero en plan, un precio aproximado no me podeis…»
+       aplazados: — → precio_descuento
+       campo cita.nombre_completo: Marta López → Marta Lopez
+       campo identificar.es_paciente: — → no_aplica
+       campo identificar.nombre: Marta López → Marta Lopez
+       antes: «Perfecto, Marta López. El blanqueamiento es un tratamiento que personalizamos según el estado de cad»
+       hoy:   «Perfecto, Marta. Entiendo que quieras una idea, pero el precio del blanqueamiento varía según el est»
+  t4 ≠ distinto · «Vale nada, pues que me llamen mejor y me cuentan precio y es…»
+       aplazados: — → precio_descuento
+       campo cita.motivo_no_cita: prefiere que la llamen → prefiere que le llamen para hablar de precio antes de venir
+       campo cita.urgencia: sin prisa → no_aplica
+       antes: «Perfecto, Marta López. Te llamamos enseguida para explicarte el presupuesto del blanqueamiento y res»
+       hoy:   «Perfecto, Marta López. Entendido, alguien del equipo te llamará para explicarte el presupuesto del b»
+
+━━ presupuesto_financiacion · Jorge quiere saber cuánto sería al mes · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas, soy Jorge. Me pasasteis un presupuesto de 3200€…»
+       tema: presupuesto → cobro
+       antes: «Hola Jorge, gracias por escribir. Entiendo que te gustaría fraccionar el implante en pagos mensuales»
+       hoy:   «Hola Jorge, gracias por escribir. Entiendo que te gustaría fraccionar el implante en pagos mensuales»
+  t2 ≠ distinto · «Vale, pero antes de nada necesito saber más o menos cuánto s…»
+       tema: cobro → presupuesto
+       aplazados: dato_presupuesto,plan_pago → plan_pago
+       campo presupuesto.como_pagar: — → no_aplica
+       campo presupuesto.cuando_retomar: — → no_aplica
+       campo presupuesto.disponibilidad_primera_cita: — → no_aplica
+       antes: «Claro, Jorge. Es una pregunta muy lógica. El equipo de administración te dará la cifra exacta según »
+       hoy:   «Jorge, lo entiendo perfectamente. El importe mensual depende del plan que administración pueda ofrec»
+  t3 ✓ igual · «Vale, pues que me llame alguien de administración con esa ci…»
+
+━━ cobro_vencido · Lucía pide cita de revisión con un pago pendiente · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Soy Lucía, me hicieron una endodoncia hace un m…»
+       campo cita.nombre_completo: Lucía → —
+       campo cita.tratamiento_o_molestia: revisión de corona tras endodoncia; molestia al morder → revisión por molestia al morder tras endodoncia; corona alta
+       antes: «¡Hola Lucía! Claro, te hacemos una revisión sin problema. El doctor valorará la corona y ajustará lo»
+       hoy:   «¡Hola Lucía! Claro, te ayudamos con eso. Es normal que después de una endodoncia haya que revisar el»
+[evaluador] borrador descartado (agenda): «Te agendamos para jueves o viernes por la tarde»
+  t2 ≠ distinto · «Vale perfecto! Pues jueves o viernes por la tarde me viene g…»
+       espera: — → 2026-09-18
+       campo cita.nombre_completo: Lucía → —
+       campo cobro.confirma_pago: — → no — dice que lo mira la semana que viene
+       campo cobro.fecha_pago: — → no_aplica
+       campo cobro.via_pago: — → no_aplica
+
+━━ recordatorio_cita · Andrés contesta al recordatorio: no puede mañana · veredicto: sin anotar
+  t1 ✓ igual · «Hola, no voy a poder ir mañana, me ha salido un viaje de tra…»
+
+━━ cadencia_en_medio · Elena pregunta por los retenedores y la cadencia le escribe encima · veredicto: sin anotar
+  t1 ✓ igual · «El presupuesto de ortodoncia que me pasasteis, ¿incluye los …»
+  t2 ✓ igual · «Vale, pero necesito saber si van incluidos antes de decidir …»
+  t3 ≠ distinto · «Ya os he escrito, no me insistáis. Dejadme pensarlo hasta el…»
+       campo presupuesto.cuando_retomar: 2026-10-11 → mes que viene (aproximadamente 2026-10-11)
+       campo presupuesto.decision: se lo piensa → —
+       campo presupuesto.motivo_rechazo: no_aplica → —
+       antes: «Entendido, Elena. Respetamos tu tiempo. Un asesor te aclara el tema de los retenedores antes de fin »
+       hoy:   «Entendido, Elena. No te escribimos más hasta octubre. Un asesor te aclara lo de los retenedores en c»
+
+━━ queja_trato · Rosa esperó cuarenta minutos y quiere hablar con un responsable · veredicto: sin anotar
+  t1 ≠ distinto · «Buenos días. Ayer estuve en la clínica esperando cuarenta mi…»
+       campo cita.disponibilidad: no_aplica → —
+       campo cita.motivo_no_cita: no_aplica → —
+       campo cita.nombre_completo: no_aplica → —
+       campo cita.preferencia_doctor: no_aplica → —
+       campo cita.tratamiento_o_molestia: no_aplica → —
+       campo cita.urgencia: no_aplica → —
+       antes: «Rosa, lamento mucho lo que pasó ayer. Tienes toda la razón en reclamarlo, y queremos que alguien del»
+       hoy:   «Rosa, lamento mucho lo que pasó ayer. Tienes toda la razón en reclamarlo. Voy a pasar tu caso a la d»
+
+━━ queja_economica · Pablo dice que le cobraron 150 € más de lo presupuestado · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas, soy Pablo. Os he pagado 1.250€ por un tratamien…»
+       campo cita.disponibilidad: no_aplica → —
+       campo cita.motivo_no_cita: no_aplica → —
+       campo cita.urgencia: no_aplica → —
+       antes: «Hola Pablo, gracias por escribir. Veo que hay una diferencia entre el presupuesto y lo que pagaste. »
+       hoy:   «Hola Pablo, gracias por escribir. Voy a revisar esa diferencia entre el presupuesto y lo que pagaste»
+  t2 ≠ distinto · «Vale, pero quiero dejarlo claro: si no hay justificación de …»
+       campo cita.clinica_preferida: — → no_aplica
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: — → no_aplica
+       campo cita.nombre_completo: — → Pablo
+       campo cita.preferencia_doctor: — → no_aplica
+       campo cita.tratamiento_o_molestia: — → no_aplica
+       campo cita.urgencia: — → no_aplica
+       antes: «Entiendo perfectamente, Pablo. Tienes razón en querer claridad por escrito. Administración revisa ah»
+       hoy:   «Entiendo perfectamente tu preocupación, Pablo. Tienes razón en querer claridad sobre esos 150€. Admi»
+
+━━ urgencia_dolor · Miguel no ha dormido: dolor fuerte e hinchazón · veredicto: sin anotar
+  t1 ≠ distinto · «hola buenas, tengo una muela de abajo que me duele muchisimo…»
+       aplazados: — → duda_clinica
+       campo cita.tratamiento_o_molestia: dolor en muela de abajo, hinchazón de mejilla → dolor en muela inferior, hinchazón de mejilla
+
+━━ urgencia_ambigua · Sonia: se le ha despegado una carilla y el sábado tiene una boda · veredicto: sin anotar
+  t1 ✓ igual · «Hola buenas! Se me ha despegado una carilla de un diente del…»
+
+━━ opt_out · Teresa pide que dejen de escribirle · veredicto: sin anotar
+  t1 ≠ distinto · «Hola, no me escribáis más, no me interesa el presupuesto del…»
+       campo presupuesto.motivo_rechazo: no le interesa el blanqueamiento → no le interesa
+
+━━ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas tardes! Quería pedir una primera cita para ortod…»
+       descarte del control: agenda → —
+       campo cita.urgencia: — → no_aplica
+       antes: «Gracias. Para poder ayudarte, ¿me dices tu nombre completo?»
+       hoy:   «¡Hola! Perfecto, te ayudamos con la ortodoncia invisible. Para poder cerrar tu cita sin volver a pre»
+  t2 ≠ distinto · «Daniel Arribas»
+       descarte del control: agenda → —
+       campo identificar.nombre: Daniel → Daniel Arribas
+       antes: «Gracias, Daniel. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»
+       hoy:   «¡Perfecto, Daniel! Veo que te interesa ortodoncia invisible. ¿Tienes alguna molestia ahora o es una »
+  t3 ≠ distinto · «Sin prisa, es solo para informarme y ver lo de la ortodoncia…»
+       descarte del control: agenda → —
+       antes: «Gracias, Daniel. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Perfecto, Daniel. Para poder cerrar tu cita, ¿qué días y franjas horarias te vienen mejor? Podemos o»
+  t4 ≠ distinto · «Por las tardes mejor, y cualquier día menos los viernes»
+       campo identificar.que_necesita: ortodoncia invisible → consulta de ortodoncia invisible
+
+━━ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende» · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas, soy Carlos, ya he estado ahí antes. Quería sabe…»
+       tema: otro → cobro
+       antes: «¡Hola Carlos! El precio de un implante depende de cada caso — necesitamos una valoración sin comprom»
+       hoy:   «Hola Carlos, me alegra verte de nuevo. El precio del implante depende de cada caso — necesitamos que»
+  t2 ✓ igual · «Ya, pero dame un número aproximado, el más básico que tengái…»
+[evaluador] borrador descartado (economica): «Lo que sí te garantizo es que en la cita te presentamos todas las opciones con sus costes antes de decidir nada.»
+  t3 ≠ distinto · «Vale pero un rango, ¿más o menos de mil euros anda la cosa o…»
+       descarte del control: — → economica
+       campo cita.motivo_no_cita: no_aplica → —
+       antes: «Carlos, entiendo que quieras una orientación. Los implantes en nuestra clínica pueden oscilar entre »
+       hoy:   «Gracias por tu mensaje, Carlos. Preferimos dártelo exacto antes que a medias — seguimos por aquí par»
+  t4 ≠ distinto · «Nada, ni un número me dais. Dejadlo, ya llamaré o iré a otro…»
+       tema: cobro → otro
+       campo cita.motivo_no_cita: quiere precio antes de venir; no confía en que se lo den sin cita → quiere el precio antes de venir; considera ir a otra clínica
+       antes: «Carlos, entiendo tu frustración. No podemos darte un número sin verte porque sería engañarte — cada »
+       hoy:   «Carlos, entiendo tu frustración. Un asesor te contacta enseguida para resolver esto directamente — a»
+
+━━ aplazamiento_dato · Nuria pregunta por parking y sedación · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Tengo que hacerme una extracción y la verdad es…»
+       descarte del control: clinica → —
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»
+       hoy:   «¡Hola Nuria! Sí, hacemos sedación consciente para extracciones y es una opción muy común para pacien»
+  t2 ≠ distinto · «Ahora mismo no tengo dolor, es una revisión que ya me la pro…»
+       descarte del control: clinica → —
+       campo cita.nombre_completo: — → no_aplica
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Entendido, Nuria. La sedación consciente es una duda muy normal antes de una extracción; el doctor t»
+  t3 ≠ distinto · «Perdona, es que aún no tengo cita para eso, solo quería sabe…»
+       decisión: sigue → deriva
+       causa: — → caso_completo
+       cola: — → normal
+       campo cita.disponibilidad: — → no_aplica
+       campo cita.motivo_no_cita: no_aplica → aún no tiene cita; quiere resolver la duda de sedación antes
+       antes: «Entiendo perfectamente tu preocupación, Nuria. La sedación consciente es una duda muy normal antes d»
+       hoy:   «Entiendo perfectamente tu preocupación, Nuria. Es una duda muy normal y el doctor te lo explica en d»
+  t4 ≠ distinto · «Vale, genial, entonces me lo confirma el doctor en la cita. …»
+       tema: cita → otro
+       aplazados: duda_clinica → otro
+       antes: «Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opc»
+       hoy:   «Claro, Nuria. Sobre el parking, administración te lo confirma enseguida — cada clínica tiene sus opc»
+  t5 ≠ distinto · «Vale, perfecto que me lo confirmen. Por cierto, ¿abrís los s…»
+       aplazados: duda_clinica,otro → otro
+       descarte del control: agenda → —
+       antes: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»
+       hoy:   «Sí, abrimos sábados — administración te confirma el horario exacto de cada clínica. Una vez que teng»
+
+━━ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre · veredicto: sin anotar
+  t1 ≠ distinto · «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde e…»
+       escribe otra persona: — → Lucía (hija de Carmen Ruiz)
+       campo cita.nombre_completo: — → Lucía
+       antes: «¡Hola Lucía! Claro, sin problema. Para poder cerrar tu cita, necesito saber: ¿qué tratamiento te int»
+       hoy:   «¡Hola Lucía! Claro, te ayudamos a pedir cita. ¿Qué tratamiento te interesa o qué molestia tienes que»
+[evaluador] borrador descartado (agenda): «Así cierro tu cita sin más vueltas.»
+  t2 ≠ distinto · «Nada de molestias, es que hace años que no voy al dentista y…»
+       escribe otra persona: — → Lucía (hija de Carmen Ruiz)
+       campo cita.nombre_completo: Lucía → —
+  t3 ≠ distinto · «Por la tarde mejor, entre semana cualquier día me vale»
+       descarte del control: agenda → —
+       escribe otra persona: — → Lucía (hija de Carmen Ruiz)
+       campo cita.disponibilidad: entre semana, por la tarde → entre semana por la tarde
+       antes: «Ya tengo todo lo que necesito, Carmen. Alguien del equipo te contacta con los horarios disponibles.»
+       hoy:   «Perfecto, Lucía. Para cerrar tu cita de revisión, necesito tu nombre completo, por favor.»
+
+━━ audio_no_legible · Fernando manda un audio y luego escribe · veredicto: sin anotar
+  t1 ✓ igual · «[Audio recibido]»
+  t2 · sin entrada (sin juicio) — no se rejuega
+  t3 · sin entrada (sin juicio) — no se rejuega
+
+════════════════════════════════════════════════════════════════════════
+Turnos: 7 iguales · 29 distintos · 1 sin tarifa · coste medido $0.2205
+Versión (evaluador/control) del fixture: df3978f4e98d/d79cf567c2db · de hoy: ad412d0b6fb3/d79cf567c2db
+Cambiaron: lead_precio t1 · lead_precio t2 · lead_precio t3 · lead_precio t4 · presupuesto_financiacion t1 · presupuesto_financiacion t2 · cobro_vencido t1 · cobro_vencido t2 · cadencia_en_medio t3 · queja_trato t1 · queja_economica t1 · queja_economica t2 · urgencia_dolor t1 · opt_out t1 · caso_completo t1 · caso_completo t2 · caso_completo t3 · caso_completo t4 · insistencia_precio t1 · insistencia_precio t3 · insistencia_precio t4 · aplazamiento_dato t1 · aplazamiento_dato t2 · aplazamiento_dato t3 · aplazamiento_dato t4 · aplazamiento_dato t5 · telefono_compartido t1 · telefono_compartido t2 · telefono_compartido t3
+Apunta el coste en evals/pasadas/GASTO.md.

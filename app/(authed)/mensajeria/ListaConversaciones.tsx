@@ -346,6 +346,16 @@ function diasDeClinica(iso: string): number {
  *  palabras que Seguimiento; el resto, lo que el semáforo o la cadencia ya
  *  saben. Tonos: rojo = te espera; ámbar = qué NO hacer; neutro = informa. */
 function MarcaFlujo({ flujo }: { flujo: EstadoFlujo }) {
+  // 11-09 (Sonia): una URGENCIA se ve en la card, no al abrir. Sustituye a
+  // «Necesita respuesta» / «Fuera de plazo» — es la misma cohorte con la
+  // causa que más corre.
+  if (flujo.causa === "urgencia" && (flujo.clase === "necesita_respuesta" || flujo.clase === "fuera_de_plazo")) {
+    return (
+      <Marca tono="danger" Icono={AlertTriangle}>
+        {flujo.clase === "fuera_de_plazo" ? "Urgencia · fuera de plazo" : "Urgencia"}
+      </Marca>
+    );
+  }
   switch (flujo.clase) {
     case "fuera_de_plazo":
       return <Marca tono="danger" Icono={AlertTriangle}>Fuera de plazo</Marca>;

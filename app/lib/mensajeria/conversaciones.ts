@@ -26,6 +26,7 @@ import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import { colaDeSeguimiento, type Cohorte } from "../seguimiento/cola";
+import type { CausaDerivacion } from "../automatizacion/estado";
 import { esperasYAsumidosPorDigitos } from "../automatizacion/semaforo";
 import { esLeadActivo } from "../leads/pipeline";
 
@@ -75,6 +76,9 @@ export type EstadoFlujo = {
     | "automatico";
   /** Solo `espera`: hasta cuándo (YYYY-MM-DD, inclusive). */
   hasta?: string;
+  /** 11-09 — en las clases de cola: por qué el agente ENTREGÓ el caso. La
+   *  card marca «Urgencia» con esto (Sonia: la prisa se veía solo al abrir). */
+  causa?: CausaDerivacion | null;
 };
 
 export type Conversacion = {
@@ -300,10 +304,10 @@ export async function listarConversaciones(args: {
     esperasYAsumidosPorDigitos(),
   ]);
   const dig = (t: unknown) => String(t ?? "").replace(/\D/g, "");
-  const cohortePorDigitos = new Map<string, Cohorte>();
+  const cohortePorDigitos = new Map<string, { cohorte: Cohorte; causa: CausaDerivacion | null }>();
   for (const caso of cola.casos) {
     const d = dig(caso.telefono);
-    if (d) cohortePorDigitos.set(d, caso.cohorte);
+    if (d) cohortePorDigitos.set(d, { cohorte: caso.cohorte, causa: caso.entregadoCausa });
   }
   // Los teléfonos llegan en formatos distintos («+34 613…» vs «34613…»):
   // el matching es por dígitos con inclusión bidireccional — la semántica
@@ -324,8 +328,8 @@ export async function listarConversaciones(args: {
 
   const derivarFlujo = (f: any): EstadoFlujo | null => {
     const d = dig(f.telefono);
-    const cohorte = buscarPorDigitos(cohortePorDigitos, d);
-    if (cohorte) return { clase: COHORTE_A_CLASE[cohorte] };
+    const enCola = buscarPorDigitos(cohortePorDigitos, d);
+    if (enCola) return { clase: COHORTE_A_CLASE[enCola.cohorte], causa: enCola.causa };
     const sem = buscarPorDigitos(semaforos, d);
     if (sem?.asumido) return { clase: "asumido" };
     if (sem?.espera) return { clase: "espera", hasta: sem.espera.hasta };

@@ -3062,3 +3062,38 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   las vueltas se cuenten por el `timestamp` del mensaje que causó el aplazado (join por `mensaje_id`)
   en vez del `created_at` del evento. · **Impacto:** MEDIO — la insistencia es una de las seis causas
   de entrega y ningún hilo jugado la ejercita. · **Esfuerzo:** 1-2 h. · **Fecha:** 2026-09-11 · 🟡
+
+## 228. Agente · teléfono compartido, versión COMPLETA (hablante por mensaje, contexto por segmento)
+- Hoy (11-09, versión barata aprobada por Simon) el juicio `hablaPorOtraPersona` marca que quien
+  escribe no es la titular, la plantilla usa su nombre, el cobro de la titular no se cuela y la entrega
+  lo dice. Pero la identidad sigue siendo POR TELÉFONO en todo lo demás: el contexto que ve el modelo,
+  los eventos (`caso_id` = teléfono), el semáforo y el hilo son de Carmen, y si Lucía y Carmen alternan
+  en el mismo hilo el juicio se extrae del hilo entero y no distingue mensajes. · **Principio:** la
+  identidad se resuelve por id (§20) — y aquí el id es el número, que es de dos personas. ·
+  **Propuesta:** `hablante` por mensaje (id de persona o «desconocido»), contexto por segmento de hilo,
+  y un lead propio para la persona sin ficha desde la entrega. · **Impacto:** MEDIO — hoy es un caso
+  raro; será frecuente con hijos y mayores. · **Esfuerzo:** grande (2-3 días). · **Cuándo:** cuando un
+  cliente real lo pida (decisión de Simon, 11-09). · **Fecha:** 2026-09-11 · 🟡
+
+## 229. Agente · afirma un SERVICIO que no consta («sí, hacemos sedación consciente») y el control no lo caza
+- Replay del 11-09 (Nuria t1): el borrador dice «Sí, hacemos sedación consciente para extracciones y es
+  una opción muy común» — la clínica no lo tiene publicado y el control (regla clínica) lo dejó pasar.
+  El prompt manda «CONFIRMAR lo que la clínica HACE: revisiones, limpiezas… tratamientos habituales», y
+  el modelo estira «habitual» a lo que no consta. · **Principio:** solo se afirma lo que consta (§17);
+  inventar un dato es el pecado nº 2. · **Propuesta:** (a) al prompt: «habitual» = la lista cerrada
+  (revisión, limpieza, valoración, empaste, endodoncia, ortodoncia, implante, blanqueamiento); todo lo
+  demás («sedación», «láser», «cirugía guiada») se ANOTA, no se confirma; (b) al control: una regla
+  «servicio no publicado» — afirmar que la clínica hace/ofrece X sin X en lo publicado ni en la lista →
+  descarte, categoría `clinica`; (c) un caso en la vara. · **Impacto:** ALTO — una clínica que no hace
+  sedación recibe a una paciente con pánico que viene por la sedación. · **Esfuerzo:** 1-2 h. ·
+  **Fecha:** 2026-09-11 · 🔴
+
+## 230. Agente · tras un entrante NO legible que derivó, un texto posterior no reabre al agente
+- Fernando (hilo 15): manda un audio, el agente deriva por «no lo leo» (no_legible), y los dos textos
+  que escribe después se quedan sin respuesta del agente porque el semáforo está en rojo
+  (no-reversión: el caso es de una persona). La no-reversión está bien para «lo decide una persona»;
+  aquí la derivación fue «no puedo leerlo», y el texto que llega después SÍ se puede leer. ·
+  **Principio:** perder menos — el paciente escribió dos veces y nadie le contestó. · **Propuesta:**
+  que la derivación por no legible sea la única que un texto legible posterior levanta solo (evento
+  `soltado` automático con causa «llegó texto»), con la ficha diciéndolo. · **Impacto:** MEDIO. ·
+  **Esfuerzo:** 1-2 h. · **Fecha:** 2026-09-11 · 🟡

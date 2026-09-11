@@ -34,6 +34,9 @@ export type PayloadEvaluacion = {
   mencionaAntecedenteMedico: boolean;
   vuelveSobreAplazado: ClaveAplazado | null;
   camposRecogidos: EvaluacionTurno["camposRecogidos"];
+  /** Aditivo (11-09) — quien escribe NO es la titular del número («soy la
+   *  hija de Carmen»). La ficha y la cola lo dicen en la entrega. */
+  hablaPor?: { nombre: string | null; relacion: string | null } | null;
   hiloTruncado: boolean;
   borradorDescartado: EvaluacionTurno["borradorDescartado"] | null;
   /** El borrador del turno — lo necesita la vista de supervisión (fase C) y
@@ -228,6 +231,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     mencionaAntecedenteMedico: ev.juicios?.mencionaAntecedenteMedico ?? false,
     vuelveSobreAplazado: ev.juicios?.vuelveSobreAplazado ?? null,
     camposRecogidos: ev.camposRecogidos,
+    hablaPor: ev.juicios?.hablaPor ?? null,
     hiloTruncado: ev.hiloTruncado,
     borradorDescartado: ev.borradorDescartado ?? null,
     respuesta: ev.respuesta,

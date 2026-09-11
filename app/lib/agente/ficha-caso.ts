@@ -31,7 +31,8 @@ import {
   type ClaveAplazado,
   type EventoAplazamiento,
 } from "../automatizacion/aplazamientos";
-import { OBJETIVOS_POR_DEFECTO, type EtapaObjetivo } from "../automatizacion/objetivos";
+import type { EtapaObjetivo } from "../automatizacion/objetivos";
+import { estadoDeLaPersona, objetivoActivoDe, queQuiereDe } from "./estado-persona";
 import { leerPayloadEvaluacion, type PayloadEvaluacion } from "./persistir-turno";
 import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
 import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
@@ -88,6 +89,9 @@ export type FichaCaso = {
 
   // ── La línea de la cola (Seguimiento): paciente · qué quiere · espera ──
   linea: { paciente: string; queQuiere: string; esperandoDesde: string | null };
+  /** 11-09 — quien escribe NO es la titular del número (juicio del último
+   *  turno): la ficha lo declara arriba y la entrega lleva su nombre. */
+  hablaPor: { nombre: string | null; relacion: string | null } | null;
 
   // ── Auditoría 2026-09-05 ──
   /** MEJORAS 119 — el borrador del evaluador para el ÚLTIMO entrante y si
@@ -117,34 +121,8 @@ export type FichaCaso = {
   } | null;
 };
 
-const ETIQUETA_OBJETIVO: Record<EtapaObjetivo, string> = {
-  cita: "Quiere cita",
-  presupuesto: "Decidir su presupuesto",
-  cobro: "Su pago pendiente",
-  identificar: "Contacto nuevo",
-};
-
-/** La frase de «qué quiere», determinista: etiqueta del objetivo + los
- *  valores reales recogidos. Sin modelo — no hay nada que verificar. */
-function componerQueQuiere(
-  objetivo: EtapaObjetivo,
-  campos: Record<string, string | null> | undefined,
-): string {
-  // MEJORAS 173 — el ORDEN es dato: jsonb normaliza el orden de las claves del
-  // payload, así que la frase no puede depender de él. Se ordena por la
-  // definición del objetivo (las claves que no estén, al final, por nombre).
-  const orden = OBJETIVOS_POR_DEFECTO.find((o) => o.etapa === objetivo)?.campos.map((c) => c.clave) ?? [];
-  const pos = (clave: string) => {
-    const i = orden.indexOf(clave);
-    return i === -1 ? orden.length : i;
-  };
-  const valores = Object.entries(campos ?? {})
-    .sort(([a], [b]) => pos(a) - pos(b) || a.localeCompare(b))
-    .map(([, v]) => v)
-    .filter((v): v is string => v != null && v.trim() !== "" && v !== "no_aplica")
-    .map((v) => v.trim());
-  return valores.length ? `${ETIQUETA_OBJETIVO[objetivo]} — ${valores.join(" · ")}` : ETIQUETA_OBJETIVO[objetivo];
-}
+// «Qué quiere» (componerQueQuiere, queQuiereDe) vive en estado-persona.ts
+// desde el 11-09: la misma regla que decide el turno decide el titular.
 
 export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Promise<FichaCaso> {
   const cliente = requireCliente("fichaDeCaso");
@@ -264,17 +242,30 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     { referidoId: presupuestoReferidoId },
   );
 
-  // Objetivo activo: la MISMA regla que el evaluador (tema si está abierto;
-  // si no, el de mayor precedencia). Con lo abierto de HOY, no lo del turno.
+  // Objetivo activo: la MISMA función que el evaluador (estado-persona.ts),
+  // con lo abierto de HOY, no lo del turno. Aquí se pasa `estado: null` a
+  // propósito: el objetivo de la ficha es el que lista lo RECOGIDO, y lo
+  // recogido no desaparece porque el último turno fuera una queja. El
+  // estado manda en el TITULAR (queQuiereDe), que es donde Pablo salía
+  // como «Quiere cita» mientras se quejaba de un cobro (11-09).
   const abiertos = ctx.objetivosAbiertos;
-  const objetivoActivo: EtapaObjetivo | null =
-    payload && (abiertos as string[]).includes(payload.tema)
-      ? (payload.tema as EtapaObjetivo)
-      : (abiertos[0] ?? null);
+  const estado = payload ? estadoDeLaPersona(payload) : null;
+  const objetivoActivo: EtapaObjetivo | null = payload
+    ? objetivoActivoDe({ tema: payload.tema, abiertas: abiertos, campos: payload.camposRecogidos, estado: null })
+    : (abiertos[0] ?? null);
   const otrosObjetivos = abiertos.filter((o) => o !== objetivoActivo);
 
   const camposActivo = objetivoActivo ? (payload?.camposRecogidos as any)?.[objetivoActivo] : undefined;
-  const queQuiere = evaluado && objetivoActivo ? componerQueQuiere(objetivoActivo, camposActivo) : null;
+  const queQuiere = payload
+    ? queQuiereDe({ estado, tema: payload.tema, abiertas: abiertos, campos: payload.camposRecogidos })
+    : null;
+  // Teléfono compartido, versión barata (11-09): si el último juicio dice
+  // que escribe otra persona, la entrega lo dice con su nombre y su relación
+  // — «para Lucía, hija de Carmen, sin ficha» — y nada de lo de abajo es suyo.
+  const hablaPor = payload?.hablaPor ?? null;
+  const nombreEntrega = hablaPor
+    ? `${hablaPor.nombre ?? "Otra persona"} (${hablaPor.relacion ? `${hablaPor.relacion}, ` : ""}escribe desde el número de ${ctx.nombre}, sin ficha)`
+    : ctx.nombre;
   const recogido = evaluado && camposActivo
     ? Object.entries(camposActivo as Record<string, string | null>).map(([campo, valor]) => ({ campo, valor }))
     : evaluado
@@ -326,10 +317,11 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
         }
       : null,
     linea: {
-      paciente: ctx.nombre,
-      queQuiere: queQuiere ?? (evaluado ? "(sin objetivo abierto)" : "Sin respuesta del agente"),
+      paciente: nombreEntrega,
+      queQuiere: queQuiere ?? (evaluado ? "Solo conversación" : "Sin respuesta del agente"),
       esperandoDesde,
     },
+    hablaPor,
     agente,
     optOut,
     consentimiento,

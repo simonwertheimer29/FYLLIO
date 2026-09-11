@@ -294,6 +294,9 @@ export type CasoDeCola = {
   clinicaId: string | null;
   cohorte: Cohorte;
   detalle: DetalleCohorte;
+  /** 11-09 — por qué el agente ENTREGÓ el caso (null si no lo entregó o ya
+   *  se resolvió). La bandeja marca «Urgencia» con esto, antes de abrir. */
+  entregadoCausa: CausaDerivacion | null;
   /** € SOLO cuando el dato existe (presupuestos). Los leads no llevan
    *  importe en datos: se cuentan, no se inventan. */
   importe: number | null;
@@ -609,7 +612,9 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     // calcula la cola.
     if (desde && new Date(desde).getTime() > ahora.getTime() + 60_000) return null;
     const paradoDias = desde ? Math.max(0, diasDeClinicaEntre(new Date(desde), ahora)) : 0;
-    return { ...r, paradoDias, enEspera: agente?.enEspera ?? false, conversacion };
+    // La CAUSA de la entrega viaja con el caso (11-09): la bandeja de
+    // Mensajería marca «Urgencia» en la card sin abrir la conversación.
+    return { ...r, paradoDias, enEspera: agente?.enEspera ?? false, conversacion, entregadoCausa: agente?.entregadoCausa ?? null };
   };
 
   // 1 · Presupuestos abiertos, AGRUPADOS POR CONVERSACIÓN (21-08, dictado):
@@ -696,6 +701,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       clinicaId: activo.pr.clinica_id == null ? null : String(activo.pr.clinica_id),
       cohorte: peor.k!.cohorte,
       detalle: peor.k!.detalle,
+      entregadoCausa: peor.k!.entregadoCausa,
       importe: eleccion.activo.importe,
       importeTotal: miembros.reduce((sum, m) => sum + (m.pr.importe == null ? 0 : Number(m.pr.importe)), 0),
       otrosPresupuestos: eleccion.otros.map((o) => ({ id: o.id, importe: o.importe, tratamiento: o.tratamiento })),
@@ -744,6 +750,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       clinicaId: l.clinica_id == null ? null : String(l.clinica_id),
       cohorte: k.cohorte,
       detalle: k.detalle,
+      entregadoCausa: k.entregadoCausa,
       importe: null,
       tratamiento: l.tratamiento_interes ?? null,
       origen: l.canal_captacion ?? null,
@@ -773,6 +780,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       clinicaId: null,
       cohorte: kk.cohorte,
       detalle: kk.detalle,
+      entregadoCausa: kk.entregadoCausa,
       importe: null,
       tratamiento: null,
       origen: null,
@@ -897,6 +905,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
         clinicaId: cb.clinicaId,
         cohorte: r.cohorte,
         detalle: r.detalle,
+        entregadoCausa: null,
         importe: null,
         tratamiento: cb.tratamientos.length ? cb.tratamientos.join(", ") : null,
         origen: null,

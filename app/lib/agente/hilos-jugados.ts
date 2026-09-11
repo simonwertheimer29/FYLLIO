@@ -128,8 +128,15 @@ export type DecisionTurno = {
   pideNoContacto: boolean;
   malestar: boolean | null;
   urgenciaMedica: boolean | null;
+  /** 11-09 — «Lucía (hija de Carmen)» si quien escribe no es la titular. */
+  hablaPor: string | null;
   respuesta: string;
 };
+
+function hablaPorTexto(h: { nombre: string | null; relacion: string | null } | null | undefined): string | null {
+  if (!h) return null;
+  return `${h.nombre ?? "otra persona"}${h.relacion ? ` (${h.relacion})` : ""}`;
+}
 
 export type TurnoJugado = {
   n: number;
@@ -204,6 +211,7 @@ export function decisionDeEvaluacion(ev: EvaluacionTurno): DecisionTurno {
     pideNoContacto: ev.pideNoContacto === true,
     malestar: ev.juicios?.malestar ?? null,
     urgenciaMedica: ev.juicios?.urgenciaMedica ?? null,
+    hablaPor: hablaPorTexto(ev.juicios?.hablaPor),
     respuesta: ev.respuesta ?? "",
   };
 }
@@ -226,6 +234,7 @@ export function decisionDePersistido(payload: PayloadEvaluacion | null, eventos:
     pideNoContacto: payload?.pideNoContacto === true,
     malestar: payload?.malestar ?? null,
     urgenciaMedica: payload?.urgenciaMedica ?? null,
+    hablaPor: hablaPorTexto(payload?.hablaPor),
     respuesta: payload?.respuesta ?? "",
   };
 }
@@ -248,6 +257,7 @@ export function compararDecisiones(a: DecisionTurno, b: DecisionTurno): string[]
   cmp("opt-out", a.pideNoContacto, b.pideNoContacto);
   cmp("malestar", a.malestar, b.malestar);
   cmp("urgencia médica", a.urgenciaMedica, b.urgenciaMedica);
+  cmp("escribe otra persona", a.hablaPor, b.hablaPor);
   const claves = new Set([...Object.keys(a.campos), ...Object.keys(b.campos)]);
   for (const k of [...claves].sort()) cmp(`campo ${k}`, a.campos[k] ?? null, b.campos[k] ?? null);
   return dif;
@@ -355,6 +365,7 @@ function lineaDecision(d: DecisionTurno): string {
   if (d.esperaHasta) partes.push(`espera hasta ${d.esperaHasta}`);
   const campos = Object.entries(d.campos);
   if (campos.length) partes.push(`apuntó: ${campos.map(([k, v]) => `${k.split(".").pop()}=${v}`).join(", ")}`);
+  if (d.hablaPor) partes.push(`escribe otra persona: ${d.hablaPor}`);
   if (d.descarte) partes.push(`el control DESCARTÓ el borrador (${ETIQUETA_DESCARTE[d.descarte] ?? d.descarte}) → plantilla neutra`);
   if (d.pideNoContacto) partes.push("opt-out marcado");
   if (d.malestar) partes.push("malestar");

@@ -82,3 +82,4 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   `ultima-pasada.json` (la última válida sigue siendo la del 10-09, misma versión df3978f4e98d). Gasto estimado de lo que
   sí corrió: ~$0,25 · ac. **~$1,97** (tope $5). PENDIENTE: recargar crédito y volver a pasarla (~$0,35). OJO: con el
   crédito a cero el agente de producción también está en fallback (casos «Sin respuesta del agente» + campana).
+- 2026-09-11 (tarde) · hilos:replay, 36 turnos del fixture con la REGLA DEL ESTADO DE LA PERSONA (1+5+6), urgencia en la lista (4), segunda vez del «depende» (2) y teléfono compartido barato (3) · **$0,22 medido** · 7 iguales · 29 distintos (casi todos redacción/campos; cambios de decisión: ver evals/pasadas/2026-09-11-estado-persona-replay.txt) · ac. **~$2,19** (tope $5)

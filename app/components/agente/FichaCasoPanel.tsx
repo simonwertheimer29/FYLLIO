@@ -198,6 +198,22 @@ export function FichaCasoPanel({
           </div>
         </div>
       )}
+      {/* ── 11-09 · quien escribe no es la titular del número («soy la hija
+          de Carmen»): se declara arriba, con su nombre, para que la entrega
+          se lea como lo que es — un contacto nuevo sin ficha — y nadie le
+          conteste con los datos de la madre. */}
+      {ficha.hablaPor && (
+        <div className="flex gap-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2.5">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          <p className="min-w-0 flex-1 text-[12.5px] leading-snug text-[var(--color-foreground)]">
+            <span className="font-semibold">
+              {`Escribe ${ficha.hablaPor.nombre ?? "otra persona"}${ficha.hablaPor.relacion ? `, ${ficha.hablaPor.relacion}` : ""}`}
+            </span>
+            {` — desde el número de ${ficha.nombre}, sin ficha propia. `}
+            Las citas, presupuestos y pagos de esta ficha son de la titular, no suyos.
+          </p>
+        </div>
+      )}
       {/* ── MEJORAS 139 · el número lo comparten varias personas: se declara
           y NADA de lo de abajo habla de un expediente concreto. */}
       {ficha.identidadAmbigua && (
@@ -281,7 +297,7 @@ export function FichaCasoPanel({
             Qué quiere
           </p>
           <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-[var(--color-foreground)]">
-            {ficha.queQuiere ?? "Sin objetivo abierto — solo conversación."}
+            {ficha.queQuiere ?? "Solo conversación — no hay nada que recoger."}
           </p>
           {/* MEJORAS 119/128: si el ÚLTIMO mensaje no tiene evaluación, lo de
               arriba es del anterior — se dice, no se enseña como actual. */}

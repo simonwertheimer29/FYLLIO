@@ -25,6 +25,8 @@ import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from 
 import { eur } from "../dinero";
 import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { hashVersion, type VersionTurno } from "./version";
+import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
+import { FRASE_RECUERDO_COBRO } from "./entrada-desde-contexto";
 import {
   CLAVES_APLAZADO,
   type ClaveAplazado,
@@ -162,6 +164,8 @@ export type EvaluacionTurno = {
     urgenciaMedica: boolean;
     mencionaAntecedenteMedico: boolean;
     vuelveSobreAplazado: ClaveAplazado | null;
+    /** 11-09 — quien escribe no es la titular del número (ver JuicioModelo). */
+    hablaPor?: { nombre: string | null; relacion: string | null } | null;
   };
   causa?: CausaDerivacion;
   cola?: "prioritaria" | "normal";
@@ -359,12 +363,14 @@ Cuentan como queja: también las frases SECAS o irónicas como reacción a algo 
 LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece caro» es una objeción y la trabajas tú — NO deriva. «Llevo dos días esperando y esto es un desastre» deriva. Un rechazo educado del presupuesto («al final no vamos a hacerlo, gracias») NO es queja: es una decisión, la recoges. Y «¿con quién hablo de esto?» sobre un enlace o un trámite es navegación, no petición de persona.
 "malestar" — solo significativo si peticionOQueja es true: ¿hay enfado, hartazgo o malestar real? «¿Me puede llamar alguien para cerrar la cita?» es una petición rutinaria: peticionOQueja true, malestar false. No todo lo que menciona a una persona es un incendio.
 
+━━ JUICIO "hablaPorOtraPersona" — del HILO ENTERO: si quien escribe dice ser OTRA persona distinta de la del contexto («soy la hija de Carmen», «escribo desde el móvil de mi madre», «soy su marido»), o pide para un tercero («es para mi hijo»): {"nombre": el que haya dado (o null), "relacion": con sus palabras, p. ej. «hija de Carmen» o «madre» (o null)}. Si no, null. Cuando NO es null: NADA del contexto de la persona titular (sus citas, presupuestos, pagos) se le afirma ni se le aplica — es un contacto nuevo con su propio nombre; recoge SUS datos y dirígete a ella por SU nombre.
+
 ━━ JUICIO "mencionaAntecedenteMedico" — true si la persona MENCIONA una medicación, condición médica, embarazo o antecedente relevante (Sintrom, diabetes, cardiopatía, alergias…). SOLO detectas la mención: NO valoras gravedad, ni riesgo, ni si importa — eso no es tuyo nunca. Qué se hace con la mención lo decide el sistema con los datos de la cita.
 
 ━━ JUICIO "vuelveSobreAplazado" — el contexto te lista los temas YA ANOTADOS pendientes de un asesor. Si el último mensaje VUELVE sobre uno de ellos (pregunta si ya se sabe, insiste), pon su clave. Si no, null. Una pregunta NUEVA sobre otro tema no es volver.
 
 ━━ JUICIO "aplazamientosNuevos" — qué anotas ESTE turno porque no lo puedes resolver tú. Lista de {clave, motivo}, con el motivo citando a la persona («pregunta si se puede fraccionar a 8 meses»). Claves:
-- "precio_descuento": pide rebaja, compara precio, pregunta por promociones — SOLO si hay un presupuesto emitido que quiere mover. Si NO hay presupuesto y pregunta cuánto cuesta algo, NO lo anotes: se contesta («depende de cada caso, te hacemos una valoración sin compromiso»).
+- "precio_descuento": pide rebaja, compara precio, pregunta por promociones — SOLO si hay un presupuesto emitido que quiere mover. Si NO hay presupuesto y pregunta cuánto cuesta algo, la PRIMERA vez NO lo anotes: se contesta («depende de cada caso, te hacemos una valoración sin compromiso»). Si INSISTE en una cifra que no consta («vale, pero más o menos», «el más básico»), la SEGUNDA vez tampoco lo anotes pero no repitas «depende»: reconoce que ya se lo dijiste, di en una frase que el precio lo fija el doctor al ver su caso y por eso no lo tienes por aquí, y ofrece lo que sí existe (que un asesor le llame, o la valoración sin compromiso). Solo si insiste por TERCERA vez lo anotas como "precio_descuento", para que lo vea una persona.
 - "plan_pago": fraccionar, aplazar, un plan a medida — incluye «no estoy para gastos ahora», «no puedo pagarlo este mes»: quiere poder pagarlo de otra forma, y eso lo ve un asesor.
 - "cobertura_seguro": cuánto le cubriría SU seguro.
 - "cambio_tratamiento": variantes del presupuesto para que baje o cambie.
@@ -394,10 +400,12 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 - COBRO: si la persona dice que NO puede pagar, eso ES la respuesta del objetivo — confirma_pago = «no puede, hay que renegociar», via_pago y fecha_pago = "no_aplica" (y anotas plan_pago). No dejes el objetivo a medias esperando un sí que ya te han dicho que no.
 - IDENTIFICAR: sus campos (nombre, es_paciente, que_necesita) casi siempre están YA en el hilo — «me llamo X», «nunca he ido», «quiero ortodoncia» SON los valores. Extráelos SIEMPRE que existan: dejarlos en null con la respuesta delante es el fallo más caro de este juicio, porque completar este objetivo es lo que ENTREGA el caso. Y al revés: el nombre de PERFIL de WhatsApp que ves en el contexto NO es un dato recogido — «nombre» solo si la persona lo dice en el hilo; entregar un caso por un nombre que nadie dio es el otro fallo caro.
 - PRESUPUESTO: «sí, adelante», «lo hacemos» ES decision = «acepta» — extráela, y los campos de las otras ramas («solo si se lo piensa», «solo si rechaza») pasan a "no_aplica". Una aceptación con decision en null es un caso que nunca llega a la clínica.
+- CITA DECLINADA: si la persona dice que NO quiere cita ahora, que YA la tiene programada, que solo quería preguntar, o que no vendrá hasta saber algo, eso ES motivo_no_cita (con sus palabras: «ya tiene cita programada; solo preguntaba por la sedación», «quiere el precio antes de venir») — y desde ahí el objetivo cita está CERRADO: no se le vuelve a pedir día, franja ni disponibilidad. Si más adelante pide cita, motivo_no_cita vuelve a null y se retoma.
 Si la persona corrigió un dato, vale el último.
 
-━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Escribe en el IDIOMA en que escribe la persona: español por defecto; si ella escribe en catalán o en inglés, contesta en ese idioma. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO — y a un paciente de la clínica NO le preguntes su nombre: ya consta. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza y remite al doctor — y NO empujes al cierre en ese mensaje.
-Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, ciérralo con UNA frase genérica de recuerdo — «por cierto, tienes un pago pendiente; administración te lo confirma» — sin cifra y sin tratamiento (la regla de abajo). SALVO que el contexto diga que YA se le recordó en esta conversación: entonces no lo menciones — recordárselo en cada mensaje es acosar, no informar.
+━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Escribe en el IDIOMA en que escribe la persona: español por defecto; si ella escribe en catalán o en inglés, contesta en ese idioma. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO — y a un paciente de la clínica NO le preguntes su nombre: ya consta.
+EL ESTADO DE LA PERSONA MANDA SOBRE EL OBJETIVO. Si en este turno hay urgencia, queja, malestar o petición de hablar con una persona (tus juicios urgenciaMedica / peticionOQueja), este turno NO recoges nada — ni un campo del objetivo, ni «¿qué días te vienen bien?», ni una propuesta de cita — y no mencionas pagos pendientes: atiendes lo que trae, dices que lo ve una persona, y paras. Perseguir el objetivo con alguien enfadado o con prisa es el mismo error que colarle un recordatorio de pago. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza y remite al doctor — y en ese mensaje no pidas datos ni empujes al cierre. Si VUELVE sobre un tema ya anotado (vuelveSobreAplazado), tampoco le pidas datos en ese mensaje: no repitas la frase de la vez anterior, reconoce que ya se lo dijiste, explica en UNA frase por qué no lo tienes por aquí, y ofrece el camino que sí existe (que un asesor le llame). Y si dijo que no quiere cita, no se la vuelvas a proponer.
+Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, NO lo menciones tú: el sistema añade el recuerdo cuando toca (una vez, en genérico). Solo si la persona pregunta por su pago lo contestas, con lo que consta.
 Y NO PROMETAS ACCIONES DE LA CLÍNICA («te contactamos», «lo coordino con el equipo», «te llamamos») salvo que ESTE turno anote un pendiente o el caso se esté entregando — si solo conversas o la persona pidió tiempo, despídete sin comprometer contacto: «aquí estamos cuando lo tengas», «escríbenos cuando quieras».
 REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
 TU TRABAJO ES AVANZAR — las prohibiciones de abajo son pocas y exactas, y NO son excusa para no hablar: un turno que ni responde, ni recoge un dato, ni entrega, es un turno fallado. Cauteloso no es callado. En concreto, SÍ haces siempre:
@@ -414,6 +422,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema d
   "urgenciaMedica": <true|false>,
   "peticionOQueja": <true|false>,
   "malestar": <true|false>,
+  "hablaPorOtraPersona": <{"nombre": "...", "relacion": "..."}|null>,
   "mencionaAntecedenteMedico": <true|false>,
   "vuelveSobreAplazado": <"clave"|null>,
   "aplazamientosNuevos": [<{"clave": "...", "motivo": "..."}...>],
@@ -538,6 +547,12 @@ export function renderEntrada(e: EntradaEvaluador): {
   if (e.aplazadosPendientes.length > 0) {
     lineas.push("TEMAS YA ANOTADOS, pendientes de que un asesor conteste:");
     for (const a of e.aplazadosPendientes) lineas.push(`  - ${a.clave}: ${a.motivo}`);
+    // Las VUELTAS que contó el sistema (Carlos, 11-09): sin esto el modelo
+    // respondía a la tercera insistencia con la misma frase que a la primera.
+    const vueltas = Object.entries(e.aplazadosPorClave).filter(([, n]) => (n ?? 0) > 0);
+    for (const [clave, n] of vueltas) {
+      lineas.push(`  (${clave}: ya ha vuelto sobre esto ${n} ${n === 1 ? "vez" : "veces"} — ya se le dijo que se anota; no le repitas la misma frase)`);
+    }
   } else {
     lineas.push("Temas ya anotados pendientes de asesor: ninguno.");
   }
@@ -572,6 +587,13 @@ type JuicioModelo = {
   /** Mención FACTUAL de medicación/condición/antecedente. El modelo no valora
    *  gravedad — qué se hace con la mención lo decide código con la cita. */
   mencionaAntecedenteMedico: boolean;
+  /** Teléfono compartido, versión barata (11-09): quien escribe dice ser
+   *  OTRA persona que la titular del contexto. El modelo lo extrae del hilo
+   *  entero; código lo usa para el nombre de la plantilla, para NO colar el
+   *  cobro de la titular y para que la entrega diga «para Lucía, hija de
+   *  Carmen, sin ficha». La versión completa (hablante por mensaje y
+   *  contexto por segmento) queda para cuando un cliente real lo pida. */
+  hablaPorOtraPersona: { nombre: string | null; relacion: string | null } | null;
   vuelveSobreAplazado: ClaveAplazado | null;
   aplazamientosNuevos: { clave: ClaveAplazado; motivo: string }[];
   /** Fecha YYYY-MM-DD SOLO si el paciente pidió tiempo con plazo concreto.
@@ -757,6 +779,19 @@ export function parsearJuicio(
       peticionOQueja: p.peticionOQueja === true,
       malestar: p.malestar === true,
       mencionaAntecedenteMedico: p.mencionaAntecedenteMedico === true,
+      // Solo un objeto con al menos nombre o relación legibles cuenta; un
+      // string suelto o un objeto vacío se descarta CONTANDO (§19).
+      hablaPorOtraPersona: (() => {
+        const h = p.hablaPorOtraPersona;
+        if (h == null || h === false) return null;
+        const nombre = typeof h === "object" && typeof h.nombre === "string" && h.nombre.trim() ? h.nombre.trim().slice(0, 80) : null;
+        const relacion = typeof h === "object" && typeof h.relacion === "string" && h.relacion.trim() ? h.relacion.trim().slice(0, 80) : null;
+        if (nombre == null && relacion == null) {
+          descartes.push(`hablaPorOtraPersona:${JSON.stringify(h).slice(0, 40)}`);
+          return null;
+        }
+        return { nombre, relacion };
+      })(),
       vuelveSobreAplazado: etiquetaDelModelo(p.vuelveSobreAplazado, CLAVES_APLAZADO, "vuelveSobreAplazado", descartes),
       aplazamientosNuevos: aplazamientos,
       esperaSolicitada,
@@ -909,15 +944,27 @@ export async function evaluarTurno(
         // Lo que el SISTEMA ya sabe no se le pide a la persona (fase B): el
         // objetivo cita nació para leads y pedía nombre completo; un paciente
         // fichado lo tiene en la ficha — sin esto, su caso no completaba NUNCA.
-        if (etapa === "cita" && clave === "nombre_completo" && e.esPacienteConocido) return false;
+        // …salvo que quien escribe NO sea ese paciente (hablaPorOtraPersona,
+        // 11-09): la hija de Carmen no tiene ficha, y su nombre completo es
+        // justo lo que la entrega necesita.
+        if (etapa === "cita" && clave === "nombre_completo" && e.esPacienteConocido && juicio.hablaPorOtraPersona == null) return false;
         const v = valores[clave];
         return v == null || String(v).trim() === "";
       });
   };
 
-  let objetivoActivo: EtapaObjetivo | null = (abiertas as string[]).includes(juicio.tema)
-    ? (juicio.tema as EtapaObjetivo)
-    : (abiertas[0] ?? null);
+  // LA REGLA DEL ESTADO DE LA PERSONA (estado-persona.ts, 11-09): con
+  // urgencia, queja o petición de persona no se persigue nada este turno;
+  // una cita declinada deja de ser elegible. La MISMA función que usa la
+  // ficha para contar «qué quiere» — una regla, un sitio.
+  const estado = estadoDeLaPersona(juicio);
+  const elegibles = objetivosElegibles(abiertas, juicio.camposRecogidos);
+  let objetivoActivo: EtapaObjetivo | null = objetivoActivoDe({
+    tema: juicio.tema,
+    abiertas,
+    campos: juicio.camposRecogidos,
+    estado,
+  });
   let camposFaltantes = objetivoActivo ? faltantesDe(objetivoActivo) : [];
 
   // IDENTIFICAR ES TRANSITORIO (doctrina de la 020: «en cuanto se sabe quién
@@ -930,7 +977,7 @@ export async function evaluarTurno(
   // presupuesto con una deuda detrás sigue entregando (C14).
   if (objetivoActivo === "identificar" && camposFaltantes.length === 0) {
     const siguiente = e.objetivosAbiertos.find(
-      (o) => o.etapa !== "identificar" && faltantesDe(o.etapa).length > 0,
+      (o) => o.etapa !== "identificar" && elegibles.includes(o.etapa) && faltantesDe(o.etapa).length > 0,
     );
     if (siguiente) {
       objetivoActivo = siguiente.etapa;
@@ -954,6 +1001,18 @@ export async function evaluarTurno(
       motivo: `vuelve a preguntar (${vueltasPrevias + 1}ª vez)`,
     });
   }
+
+  // ¿Este turno se RECOGE? La regla del estado (arriba) ya vació el objetivo
+  // con urgencia/queja/petición; aquí se suman los dos casos en que el
+  // objetivo sigue vivo pero ESTE mensaje no es para pedir datos: una duda
+  // clínica anotada (se acompaña) y una vuelta sobre algo ya anotado (se
+  // reconoce). El prompt dice lo mismo; esto es la guarda para la plantilla
+  // de descarte, que le preguntaba «¿qué días?» a quien traía una duda.
+  const recogeEsteTurno =
+    estado == null &&
+    juicio.vuelveSobreAplazado == null &&
+    !aplazamientos.some((a) => a.clave === "duda_clinica");
+  const camposAPedir = recogeEsteTurno ? camposFaltantes : [];
 
   // Antecedente médico (023): la mención es del modelo (factual, sin valorar
   // gravedad); la proximidad de la cita la cuenta código, en días de clínica.
@@ -1004,6 +1063,7 @@ export async function evaluarTurno(
       urgenciaMedica: juicio.urgenciaMedica,
       mencionaAntecedenteMedico: juicio.mencionaAntecedenteMedico,
       vuelveSobreAplazado: juicio.vuelveSobreAplazado,
+      hablaPor: juicio.hablaPorOtraPersona,
     },
     objetivoActivo,
     aplazamientos,
@@ -1090,6 +1150,26 @@ export async function evaluarTurno(
     .filter((x): x is string => x !== null)
     .join("\n");
 
+  // El nombre para la plantilla: el que la PERSONA ha dicho (extraído por
+  // el juicio) manda sobre el del contexto — «Gracias, Contacto» a quien
+  // acaba de decir que se llama Simon era el fallo del 22-08, de vuelta
+  // por la puerta de la plantilla. Y si quien escribe NO es la titular
+  // (hablaPorOtraPersona), su nombre manda sobre todo: «Ya tengo todo,
+  // Carmen» a Lucía era el fallo del hilo 14 (11-09).
+  const nombreParaPlantilla = (() => {
+    const h = juicio.hablaPorOtraPersona?.nombre;
+    if (typeof h === "string" && h.trim() !== "") return h;
+    const rec = juicio.camposRecogidos as Record<string, Record<string, string | null>> | undefined;
+    const v = rec?.["identificar"]?.["nombre"] ?? rec?.["cita"]?.["nombre_completo"];
+    return typeof v === "string" && v.trim() !== "" && v !== "no_aplica" ? v : e.nombre;
+  })();
+  // ¿Este turno DERIVA? (la urgencia nunca llega aquí: su respuesta la
+  // escribe código antes). Si deriva, el reemplazo anuncia la ENTREGA.
+  const derivaEsteTurno =
+    juicio.peticionOQueja || insiste || casoCompleto || antecedenteConCita ||
+    (juicio.pideAccion && objetivoActivo == null);
+  const plantillaOpts = { entrega: derivaEsteTurno, objetivo: objetivoActivo, idioma: juicio.idioma };
+
   let respuestaFinal = juicio.respuesta;
   let borradorDescartado: EvaluacionTurno["borradorDescartado"];
   if (juicio.pideNoContacto) {
@@ -1140,29 +1220,14 @@ export async function evaluarTurno(
         cacheLectura: (base.usage.cacheLectura ?? 0) + (veredicto.usage.cacheLectura ?? 0),
       };
     }
-    // El nombre para la plantilla: el que la PERSONA ha dicho (extraído por
-    // el juicio) manda sobre el del contexto — «Gracias, Contacto» a quien
-    // acaba de decir que se llama Simon era el fallo del 22-08, de vuelta
-    // por la puerta de la plantilla.
-    const nombreParaPlantilla = (() => {
-      const rec = juicio.camposRecogidos as Record<string, Record<string, string | null>> | undefined;
-      const v = rec?.["identificar"]?.["nombre"] ?? rec?.["cita"]?.["nombre_completo"];
-      return typeof v === "string" && v.trim() !== "" && v !== "no_aplica" ? v : e.nombre;
-    })();
-    // ¿Este turno DERIVA? (la urgencia nunca llega aquí: su respuesta la
-    // escribe código antes). Si deriva, el reemplazo anuncia la ENTREGA.
-    const derivaEsteTurno =
-      juicio.peticionOQueja || insiste || casoCompleto || antecedenteConCita ||
-      (juicio.pideAccion && objetivoActivo == null);
-    const plantillaOpts = { entrega: derivaEsteTurno, objetivo: objetivoActivo, idioma: juicio.idioma };
     if (veredicto == null) {
-      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes, plantillaOpts);
+      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
       borradorDescartado = { motivo: "juez_no_respondio", frase: null };
       console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
     } else if (veredicto.infringe) {
       // El reemplazo determinista RECOGE si sabe qué falta (22-08): la
       // plantilla protege sin matar la conversación.
-      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes, plantillaOpts);
+      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
       // La categoría ilegible NO se disfraza de «clinica»: se archiva como
       // sin_categoria — la traza de descartes es la métrica que detecta un
       // generador degradado y no puede mentir (barrido 17-08, B-2).
@@ -1184,7 +1249,21 @@ export async function evaluarTurno(
   // MEJORAS 120: UNA vez por conversación (el caller cuenta del hilo si ya
   // se dijo); solo en español (la frase es fija); jamás sobre el acuse del
   // opt-out.
+  // LA REGLA DEL ESTADO, EN CÓDIGO (Rosa, 11-09): con queja, urgencia o
+  // petición de persona no hay recordatorio de pago — ni el nuestro (abajo)
+  // ni uno que el modelo haya colado pese al prompt: se quita la frase y, si
+  // no queda nada, la plantilla. Con OTRA persona al teléfono
+  // (hablaPorOtraPersona) tampoco: el pago es de la titular y decírselo a
+  // su hija es enseñar un dato de salud a quien no debe verlo. Contado.
+  const cobroNoToca = estado != null || juicio.hablaPorOtraPersona != null;
+  if (cobroNoToca && juicio.tema !== "cobro" && !juicio.pideNoContacto && FRASE_RECUERDO_COBRO.test(respuestaFinal)) {
+    const limpio = sinRecuerdoDeCobro(respuestaFinal, FRASE_RECUERDO_COBRO);
+    base.etiquetasDescartadas.push(`respuesta:recuerdo_cobro_con_${estado ?? "otra_persona"}`);
+    console.warn(`[evaluador] recuerdo de cobro quitado del borrador (${estado ?? "habla por otra persona"})`);
+    respuestaFinal = limpio !== "" ? limpio : plantillaNeutraConRecogida(nombreParaPlantilla, [], plantillaOpts);
+  }
   if (
+    !cobroNoToca &&
     e.pendienteCobro > 0 &&
     juicio.tema !== "cobro" &&
     !e.cobroYaRecordado &&

@@ -4605,3 +4605,39 @@ iguales, 4 con diferencias de campo o redacción y NINGUNA de decisión — mism
 mitad (15/73 en fallback), el script cortó con salida 2 sin escribir `ultima-pasada.json`. Queda
 pendiente al recargar (~$0,35); ni el banco ni la jerga tocan el prompt, así que el hash no cambia.
 
+## 2026-09-11 (tarde) — La regla del estado de la persona: el objetivo deja de perseguirse a ciegas
+
+Simon leyó los quince hilos simulados y encontró seis cosas; cuatro tenían la misma raíz. Nuria (duda
+clínica, sin cita) recibía «¿qué días te vienen bien?» cinco veces; la ficha de Pablo decía «Quiere
+cita» mientras se quejaba de un cobro; a Rosa, enfadada por el trato, el sistema le colaba «por cierto,
+tienes un pago pendiente»; y a Carlos se le repetía «depende» tres veces con una propuesta de cita cada
+vez. Causa en código: `objetivoActivo = tema si está abierto, si no abiertas[0]` (evaluador, y copiado
+a mano en ficha-caso) — cualquier tema caía en «cita» y el prompt mandaba «ve a por lo que falta»; la
+coletilla del cobro la escribían DOS generadores (el prompt y el código, §21b) y la guarda de código
+solo miraba la frecuencia, no el estado. Arreglo en un módulo puro que usan el evaluador Y la ficha
+(`app/lib/agente/estado-persona.ts`, una regla en un sitio): (1) con urgencia, queja o petición de
+persona no se persigue ningún objetivo ese turno — ni campos, ni «¿qué días?», ni cobro — y si el
+modelo cuela el recordatorio, código quita la frase (contado en `etiquetasDescartadas`); (2) una cita
+DECLINADA (`cita.motivo_no_cita` con valor) cierra el objetivo: deja de ser elegible, y el prompt
+aprende que «ya tengo cita programada» o «solo quería preguntar» ES motivo_no_cita; (3) «qué quiere»
+sale del estado o del tema cuando no hay objetivo que case («Se queja de un pago», «No quiere cita —
+…», «Aún no ha dicho qué quiere»), nunca del relleno; (4) tampoco se recoge en el turno de una duda
+clínica anotada ni de una vuelta sobre algo ya anotado (guarda para la plantilla de descarte, que
+preguntaba «¿qué días?» sobre una duda de sedación). El fallback a `abiertas[0]` con tema neutro SE
+MANTIENE a propósito — desviación del diagnóstico de la mañana: es el diseño ofensivo («hola» de un
+lead sigue abriendo la recogida) y quitarlo mataba la recogida en cualquier tangente; `qa:estado-persona`
+lo afirma. Además, del mismo encargo: urgencia en la card de Mensajería antes de abrir (la cola lleva
+`entregadoCausa`, la bandeja `EstadoFlujo.causa`, la marca «Urgencia» sustituye a «Necesita
+respuesta»); el render de aplazados dice cuántas veces ha vuelto la persona y el prompt tiene la
+instrucción para la SEGUNDA vez del «depende» (y solo anota precio a la tercera); y el teléfono
+compartido en versión barata — juicio `hablaPorOtraPersona` (del hilo entero), persistido en el
+payload, con el nombre de quien escribe en la plantilla, sin cobro de la titular, exigiendo su nombre
+completo aunque el número sea de una paciente fichada, y la entrega dice «Lucía (hija de Carmen Ruiz,
+escribe desde el número de Carmen Ruiz, sin ficha)». Replay de los 36 turnos ($0,22): un solo cambio
+de decisión — Nuria t3 pasa a persona por «la red» (cita declinada + duda anotada + nada más que
+recoger), que es donde su pregunta tenía que acabar; Carlos t3 ya no recibe la propuesta de cita tras
+el descarte; Lucía t3 pide el nombre completo en vez de «Ya tengo todo, Carmen»; Rosa sin coletilla.
+Hallazgo colateral del replay (MEJORAS 229): el agente afirmó «sí, hacemos sedación consciente» sin que
+conste y el control no lo cazó. QA: `qa:estado-persona` (nuevo, puro), casos en `qa:parseo` y
+`qa:ficha`; `qa:banco-vs-runner` 0 divergencias.
+

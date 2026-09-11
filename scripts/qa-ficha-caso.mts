@@ -155,6 +155,42 @@ await runWithCliente("DEMO", async () => {
   );
   ok("recogido: los campos del activo, no_aplica incluido", (fb.recogido ?? []).some((c) => c.campo === "disponibilidad" && c.valor === "tardes") && (fb.recogido ?? []).some((c) => c.valor === "no_aplica"));
   ok("pendiente con la FRASE del paciente", fb.pendientes.length === 1 && fb.pendientes[0].frase.includes("seguro cubre"));
+
+  // ── La regla del estado de la persona (11-09) en la ficha ────────────────
+  // Turno 2: se queja de un cobro (Pablo) y escribe su hija (Lucía). El
+  // titular sale del estado, no del objetivo de relleno; la entrega lleva
+  // el nombre de quien escribe; lo recogido no desaparece.
+  await registrarEventoIdempotente({
+    tipoCaso: "conversacion", casoId: TEL_FICHA, evento: "evaluacion",
+    evaluacionJson: JSON.stringify({
+      ...payload, tema: "cobro", peticionOQueja: true, malestar: true,
+      hablaPor: { nombre: "Lucía", relacion: "hija de QA Ficha Bravo" },
+      respuesta: "Lo paso a una persona.",
+    }),
+    actorNombre: "qa", mensajeId: "qa_ficha_2",
+  });
+  const fq = await fichaDeCaso(TEL_FICHA);
+  ok("QUEJA de un cobro → «Se queja de un pago — lo tiene que ver una persona» (no «Quiere cita»)",
+    fq.queQuiere === "Se queja de un pago — lo tiene que ver una persona", fq.queQuiere ?? "null");
+  ok("el objetivo de la ficha sigue listando lo recogido (el estado no lo borra)", fq.objetivoActivo === "cobro" && Array.isArray(fq.recogido));
+  ok("escribe otra persona: la ficha lo declara", fq.hablaPor?.nombre === "Lucía" && fq.hablaPor?.relacion === "hija de QA Ficha Bravo");
+  ok("la línea de la entrega lleva SU nombre, no el de la titular",
+    fq.linea.paciente.startsWith("Lucía (hija de QA Ficha Bravo, escribe desde el número de QA Ficha Bravo, sin ficha)"), fq.linea.paciente);
+  // Turno 3: declina la cita (Nuria). El titular lo dice y el objetivo cita
+  // deja de ser elegible.
+  await registrarEventoIdempotente({
+    tipoCaso: "conversacion", casoId: TEL_FICHA, evento: "evaluacion",
+    evaluacionJson: JSON.stringify({
+      ...payload, tema: "otro",
+      camposRecogidos: { ...payload.camposRecogidos, cita: { ...payload.camposRecogidos.cita, motivo_no_cita: "ya tiene cita programada; solo preguntaba" } },
+      respuesta: "Claro, te lo confirma el doctor.",
+    }),
+    actorNombre: "qa", mensajeId: "qa_ficha_3",
+  });
+  const fd = await fichaDeCaso(TEL_FICHA);
+  ok("cita DECLINADA → «No quiere cita — …motivo»", fd.queQuiere === "No quiere cita — ya tiene cita programada; solo preguntaba", fd.queQuiere ?? "null");
+  ok("la cita declinada deja de ser el objetivo de la ficha (cae a cobro, el otro abierto)", fd.objetivoActivo === "cobro" && !fd.otrosObjetivos.includes("cobro"));
+  ok("sin hablaPor en el último turno → la entrega vuelve a la titular", fd.hablaPor === null && fd.linea.paciente === "QA Ficha Bravo");
   ok("la espera ARRIBA, con fecha y frase", fb.espera != null && fb.espera.frase?.includes("organizarme") === true);
   ok("intentos contados: 2 salientes, con fecha del último", fb.intentos.salientes === 2 && fb.intentos.ultimo != null);
   ok("esperandoDesde = el entrante sin responder", fb.linea.esperandoDesde != null);

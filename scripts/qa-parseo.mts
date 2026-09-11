@@ -153,6 +153,29 @@ console.log("\n6 · tipos de mensaje (034): canonizar, legible, gesto, contenido
   ok("etiqueta en lenguaje de coordinadora", etiquetaDeTipo("audio") === "Audio recibido");
 }
 
+console.log("\n7 · hablaPorOtraPersona (11-09): objeto con nombre o relación; lo demás se descarta contando");
+{
+  const r = parsearJuicio(json({ hablaPorOtraPersona: { nombre: "Lucía", relacion: "hija de Carmen" } }));
+  ok("objeto legible → {nombre, relacion}", r?.juicio.hablaPorOtraPersona?.nombre === "Lucía" && r?.juicio.hablaPorOtraPersona?.relacion === "hija de Carmen");
+  ok("sin descartes", r?.descartes.length === 0);
+}
+{
+  const r = parsearJuicio(json({ hablaPorOtraPersona: { nombre: null, relacion: "madre" } }));
+  ok("solo relación → se conserva con nombre null", r?.juicio.hablaPorOtraPersona?.nombre === null && r?.juicio.hablaPorOtraPersona?.relacion === "madre");
+}
+{
+  const r = parsearJuicio(json({ hablaPorOtraPersona: {} }));
+  ok("objeto vacío → null Y contado", r?.juicio.hablaPorOtraPersona === null && r?.descartes.some((x) => x.startsWith("hablaPorOtraPersona:")));
+}
+{
+  const r = parsearJuicio(json({}));
+  ok("ausente → null SIN contar", r?.juicio.hablaPorOtraPersona === null && !r?.descartes.some((x) => x.startsWith("hablaPorOtraPersona:")));
+}
+{
+  const r = parsearJuicio(json({ hablaPorOtraPersona: "la hija" }));
+  ok("string suelto → null Y contado (no es la forma pedida)", r?.juicio.hablaPorOtraPersona === null && r?.descartes.some((x) => x.startsWith("hablaPorOtraPersona:")));
+}
+
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s) — el borde deja pasar o traga sin contar`);
   process.exit(1);
