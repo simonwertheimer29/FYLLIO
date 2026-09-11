@@ -1,5 +1,16 @@
 # Censo de jerga interna en el texto visible del producto
 
+**Ejecutado el 2026-09-11** (un solo commit) con las propuestas recomendadas y estos cambios de
+Simon: «la vara» → «Pruebas de calidad» (sin «del agente»); «el control» → «Revisión de seguridad»,
+también en la etiqueta de la fila de «Cómo decide» — y «revisor» (Mensajería, descartes) se unifica
+ahí; filtro «Sin evaluar» → «Sin respuesta del agente»; coste, latencia y errores «del agente», no
+«del asistente»; pestaña «Confianza» → «Cómo decide»; «Pipeline» y «derivar» se quedan («Escalado»
+de Llamadas pasa a «Derivado»: dos palabras para lo mismo). Regla añadida: ninguna palabra nueva que
+no exista ya en el producto — por eso «Qué persigue ahora» se queda (el título de configuración es
+«Qué persigue el agente en cada caso» y «gestionar» no existía). Lo que llega al modelo
+(`renderConocimiento`, el system) no se toca: el censo es del texto visible. La regla vive ya en
+`fyllio-estandar-visual` §5.
+
 Fecha: 2026-09-11. Pedido por Simon: «el producto habla con jerga nuestra». Regla que se
 propone para el estándar visual: **el producto no usa vocabulario interno. Si una palabra
 necesita que alguien la explique, no vale.** Se queda el vocabulario del sector dental

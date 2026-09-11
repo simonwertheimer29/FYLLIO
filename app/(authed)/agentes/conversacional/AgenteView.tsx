@@ -46,8 +46,8 @@ export function AgenteView() {
       <div className="mb-4 flex gap-1 border-b border-[var(--color-border)]">
         {([
           { id: "configuracion" as const, label: "Configuración" },
-          { id: "confianza" as const, label: "Confianza" },
-          { id: "pruebas" as const, label: "Pruebas" },
+          { id: "confianza" as const, label: "Cómo decide" },
+          { id: "pruebas" as const, label: "Probar el agente" },
         ]).map((t) => (
           <button
             key={t.id}

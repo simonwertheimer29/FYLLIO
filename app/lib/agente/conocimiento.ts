@@ -520,9 +520,9 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
 
   const conPrecio = c.tratamientos.filter((t) => t.precio != null);
   if (conPrecio.length > 0) {
-    puede.push(`Decir el precio publicado de ${conPrecio.length === 1 ? "1 tratamiento" : `${conPrecio.length} tratamientos`}`);
+    puede.push(`Decir el precio de ${conPrecio.length === 1 ? "1 tratamiento" : `${conPrecio.length} tratamientos`}`);
   } else {
-    noPuede.push("No puede decir precios — no hay ninguno publicado: «¿cuánto cuesta?» lo resuelve tu equipo");
+    noPuede.push("No puede decir precios — no tiene ninguno guardado: «¿cuánto cuesta?» lo resuelve tu equipo");
   }
   if (c.plazos.horario) {
     puede.push("Decir el horario de atención");
@@ -530,12 +530,12 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
     noPuede.push("No puede decir horarios — no está definido el horario de la clínica");
   }
   if (c.politicas.length > 0) {
-    puede.push(`Contestar las políticas publicadas (${c.politicas.map((p) => p.titulo.toLowerCase()).join(", ")})`);
+    puede.push(`Contestar las políticas guardadas (${c.politicas.map((p) => p.titulo.toLowerCase()).join(", ")})`);
   } else {
-    noPuede.push("No puede contestar políticas (vías de pago, seguros con los que trabajáis, cancelaciones…) — no hay ninguna publicada");
+    noPuede.push("No puede contestar políticas (vías de pago, seguros con los que trabajáis, cancelaciones…) — no tiene ninguna guardada");
   }
   if (c.enlaces.length > 0) {
-    puede.push(`Compartir ${c.enlaces.length === 1 ? "el enlace publicado" : `los ${c.enlaces.length} enlaces publicados`}`);
+    puede.push(`Compartir ${c.enlaces.length === 1 ? "el enlace guardado" : `los ${c.enlaces.length} enlaces guardados`}`);
   } else {
     noPuede.push("No puede compartir enlaces (reserva online, web) — no hay ninguno");
   }
@@ -593,7 +593,7 @@ export const SUGERENCIAS_POLITICAS: readonly { titulo: string; ejemplo: string }
 
 /** Las REGLAS DURAS — se muestran en la pantalla, no se editan (PLAN §6). */
 export const REGLAS_DURAS: readonly string[] = [
-  "No compromete dinero no decidido: ni precios, ni descuentos, ni plazos que no estén publicados o emitidos.",
+  "No compromete dinero no decidido: ni precios, ni descuentos, ni plazos que no estén guardados o emitidos.",
   "No da criterio clínico jamás — tampoco «tranquilizar» con hechos médicos.",
   "No negocia: adaptar una condición a una persona concreta lo hace siempre tu equipo.",
   "En recordatorios, ningún dato de salud no pedido (art. 9): ni cifra ni tratamiento si la persona no lo pregunta.",

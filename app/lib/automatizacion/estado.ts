@@ -315,7 +315,7 @@ export const ACCION_ESTADO: Record<EstadoAutomatizacion, string> = {
   cierre_pendiente: "Dijo que no: ciérralo tú y anota por qué se perdió",
   quebrado: "Léelo antes de responder",
   en_manos_de_alguien: "Ya lo está atendiendo alguien",
-  agotado: "El texto se agotó: llama por teléfono",
+  agotado: "Se acabaron los mensajes: llama por teléfono",
   manual: "Fuera de automatización por decisión propia",
   cerrado: "Sin acción",
 };

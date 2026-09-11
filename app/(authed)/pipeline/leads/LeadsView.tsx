@@ -956,7 +956,7 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
         {atencion && (
           <span
             className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold"
-            title="Sin ningún contacto y ya pasó el plazo del motor de seguimiento (48 h)."
+            title="Sin ningún contacto y ya pasaron las 48 h del seguimiento automático."
           >
             <AlertTriangle size={10} strokeWidth={ICON_STROKE} aria-hidden />
             Necesita atención

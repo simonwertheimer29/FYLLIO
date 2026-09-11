@@ -27,7 +27,7 @@ type PillCategory = "todos" | "intervencion" | "acepta_sin_pagar" | "sin_contact
 
 const PILL_DEFS: { id: PillCategory; label: string; estadosVisuales: EstadoVisual[] | null }[] = [
   { id: "todos",            label: "Todos",            estadosVisuales: null },
-  { id: "intervencion",     label: "Intervención",     estadosVisuales: ["Necesita intervención"] },
+  { id: "intervencion",     label: "Necesitan a alguien",     estadosVisuales: ["Necesita intervención"] },
   { id: "acepta_sin_pagar", label: "Acepta sin pagar", estadosVisuales: ["Acepta sin pagar"] },
   { id: "sin_contactar",    label: "Sin contactar",    estadosVisuales: ["Inicial"] },
   { id: "en_seguimiento",   label: "En seguimiento",   estadosVisuales: ["Primer contacto", "Segundo contacto"] },

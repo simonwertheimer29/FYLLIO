@@ -162,7 +162,7 @@ export function ContextoRecomendacion({
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs text-[var(--color-foreground)] opacity-80 leading-relaxed">{quePasa}</p>
         {etiqueta && (
-          <StatePill variant="info" title="Intención detectada en su última respuesta">
+          <StatePill variant="info" title="Qué quiere, según su última respuesta">
             <Sparkles size={10} strokeWidth={ICON_STROKE} aria-hidden />
             {etiqueta}
           </StatePill>

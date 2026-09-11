@@ -50,7 +50,7 @@ async function puedeProbar(
   if (r.rows?.[0]?.pruebas_coordinacion === false) {
     return {
       ok: false,
-      motivo: "En esta clínica, el banco de pruebas lo usa solo administración.",
+      motivo: "En esta clínica, probar el agente es solo de administración.",
       status: 403,
     };
   }
@@ -76,7 +76,7 @@ export const GET = withAuth(async (session, req) => {
     });
   } catch (err) {
     console.error("[agente/prueba] GET:", err instanceof Error ? err.message : err);
-    return NextResponse.json({ error: "No se pudo consultar el banco de pruebas" }, { status: 500 });
+    return NextResponse.json({ error: "No se pudo consultar la prueba del agente" }, { status: 500 });
   }
 });
 

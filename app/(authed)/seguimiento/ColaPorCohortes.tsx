@@ -367,7 +367,7 @@ export function ColaPorCohortes({
                           ...(caso.tipo === "cobro" && caso.cobro
                             ? [{ label: `vencido hace ${caso.cobro.diasVencido} días`, tone: "rose" as const }]
                             : []),
-                          ...(caso.enEspera ? [{ label: "En espera pactada", tone: "rose" as const }] : []),
+                          ...(caso.enEspera ? [{ label: "En espera", tone: "rose" as const }] : []),
                         ]}
                         meta={[
                           caso.clinicaNombre,

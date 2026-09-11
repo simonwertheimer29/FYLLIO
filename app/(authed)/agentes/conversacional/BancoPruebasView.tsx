@@ -202,7 +202,7 @@ export function BancoPruebasView() {
     );
   }
   if (errorEstado) {
-    return <ErrorState detail={`El banco de pruebas no se pudo abrir. ${errorEstado}`} onRetry={cargarEstado} />;
+    return <ErrorState detail={`La prueba del agente no se pudo abrir. ${errorEstado}`} onRetry={cargarEstado} />;
   }
   if (estado && !estado.permitido) {
     return (
@@ -397,13 +397,13 @@ export function BancoPruebasView() {
           {ultimaEvaluacion && !ultimaEvaluacion.actuar && (
             <p className="mt-2 rounded-lg border border-dashed border-[var(--color-border)] px-2.5 py-2 text-[12px] leading-relaxed text-[var(--color-muted)]">
               El caso ya es de tu equipo: el agente no vuelve a entrar (la derivación no se
-              revierte). Abajo, lo que dejó recogido — el resultado de la prueba.
+              revierte). Abajo, los datos que dejó — el resultado de la prueba.
             </p>
           )}
           {!ultimaConContenido ? (
             <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
               Con cada respuesta verás aquí qué entendió, qué persigue, qué anotó para tu equipo, qué
-              decidió — y si el control de seguridad descartó su borrador.
+              decidió — y si la revisión de seguridad descartó su mensaje.
             </p>
           ) : (
             <PorDentro ev={ultimaConContenido} sesion={sesion} />
@@ -444,7 +444,7 @@ function PorDentro({ ev, sesion }: { ev: EvaluacionTurno; sesion: EstadoSesionPr
   if (ev.fallback) {
     return (
       <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-danger)]">
-        El agente no pudo evaluar este mensaje (fallo del modelo). En producción, el caso subiría a una
+        El agente no pudo evaluar este mensaje (fallo del agente). En producción, el caso subiría a una
         persona — nunca se inventa una respuesta.
       </p>
     );
@@ -466,7 +466,7 @@ function PorDentro({ ev, sesion }: { ev: EvaluacionTurno; sesion: EstadoSesionPr
         )}
       </Bloque>
       {conValor.length > 0 && (
-        <Bloque titulo="Qué lleva recogido">
+        <Bloque titulo="Datos que ya tiene">
           <dl className="space-y-0.5">
             {conValor.map(([k, v]) => (
               <div key={k} className="flex items-baseline justify-between gap-2">
@@ -515,7 +515,7 @@ function PorDentro({ ev, sesion }: { ev: EvaluacionTurno; sesion: EstadoSesionPr
         </Bloque>
       )}
       {ev.esperaHasta && (
-        <Bloque titulo="Espera pactada">
+        <Bloque titulo="En espera, lo pidió el paciente">
           La persona pidió tiempo: sin contacto proactivo hasta el {ev.esperaHasta}.
         </Bloque>
       )}
@@ -534,7 +534,7 @@ function PorDentro({ ev, sesion }: { ev: EvaluacionTurno; sesion: EstadoSesionPr
         )}
       </Bloque>
       {ev.borradorDescartado && (
-        <Bloque titulo="El control de seguridad actuó">
+        <Bloque titulo="La revisión de seguridad actuó">
           <span className="text-[var(--color-danger)]">
             Descartó el borrador del agente porque {ETIQUETA_MOTIVO_JUEZ[ev.borradorDescartado.motivo] ?? "infringía una regla"}
             {ev.borradorDescartado.frase ? ` («${ev.borradorDescartado.frase}»)` : ""}.

@@ -206,7 +206,7 @@ function TarjetaBloque({ id, bloque }: { id: BloqueId; bloque: Bloque }) {
         </div>
       </div>
       {vacio ? (
-        <p className="mt-3 text-sm text-[var(--color-muted)]">Nada recogido en esta ventana.</p>
+        <p className="mt-3 text-sm text-[var(--color-muted)]">Nada anotado en esta ventana.</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {bloque.cubos

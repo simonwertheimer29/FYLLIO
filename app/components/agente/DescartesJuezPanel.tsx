@@ -21,7 +21,7 @@ const MOTIVO: Record<string, string> = {
   promesa: "Promesa sin entrega",
   agenda: "Agenda (huecos o reserva)",
   sin_categoria: "Sin categoría",
-  juez_no_respondio: "Revisor sin respuesta",
+  juez_no_respondio: "Revisión de seguridad sin respuesta",
 };
 
 export function DescartesJuezPanel() {
@@ -54,10 +54,10 @@ export function DescartesJuezPanel() {
       <header className="mb-3">
         <p className="fyllio-label flex items-center gap-1.5 text-[var(--color-muted)]">
           <ShieldCheck size={13} strokeWidth={ICON_STROKE} aria-hidden />
-          Descartes del revisor · últimos {datos?.dias ?? 30} días
+          Descartes de la revisión de seguridad · últimos {datos?.dias ?? 30} días
         </p>
         <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
-          Borradores del agente que el revisor tiró y sustituyó por la respuesta neutra. Si sube en una
+          Mensajes del agente que la revisión de seguridad descartó y sustituyó por la respuesta neutra. Si sube en una
           clínica, algo de su configuración o del prompt se ha torcido.
         </p>
       </header>
@@ -66,14 +66,14 @@ export function DescartesJuezPanel() {
       ) : !datos ? (
         <div className="fyllio-skeleton h-16" />
       ) : datos.clinicas.length === 0 ? (
-        <p className="text-[13px] text-[var(--color-muted)]">Sin turnos evaluados en este periodo.</p>
+        <p className="text-[13px] text-[var(--color-muted)]">Sin mensajes atendidos en este periodo.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-[12.5px]">
             <thead>
               <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
                 <th className="py-1.5 pr-3">Clínica</th>
-                <th className="py-1.5 pr-3 text-right tabular-nums">Turnos</th>
+                <th className="py-1.5 pr-3 text-right tabular-nums">Mensajes</th>
                 <th className="py-1.5 pr-3 text-right tabular-nums">Descartes</th>
                 <th className="py-1.5">Por motivo</th>
               </tr>

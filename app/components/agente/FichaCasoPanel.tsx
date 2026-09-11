@@ -191,8 +191,8 @@ export function FichaCasoPanel({
             <BotonSemaforo
               telefono={ficha.telefono}
               evento="espera_levantada"
-              etiqueta="Levantar la espera"
-              hecho="Espera levantada — se puede volver a escribir"
+              etiqueta="Reanudar el contacto"
+              hecho="Contacto reanudado — se puede volver a escribir"
               onHecho={alCambiar}
             />
           </div>
@@ -215,7 +215,7 @@ export function FichaCasoPanel({
           y señala dónde está la prueba de que el agente decidió de verdad. */}
       {ficha.jugada && (
         <p className="text-[11.5px] leading-snug text-[var(--color-muted)]">
-          Conversación jugada: la escribió un paciente simulado y el agente decidió de verdad en cada turno. La traza está en «ver por qué».
+          Conversación simulada: el paciente es simulado y las respuestas son del agente real. Cada decisión queda registrada en «ver por qué».
         </p>
       )}
       {/* ── MEJORAS 135 · pidió no recibir mensajes: lo único que cambia lo
@@ -256,8 +256,8 @@ export function FichaCasoPanel({
           <BotonSemaforo
             telefono={ficha.telefono}
             evento="soltado"
-            etiqueta="Soltar el hilo"
-            hecho="Hilo soltado — deja de estar en manos de nadie"
+            etiqueta="Devolver la conversación al agente"
+            hecho="Conversación devuelta — deja de estar en manos de nadie"
             onHecho={alCambiar}
             sinMargen
           />
@@ -325,7 +325,7 @@ export function FichaCasoPanel({
                       {ficha.presupuestos.activo.importe != null ? ` (${eurUI(ficha.presupuestos.activo.importe)})` : ""}
                     </span>
                     {ficha.presupuestos.fuente === "proxy" && (
-                      <span className="text-[var(--color-muted)]"> — elegido por la señal más reciente; compruébalo en el hilo</span>
+                      <span className="text-[var(--color-muted)]"> — elegido por la señal más reciente; compruébalo en la conversación</span>
                     )}
                   </p>
                   {ficha.presupuestos.otros.map((o) => (
@@ -345,7 +345,7 @@ export function FichaCasoPanel({
             El agente no ha evaluado esta conversación
           </p>
           <p className="mt-1 text-[12px] leading-relaxed text-[var(--color-muted)]">
-            No hay nada recogido: lo que sepas, tendrás que leerlo del hilo.
+            No hay datos anotados: lo que sepas, tendrás que leerlo de la conversación.
           </p>
         </div>
       )}
@@ -407,11 +407,11 @@ export function FichaCasoPanel({
         </div>
       )}
 
-      {/* ── 3 · Qué recogió el agente ── */}
+      {/* ── 3 · Datos que tiene el agente ── */}
       {ficha.recogido && ficha.recogido.length > 0 && (
         <div className="rounded-xl border border-[var(--color-border)] p-3.5">
           <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Qué recogió el agente
+            Datos que tiene el agente
           </p>
           <dl className="mt-1.5 space-y-1">
             {ficha.recogido.map((c) => (

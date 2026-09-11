@@ -169,8 +169,8 @@ export async function compararTodas(args: {
 const ETIQUETA_CAMPO: Readonly<Record<string, (antes: string | null, despues: string | null) => string>> = {
   evaluador_activo: (_a, d) => (d === "true" ? "Agente encendido" : d === "false" ? "Agente apagado" : "Interruptor del agente cambiado"),
   activa: (_a, d) => (d === "true" ? "Automatizaciones activadas" : d === "false" ? "Automatizaciones desactivadas" : "Automatizaciones cambiadas"),
-  objetivos: () => "Objetivos del agente cambiados",
-  conocimiento: () => "Conocimiento de la clínica actualizado",
+  objetivos: () => "Cambió qué persigue el agente",
+  conocimiento: () => "Cambió lo que el agente sabe de la clínica",
   toques_antes_de_agotar: (a, d) => `Cadencia cambiada (${a ?? "?"} → ${d ?? "?"} toques)`,
   modo_whatsapp: (a, d) => `Modo de WhatsApp cambiado (${a ?? "?"} → ${d ?? "?"})`,
 };

@@ -58,7 +58,7 @@ const ETIQUETA_COHORTE: Record<string, string> = {
   fuera_de_plazo: "Fuera de plazo",
 };
 const ETIQUETA_CAUSA: Record<string, string> = {
-  caso_completo: "caso completo entregado",
+  caso_completo: "con todos los datos, listo para el equipo",
   peticion_queja: "pidió hablar con una persona",
   urgencia: "urgencia",
   insistencia: "insistió sin respuesta",
@@ -80,12 +80,12 @@ const PROCESO: Record<string, { titulo: string; resultado: (n: number, importe: 
   presupuestos: {
     titulo: "Presupuestos",
     resultado: (n, imp) => `${n} aceptado${n === 1 ? "" : "s"}${imp != null && imp > 0 ? ` · ${eur(imp)}` : ""}`,
-    cocinado: (n, t) => `${n} de ${t} ${n === 1 ? "llegó" : "llegaron"} con la decisión ya recogida`,
+    cocinado: (n, t) => `${n} de ${t} ${n === 1 ? "llegó" : "llegaron"} con la decisión ya tomada por el paciente`,
   },
   leads: {
     titulo: "Leads",
     resultado: (n) => `${n} citado${n === 1 ? "" : "s"}`,
-    cocinado: (n, t) => `${n} de ${t} ${n === 1 ? "llegó" : "llegaron"} con disponibilidad y motivo ya recogidos`,
+    cocinado: (n, t) => `${n} de ${t} ${n === 1 ? "llegó" : "llegaron"} con día, hora y motivo ya preguntados`,
   },
   cobros: {
     titulo: "Cobros",
@@ -480,8 +480,8 @@ export function InicioView() {
                               Cuánto tarda en contestarse lo que entrega el agente · del {ddmm(rh.desde)} al {ddmm(rh.hasta)}
                             </p>
                             <ul className="mt-1">
-                              <FilaBarra etiqueta="Cola prioritaria" valor={rh.prioritaria.min ?? 0} max={maxMin} texto={textoCola(rh.prioritaria)} tenue={rh.prioritaria.n === 0} />
-                              <FilaBarra etiqueta="Cola normal" valor={rh.normal.min ?? 0} max={maxMin} texto={textoCola(rh.normal)} tenue={rh.normal.n === 0} />
+                              <FilaBarra etiqueta="Atención inmediata" valor={rh.prioritaria.min ?? 0} max={maxMin} texto={textoCola(rh.prioritaria)} tenue={rh.prioritaria.n === 0} />
+                              <FilaBarra etiqueta="Atención normal" valor={rh.normal.min ?? 0} max={maxMin} texto={textoCola(rh.normal)} tenue={rh.normal.n === 0} />
                             </ul>
                           </div>
                         );
@@ -673,13 +673,13 @@ export function InicioView() {
                     )}
                   </div>
                   <div>
-                    <p className="text-[10px] font-medium uppercase tracking-wider">Preguntas que aplazó</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wider">Preguntas pendientes para la clínica</p>
                     {Object.keys(data.fyllioMes.detalle.aplazadosPorClave).length === 0 ? (
                       <p className="mt-1">Ninguna este mes.</p>
                     ) : (
                       <ul className="mt-1 space-y-0.5 tabular-nums">
                         {Object.entries(data.fyllioMes.detalle.aplazadosPorClave).sort((a, b) => b[1] - a[1]).map(([k, n]) => (
-                          <li key={k}>aplazó <b className="font-semibold text-[var(--color-foreground)]">{n}</b> pregunta{s(n)} de {ETIQUETA_CLAVE[k] ?? k}</li>
+                          <li key={k}><b className="font-semibold text-[var(--color-foreground)]">{n}</b> pregunta{s(n)} de {ETIQUETA_CLAVE[k] ?? k} pendiente{s(n)} para la clínica</li>
                         ))}
                       </ul>
                     )}
@@ -696,7 +696,7 @@ export function InicioView() {
                         Coste del agente{data.fyllioMes.detalle.costeDesdeISO ? ` · desde el ${fechaHoraLegible(data.fyllioMes.detalle.costeDesdeISO).replace(/ a las .*$/, "")}` : ""}
                       </p>
                       {data.fyllioMes.detalle.costeUsd == null ? (
-                        <p className="mt-1">Sin turnos tarifados este mes.</p>
+                        <p className="mt-1">Sin coste registrado este mes.</p>
                       ) : (
                         <p className="mt-1 tabular-nums"><b className="font-semibold text-[var(--color-foreground)]">{data.fyllioMes.detalle.costeUsd.toFixed(2)} USD</b> en {data.fyllioMes.detalle.turnosTarifados} turno{s(data.fyllioMes.detalle.turnosTarifados)}{data.fyllioMes.detalle.turnosSinTarifa > 0 ? ` · ${data.fyllioMes.detalle.turnosSinTarifa} sin tarifa` : ""}</p>
                       )}
@@ -875,7 +875,7 @@ function TablaClinicas({ filas, onClinica, abierto, onAlternar }: { filas: Clini
           <div>
             <p
               className={CLASE_EYEBROW}
-              title="Conversaciones evaluadas y casos entregados completos desde el día 1; la sede es la del último mensaje del hilo. La línea «Desde el…» de arriba cuenta solo desde el último cierre de jornada."
+              title="Conversaciones atendidas por el agente y casos entregados con todos los datos desde el día 1; la sede es la del último mensaje de la conversación. La línea «Desde el…» de arriba cuenta solo desde el último cierre de jornada."
             >
               El agente por sede · todo el mes
             </p>

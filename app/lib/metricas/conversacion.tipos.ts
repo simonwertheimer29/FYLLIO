@@ -61,11 +61,11 @@ export type Conversacion = {
 
 /** Titular y criterio (el criterio va a tooltip: regla «una línea explica»). */
 export const COPY_BLOQUE: Record<BloqueId, { titulo: string; detalle: string }> = {
-  decision: { titulo: "Al recibir el presupuesto", detalle: "La decisión que el agente recogió en la última conversación de cada presupuesto." },
+  decision: { titulo: "Al recibir el presupuesto", detalle: "La decisión que el agente anotó en la última conversación de cada presupuesto." },
   objeciones: { titulo: "Qué les frena", detalle: "Lo que dijo quien se lo piensa, agrupado con el vocabulario de motivos de pérdida; lo que no casa va a «Otro», con sus frases." },
   rechazos: { titulo: "Por qué rechazan", detalle: "El motivo de quien rechazó, agrupado con el mismo vocabulario." },
   retomar: { titulo: "Cuándo quieren que lo retomemos", detalle: "Lo que contestó quien pidió tiempo, tal cual lo dijo." },
-  preguntas: { titulo: "Qué preguntan y el agente aplaza", detalle: "Las preguntas que el agente no puede contestar con lo publicado y deja a tu equipo, por tema." },
+  preguntas: { titulo: "Qué preguntan y el agente deja a la clínica", detalle: "Las preguntas que el agente no puede contestar con lo que sabe y deja a tu equipo, por tema." },
   entregas: { titulo: "Por qué entrega el caso", detalle: "La causa por la que el agente pasó cada conversación a una persona." },
   buscan: { titulo: "Qué buscan los nuevos", detalle: "El tratamiento o la molestia que dijo quien pedía cita, tal cual." },
   urgencia: { titulo: "Con qué urgencia", detalle: "Dolor ahora, esta semana o sin prisa, según lo que dijo quien pedía cita." },

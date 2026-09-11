@@ -69,9 +69,9 @@ export const FILTROS: Array<{
   // debía evaluar el último mensaje y no lo hizo (modelo caído, config rota…).
   {
     id: "sin-evaluar",
-    label: "Sin evaluar",
+    label: "Sin respuesta del agente",
     Icono: AlertTriangle,
-    ayuda: "El agente debía evaluar el último mensaje y no lo hizo",
+    ayuda: "El agente tenía que atender el último mensaje y no lo hizo",
   },
   // Hilos jugados (10-09): los escribió un paciente simulado y el agente REAL
   // los juzgó turno a turno, con su traza en «ver por qué». La marca sale del
@@ -79,9 +79,9 @@ export const FILTROS: Array<{
   // golpe; dentro de un mes se sigue sabiendo cuáles son.
   {
     id: "jugadas",
-    label: "Jugadas",
+    label: "Simuladas",
     Icono: Bot,
-    ayuda: "Paciente simulado, agente real: cada turno lo decidió el agente y tiene traza",
+    ayuda: "Paciente simulado, agente real: cada respuesta la decidió el agente y queda registrada",
   },
 ];
 
@@ -290,7 +290,7 @@ export function ListaConversaciones({
                     {c.estadoFlujo && <MarcaFlujo flujo={c.estadoFlujo} />}
                     {c.sinEvaluar && (
                       <Marca tono="warning" Icono={AlertTriangle}>
-                        Sin evaluar
+                        Sin respuesta del agente
                       </Marca>
                     )}
                     {c.agenteAlMando && (
@@ -307,14 +307,14 @@ export function ListaConversaciones({
                     )}
                     {/* Un nombre de perfil de WhatsApp NO es un paciente fichado.
                         Decirlo evita leer la lista creyendo que todos lo están. */}
-                    {c.origenNombre === "perfil" && <Marca tono="neutro">Sin ficha</Marca>}
+                    {c.origenNombre === "perfil" && <Marca tono="neutro">Sin ficha de paciente</Marca>}
                     {c.origenNombre === "telefono" && <Marca tono="neutro">Sin nombre</Marca>}
                     {/* Hilo jugado: paciente simulado, agente real con traza. Discreto
                         a propósito — es una marca para quien enseña, no una alarma. */}
                     {c.jugada && (
-                      <span title="Paciente simulado, agente real: cada turno lo decidió el agente y tiene traza">
+                      <span title="Paciente simulado, agente real: cada respuesta la decidió el agente y queda registrada">
                         <Marca tono="neutro" Icono={Bot}>
-                          Jugada
+                          Simulada
                         </Marca>
                       </span>
                     )}
@@ -430,7 +430,7 @@ export function BandaSinEvaluar({
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-[12.5px] font-semibold text-[var(--color-foreground)]">
-          {n} {n === 1 ? "mensaje sin evaluar por el agente" : "mensajes sin evaluar por el agente"}
+          {n} {n === 1 ? "mensaje sin respuesta del agente" : "mensajes sin respuesta del agente"}
         </p>
         <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--color-muted)]">
           Debía evaluarlos y no lo hizo. Mira los avisos de la campana para el motivo; mientras, se contestan a mano.

@@ -41,7 +41,7 @@ const CATALOGO: Pieza[] = [
     Icono: Sparkles,
     nombre: "Agente conversacional de WhatsApp",
     queHace:
-      "Contesta a pacientes y leads, recoge los datos que faltan y deriva a una persona lo que exige criterio. Cada borrador pasa por el juez de reglas duras antes de salir.",
+      "Contesta a pacientes y leads, recoge los datos que faltan y deriva a una persona lo que exige criterio. Cada mensaje pasa por la revisión de seguridad antes de salir.",
     resultado: [
       { label: "Mensajería", href: "/mensajeria" },
       { label: "Seguimiento", href: "/seguimiento" },
@@ -54,7 +54,7 @@ const CATALOGO: Pieza[] = [
     queHace:
       "Toca los presupuestos sin respuesta según los días de la secuencia; al agotarse, recomienda llamada y el caso pasa a Seguimiento.",
     resultado: [{ label: "Envíos (la cola del día)", href: "/envios" }],
-    editaEn: { label: "Configuración del agente → Cadencias", href: "/agentes/conversacional" },
+    editaEn: { label: "Configuración del agente → Secuencias de seguimiento", href: "/agentes/conversacional" },
   },
   {
     Icono: MessageCircle,
@@ -62,7 +62,7 @@ const CATALOGO: Pieza[] = [
     queHace:
       "Recuerda las citas próximas y reengancha a los rezagados con plantillas aprobadas. Sin plantilla para un hueco, el envío no se genera — se ve el hueco, no un silencio.",
     resultado: [{ label: "Envíos (la cola del día)", href: "/envios" }],
-    editaEn: { label: "Configuración del agente → Cadencias", href: "/agentes/conversacional" },
+    editaEn: { label: "Configuración del agente → Secuencias de seguimiento", href: "/agentes/conversacional" },
   },
   {
     Icono: Bell,

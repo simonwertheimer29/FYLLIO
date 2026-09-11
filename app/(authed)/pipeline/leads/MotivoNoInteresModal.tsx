@@ -114,7 +114,7 @@ export function MotivoNoInteresModal({
           <div className="mb-3 flex items-start gap-2 rounded-xl bg-[var(--color-accent-soft)] px-3 py-2.5">
             <Sparkles size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
             <p className="text-[11.5px] leading-relaxed text-[var(--color-foreground)]">
-              El agente recogió en la conversación:{" "}
+              El agente anotó en la conversación:{" "}
               <span className="font-medium">«{sugerencia.frase}»</span>. Confírmalo o corrígelo — lo que se guarda lo decides tú.
             </p>
           </div>

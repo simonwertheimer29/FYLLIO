@@ -50,14 +50,14 @@ const TIPO: Readonly<Record<string, string>> = {
 };
 
 const MOTIVO: Readonly<Record<string, string>> = {
-  modelo_no_disponible: "El modelo no responde (el turno se derivó)",
+  modelo_no_disponible: "El agente no respondió: el mensaje pasó a una persona",
   configuracion_ilegible: "La configuración de la clínica no se puede leer",
   contexto_no_disponible: "No pudo cargar el caso",
   error_inesperado: "Error inesperado",
-  tope_turnos: "Superó el tope de turnos en 24 h",
-  reintentos_agotados: "Reintentos agotados: el turno no se evaluó",
-  turno_error: "El turno falló y se reintenta",
-  publicar_fallo: "No se pudo encolar el turno (corrió en el webhook)",
+  tope_turnos: "Superó el tope de mensajes en 24 h",
+  reintentos_agotados: "Tras varios intentos, el agente no pudo atender el mensaje",
+  turno_error: "El mensaje falló y se reintenta",
+  publicar_fallo: "No se pudo poner el mensaje en cola",
   tope_incidencias: "Tope de incidencias por hora alcanzado",
 };
 

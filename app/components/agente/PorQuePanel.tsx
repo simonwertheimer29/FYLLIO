@@ -123,12 +123,12 @@ export function PorQuePanel({
           </Bloque>
         ) : (
           <Bloque titulo="Qué entendió">
-            <span className="text-[var(--color-muted)]">De este turno no quedó juicio guardado.</span>
+            <span className="text-[var(--color-muted)]">De este mensaje no quedó registro de la decisión.</span>
           </Bloque>
         )}
 
         {turno.recogidos.length > 0 && (
-          <Bloque titulo="Qué recogió en este mensaje">
+          <Bloque titulo="Datos nuevos de este mensaje">
             {turno.recogidos.map((r) => (
               <div key={r.objetivo} className="mt-1.5 first:mt-0">
                 <p className="text-[11px] font-medium text-[var(--color-muted)]">Para {ETIQUETA_TEMA[r.objetivo] ?? r.objetivo}</p>
@@ -173,11 +173,11 @@ export function PorQuePanel({
           {turno.espera.fijadaHasta && (
             <span className="mt-1 block">La persona pidió tiempo: sin contacto proactivo hasta el {fechaClinica(turno.espera.fijadaHasta)}.</span>
           )}
-          {turno.espera.levantada && <span className="mt-1 block">Se levantó la espera: {turno.espera.levantada}.</span>}
+          {turno.espera.levantada && <span className="mt-1 block">Se reanudó el contacto: {turno.espera.levantada}.</span>}
         </Bloque>
 
         {(turno.descarte || turno.etiquetasDescartadas.length > 0) && (
-          <Bloque titulo="El control de seguridad">
+          <Bloque titulo="Revisión de seguridad">
             {turno.descarte && (
               <span className="block text-[var(--color-danger)]">
                 Descartó el borrador del agente porque {ETIQUETA_MOTIVO_JUEZ[turno.descarte.motivo] ?? "infringía una regla"}
@@ -186,7 +186,7 @@ export function PorQuePanel({
             )}
             {turno.etiquetasDescartadas.length > 0 && (
               <span className="block text-[var(--color-muted)]">
-                {turno.etiquetasDescartadas.length} etiqueta{s(turno.etiquetasDescartadas.length)} del modelo fuera de vocabulario, descartada
+                {turno.etiquetasDescartadas.length} etiqueta{s(turno.etiquetasDescartadas.length)} del agente fuera de vocabulario, descartada
                 {s(turno.etiquetasDescartadas.length)} en el borde: {turno.etiquetasDescartadas.join(", ")}.
               </span>
             )}
@@ -210,16 +210,16 @@ export function PorQuePanel({
             <Fila k="Costó" v={t.costeUsd != null ? `${t.costeUsd.toFixed(4)} $` : "sin dato"} />
             {t.version ? (
               <>
-                <Fila k="Versión del evaluador" v={t.version.evaluador} />
-                <Fila k="Versión del control" v={t.version.juez} />
-                <Fila k="Conocimiento" v={t.version.conocimiento ?? "ninguno publicado"} />
-                <Fila k="Objetivos" v={t.version.objetivos ?? "ninguno abierto"} />
+                <Fila k="Versión del agente" v={t.version.evaluador} />
+                <Fila k="Versión de la revisión de seguridad" v={t.version.juez} />
+                <Fila k="Lo que sabe de la clínica" v={t.version.conocimiento ?? "nada guardado"} />
+                <Fila k="Qué persigue" v={t.version.objetivos ?? "ninguno abierto"} />
               </>
             ) : t.sembrado ? (
               // Hilos jugados (10-09): el segundo testigo. Un turno sembrado por
               // el seed no tiene versión porque nadie lo juzgó; decirlo evita
               // leer una traza inventada como si fuera del agente.
-              <Fila k="Versión" v="sembrado: este turno no lo juzgó el agente" />
+              <Fila k="Versión" v="ejemplo de la demo: esta decisión no la tomó el agente" />
             ) : (
               <Fila k="Versión" v="anterior al registro de versiones" />
             )}
@@ -254,7 +254,7 @@ export function PorQuePanel({
               className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
             >
               <Repeat size={14} strokeWidth={ICON_STROKE} aria-hidden />
-              Reproducir en el banco de pruebas
+              Reproducir en «Probar el agente»
             </Link>
             <p className="mt-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
               Vuelve a pasar este mensaje por el agente con la configuración de hoy, sin tocar la conversación real. Gasta un mensaje de prueba.

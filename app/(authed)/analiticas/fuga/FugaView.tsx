@@ -298,7 +298,7 @@ function TarjetaEtapa({ etapa: e }: { etapa: EtapaDeFuga }) {
             <div className="mt-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3">
               <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-accent)]">
                 <Sparkles size={13} strokeWidth={ICON_STROKE} />
-                Lo que recogió el agente en los cerrados sin motivo
+                Lo que anotó el agente en los cerrados sin motivo
               </div>
               <ul className="mt-1.5 space-y-1 text-sm text-[var(--color-foreground)]">
                 {e.frasesDelAgente.map((f) => (

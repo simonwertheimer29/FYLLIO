@@ -89,7 +89,7 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
   },
   {
     key: "Motor_NoShows",
-    label: "Motor No-shows",
+    label: "Seguimiento de no-shows",
     help: "Predicción de no-shows: activación, llamada automática si el riesgo es alto, plantillas y umbral de riesgo.",
   },
 ];

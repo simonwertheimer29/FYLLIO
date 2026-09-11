@@ -88,7 +88,7 @@ const RESULTADO_BADGE: Record<Llamada["resultado"], { tone: string; label: strin
   reagenda_solicitada: { tone: AMBER_TONE, label: "Reagenda" },
   cancelada: { tone: ROSE_TONE, label: "Cancelada" },
   no_contesta: { tone: NEUTRAL_TONE, label: "No contesta" },
-  escalado_humano: { tone: AMBER_TONE, label: "Escalado" },
+  escalado_humano: { tone: AMBER_TONE, label: "Derivado" },
   sin_resultado: { tone: NEUTRAL_TONE, label: "Sin resultado" },
 };
 

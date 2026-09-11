@@ -231,6 +231,21 @@ El usuario es una coordinadora, no un ingeniero. El texto habla su idioma:
   para entender el dato, no se esconde — se dice en la propia etiqueta o se rediseña el dato. El
   caso que dio la regla: «Cómo decide tu agente» con cuatro líneas antes de la tabla y dos después.
   ("pestañas", "aparecerán aquí"), sin enums crudos ("confirmacion cita").
+- **Vocabulario: el producto no habla con jerga nuestra (censo del 2026-09-11, `JERGA-CENSO.md`).**
+  Todo texto visible —etiquetas, filtros, títulos, tooltips, mensajes de error, chips— se escribe
+  para una coordinadora que abre Fyllio por primera vez. Si una palabra necesita que alguien se la
+  explique, no vale. Se queda el vocabulario del sector dental (presupuesto, primera visita, no-show,
+  señal, lead) y el español normal y profesional; no se usan los nombres del código ni los que
+  nacieron entre nosotros (turno, juez, control, revisor, vara, cadencia, toque, hilo, aplazado, caso
+  completo, jugada, sembrado, modelo, motor, cola, modo A, publicar, conocimiento, evaluar). Los
+  mapas código→texto (`etiquetas-agente.tsx` y los `ETIQUETA_*`) son el único sitio donde se
+  traduce: una etiqueta nueva pasa por ahí, no por un literal en la vista. **Y al renombrar, ninguna
+  palabra nueva que no exista ya en el producto**: si un renombre necesita inventar un término,
+  probablemente el concepto tampoco se entiende. Una cosa, una palabra: la IA se llama «agente» en
+  todas partes (no «modelo», no «asistente»); lo que revisa cada mensaje es «la revisión de
+  seguridad» (no «control», «juez» ni «revisor»); lo que el agente deja a la clínica es «una pregunta
+  pendiente para la clínica» (no «aplazado»). Prueba del algodón: leer la etiqueta en voz alta a
+  alguien de recepción.
 
 ## 6. Móvil
 

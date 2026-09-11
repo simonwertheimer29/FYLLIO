@@ -48,7 +48,7 @@ const MOTIVO_DESCARTE: Record<string, string> = {
   promesa: "prometía algo sin entregar el caso",
   agenda: "afirmaba huecos o reservaba por su cuenta",
   sin_categoria: "infringía una regla",
-  juez_no_respondio: "el revisor no respondió a tiempo",
+  juez_no_respondio: "la revisión de seguridad no respondió a tiempo",
 };
 
 export function ComposerConversacion({
@@ -294,7 +294,7 @@ export function ComposerConversacion({
       {textoDeIA && borrador?.descartado && texto === sugeridoRef.current && (
         <p className="mb-1.5 flex items-start gap-1.5 text-[11.5px] text-[var(--color-muted)]">
           <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
-          El revisor descartó lo que el agente había escrito ({MOTIVO_DESCARTE[borrador.descartado.motivo] ?? borrador.descartado.motivo}
+          La revisión de seguridad descartó lo que el agente había escrito ({MOTIVO_DESCARTE[borrador.descartado.motivo] ?? borrador.descartado.motivo}
           {borrador.descartado.frase ? `: «${borrador.descartado.frase}»` : ""}). Esto es la respuesta neutra.
         </p>
       )}

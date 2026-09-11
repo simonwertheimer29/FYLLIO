@@ -19,7 +19,7 @@ export default async function AjustesAutomatizacionesPage() {
       <SectionAutomatizaciones user={user} />
       <div className="border-t border-[var(--color-border)] pt-8">
         <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-          Cadencias y recordatorios
+          Secuencias de seguimiento y recordatorios
         </h2>
         <p className="mt-1 max-w-xl text-[13px] text-[var(--color-muted)]">
           Los días de la secuencia de seguimiento, los toques antes de agotar y

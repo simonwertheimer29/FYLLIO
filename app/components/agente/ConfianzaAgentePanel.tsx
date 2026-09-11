@@ -77,14 +77,14 @@ function FilaSede({ c, titulo, destacada = false }: { c: ClinicaConfianza; titul
       <td className="py-2 pr-3">
         <p className="font-medium text-[var(--color-foreground)]">{titulo}</p>
         {exigen && <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--color-muted)]">Sigue exigiendo persona: {exigen}</p>}
-        {aplazo && <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--color-muted)]">Aplazó: {aplazo}</p>}
+        {aplazo && <p className="mt-0.5 text-[11.5px] leading-snug text-[var(--color-muted)]">Dejó a la clínica: {aplazo}</p>}
       </td>
       <td className="py-2 pr-3 text-right tabular-nums text-[var(--color-muted)]">{c.turnos}</td>
       <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap">
         <DeTotal parte={c.entregasListas} total={c.entregas} sinTotal="sin entregas" />
       </td>
       <td className={`py-2 pr-3 text-right tabular-nums whitespace-nowrap ${descartesPct != null && descartesPct >= 20 ? "text-[var(--color-danger)]" : ""}`}>
-        <DeTotal parte={c.descartes} total={c.turnos} sinTotal="sin turnos" />
+        <DeTotal parte={c.descartes} total={c.turnos} sinTotal="sin mensajes" />
       </td>
       <td className="py-2 pr-3 text-right tabular-nums whitespace-nowrap">
         <DeTotal parte={c.coincidencia.talCual} total={c.coincidencia.total} sinTotal="sin envíos medidos" />
@@ -133,12 +133,12 @@ export function ConfianzaAgentePanel() {
           Cómo decide tu agente
         </p>
         <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
-          La vara mide el motor con casos escritos por nosotros; debajo, tus conversaciones reales por sede. No se mezclan.
+          Las pruebas de calidad miden el agente con casos escritos por nosotros; debajo, tus conversaciones reales por sede. No se mezclan.
         </p>
       </header>
 
       {error ? (
-        <ErrorState detail={`La confianza del agente no se pudo leer. ${error}`} onRetry={cargar} />
+        <ErrorState detail={`«Cómo decide tu agente» no se pudo leer. ${error}`} onRetry={cargar} />
       ) : !datos ? (
         <div className="space-y-3">
           <div className="fyllio-skeleton h-16" />
@@ -149,11 +149,11 @@ export function ConfianzaAgentePanel() {
           {/* ── 1 · La vara ── */}
           <div>
             <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted)]" title={datos.vara ? origenVara(datos.vara.pasada.origen) : undefined}>
-              La vara
+              Pruebas de calidad
               {datos.vara && <> · {datos.vara.pasada.casos} casos · medida el {fechaLarga(datos.vara.pasada.fecha)}</>}
             </p>
             {!datos.vara ? (
-              <p className="mt-1 text-[13px] text-[var(--color-muted)]">La última pasada de la vara no se pudo leer. Hasta que se vuelva a pasar, aquí no hay número.</p>
+              <p className="mt-1 text-[13px] text-[var(--color-muted)]">La última vez que se pasaron las pruebas de calidad no se pudo leer. Hasta que se vuelvan a pasar, aquí no hay número.</p>
             ) : (
               (() => {
                 const p = datos.vara.pasada;
@@ -162,19 +162,19 @@ export function ConfianzaAgentePanel() {
                     <ul className="mt-1.5 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                       <li><Cifra etiqueta="Decide bien"><DeTotal parte={p.decision.aciertos} total={p.decision.total} /></Cifra></li>
                       <li>
-                        <Cifra etiqueta="Entrega el caso listo cuando toca">
+                        <Cifra etiqueta="Entrega con todos los datos cuando toca">
                           {p.listo ? <DeTotal parte={p.listo.aciertos} total={p.listo.total} /> : <span className="text-[var(--color-muted)]">no medido</span>}
                         </Cifra>
                       </li>
-                      <li><Cifra etiqueta="Borradores parados por el control"><DeTotal parte={p.descartesJuez.n} total={p.descartesJuez.total} /></Cifra></li>
+                      <li><Cifra etiqueta="Mensajes descartados por la revisión de seguridad"><DeTotal parte={p.descartesJuez.n} total={p.descartesJuez.total} /></Cifra></li>
                       <li>
-                        <Cifra etiqueta="Coste por turno">
+                        <Cifra etiqueta="Coste por mensaje atendido">
                           {p.costePorTurnoUsd == null ? <span className="text-[var(--color-muted)]">sin medir</span> : `${p.costePorTurnoUsd.toFixed(3)} $`}
                         </Cifra>
                       </li>
                     </ul>
                     {!datos.vara.mideLoQueCorre && (
-                      <p className="mt-1.5 text-[12px] text-[var(--color-warning)]">El agente cambió desde esa pasada: la vara está por volver a pasar.</p>
+                      <p className="mt-1.5 text-[12px] text-[var(--color-warning)]">El agente cambió desde esas pruebas: las pruebas de calidad están por volver a pasar.</p>
                     )}
                   </>
                 );
@@ -188,18 +188,18 @@ export function ConfianzaAgentePanel() {
               Tus conversaciones reales · del {ddmm(datos.desde)} al {ddmm(datos.hasta)}
             </p>
             {datos.clinicas.length === 0 || datos.total.turnos + datos.total.coincidencia.total + datos.total.marcados.total === 0 ? (
-              <p className="mt-1 text-[13px] text-[var(--color-muted)]">Sin turnos del agente del {ddmm(datos.desde)} al {ddmm(datos.hasta)}. Cuando conteste, aquí se verá qué hizo con cada sede.</p>
+              <p className="mt-1 text-[13px] text-[var(--color-muted)]">Sin mensajes atendidos por el agente del {ddmm(datos.desde)} al {ddmm(datos.hasta)}. Cuando conteste, aquí se verá qué hizo con cada sede.</p>
             ) : (
               <div className="mt-1.5 overflow-x-auto">
                 <table className="w-full text-[12.5px]">
                   <thead>
                     <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
                       <th className="py-1.5 pr-3 font-semibold">Sede</th>
-                      <th className="py-1.5 pr-3 text-right font-semibold">Turnos</th>
-                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="Entregas que llegaron con el caso completo, de todas las entregas a una persona.">Te libera (caso listo)</th>
-                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="Borradores que el control de seguridad descartó.">Lo paró el control</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold">Mensajes</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="Entregas que llegaron con todos los datos, de todas las entregas a una persona.">Con todos los datos</th>
+                      <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="Mensajes que la revisión de seguridad descartó.">Revisión de seguridad</th>
                       <th className="py-1.5 pr-3 text-right font-semibold whitespace-nowrap" title="De los envíos que salían de un borrador del agente, cuántos mandó el equipo sin tocar.">Enviado tal cual</th>
-                      <th className="py-1.5 text-right font-semibold whitespace-nowrap" title="Se marca desde «Ver por qué» en Mensajería; entra en revisión antes de sumarse a la vara.">Marcado como error</th>
+                      <th className="py-1.5 text-right font-semibold whitespace-nowrap" title="Se marca desde «Ver por qué» en Mensajería; entra en revisión antes de sumarse a las pruebas de calidad.">Marcado como error</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -218,7 +218,7 @@ export function ConfianzaAgentePanel() {
             <div>
               <p
                 className="text-[10px] font-medium uppercase tracking-wider"
-                title="Se marca desde «Ver por qué» en Mensajería: el turno se guarda tal cual lo viste y entra en revisión antes de sumarse a la vara."
+                title="Se marca desde «Ver por qué» en Mensajería: el mensaje se guarda tal cual lo viste y entra en revisión antes de sumarse a las pruebas de calidad."
               >
                 Marcados como error
               </p>
@@ -229,7 +229,7 @@ export function ConfianzaAgentePanel() {
                   <>
                     <b className="font-semibold text-[var(--color-foreground)]">{datos.total.marcados.total}</b>
                     {datos.total.marcados.pendientes > 0 ? ` · ${datos.total.marcados.pendientes} por revisar` : ""}
-                    {datos.total.marcados.aceptados > 0 ? ` · ${datos.total.marcados.aceptados} aceptado${s(datos.total.marcados.aceptados)} para la vara` : ""}
+                    {datos.total.marcados.aceptados > 0 ? ` · ${datos.total.marcados.aceptados} aceptado${s(datos.total.marcados.aceptados)} para las pruebas de calidad` : ""}
                     {datos.total.marcados.descartados > 0 ? ` · ${datos.total.marcados.descartados} descartado${s(datos.total.marcados.descartados)}` : ""}
                   </>
                 )}

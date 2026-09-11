@@ -365,7 +365,7 @@ export function MensajeriaView() {
                               : filtro === "sin-respuesta"
                                 ? "Aparecerán las conversaciones donde escribiste tú y el paciente aún no ha respondido."
                                 : filtro === "sin-evaluar"
-                                ? "Aparecerán las conversaciones cuyo último mensaje el agente debía evaluar y no evaluó."
+                                ? "Aparecerán las conversaciones cuyo último mensaje el agente tenía que atender y no atendió."
                                 : "Cuando entre o salga un mensaje, aparecerá en esta lista."
                       }
                     />

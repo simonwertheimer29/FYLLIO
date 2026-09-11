@@ -167,7 +167,7 @@ export function AgenteConfigView() {
           .map((s) => Number(s.trim()))
           .filter((n) => Number.isFinite(n) && n > 0);
         if (dias.length === 0) {
-          toast.error("La secuencia de la cadencia necesita al menos un día (p. ej. «3, 7, 10»)");
+          toast.error("La secuencia necesita al menos un día (p. ej. «3, 7, 10»)");
           return;
         }
         await cargarJSON("/api/presupuestos/recordatorios/configuracion", {
@@ -275,21 +275,21 @@ export function AgenteConfigView() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2
                 className="font-display text-[15px] font-semibold text-[var(--color-foreground)]"
-                title="Las preguntas que el agente aplazó en los últimos 30 días, por tema, cruzadas con lo que tienes publicado. Cada conversación cuenta una vez por tema."
+                title="Las preguntas que el agente dejó a la clínica en los últimos 30 días, por tema, cruzadas con lo que el agente sabe. Cada conversación cuenta una vez por tema."
               >
-                Qué publicar para que resuelva más
+                Qué añadir para que resuelva más
               </h2>
               <span className="text-[11px] text-[var(--color-muted)]">últimos 30 días · {nombreClinica ?? "toda la red"}</span>
             </div>
             {errorAtascosVigente ? (
-              <p className="mt-2 text-[12.5px] text-[var(--color-danger)]">No se pudo leer lo que el agente aplazó. {errorAtascosVigente}</p>
+              <p className="mt-2 text-[12.5px] text-[var(--color-danger)]">No se pudo leer lo que el agente dejó a la clínica. {errorAtascosVigente}</p>
             ) : !recomendaciones ? (
               <div className="mt-2.5 space-y-1.5">
                 <div className="h-5 animate-pulse rounded-lg bg-[var(--color-surface-muted)]" />
                 <div className="h-5 w-3/4 animate-pulse rounded-lg bg-[var(--color-surface-muted)]" />
               </div>
             ) : recomendaciones.length === 0 ? (
-              <p className="mt-2 text-[12.5px] text-[var(--color-muted)]">El agente no aplazó nada en 30 días: lo publicado contesta lo que preguntan.</p>
+              <p className="mt-2 text-[12.5px] text-[var(--color-muted)]">El agente no dejó ninguna pregunta a la clínica en 30 días: lo que sabe contesta lo que preguntan.</p>
             ) : (
               <ul className="mt-2.5 space-y-2">
                 {recomendaciones.map((r) => (
@@ -362,8 +362,8 @@ export function AgenteConfigView() {
           {/* ── GRUPO 2 · Qué sabe el agente ──────────────────────────── */}
           <Seccion
             id="tratamientos"
-            titulo="Tratamientos y precios publicados"
-            consecuencia="Con precio, el agente contesta cuánto cuesta; sin precio, lo aplaza y lo resuelve tu equipo."
+            titulo="Tratamientos y precios"
+            consecuencia="Con precio, el agente contesta cuánto cuesta; sin precio, lo deja pendiente y lo resuelve tu equipo."
           >
             {config.tratamientos.map((t, i) => (
               <div key={i} className="flex flex-wrap items-start gap-2">
@@ -376,7 +376,7 @@ export function AgenteConfigView() {
                 <input
                   value={t.precio ?? ""}
                   onChange={(e) => setConfig(actualizaLista(config, "tratamientos", i, { ...t, precio: e.target.value || null }))}
-                  placeholder="Precio publicado (desde 35 €/mes)"
+                  placeholder="Precio (desde 35 €/mes)"
                   className={INPUT + " w-56"}
                 />
                 <input
@@ -407,7 +407,7 @@ export function AgenteConfigView() {
 
           <Seccion
             id="politicas"
-            titulo="Políticas publicadas"
+            titulo="Políticas"
             consecuencia="Lo que publiques aquí el agente lo contesta tal cual; adaptarlo a una persona concreta lo hace siempre tu equipo."
           >
             {config.politicas.map((p, i) => (
@@ -423,7 +423,7 @@ export function AgenteConfigView() {
                   onChange={(e) => setConfig(actualizaLista(config, "politicas", i, { ...p, texto: e.target.value }))}
                   placeholder={
                     SUGERENCIAS_POLITICAS.find((s) => s.titulo.toLowerCase() === p.titulo.trim().toLowerCase())
-                      ?.ejemplo ?? "Texto publicado (lo que el agente puede afirmar tal cual)"
+                      ?.ejemplo ?? "Texto que el agente puede afirmar tal cual"
                   }
                   rows={2}
                   className={INPUT + " min-w-[16rem] flex-1 resize-y"}
@@ -521,7 +521,7 @@ export function AgenteConfigView() {
             id="agenda"
             titulo="Agenda"
             consecuencia="Con la agenda conectada (solo lectura) el agente informa de los huecos; sin ella, recoge la disponibilidad y tu equipo confirma."
-            matiz="Reservar lo hace siempre tu equipo. «¿Tenéis hueco el jueves?» es el aplazamiento más frecuente."
+            matiz="Reservar lo hace siempre tu equipo. «¿Tenéis hueco el jueves?» es la pregunta que más veces queda pendiente para la clínica."
           >
             <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-3">
               <input type="radio" name="agenda" checked readOnly className="mt-0.5 accent-[var(--color-accent)]" />
@@ -530,7 +530,7 @@ export function AgenteConfigView() {
                   Sin conexión — recoge disponibilidad
                 </span>
                 <span className="mt-0.5 block text-[12px] leading-relaxed text-[var(--color-muted)]">
-                  El agente pregunta días y franjas, lo deja recogido en el caso, y tu equipo cierra la cita.
+                  El agente pregunta días y franjas, lo deja anotado en el caso, y tu equipo cierra la cita.
                 </span>
               </span>
             </label>
@@ -551,10 +551,10 @@ export function AgenteConfigView() {
           {/* ── GRUPO 3 · Hasta dónde llega ───────────────────────────── */}
           <Seccion
             titulo="Hasta dónde llega"
-            consecuencia="Cuántas veces aplaza un tema antes de pasártelo, y qué pasa con las urgencias."
+            consecuencia="Cuántas veces deja una pregunta pendiente antes de pasártela, y qué pasa con las urgencias."
           >
             <label className="block text-[13px] text-[var(--color-foreground)]">
-              <span className="font-medium">Vueltas sobre un tema aplazado antes de derivarlo</span>
+              <span className="font-medium">Vueltas sobre una pregunta pendiente antes de derivarla</span>
               <select
                 value={config.alcance.umbralInsistencia ?? 2}
                 onChange={(e) =>
@@ -766,11 +766,11 @@ export function AgenteConfigView() {
               Automatizaciones (dictado 22-08): el agente y la cadencia
               comparten el semáforo, los plazos y al paciente. ──────────── */}
           <Seccion
-            titulo="Cadencias y recordatorios"
+            titulo="Secuencias de seguimiento y recordatorios"
             consecuencia="Cada cuánto se toca un presupuesto sin respuesta, cuántas veces antes de recomendar llamada y a qué hora salen los envíos."
           >
             <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
-              <span>Toques sin respuesta antes de dar la cadencia por agotada</span>
+              <span>Mensajes sin respuesta antes de parar la secuencia</span>
               <span className="flex shrink-0 items-center gap-1.5">
                 <input
                   type="number"
@@ -837,7 +837,7 @@ export function AgenteConfigView() {
                     onChange={(e) => setCadencia({ ...cadencia, activa: e.target.checked })}
                     className="accent-[var(--color-accent)]"
                   />
-                  Cadencia activa en {cadencia.clinica}
+                  Secuencia activa en {cadencia.clinica}
                 </label>
               </>
             ) : (
@@ -845,7 +845,7 @@ export function AgenteConfigView() {
                 className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]"
                 title="Sin tocar nada, todas usan el estándar: seguimiento a los 3, 7 y 10 días, máximo 3 recordatorios, envíos a las 9:00 y rechazo automático a los 30 días."
               >
-                La cadencia es por clínica: elige una en el selector de la cabecera para ajustar la suya.
+                La secuencia es por clínica: elige una en el selector de la cabecera para ajustar la suya.
               </p>
             )}
             <p className="text-[12px] tabular-nums text-[var(--color-muted)]">
@@ -880,11 +880,11 @@ export function AgenteConfigView() {
               className="mt-2 flex items-center gap-1 text-[13px] font-semibold text-[var(--color-accent)]"
             >
               {verPrompt ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
-              Lo publicado que entra en cada conversación
+              Lo que el agente sabe, tal como entra en cada conversación
             </button>
             {verPrompt && (
               <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] p-3 text-[12px] leading-relaxed text-[var(--color-foreground)]">
-                {bloque || "(nada publicado todavía — el agente aplaza precios, horarios y políticas)"}
+                {bloque || "(nada guardado todavía — el agente deja precios, horarios y políticas a la clínica)"}
               </pre>
             )}
             <button

@@ -464,6 +464,6 @@ export async function censoSemaforo(opts?: OpcionesSemaforo): Promise<CensoSemaf
 
 export const ETIQUETA_MOTIVO_ROJO: Record<MotivoRojo, string> = {
   derivado_sin_resolver: "Asunto derivado sin resolver",
-  hilo_asumido: "Hilo asumido por una persona",
-  espera: "En espera (sin contacto hasta fecha)",
+  hilo_asumido: "Conversación que lleva una persona",
+  espera: "En espera hasta una fecha, lo pidió el paciente",
 };

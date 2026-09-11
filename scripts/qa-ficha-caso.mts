@@ -86,7 +86,7 @@ await runWithCliente("DEMO", async () => {
   ok("evaluado = false", fa.evaluado === false);
   ok("queQuiere = null (ni resumen fingido)", fa.queQuiere === null);
   ok("recogido = null (no una lista vacía que parezca «nada que recoger»)", fa.recogido === null);
-  ok("la línea lo dice en palabras", fa.linea.queQuiere === "Sin evaluar por el agente");
+  ok("la línea lo dice en palabras", fa.linea.queQuiere === "Sin respuesta del agente");
   ok("y lo data-driven se muestra igual (nombre del perfil)", fa.nombre.length > 0, fa.nombre);
 
   // ── Mini-mundo para b + c + espera + intentos ────────────────────────────

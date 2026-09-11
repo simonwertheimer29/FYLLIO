@@ -174,10 +174,10 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
           {/* Mode A — active */}
           <div className="rounded-xl border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <span className="text-sm font-bold text-[var(--color-foreground)]">Modo A</span>
+              <span className="text-sm font-bold text-[var(--color-foreground)]">Envío manual</span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)]">Activo</span>
             </div>
-            <p className="text-xs text-[var(--color-accent)] font-medium mb-1">Prepara, no envía</p>
+            <p className="text-xs text-[var(--color-accent)] font-medium mb-1">Tú pulsas enviar</p>
             <p className="text-[11px] text-[var(--color-accent)] leading-relaxed">
               Los mensajes se generan automáticamente y se colocan en cola para revisión antes de enviar.
             </p>
@@ -185,10 +185,10 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
           {/* Mode B — disabled */}
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <span className="text-sm font-bold text-[var(--color-muted)]">Modo B</span>
+              <span className="text-sm font-bold text-[var(--color-muted)]">Envío automático</span>
               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-border)] text-[var(--color-muted)]">WhatsApp Business API</span>
             </div>
-            <p className="text-xs text-[var(--color-muted)] font-medium mb-1">Envío semi-automático</p>
+            <p className="text-xs text-[var(--color-muted)] font-medium mb-1">Envía solo, con confirmación</p>
             <p className="text-[11px] text-[var(--color-muted)] leading-relaxed">
               Requiere conexión con WhatsApp Business API para envío con confirmación.
             </p>

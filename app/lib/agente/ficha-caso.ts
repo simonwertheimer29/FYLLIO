@@ -327,7 +327,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
       : null,
     linea: {
       paciente: ctx.nombre,
-      queQuiere: queQuiere ?? (evaluado ? "(sin objetivo abierto)" : "Sin evaluar por el agente"),
+      queQuiere: queQuiere ?? (evaluado ? "(sin objetivo abierto)" : "Sin respuesta del agente"),
       esperandoDesde,
     },
     agente,

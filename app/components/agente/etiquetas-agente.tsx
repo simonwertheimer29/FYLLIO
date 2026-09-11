@@ -24,8 +24,8 @@ export const ETIQUETA_TEMA: Record<string, string> = {
 export const ETIQUETA_CAUSA: Record<string, string> = {
   peticion_queja: "pidió una persona o se quejó",
   urgencia: "urgencia médica",
-  insistencia: "insistió sobre algo aplazado",
-  caso_completo: "caso completo — lo entrega listo",
+  insistencia: "insistió en una pregunta pendiente de la clínica",
+  caso_completo: "con todos los datos: listo para el equipo",
   antecedente_medico: "mencionó un antecedente médico con cita próxima",
   no_legible: "mandó algo que el agente no puede leer (audio, foto, documento…)",
 };
@@ -38,7 +38,7 @@ export const ETIQUETA_MOTIVO_JUEZ: Record<string, string> = {
   promesa: "prometía algo que nadie iba a hacer",
   agenda: "afirmaba huecos que no ve, o se comprometía a reservar la cita",
   sin_categoria: "infringía una regla dura",
-  juez_no_respondio: "el control no respondió (se descartó por seguridad)",
+  juez_no_respondio: "la revisión de seguridad no contestó: se descartó por precaución",
 };
 
 export function Bloque({ titulo, children }: { titulo: string; children: ReactNode }) {
