@@ -1,0 +1,55 @@
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+Tres conversaciones por guion · 1 guiones · decisores: codigo, contexto, libre · paciente claude-sonnet-5 · coste TOPE $0.36 (todos los hilos hasta maxTurnos) · típico ≈ $0.22 (3 turnos por hilo)
+
+════════════════════════════════════════════════════════════════════════
+▶ aplazamiento_dato · Nuria pregunta por parking y sedación
+
+  ── codigo
+[evaluador] borrador descartado (clinica): «La sedación consciente es una opción que la clínica valida en cada caso»
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 codigo [acompanar]: «Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por»  ⚠ borrador descartado (clinica)
+[evaluador] borrador descartado (clinica): «hay opciones cerca»
+  t2 paciente: «Vale, gracias! Y otra cosa, sabéis si hay parking cerca de la clínica?»
+  t2 codigo [reconocer]: «Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por»  ⚠ borrador descartado (clinica)
+[evaluador] borrador descartado (clinica): «Sí, abrimos sábados. Sobre la sedación consciente y el parking, el equipo te lo confirma enseguida»
+  t3 paciente: «Vale perfecto, luego me confirmáis las dos cosas entonces. Por cierto,»
+  t3 codigo [recoger]: «Gracias, Nuria. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?»  ⚠ borrador descartado (clinica)
+[evaluador] borrador descartado (clinica): «Sí, abrimos sábados»
+  t4 paciente: «Sin prisa, no tengo dolor ahora mismo, es para programarla con calma.»
+  t4 codigo [recoger]: «Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?»  ⚠ borrador descartado (clinica)
+[evaluador] borrador descartado (clinica): «Un asesor te confirma enseguida lo de la sedación consciente»
+  t5 paciente: «Pues entre semana por la tarde me viene mejor, pero si abrís el sábado»
+  t5 codigo [cerrar · PASA A UNA PERSONA]: «Ya tengo todo lo que necesito, Nuria. Alguien del equipo te contacta con los horarios disp»  ⚠ borrador descartado (clinica)
+  ▸ codigo: derivado en 5 mensajes (caso_completo) · repitió 1 · molestia no · datos 3 · $0.053
+
+  ── contexto
+[evaluador] borrador descartado (clinica): «La sedación consciente es una opción que la clínica valora en cada caso»
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 contexto [acompanar]: «Hola Nuria, entiendo que te preocupe. Sí, en la clínica valoramos cada caso y el doctor te»
+[evaluador] borrador descartado (clinica): «hay opciones cerca y el equipo te lo detalla cuando cierres la cita»
+  t2 paciente: «Vale, genial que sea una opción... me quedo más tranquila. Otra cosa, »
+  t2 contexto [recoger]: «Me alegra que te quedes más tranquila, Nuria. Sobre el parking, la clínica te lo confirma »
+[evaluador] borrador descartado (clinica): «contamos con sedación y que el»
+  t3 paciente: «Vale, perfecto, esperaré que me lo confirméis. Por cierto, ¿abrís los »
+  t3 contexto [recoger]: «Sí, abrimos sábados. Perfecto, Nuria, entonces te propongo que me digas tu nombre completo»
+[evaluador] borrador descartado (clinica): «te confirma también lo del parking y la logística para el día de la sedación»
+  t4 paciente: «Genial, pues me viene bien un sábado. Soy Nuria Martínez, ya os paso e»
+  t4 contexto [recoger]: «Perfecto, Nuria. Tenemos tu nombre y que prefieres un sábado. Solo me falta saber: ¿te vie»  ⚠ Tenemos tu nombre y que
+[evaluador] borrador descartado (clinica): «Ya tengo todo lo que necesito. El equipo te contacta para concretar la hora exacta y confirmar la sedación y el parking.»
+  t5 paciente: «Me viene mejor el 19, por la mañana si puede ser. Gracias por todo, es»
+  t5 contexto [cerrar · PASA A UNA PERSONA]: «Perfecto, Nuria. Tenemos tu cita para el sábado 19 de septiembre por la mañana para la ext»
+  ▸ contexto: derivado en 5 mensajes (cerrar · Tenemos nombre completo, tratamiento, urgencia, disponibilidad exacta y preferencia de franja. Todo lo que la clínica necesita está anotado. El siguiente paso es que el equipo contacte para confirmar cita, sedación y parking.) · repitió 1 · molestia no · datos 4 · $0.066
+
+  ── libre
+[evaluador] borrador descartado (clinica): «La sedación consciente es una opción que la clínica valora en cada caso»
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 libre [acompanar]: «Hola Nuria, es normal tener dudas antes de una extracción. Sobre la sedación consciente, l»  ⚠ tenemos y cuál es la
+  t2 paciente: «Vale, sí porfa que me llamen. Y de paso, sabéis si hay parking cerca d»
+  t2 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Nuria. Anotamos que alguien te llame para hablar de sedación consciente para tu »
+  ▸ libre: derivado en 2 mensajes (cerrar · Reconocer que ya está anotado que alguien le llamará sobre sedación, responder sobre el parking (dato práctico que la calma) y cerrar para que el equipo contacte sin dilatar más.) · repitió 1 · molestia no · datos 1 · $0.022
+
+════════════════════════════════════════════════════════════════════════
+1 guiones × 3 decisores · coste medido $0.14 · fixture evals/hilos-tres/fixture.json · léelo en /sombra › Conversaciones
+Apunta el coste en evals/pasadas/GASTO.md.
+exit: 0

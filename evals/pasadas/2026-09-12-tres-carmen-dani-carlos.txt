@@ -1,0 +1,107 @@
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Tres conversaciones por guion · 3 guiones · decisores: codigo, contexto, libre · paciente claude-sonnet-5 · coste TOPE $1.37 (todos los hilos hasta maxTurnos) · típico ≈ $0.65 (3 turnos por hilo)
+
+════════════════════════════════════════════════════════════════════════
+▶ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos
+
+  ── codigo
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 codigo [recoger]: «¡Hola! Perfecto, nos encantaría ayudarte con tu ortodoncia invisible. Para poder cerrar tu»
+  t2 paciente: «Daniel Arribas»
+  t2 codigo [acompanar]: «¡Gracias, Daniel! Para poder cerrar tu cita de ortodoncia invisible, necesito saber si tie»
+  t3 paciente: «No tengo ninguna urgencia, es solo para valorar el tratamiento. Me vie»
+  t3 codigo [cerrar · PASA A UNA PERSONA]: «Perfecto, Daniel. Tengo claro que buscas una valoración de ortodoncia invisible, sin urgen»
+  ▸ codigo: derivado en 3 mensajes (caso_completo) · repitió 0 · molestia no · datos 7 · $0.032
+
+  ── contexto
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 contexto [recoger]: «Hola Dani, perfecto. Te ayudamos con la ortodoncia invisible. Para agendar tu primera cita»
+[evaluador] borrador descartado (clinica): «Tenemos ortodoncia invisible»
+  t2 paciente: «Daniel Arribas, sin prisa ninguna molestia, solo quiero valorar el tem»
+  t2 contexto [recoger]: «Perfecto, Daniel. Para agendar tu primera cita de ortodoncia invisible, ¿qué días de la se»
+  t3 paciente: «Por las tardes mejor, y cualquier día menos los viernes que no puedo»
+  t3 contexto [recoger]: «Perfecto, Daniel. Tardes y sin viernes, anotado. Para cerrar tu cita, ¿qué día de la próxi»
+  t4 paciente: «El martes me viene genial, a última hora de la tarde si puede ser»
+  t4 contexto [cerrar · PASA A UNA PERSONA]: «Perfecto, Daniel. Te agendamos para el martes 2026-09-15 a última hora de la tarde para tu»
+  ▸ contexto: derivado en 4 mensajes (cerrar · Tenemos toda la información necesaria para que la clínica contacte y cierre la cita sin volver a preguntar: nombre, tratamiento, día, franja y urgencia.) · repitió 0 · molestia no · datos 7 · $0.047
+
+  ── libre
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 libre [recoger]: «Hola Dani, perfecto, podemos ayudarte con la ortodoncia invisible. Para buscar tu primera »
+  t2 paciente: «Daniel Arribas. Por las tardes mejor, y cualquier día me viene bien me»
+  t2 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Daniel. Tengo tu solicitud: primera cita de valoración para ortodoncia invisible»
+  ▸ libre: derivado en 2 mensajes (cerrar · Que alguien del equipo vea esta solicitud y le ofrezca fechas reales de la agenda, porque yo no tengo acceso a los huecos disponibles y él necesita una cita concreta para poder decidir.) · repitió 0 · molestia no · datos 7 · $0.021
+
+════════════════════════════════════════════════════════════════════════
+▶ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende»
+
+  ── codigo
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 codigo [recoger]: «¡Hola Carlos! Me alegra verte de nuevo. El precio del implante depende de cada caso — nece»
+[evaluador] borrador descartado (economica): «Te lo confirma un asesor enseguida»
+  t2 paciente: «Ya, pero antes de la cita quiero hacerme una idea. El más básico, sin »
+  t2 codigo [reconocer]: «Gracias por tu mensaje, Carlos. Preferimos dártelo exacto antes que a medias — seguimos po»  ⚠ borrador descartado (economica)
+  t3 paciente: «Vale pero un número aproximado, no hace falta que sea exacto del todo.»
+  t3 codigo [reconocer · PASA A UNA PERSONA]: «Entiendo que quieras una idea antes de venir, Carlos. El rango depende mucho de cada boca »
+  ▸ codigo: derivado en 3 mensajes (insistencia) · repitió 2 · molestia no · datos 2 · $0.025
+
+  ── contexto
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 contexto [recoger]: «Hola Carlos, me alegra verte de nuevo. Los implantes son un tratamiento que valoramos caso»
+  t2 paciente: «Ya me imagino que depende, pero vamos, el más básico, sin florituras, »
+  t2 contexto [reconocer]: «Entiendo que quieras una idea, Carlos. La razón es que el precio depende de cosas que solo»
+[evaluador] borrador descartado (agenda): «¿Te viene bien una cita esta semana? Así el equipo te lo cierra todo junto.»
+  t3 paciente: «Vale pero un número aproximado, así por encima, no me atéis a nada. ¿M»
+  t3 contexto [reconocer]: «Entiendo que quieras una cifra de referencia, Carlos. Lo que pasa es que un implante puede»
+  t4 paciente: «Ok, un rango ya es algo. Nada, dejadlo, ya llamaré cuando decida. Grac»
+  t4 contexto [parar]: «Perfecto, Carlos. Cuando tengas claro qué necesitas, aquí estamos. Un saludo.»
+  t5 ■ paciente: FIN
+  ▸ contexto: resuelto · repitió 2 · molestia no · datos 4 · $0.053
+
+  ── libre
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 libre [recoger]: «Hola Carlos, me alegra verte de nuevo. Para darte un presupuesto de implante necesitamos q»
+  t2 paciente: «Ya, si eso ya lo sé, pero antes de pedir cita quiero hacerme una idea.»
+  t2 libre [reconocer]: «Entiendo que quieras tener una idea antes, Carlos. El problema es que no tengo publicado u»
+[evaluador] borrador descartado (agenda): «cuando tengas claro que quieres venir, me dices qué días te vienen bien y cerramos la cita»
+  t3 paciente: «Vale, pero un número aproximado nada más, ¿más o menos de mil euros o »
+  t3 libre [cerrar · PASA A UNA PERSONA]: «Carlos, entiendo que quieras una cifra antes de venir. No puedo darte un número sin que el»
+  ▸ libre: derivado en 3 mensajes (cerrar · Reconocer su pregunta legítima, ser honesto sobre lo que no puedo hacer (dar cifras sin autorización), y cerrar el caso para que alguien del equipo le llame con esa orientación inicial que ya se le ofreció.) · repitió 2 · molestia no · datos 3 · $0.035
+
+════════════════════════════════════════════════════════════════════════
+▶ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre
+
+  ── codigo
+  t1 paciente: «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de»
+  t1 codigo [recoger]: «¡Hola Lucía! Claro, te ayudamos a pedir cita. ¿Qué tratamiento te interesa o qué molestia »
+  t2 paciente: «Nada de molestias, es que hace años que no voy al dentista y quiero ha»
+  t2 codigo [recoger]: «Perfecto, Lucía. Una revisión es lo ideal después de tanto tiempo. ¿Qué días y franjas te »
+  t3 paciente: «Por la tarde mejor, entre semana. Si puede ser jueves o viernes genial»
+  t3 codigo [recoger]: «Perfecto, Lucía. Para cerrar tu cita necesito tu nombre completo, por favor.»
+  t4 paciente: «Lucía Ruiz Prado»
+  t4 codigo [cerrar · PASA A UNA PERSONA]: «¡Perfecto, Lucía! Ya tengo todo lo que necesito. El equipo te contacta para concretar día »
+  ▸ codigo: derivado en 4 mensajes (caso_completo) · repitió 0 · molestia no · datos 4 · $0.033
+
+  ── contexto
+  t1 paciente: «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de»
+  t1 contexto [aclarar]: «Hola Lucía, perfecto. Solo para asegurarme: ¿la cita es para ti, o eres tú quien contacta »
+  t2 paciente: «Sí, es para mí. Mi madre es paciente vuestra pero la cita la quiero yo»
+  t2 contexto [recoger]: «Perfecto, Lucía. Para agendar tu revisión sin volver a preguntar, necesito unos datos: ¿cu»
+  t3 paciente: «Lucía Ruiz Prado. Es revisión de rutina, hace años que no voy al denti»
+  t3 contexto [recoger]: «Perfecto, Lucía. Revisión de rutina entre semana por las tardes lo tenemos claro. Solo una»  ⚠ ofrecemos las fechas que mejor se
+  t4 paciente: «Esta semana mejor si hay hueco, así lo quito ya de encima»
+  t4 contexto [cerrar · PASA A UNA PERSONA]: «Perfecto, Lucía. Tenemos todo lo que necesitamos: revisión de rutina esta semana entre sem»
+  ▸ contexto: derivado en 4 mensajes (cerrar · Tenemos nombre completo, tratamiento (revisión de rutina), urgencia (esta semana), disponibilidad (entre semana, tardes) y contexto (paciente nueva, madre es paciente). No hay más que recoger: el equipo contacta con opciones.) · repitió 0 · molestia no · datos 4 · $0.047
+
+  ── libre
+  t1 paciente: «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de»
+  t1 libre [recoger]: «Hola Lucía, claro que sí. Para poder ofrecerte las mejores horas, me gustaría saber: ¿qué »
+  t2 paciente: «Pues es una revisión general, hace bastantes años que no voy al dentis»
+  t2 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Lucía. Te paso con el equipo para que te confirmen las tardes disponibles entre »
+  ▸ libre: derivado en 2 mensajes (cerrar · Que el equipo de la clínica le confirme directamente las horas disponibles, porque solo ellos ven la agenda y pueden ofrecerle las mejores opciones según su preferencia.) · repitió 0 · molestia no · datos 4 · $0.021
+
+════════════════════════════════════════════════════════════════════════
+3 guiones × 3 decisores · coste medido $0.31 · fixture evals/hilos-tres/fixture.json · léelo en /sombra › Conversaciones
+Apunta el coste en evals/pasadas/GASTO.md.
+exit: 0
