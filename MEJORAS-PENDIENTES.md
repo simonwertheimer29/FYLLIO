@@ -3140,7 +3140,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   mejor una persona del equipo; te escriben enseguida») en vez de repetir la de recogida; (b) el
   contador de descartes consecutivos viaja en el payload para verlo en «ver por qué». · **Impacto:**
   ALTO (es exactamente la conversación que el experimento quiere que el agente lleve bien). ·
-  **Esfuerzo:** 2 h + vara. · **Fecha:** 2026-09-12 · 🔴
+  **Esfuerzo:** 2 h + vara. · **Fecha:** 2026-09-12 · 🟢 **HECHO 12-09** (`4cf85a5`): causa
+  `sin_respuesta_valida` (migración 050, cola normal) + `plantillaPasaAPersona`. El contador no se
+  recalcula en dos sitios: cada turno escribe su cuenta corrida en el payload y el siguiente la lee
+  del último turno persistido; el banco la lleva en su SESIÓN y `qa:banco-vs-runner` la exigió al
+  aparecer. QA en `qa:conocimiento` H. Con la poda del mismo día pasa a ser el freno de emergencia.
 
 ## 232. Juez · «clínica» está tapando dos cosas distintas: hechos inventados y un falso positivo sobre remitir
   **Zona:** `juez-borrador.ts` (regla 1 tras la 229). · **Qué pasa:** de los cinco descartes de Nuria,
@@ -3153,7 +3157,12 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   para lo que no es clínico ni económico (afirmar horario, parking, ubicación que no constan), con
   ejemplo en el prompt; y un caso en `qa:juez` con «un asesor te confirma lo de la sedación» que tiene
   que PASAR. · **Impacto:** MEDIO. · **Esfuerzo:** 1 h + pasada de `qa:juez` (~$0,10). ·
-  **Fecha:** 2026-09-12 · 🟡
+  **Fecha:** 2026-09-12 · 🟢 **HECHO 12-09** (`8ff4374`): regla 6 del prompt + categoría
+  `dato_inventado`, 5 casos nuevos en `qa:juez` y comprobación de CATEGORÍA (cazar bien y archivar
+  mal deja la métrica mintiendo igual). Pasada: 56/57 · FN=0 · FP=1 · categoría 0/2 mal · $0,2153.
+  El falso positivo de REMITIR ya se había cerrado el mismo día con el perdón en código
+  (`remite_nombrando_el_servicio`), y el caso RM1 lo fija en la vara. De paso: el único FP de la
+  pasada era **L8 caducado** — se escribió en agosto, cuando confirmar una cita no se juzgaba.
 
 ## 231. Cola · una duda clínica entregada por «la red» sale como «Listos para cerrar»
 - Nuria (replay 11-09): cita declinada + duda de sedación anotada + nada más que recoger → el agente

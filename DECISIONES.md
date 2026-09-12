@@ -4826,3 +4826,37 @@ montada a mano, no reprodujo la frase: §25 otra vez).
 `perdonado`): la invitación «¿te viene bien que te la agendemos?», el equipo informando del hueco, remitir
 con los días que pidió ella y remitir nombrando el servicio (MEJORAS 232). Se escribieron primero en el
 prompt y haiku siguió tumbando dos: la obediencia no aguanta, la misma lección del veto de agenda del 23-08.
+
+
+## 2026-09-12 (noche) · Paso 3: el juez deja de tirar el mensaje entero
+**La poda.** Un INFRINGE mataba el borrador completo y lo sustituía por la plantilla. Medido ese
+mismo día sobre el modelo libre con clínica configurada, el juez tumbó 6 de 12 mensajes y en casi
+todos el problema era UNA oración de tres o cuatro. `podarBorrador` localiza la oración de la frase
+que el juez ya devuelve —cotejo tolerante a tildes, mayúsculas y puntuación, porque esa frase la
+escribe un modelo—, la quita y vuelve a pasar el veto determinista, que devuelve la PRIMERA firma y
+no todas. No poda cuando lo que queda no es un mensaje: nada, pura cortesía, algo que se apoya en lo
+que se fue («por eso te escribimos»), o ella preguntó y el resto no remite a nadie. `borradorPodado`
+va SEPARADO de `borradorDescartado` —el mensaje salió— y `podas_juez` se declara al lado de
+`descartes_juez`: **se leen juntas**, porque si los descartes bajan y las podas suben el generador no
+ha mejorado, lo estamos arreglando por detrás.
+**La reescritura (una vuelta, nunca dos).** Lo que la poda no puede resolver es que la frase FUERA la
+respuesta. Ahí se le devuelve al generador su borrador con el veredicto encima y su salida vuelve a
+entrar por arriba: veto, juez, poda. Si también infringe, se descarta y entra 233 — no hay tercera
+ronda. No es un segundo generador para el mismo hueco (§21b): nunca escribe de cero, usa el modelo
+del turno y pasa por el mismo control. Y **con la reescritura existiendo salió a cuenta endurecer la
+poda**: antes bastaba con que quedara una pregunta nuestra, y quitar «sí, abrimos los sábados» dejaba
+«Hola Ana. ¿Te viene bien?» — con su interrogación y sin significar nada.
+**233 · dos descartes seguidos son un callejón.** El segundo consecutivo entrega el caso
+(`sin_respuesta_valida`, migración 050, cola normal) con una plantilla que sí puede prometer, porque
+la persona va de verdad. El contador no se recalcula en dos sitios: cada turno escribe su cuenta
+corrida y el siguiente la lee del último turno persistido; el banco la lleva en su SESIÓN y
+`qa:banco-vs-runner` la exigió en cuanto apareció (31 turnos, 0 divergen).
+**232 · «dato inventado» dejaba de disfrazarse de «clínica».** Tres de los cinco descartes de Nuria
+eran hechos no clínicos (parking, sábados) archivados como «clinica»: la traza mentía y con ella la
+respuesta a si el agujero es del prompt o del CONOCIMIENTO — casi siempre es lo segundo y se arregla
+publicando el dato. `qa:juez` gana la comprobación de CATEGORÍA, no solo de si dispara.
+**Y la vara caducada:** el único falso positivo de la pasada (56/57, $0,2153) era **L8**, escrito el
+22-08 como «logística pura», cuando confirmar una cita no se juzgaba. La doctrina cambió ese mismo
+día por el caso de Nuria y nadie revisó `qa:juez`, que medía lo mismo por el otro camino. Lección:
+**cuando cambia una regla dura, la vara que la medía cambia en el MISMO commit.**
+
