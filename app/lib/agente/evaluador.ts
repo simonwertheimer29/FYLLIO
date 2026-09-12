@@ -24,6 +24,7 @@
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
 import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaPasaAPersona, podarBorrador, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
+import { reescribirBorrador } from "./reescribir-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
 import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
@@ -226,6 +227,11 @@ export type EvaluacionTurno = {
      *  sola (`no_localizada` subiendo = la frase del juez dejó de ser
      *  citable y nadie se entera). */
     poda?: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando";
+    /** 12-09 — se intentó reescribir y la reescritura TAMBIÉN infringió. Es
+     *  el descarte más caro que existe (dos llamadas al juez y una al
+     *  generador): si esto es frecuente, el prompt del generador es el
+     *  problema, no el control. */
+    reescrito?: boolean;
   };
   /** LA PODA (12-09): el juez dijo INFRINGE, se quitó SU frase y el resto se
    *  envió. NO es un descarte —el mensaje salió— y por eso no comparte campo:
@@ -1274,45 +1280,58 @@ export async function evaluarTurno(
     // como «lo valora la doctora»), plazo o acción prometidos, y dato que no
     // se pide. El censo de 79 mensajes enseñó que las firmas de agosto ya no
     // cazaban nada del modelo con libertad: estas salen de mensajes reales.
-    const vetado = vetoDeterminista(respuestaFinal, datosQueConstan, { citaConsta: e.diasHastaProximaCita != null });
-    const veredicto: VeredictoJuez | null = vetado
-      ? { infringe: true, categoria: vetado.categoria, frase: vetado.frase }
-      : await juzgarBorrador({
-          borrador: respuestaFinal,
-          datosQueConstan,
-          ultimoMensaje: ultimoEntrante,
-          dichoPorLaPersona,
-          turnoEntrega,
-        });
-    if (veredicto?.usage && base.usage) {
+    const sumarUsage = (u: EvaluacionTurno["usage"]) => {
+      if (!u || !base.usage) return;
       base.usage = {
-        inputTokens: base.usage.inputTokens + veredicto.usage.inputTokens,
-        outputTokens: base.usage.outputTokens + veredicto.usage.outputTokens,
-        cacheEscritura: (base.usage.cacheEscritura ?? 0) + (veredicto.usage.cacheEscritura ?? 0),
-        cacheLectura: (base.usage.cacheLectura ?? 0) + (veredicto.usage.cacheLectura ?? 0),
+        inputTokens: base.usage.inputTokens + u.inputTokens,
+        outputTokens: base.usage.outputTokens + u.outputTokens,
+        cacheEscritura: (base.usage.cacheEscritura ?? 0) + (u.cacheEscritura ?? 0),
+        cacheLectura: (base.usage.cacheLectura ?? 0) + (u.cacheLectura ?? 0),
       };
-    }
-    // 12-09 — el perdón se CUENTA (§9): si sube, el prompt del juez se
-    // degradó; si se va a cero, el bloque de perdones sobra.
-    if (veredicto?.perdonado) base.etiquetasDescartadas.push(`juez:perdonado:${veredicto.perdonado}`);
-    if (veredicto == null) {
-      descartesSeguidos = descartesSeguidosAntes + 1;
-      respuestaFinal = descartesSeguidos >= 2
-        ? plantillaPasaAPersona(nombreParaPlantilla, juicio.idioma)
-        : plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
-      borradorDescartado = { motivo: "juez_no_respondio", frase: null };
-      console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
-    } else if (veredicto.infringe) {
+    };
+    // EL CONTROL, EN TRES ESCALONES Y UNA SOLA VUELTA EXTRA (12-09):
+    //   veto determinista → juez → PODA (quitar la frase, gratis) → si la
+    //   frase ERA la respuesta, UNA reescritura, que vuelve a entrar por
+    //   arriba. Si la reescritura también infringe, se descarta: no hay
+    //   tercera ronda — ahí entra 233, que entrega el caso a una persona.
+    let vuelta = 0;
+    let reescrito = false;
+    while (true) {
+      const vetado = vetoDeterminista(respuestaFinal, datosQueConstan, { citaConsta: e.diasHastaProximaCita != null });
+      const veredicto: VeredictoJuez | null = vetado
+        ? { infringe: true, categoria: vetado.categoria, frase: vetado.frase }
+        : await juzgarBorrador({
+            borrador: respuestaFinal,
+            datosQueConstan,
+            ultimoMensaje: ultimoEntrante,
+            dichoPorLaPersona,
+            turnoEntrega,
+          });
+      sumarUsage(veredicto?.usage);
+      // 12-09 — el perdón se CUENTA (§9): si sube, el prompt del juez se
+      // degradó; si se va a cero, el bloque de perdones sobra.
+      if (veredicto?.perdonado) base.etiquetasDescartadas.push(`juez:perdonado:${veredicto.perdonado}`);
+      if (veredicto == null) {
+        descartesSeguidos = descartesSeguidosAntes + 1;
+        respuestaFinal = descartesSeguidos >= 2
+          ? plantillaPasaAPersona(nombreParaPlantilla, juicio.idioma)
+          : plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
+        borradorDescartado = { motivo: "juez_no_respondio", frase: null };
+        console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
+        break;
+      }
+      if (!veredicto.infringe) break;
+
       // La categoría ilegible NO se disfraza de «clinica»: se archiva como
       // sin_categoria — la traza de descartes es la métrica que detecta un
       // generador degradado y no puede mentir (barrido 17-08, B-2).
       const motivo = veredicto.categoria ?? "sin_categoria";
-      // LA PODA PRIMERO (12-09): quitar la frase, no el mensaje. El juez ya
-      // dijo CUÁL es la frase; tirar las otras tres oraciones para proteger
-      // una es tirar la conversación — y si el descarte se repite, la persona
-      // recibe plantillas genéricas en fila (el caso de Nuria). Determinista
-      // y sin modelo: cuesta cero y no puede empeorar lo de hoy, porque todo
-      // lo que no se puede podar cae exactamente donde caía antes.
+      // LA PODA PRIMERO: quitar la frase, no el mensaje. El juez ya dijo CUÁL
+      // es la frase; tirar las otras tres oraciones para proteger una es tirar
+      // la conversación — y si el descarte se repite, la persona recibe
+      // plantillas genéricas en fila (el caso de Nuria). Determinista y sin
+      // modelo: cuesta cero y no puede empeorar lo de hoy, porque todo lo que
+      // no se puede podar cae exactamente donde caía antes.
       const poda = podarBorrador(respuestaFinal, veredicto.frase, {
         ultimoEntrante,
         publicado: datosQueConstan,
@@ -1321,20 +1340,54 @@ export async function evaluarTurno(
       if (poda.podado) {
         respuestaFinal = poda.texto;
         borradorPodado = { motivo, frase: poda.quitada };
-        console.warn(`[evaluador] frase podada (${motivo}): «${poda.quitada}»`);
-      } else {
-        descartesSeguidos = descartesSeguidosAntes + 1;
-        // MEJORAS 233 — el SEGUNDO descarte seguido no repite plantilla: el
-        // agente no puede contestar esto sin infringir, así que deja de
-        // intentarlo y el caso pasa a una persona (abajo, `sin_respuesta_valida`).
-        // El reemplazo determinista del PRIMERO RECOGE si sabe qué falta
-        // (22-08): la plantilla protege sin matar la conversación.
-        respuestaFinal = descartesSeguidos >= 2
-          ? plantillaPasaAPersona(nombreParaPlantilla, juicio.idioma)
-          : plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
-        borradorDescartado = { motivo, frase: veredicto.frase, poda: poda.motivo };
-        console.warn(`[evaluador] borrador descartado (${motivo}, poda: ${poda.motivo}, seguidos: ${descartesSeguidos}): «${veredicto.frase ?? "?"}»`);
+        console.warn(`[evaluador] frase podada (${motivo}${reescrito ? ", tras reescribir" : ""}): «${poda.quitada}»`);
+        break;
       }
+
+      // LA REESCRITURA (12-09): la frase ERA la respuesta. Quitarla deja un
+      // saludo y un cierre, y la plantilla no contesta lo que preguntaron. Se
+      // le devuelve al generador su borrador con el veredicto encima y se le
+      // pide el mismo mensaje sin afirmar lo que no puede. UNA vez, y la
+      // salida vuelve a entrar por arriba: veto, juez y poda otra vez.
+      // `sigue_vetado` no se reescribe: el borrador infringe en varios sitios
+      // a la vez, y eso es un generador descarrilado, no una frase de más.
+      if (vuelta === 0 && poda.motivo !== "sigue_vetado") {
+        vuelta++;
+        const nueva = await reescribirBorrador({
+          borrador: respuestaFinal,
+          frase: veredicto.frase,
+          categoria: motivo,
+          datosQueConstan,
+          ultimoMensaje: ultimoEntrante,
+          idioma: juicio.idioma,
+          // El MISMO modelo que escribió el borrador: reescribir es su trabajo,
+          // no el de otro (una pasada de medición con sonnet se mediría sola).
+          modeloId: MODELOS[opts?.modelo ?? "haiku"].id,
+        });
+        sumarUsage(nueva?.usage);
+        if (nueva) {
+          reescrito = true;
+          respuestaFinal = nueva.texto;
+          // Contado SIEMPRE, pase o no lo reescrito: si estas suben, el
+          // generador se está degradando aunque los descartes bajen (§9).
+          base.etiquetasDescartadas.push(`juez:reescrito:${motivo}:${poda.motivo}`);
+          console.warn(`[evaluador] borrador reescrito (${motivo}, ${poda.motivo}): «${veredicto.frase ?? "?"}»`);
+          continue;
+        }
+      }
+
+      descartesSeguidos = descartesSeguidosAntes + 1;
+      // MEJORAS 233 — el SEGUNDO descarte seguido no repite plantilla: el
+      // agente no puede contestar esto sin infringir, así que deja de
+      // intentarlo y el caso pasa a una persona (abajo, `sin_respuesta_valida`).
+      // El reemplazo determinista del PRIMERO RECOGE si sabe qué falta
+      // (22-08): la plantilla protege sin matar la conversación.
+      respuestaFinal = descartesSeguidos >= 2
+        ? plantillaPasaAPersona(nombreParaPlantilla, juicio.idioma)
+        : plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
+      borradorDescartado = { motivo, frase: veredicto.frase, poda: poda.motivo, reescrito };
+      console.warn(`[evaluador] borrador descartado (${motivo}, poda: ${poda.motivo}, reescrito: ${reescrito}, seguidos: ${descartesSeguidos}): «${veredicto.frase ?? "?"}»`);
+      break;
     }
   }
 

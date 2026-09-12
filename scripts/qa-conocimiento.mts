@@ -434,8 +434,10 @@ console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la fr
     const p = podarBorrador(b, "La ortodoncia invisible cuesta entre 800 y 2500 euros.", {
       ultimoEntrante: "¿Cuánto cuesta la ortodoncia invisible?", publicado: PUBLICADO,
     });
-    ok("quita la frase del precio inventado y conserva saludo y pregunta",
-      p.podado && !p.texto.includes("2500") && p.texto.includes("¿Prefieres"), p.podado ? p.texto : p.motivo);
+    // Ella preguntó el precio: lo que queda tiene su interrogación pero no
+    // contesta ni remite → era_la_respuesta, y ahí entra la reescritura.
+    ok("preguntó el precio y lo que queda no lo contesta → era_la_respuesta (no basta con dejar una pregunta)",
+      p.motivo === "era_la_respuesta", p.podado ? p.texto : "");
   }
 
   // G2 · el cotejo es tolerante: el juez devuelve la frase con otra puntuación
@@ -482,7 +484,7 @@ console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la fr
   {
     const b = "Hola Ana. La ortodoncia cuesta entre 800 y 2500 euros. Te la reservo para el martes. Un asesor te confirma todo.";
     const p = podarBorrador(b, "La ortodoncia cuesta entre 800 y 2500 euros.", {
-      ultimoEntrante: "¿Cuánto cuesta y qué día tenéis?", publicado: PUBLICADO });
+      ultimoEntrante: "¿Cuánto cuesta y qué día tenéis?", publicado: PUBLICADO });  // lo que queda remite al asesor
     ok("poda en dos vueltas: cae el precio inventado y también «te la reservo»",
       p.podado && !p.texto.includes("2500") && !p.texto.includes("reservo"), p.podado ? p.texto : p.motivo);
   }

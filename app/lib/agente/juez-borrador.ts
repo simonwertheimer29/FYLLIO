@@ -833,11 +833,15 @@ export function podarBorrador(
   if (siguientes.some((s) => ARRANQUE_QUE_SE_APOYA.test(paraCotejar(s)))) {
     return { podado: false, motivo: "queda_colgando", quitada };
   }
-  // La frase ERA la respuesta: ella preguntó, y lo que queda ni contesta, ni
-  // pregunta, ni remite a nadie. Mandar el resto sería contestar con evasivas
-  // a una pregunta directa — peor que la plantilla, que al menos lo admite.
+  // La frase ERA la respuesta: ella preguntó y lo que queda no remite a nadie.
+  // Se exige el REMITE y no basta con que quede una pregunta nuestra: quitar
+  // «sí, abrimos los sábados» de «Hola Ana. Sí, abrimos los sábados. ¿Te viene
+  // bien?» deja «Hola Ana. ¿Te viene bien?» — que tiene su interrogación y no
+  // significa nada. La condición era más floja mientras la alternativa era la
+  // plantilla genérica; desde que existe la reescritura, la alternativa
+  // contesta de verdad y sale a cuenta ser estricto aquí.
   const preguntó = /[?¿]/.test(opts.ultimoEntrante ?? "");
-  if (preguntó && !/[?¿]/.test(texto) && !REMITE_A_UNA_PERSONA.test(paraCotejar(texto))) {
+  if (preguntó && !REMITE_A_UNA_PERSONA.test(paraCotejar(texto))) {
     return { podado: false, motivo: "era_la_respuesta", quitada };
   }
   return { podado: true, texto, quitada };
