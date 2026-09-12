@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, podarBorrador, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
 import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
@@ -213,6 +213,24 @@ export type EvaluacionTurno = {
      *  y contaminaba la única métrica que detecta un generador degradado. */
     motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "sin_categoria" | "juez_no_respondio";
     frase: string | null;
+    /** 12-09 — por qué NO se pudo podar (§ la poda en `juez-borrador`). Un
+     *  descarte es ahora el ÚLTIMO recurso: saber cuál de las cinco razones
+     *  lo trajo aquí es lo que dice si la poda está trabajando o se apagó
+     *  sola (`no_localizada` subiendo = la frase del juez dejó de ser
+     *  citable y nadie se entera). */
+    poda?: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando";
+  };
+  /** LA PODA (12-09): el juez dijo INFRINGE, se quitó SU frase y el resto se
+   *  envió. NO es un descarte —el mensaje salió— y por eso no comparte campo:
+   *  mezclarlos rompería la única métrica que detecta un generador degradado.
+   *  Pero cuenta como la otra cara de la misma moneda: descartes + podas = las
+   *  veces que el generador dijo algo que no podía decir. Si las podas suben y
+   *  los descartes bajan, el generador NO ha mejorado; solo lo estamos
+   *  arreglando por detrás. */
+  borradorPodado?: {
+    motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "sin_categoria";
+    /** La oración (o las oraciones) que se fueron — es la traza. */
+    frase: string;
   };
   /** El modelo no contestó o contestó ilegible: fail-closed compat
    *  (requiere_persona + MOTIVO_FALLBACK en el caller), SIN eventos. */
@@ -1204,6 +1222,7 @@ export async function evaluarTurno(
 
   let respuestaFinal = juicio.respuesta;
   let borradorDescartado: EvaluacionTurno["borradorDescartado"];
+  let borradorPodado: EvaluacionTurno["borradorPodado"];
   if (juicio.pideNoContacto) {
     // MEJORAS 135: como la urgencia, la respuesta la escribe CÓDIGO — ni
     // juez ni coletillas: se acusa recibo y se calla. El caller marca el
@@ -1267,15 +1286,32 @@ export async function evaluarTurno(
       borradorDescartado = { motivo: "juez_no_respondio", frase: null };
       console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
     } else if (veredicto.infringe) {
-      // El reemplazo determinista RECOGE si sabe qué falta (22-08): la
-      // plantilla protege sin matar la conversación.
-      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
       // La categoría ilegible NO se disfraza de «clinica»: se archiva como
       // sin_categoria — la traza de descartes es la métrica que detecta un
       // generador degradado y no puede mentir (barrido 17-08, B-2).
       const motivo = veredicto.categoria ?? "sin_categoria";
-      borradorDescartado = { motivo, frase: veredicto.frase };
-      console.warn(`[evaluador] borrador descartado (${motivo}): «${veredicto.frase ?? "?"}»`);
+      // LA PODA PRIMERO (12-09): quitar la frase, no el mensaje. El juez ya
+      // dijo CUÁL es la frase; tirar las otras tres oraciones para proteger
+      // una es tirar la conversación — y si el descarte se repite, la persona
+      // recibe plantillas genéricas en fila (el caso de Nuria). Determinista
+      // y sin modelo: cuesta cero y no puede empeorar lo de hoy, porque todo
+      // lo que no se puede podar cae exactamente donde caía antes.
+      const poda = podarBorrador(respuestaFinal, veredicto.frase, {
+        ultimoEntrante,
+        publicado: datosQueConstan,
+        citaConsta: e.diasHastaProximaCita != null,
+      });
+      if (poda.podado) {
+        respuestaFinal = poda.texto;
+        borradorPodado = { motivo, frase: poda.quitada };
+        console.warn(`[evaluador] frase podada (${motivo}): «${poda.quitada}»`);
+      } else {
+        // El reemplazo determinista RECOGE si sabe qué falta (22-08): la
+        // plantilla protege sin matar la conversación.
+        respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
+        borradorDescartado = { motivo, frase: veredicto.frase, poda: poda.motivo };
+        console.warn(`[evaluador] borrador descartado (${motivo}, poda: ${poda.motivo}): «${veredicto.frase ?? "?"}»`);
+      }
     }
   }
 
@@ -1326,6 +1362,7 @@ export async function evaluarTurno(
       esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
+      borradorPodado,
     };
   }
 
@@ -1339,6 +1376,7 @@ export async function evaluarTurno(
       malestar: juicio.malestar,
       respuesta: respuestaFinal,
       borradorDescartado,
+      borradorPodado,
     };
   }
 
@@ -1351,6 +1389,7 @@ export async function evaluarTurno(
       esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
+      borradorPodado,
     };
   }
 
@@ -1363,6 +1402,7 @@ export async function evaluarTurno(
       esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
+      borradorPodado,
     };
   }
 
@@ -1387,8 +1427,9 @@ export async function evaluarTurno(
       esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
+      borradorPodado,
     };
   }
 
-  return { ...base, decision: "sigue", respuesta: respuestaFinal, borradorDescartado };
+  return { ...base, decision: "sigue", respuesta: respuestaFinal, borradorDescartado, borradorPodado };
 }

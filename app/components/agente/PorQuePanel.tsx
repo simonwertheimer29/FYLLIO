@@ -176,12 +176,18 @@ export function PorQuePanel({
           {turno.espera.levantada && <span className="mt-1 block">Se reanudó el contacto: {turno.espera.levantada}.</span>}
         </Bloque>
 
-        {(turno.descarte || turno.etiquetasDescartadas.length > 0) && (
+        {(turno.descarte || turno.poda || turno.etiquetasDescartadas.length > 0) && (
           <Bloque titulo="Revisión de seguridad">
             {turno.descarte && (
               <span className="block text-[var(--color-danger)]">
                 Descartó el borrador del agente porque {ETIQUETA_MOTIVO_JUEZ[turno.descarte.motivo] ?? "infringía una regla"}
                 {turno.descarte.frase ? ` («${turno.descarte.frase}»)` : ""}. Respondió con la fórmula segura.
+              </span>
+            )}
+            {turno.poda && (
+              <span className="block text-[var(--color-warning)]">
+                Quitó una frase del borrador porque {ETIQUETA_MOTIVO_JUEZ[turno.poda.motivo] ?? "infringía una regla"}
+                {` («${turno.poda.frase}»)`}. El resto del mensaje sí se envió.
               </span>
             )}
             {turno.etiquetasDescartadas.length > 0 && (

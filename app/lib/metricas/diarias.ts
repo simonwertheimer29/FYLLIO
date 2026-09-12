@@ -41,6 +41,11 @@
 //   coste_usd · suma del coste de cada turno (lib/agente/coste). n = turnos
 //     con `usage`. modelo_errores · incidencias agente/modelo_no_disponible
 //     (veces). descartes_juez · turnos con borrador descartado por el juez.
+//     podas_juez · turnos en los que el juez infringió, se quitó SU frase y el
+//     resto SÍ salió (12-09). Las dos se leen JUNTAS: descartes + podas = las
+//     veces que el generador dijo algo que no podía decir. Si los descartes
+//     bajan y las podas suben, el generador no ha mejorado — lo estamos
+//     arreglando por detrás.
 //   respuesta_humana_prioritaria_min / respuesta_humana_normal_min (2.5,
 //     MEJORAS 180) · por cada ENTREGA del agente (`derivado`) de ese día,
 //     minutos LABORABLES hasta el primer saliente CONFIRMADO con
@@ -224,7 +229,7 @@ export async function calcularDia(args: {
        where e.tipo_caso = 'conversacion' and e.evento in ('evaluacion', 'derivado', 'aplazado')
          and (e.created_at at time zone ${tz})::date = ${args.dia}::date
          and (${c}::text is null or m.clinica_id = ${c})`.execute(trx);
-    let evaluaciones = 0, derivaciones = 0, casoCompleto = 0, aplazados = 0, coste = 0, conUsage = 0, descartes = 0;
+    let evaluaciones = 0, derivaciones = 0, casoCompleto = 0, aplazados = 0, coste = 0, conUsage = 0, descartes = 0, podas = 0;
     const latencias: number[] = [];
     for (const e of evs.rows) {
       if (e.evento === "derivado") {
@@ -246,6 +251,7 @@ export async function calcularDia(args: {
         conUsage++;
       }
       if (p.borradorDescartado) descartes++;
+      if (p.borradorPodado) podas++;
       if (typeof p.latenciaMs === "number" && Number.isFinite(p.latenciaMs)) latencias.push(p.latenciaMs);
     }
     out.modelo_latencia_mediana_ms = { valor: Math.round(mediana(latencias)), n: latencias.length };
@@ -255,6 +261,7 @@ export async function calcularDia(args: {
     out.aplazados = { valor: aplazados, n: aplazados };
     out.coste_usd = { valor: Math.round(coste * 10000) / 10000, n: conUsage };
     out.descartes_juez = { valor: descartes, n: evaluaciones };
+    out.podas_juez = { valor: podas, n: evaluaciones };
 
     // 2.5 · Entregas del agente del día → primer saliente confirmado de una
     // persona en el mismo hilo (caso_id = teléfono E.164). Solo la primera

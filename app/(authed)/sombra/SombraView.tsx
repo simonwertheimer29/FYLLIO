@@ -60,6 +60,7 @@ function decisionTexto(t: TurnoSombra): string {
   if (d.objetivo) partes.push(`objetivo ${d.objetivo}`);
   if (d.faltan.length) partes.push(`faltan ${d.faltan.join(", ")}`);
   if (d.descarte) partes.push(`borrador descartado (${d.descarte})`);
+  if (d.poda) partes.push(`frase podada (${d.poda}), el resto se envió`);
   return partes.join(" · ");
 }
 

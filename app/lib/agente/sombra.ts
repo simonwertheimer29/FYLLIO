@@ -301,6 +301,7 @@ export function codigoDeEvaluacion(ev: EvaluacionTurno): CodigoDelTurno | null {
       objetivo: ev.objetivoActivo,
       faltan: ev.camposFaltantes,
       descarte: ev.borradorDescartado?.motivo ?? null,
+      poda: ev.borradorPodado?.motivo ?? null,
       tema: ev.juicios?.tema ?? null,
     },
     versionEvaluador: ev.version?.evaluador ?? null,

@@ -170,6 +170,8 @@ export type DecisionCodigoResumen = {
   objetivo: string | null;
   faltan: string[];
   descarte: string | null;
+  /** 12-09 — el control quitó SU frase y envió el resto (no es descarte). */
+  poda: string | null;
   tema: string | null;
 };
 

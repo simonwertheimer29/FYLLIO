@@ -125,6 +125,8 @@ export type DecisionTurno = {
   esperaHasta: string | null;
   campos: Record<string, string>;
   descarte: string | null;
+  /** 12-09 — el control quitó SU frase y envió el resto (no es descarte). */
+  poda: string | null;
   pideNoContacto: boolean;
   malestar: boolean | null;
   urgenciaMedica: boolean | null;
@@ -208,6 +210,7 @@ export function decisionDeEvaluacion(ev: EvaluacionTurno): DecisionTurno {
     esperaHasta: ev.esperaHasta ?? null,
     campos: aplanarCampos(ev.camposRecogidos),
     descarte: ev.borradorDescartado?.motivo ?? null,
+    poda: ev.borradorPodado?.motivo ?? null,
     pideNoContacto: ev.pideNoContacto === true,
     malestar: ev.juicios?.malestar ?? null,
     urgenciaMedica: ev.juicios?.urgenciaMedica ?? null,
@@ -231,6 +234,7 @@ export function decisionDePersistido(payload: PayloadEvaluacion | null, eventos:
     esperaHasta: payload?.esperaHasta ?? null,
     campos: aplanarCampos(payload?.camposRecogidos),
     descarte: payload?.borradorDescartado?.motivo ?? null,
+    poda: payload?.borradorPodado?.motivo ?? null,
     pideNoContacto: payload?.pideNoContacto === true,
     malestar: payload?.malestar ?? null,
     urgenciaMedica: payload?.urgenciaMedica ?? null,
@@ -254,6 +258,7 @@ export function compararDecisiones(a: DecisionTurno, b: DecisionTurno): string[]
   cmp("aplazados", a.aplazados, b.aplazados);
   cmp("espera", a.esperaHasta, b.esperaHasta);
   cmp("descarte del control", a.descarte, b.descarte);
+  cmp("poda del control", a.poda, b.poda);
   cmp("opt-out", a.pideNoContacto, b.pideNoContacto);
   cmp("malestar", a.malestar, b.malestar);
   cmp("urgencia médica", a.urgenciaMedica, b.urgenciaMedica);
@@ -367,6 +372,7 @@ function lineaDecision(d: DecisionTurno): string {
   if (campos.length) partes.push(`apuntó: ${campos.map(([k, v]) => `${k.split(".").pop()}=${v}`).join(", ")}`);
   if (d.hablaPor) partes.push(`escribe otra persona: ${d.hablaPor}`);
   if (d.descarte) partes.push(`el control DESCARTÓ el borrador (${ETIQUETA_DESCARTE[d.descarte] ?? d.descarte}) → plantilla neutra`);
+  if (d.poda) partes.push(`el control QUITÓ una frase (${ETIQUETA_DESCARTE[d.poda] ?? d.poda}) y envió el resto`);
   if (d.pideNoContacto) partes.push("opt-out marcado");
   if (d.malestar) partes.push("malestar");
   if (d.urgenciaMedica) partes.push("urgencia médica");

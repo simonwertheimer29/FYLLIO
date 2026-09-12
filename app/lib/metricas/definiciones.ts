@@ -34,6 +34,7 @@ export const METRICAS_V1 = [
   "coste_usd",
   "modelo_errores",
   "descartes_juez",
+  "podas_juez",
   "modelo_latencia_mediana_ms",
   // 2.5 (MEJORAS 180): cuánto tarda una PERSONA en contestar lo que el agente
   // entrega, por cola. La métrica #1 del plan ofensivo: la única que detecta
@@ -91,6 +92,7 @@ export const AGREGACION: Record<Metrica, Agregacion> = {
   coste_usd: "suma",
   modelo_errores: "suma",
   descartes_juez: "suma",
+  podas_juez: "suma",
   envios_tal_cual: "suma",
 };
 
@@ -119,6 +121,7 @@ export const UNIDAD: Record<Metrica, Unidad> = {
   aplazados: "n",
   modelo_errores: "n",
   descartes_juez: "n",
+  podas_juez: "n",
   envios_tal_cual: "n",
 };
 
@@ -148,6 +151,7 @@ export const SENTIDO: Record<Metrica, Sentido> = {
   derivaciones_caso_completo: "neutro",
   aplazados: "neutro",
   descartes_juez: "neutro",
+  podas_juez: "neutro",
   envios_tal_cual: "mas_mejor",
 };
 
@@ -172,6 +176,7 @@ export const ETIQUETA_METRICA: Record<Metrica, string> = {
   coste_usd: "Coste del agente ($)",
   modelo_errores: "Fallos del agente",
   descartes_juez: "Mensajes descartados por la revisión de seguridad",
+  podas_juez: "Frases quitadas por la revisión de seguridad (el mensaje sí salió)",
   modelo_latencia_mediana_ms: "Tiempo de respuesta del agente (mediana, ms)",
   respuesta_humana_prioritaria_min: "Respuesta de una persona a lo que entrega el agente · atención inmediata (mediana, min laborables)",
   respuesta_humana_normal_min: "Respuesta de una persona a lo que entrega el agente · atención normal (mediana, min laborables)",

@@ -68,6 +68,9 @@ export type TurnoExplicado = {
   entrega: { causa: string; cola: "prioritaria" | "normal"; motivo: string | null } | null;
   espera: { fijadaHasta: string | null; levantada: string | null };
   descarte: { motivo: string; frase: string | null } | null;
+  /** 12-09 — el juez infringió, se quitó SU frase y el resto SÍ se envió.
+   *  No es un descarte: el mensaje salió. */
+  poda: { motivo: string; frase: string } | null;
   etiquetasDescartadas: string[];
   /** El borrador que propuso (payload `respuesta`). */
   borrador: string | null;
@@ -244,6 +247,9 @@ export async function porQueDeHilo(telefono: string): Promise<TurnoExplicado[]> 
       },
       descarte: payload?.borradorDescartado
         ? { motivo: String(payload.borradorDescartado.motivo), frase: payload.borradorDescartado.frase ?? null }
+        : null,
+      poda: payload?.borradorPodado
+        ? { motivo: String(payload.borradorPodado.motivo), frase: String(payload.borradorPodado.frase) }
         : null,
       etiquetasDescartadas: payload?.etiquetasDescartadas ?? [],
       borrador: payload?.respuesta?.trim() ? payload.respuesta : null,

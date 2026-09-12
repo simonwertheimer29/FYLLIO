@@ -533,6 +533,15 @@ function PorDentro({ ev, sesion }: { ev: EvaluacionTurno; sesion: EstadoSesionPr
           </span>
         )}
       </Bloque>
+      {ev.borradorPodado && (
+        <Bloque titulo="La revisión de seguridad actuó">
+          <span className="text-[var(--color-warning)]">
+            Quitó una frase del borrador porque {ETIQUETA_MOTIVO_JUEZ[ev.borradorPodado.motivo] ?? "infringía una regla"}
+            {` («${ev.borradorPodado.frase}»)`}.
+          </span>{" "}
+          El resto del mensaje sí se envió — no hace falta tirar el mensaje entero para quitar una frase.
+        </Bloque>
+      )}
       {ev.borradorDescartado && (
         <Bloque titulo="La revisión de seguridad actuó">
           <span className="text-[var(--color-danger)]">

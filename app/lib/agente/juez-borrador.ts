@@ -675,6 +675,167 @@ export function vetoDeterminista(
   return null;
 }
 
+// ─── LA PODA: quitar la frase, no el mensaje (12-09) ───────────────────────
+//
+// Hasta hoy un INFRINGE mataba el mensaje ENTERO y lo sustituía por la
+// plantilla. Medido el 12-09 sobre el modelo libre con clínica configurada:
+// el juez tumbó 6 de 12 mensajes, y en casi todos el problema era UNA oración
+// de tres o cuatro. Tirar las otras tres para proteger una es tirar la
+// conversación: la plantilla no contesta lo que preguntaron, no pide el campo
+// que faltaba, y si el descarte se repite la persona recibe cinco genéricas
+// seguidas (el caso de Nuria, MEJORAS 233).
+//
+// El juez YA devuelve la frase exacta, así que la poda es determinista y
+// cuesta cero: se localiza su oración, se quita, y se envía el resto.
+//
+// Solo se envía el resto si el resto SIGUE SIENDO UN MENSAJE. Si lo que queda
+// es nada, es pura cortesía, o la persona preguntó algo y la frase podada era
+// la respuesta, no se poda: ahí el caller hace lo de siempre (la plantilla) o,
+// cuando exista, pide la reescritura. Fail-closed hacia el comportamiento de
+// hoy, que ya era seguro — la poda solo puede mejorar, nunca empeorar.
+
+/** Texto comparable: sin acentos, sin signos, sin dobles espacios. La frase
+ *  del juez la escribe un modelo y casi nunca coincide byte a byte con el
+ *  borrador (una coma, una tilde, el punto final). */
+const paraCotejar = (s: string) =>
+  normalizarTexto(s).replace(/[^a-z0-9]+/g, " ").trim();
+
+const partirOraciones = (t: string): string[] =>
+  t.split(/(?<=[.!?…])\s+/).filter((s) => s.trim() !== "");
+
+/** Palabras que por sí solas no dicen nada: saludo, gracias, cierre. Una
+ *  oración es cortesía si TODAS sus palabras están aquí salvo como mucho una
+ *  (el nombre de la persona) y además lleva una palabra núcleo. */
+const PALABRAS_CORTESIA = new Set([
+  "hola", "buenas", "buenos", "dias", "tardes", "noches", "gracias", "muchas", "mil",
+  "un", "una", "saludo", "saludos", "abrazo", "hasta", "pronto", "de", "nada", "cuidate",
+  "que", "vaya", "muy", "bien", "seguimos", "estamos", "quedamos", "por", "aqui", "a",
+  "tu", "disposicion", "para", "lo", "cualquier", "cosa", "duda", "dudas", "necesites",
+  "necesitas", "el", "la", "los", "las", "y", "encantados", "encantada", "encantado",
+  "ayudarte", "mensaje", "whatsapp", "interes", "paciencia", "confianza", "escribirnos",
+  "contactarnos", "contactar", "con", "nosotros", "siempre", "claro", "perfecto",
+  "genial", "entendido", "acuerdo", "supuesto",
+]);
+
+/** Sin una de estas, «y tú qué tal» pasaría por cortesía por ser todo
+ *  palabras vacías. Con una de estas, la oración no aporta nada. */
+const NUCLEO_CORTESIA = new Set([
+  "hola", "buenas", "buenos", "gracias", "saludo", "saludos", "abrazo", "nada", "pronto",
+  "aqui", "disposicion", "encantados", "encantada", "encantado", "cuidate", "claro", "perfecto",
+  "genial", "entendido", "supuesto",
+]);
+
+/** ¿La oración entera es cortesía y nada más? */
+export function esSoloCortesia(oracion: string): boolean {
+  const palabras = paraCotejar(oracion).split(" ").filter((w) => w !== "");
+  if (palabras.length === 0) return true;
+  const desconocidas = palabras.filter((w) => !PALABRAS_CORTESIA.has(w)).length;
+  if (desconocidas > 1) return false;
+  return palabras.some((w) => NUCLEO_CORTESIA.has(w));
+}
+
+/** Remitir ES contestar (§17: informar de lo que hay no compromete nada, y no
+ *  tener el dato no convierte la consulta en una decisión). Si lo que queda
+ *  remite a una persona, la pregunta no se ha quedado sin respuesta. */
+const REMITE_A_UNA_PERSONA =
+  /\b(?:un asesor|una asesora|el equipo|la clinica|administracion|alguien)\b|\bte (?:lo |la )?(?:confirma|confirmamos|confirman|decimos|diran|dira|llaman|llamamos|escribimos|escriben|cuenta|cuentan|explican|explicamos)\b|\b(?:anoto|anotamos|apunto|apuntamos|paso|pasamos|traslado|trasladamos)\b/;
+
+export type Poda =
+  | { podado: true; texto: string; quitada: string }
+  | {
+      podado: false;
+      /** Por qué NO se pudo podar. Va al payload del turno: si «no_localizada»
+       *  sube, la frase del juez dejó de ser citable y la poda se está
+       *  apagando sola sin que nadie lo note (§9). */
+      motivo: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando";
+      quitada: string | null;
+    };
+
+/** Lo que queda puede APOYARSE en lo que se fue: «Tenemos tu cita para el
+ *  sábado 19. Por eso te escribimos» sin la primera es un mensaje roto. Lista
+ *  corta y explícita a propósito: `si` («si tienes cualquier duda…») es un
+ *  cierre inocente el 90 % de las veces y meterlo apagaría la poda casi
+ *  siempre. Los pronombres pegados al verbo («cambiarla») no se cazan aquí —
+ *  límite conocido, y la reescritura es su sitio. */
+const ARRANQUE_QUE_SE_APOYA =
+  /^(?:eso|esa|ese|esto|esos|esas|en ese caso|en esa|por eso|tambien|ademas|lo mismo|igualmente|ahi|entonces|de paso|ese dia|esa hora|ese precio|ese importe)\b/;
+
+/** Quita del texto la oración (o las oraciones) que contienen la frase.
+ *  `null` = la frase no se localiza, y entonces no se toca nada: podar por
+ *  aproximación es inventar un mensaje que nadie ha juzgado. */
+function quitarOracion(
+  texto: string,
+  frase: string | null,
+): { resto: string; quitada: string; siguientes: string[] } | null {
+  const f = paraCotejar(frase ?? "");
+  // Una frase de dos palabras cazaría media conversación. El juez devuelve
+  // oraciones; si devuelve un jirón, mejor no podar.
+  if (f.length < 8) return null;
+  const oraciones = partirOraciones(texto);
+  const fuera = oraciones
+    .map((o, i) => ({ i, n: paraCotejar(o) }))
+    .filter(({ n }) => n !== "" && (n.includes(f) || (n.length >= 12 && f.includes(n))))
+    .map(({ i }) => i);
+  if (fuera.length === 0) return null;
+  const primeraFuera = fuera[0];
+  return {
+    resto: oraciones.filter((_, i) => !fuera.includes(i)).join(" ").trim(),
+    quitada: fuera.map((i) => oraciones[i]).join(" ").trim(),
+    siguientes: oraciones.filter((_, i) => i > primeraFuera && !fuera.includes(i)),
+  };
+}
+
+/**
+ * La frase fuera, el mensaje dentro — o la razón por la que no se pudo.
+ *
+ * Tras podar se vuelve a pasar el veto determinista (cuesta cero): el veto
+ * devuelve la PRIMERA firma, no todas, y quitar una oración puede dejar otra
+ * al descubierto. Al juez NO se le vuelve a preguntar: ya dijo cuál era la
+ * frase y la frase ya no está. La reescritura —esa sí con modelo— es el paso
+ * siguiente, y solo para lo que aquí sale `podado: false`.
+ */
+export function podarBorrador(
+  borrador: string,
+  frase: string | null,
+  opts: { ultimoEntrante?: string; publicado?: string; citaConsta?: boolean } = {},
+): Poda {
+  const primera = quitarOracion(borrador, frase);
+  if (primera == null) return { podado: false, motivo: "no_localizada", quitada: null };
+
+  let texto = primera.resto;
+  const quitadas = [primera.quitada];
+  const siguientes = [...primera.siguientes];
+  const publicado = opts.publicado ?? "";
+  const vetoOpts = { citaConsta: opts.citaConsta };
+
+  for (let vuelta = 0; vuelta < 2; vuelta++) {
+    const v = vetoDeterminista(texto, publicado, vetoOpts);
+    if (v == null) break;
+    const otra = quitarOracion(texto, v.frase);
+    if (otra == null) return { podado: false, motivo: "sigue_vetado", quitada: quitadas.join(" ") };
+    texto = otra.resto;
+    quitadas.push(otra.quitada);
+    siguientes.push(...otra.siguientes);
+  }
+  const quitada = quitadas.join(" ");
+  if (vetoDeterminista(texto, publicado, vetoOpts) != null) {
+    return { podado: false, motivo: "sigue_vetado", quitada };
+  }
+  if (texto.trim() === "") return { podado: false, motivo: "era_todo", quitada };
+  if (partirOraciones(texto).every(esSoloCortesia)) return { podado: false, motivo: "solo_cortesia", quitada };
+  if (siguientes.some((s) => ARRANQUE_QUE_SE_APOYA.test(paraCotejar(s)))) {
+    return { podado: false, motivo: "queda_colgando", quitada };
+  }
+  // La frase ERA la respuesta: ella preguntó, y lo que queda ni contesta, ni
+  // pregunta, ni remite a nadie. Mandar el resto sería contestar con evasivas
+  // a una pregunta directa — peor que la plantilla, que al menos lo admite.
+  const preguntó = /[?¿]/.test(opts.ultimoEntrante ?? "");
+  if (preguntó && !/[?¿]/.test(texto) && !REMITE_A_UNA_PERSONA.test(paraCotejar(texto))) {
+    return { podado: false, motivo: "era_la_respuesta", quitada };
+  }
+  return { podado: true, texto, quitada };
+}
+
 export function plantillaNeutra(nombre: string, idioma: IdiomaPlantilla = "es"): string {
   const n = nombre.split(" ")[0];
   const esNombreReal = n.length > 1 && !/\d/.test(n);

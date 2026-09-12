@@ -422,6 +422,90 @@ console.log("\nF · rangos: precio y horario absurdos se rechazan; lo publicado 
   ok("el parser LANZA con un precio de 0 €", lanzoPrecio);
 }
 
+// ─── G · LA PODA: quitar la frase, no el mensaje (12-09) ───────────────────
+console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la frase ERA el mensaje");
+{
+  const { podarBorrador, esSoloCortesia } = await import("../app/lib/agente/juez-borrador");
+  const PUBLICADO = "Tratamientos: Ortodoncia invisible — 2.400 €. Horario: L-V 9:00-20:00.";
+
+  // G1 · el caso normal: cuatro frases, una infringe, salen tres.
+  {
+    const b = "Hola Ana, gracias por escribirnos. La ortodoncia invisible cuesta entre 800 y 2500 euros. ¿Prefieres que te llamemos por la mañana o por la tarde?";
+    const p = podarBorrador(b, "La ortodoncia invisible cuesta entre 800 y 2500 euros.", {
+      ultimoEntrante: "¿Cuánto cuesta la ortodoncia invisible?", publicado: PUBLICADO,
+    });
+    ok("quita la frase del precio inventado y conserva saludo y pregunta",
+      p.podado && !p.texto.includes("2500") && p.texto.includes("¿Prefieres"), p.podado ? p.texto : p.motivo);
+  }
+
+  // G2 · el cotejo es tolerante: el juez devuelve la frase con otra puntuación
+  //      y otras tildes. Si exigiéramos byte a byte, la poda no dispararía
+  //      casi nunca y nadie lo notaría (se caería sola a la plantilla).
+  {
+    const b = "Hola Nuria. Tenemos tu cita para el sábado 19 por la mañana. Un asesor te confirma todo enseguida.";
+    const p = podarBorrador(b, "tenemos tu cita para el sabado 19 por la manana", { publicado: PUBLICADO });
+    ok("localiza la frase sin tildes, sin mayúsculas y sin punto final",
+      p.podado && !p.texto.includes("sábado"), p.podado ? p.texto : p.motivo);
+  }
+
+  // G3 · lo que NO se puede podar cae a lo de hoy (la plantilla), con motivo.
+  {
+    const b = "Hola Ana. Te lo dejo en 400 euros.";
+    ok("frase que no está en el borrador → no_localizada (no se toca nada)",
+      podarBorrador(b, "el implante cuesta 900 euros", { publicado: PUBLICADO }).motivo === "no_localizada");
+    ok("la frase ERA todo el mensaje → era_todo",
+      podarBorrador("Te la reservo para el martes a las diez.", "Te la reservo para el martes a las diez.", { publicado: PUBLICADO }).motivo === "era_todo");
+    const soloCortesia = podarBorrador(
+      "Hola Ana. Sí, hacemos sedación consciente. Un saludo.",
+      "Sí, hacemos sedación consciente.", { ultimoEntrante: "¿Hacéis sedación consciente?", publicado: PUBLICADO });
+    ok("lo que queda es saludo y cierre → solo_cortesia", soloCortesia.motivo === "solo_cortesia", soloCortesia.podado ? soloCortesia.texto : "");
+  }
+
+  // G4 · la frase ERA la respuesta: ella preguntó y lo que queda no contesta,
+  //      ni pregunta, ni remite a nadie. Ahí la poda sería contestar con
+  //      evasivas — peor que la plantilla, que al menos lo admite.
+  {
+    const b = "Buenos días, Ana. Sí, hacemos sedación consciente. Abrimos de lunes a viernes de nueve a ocho.";
+    const p = podarBorrador(b, "Sí, hacemos sedación consciente.", {
+      ultimoEntrante: "¿Hacéis sedación consciente?", publicado: PUBLICADO });
+    ok("preguntó y lo que queda ni contesta ni remite → era_la_respuesta", p.motivo === "era_la_respuesta", p.podado ? p.texto : "");
+
+    const conRemite = podarBorrador(
+      "Buenos días, Ana. Sí, hacemos sedación consciente. Anotamos que un asesor te lo confirme hoy mismo.",
+      "Sí, hacemos sedación consciente.", { ultimoEntrante: "¿Hacéis sedación consciente?", publicado: PUBLICADO });
+    ok("…pero si lo que queda REMITE a una persona, sí se poda (§17: remitir es contestar)",
+      conRemite.podado, conRemite.podado ? conRemite.texto : conRemite.motivo);
+  }
+
+  // G5 · quitar una oración deja otra al descubierto: el veto devuelve la
+  //      PRIMERA firma, no todas. Se vuelve a pasar (cuesta cero).
+  {
+    const b = "Hola Ana. La ortodoncia cuesta entre 800 y 2500 euros. Te la reservo para el martes. Un asesor te confirma todo.";
+    const p = podarBorrador(b, "La ortodoncia cuesta entre 800 y 2500 euros.", {
+      ultimoEntrante: "¿Cuánto cuesta y qué día tenéis?", publicado: PUBLICADO });
+    ok("poda en dos vueltas: cae el precio inventado y también «te la reservo»",
+      p.podado && !p.texto.includes("2500") && !p.texto.includes("reservo"), p.podado ? p.texto : p.motivo);
+  }
+
+  // G6 · lo que queda se APOYA en lo que se fue.
+  {
+    const p = podarBorrador(
+      "Hola Nuria. Tenemos tu cita para el sábado 19 por la mañana. Por eso te escribimos con tiempo.",
+      "Tenemos tu cita para el sábado 19 por la mañana.", { publicado: PUBLICADO });
+    ok("«Por eso te escribimos» sin la frase anterior es un mensaje roto → queda_colgando",
+      p.motivo === "queda_colgando", p.podado ? p.texto : "");
+  }
+
+  // G7 · el detector de cortesía, que es quien decide si queda mensaje.
+  {
+    ok("«Gracias por tu mensaje, Ana.» es cortesía", esSoloCortesia("Gracias por tu mensaje, Ana."));
+    ok("«Un saludo.» y «Hola Ana.» son cortesía", esSoloCortesia("Un saludo.") && esSoloCortesia("Hola Ana."));
+    ok("«Seguimos por aquí para lo que necesites.» es cortesía", esSoloCortesia("Seguimos por aquí para lo que necesites."));
+    ok("«La primera visita es gratuita.» NO es cortesía", !esSoloCortesia("La primera visita es gratuita."));
+    ok("«¿Qué día te viene bien?» NO es cortesía", !esSoloCortesia("¿Qué día te viene bien?"));
+  }
+}
+
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);
   process.exit(1);
