@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, vetoServicioDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
 import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
@@ -1236,14 +1236,14 @@ export async function evaluarTurno(
     // juez si cazan. El juez sigue después para las variantes libres.
     // 12-09: con una cita programada de verdad, «te esperamos mañana» es
     // verdad y no se veta; sin ella, confirmar una cita concreta es inventarla.
-    const fraseVetada = vetoAgendaDeterminista(respuestaFinal, { citaConsta: e.diasHastaProximaCita != null });
-    // MEJORAS 229 (11-09): la oferta de un servicio que no consta es la misma
-    // familia — afirmar lo que no se ve — y se caza igual, en código.
-    const servicioVetado = fraseVetada ? null : vetoServicioDeterminista(respuestaFinal, datosQueConstan);
-    const veredicto: VeredictoJuez | null = fraseVetada
-      ? { infringe: true, categoria: "agenda", frase: fraseVetada }
-      : servicioVetado
-      ? { infringe: true, categoria: "clinica", frase: servicioVetado }
+    // 12-09 — TODAS las guardas en una llamada (`vetoDeterminista`): agenda y
+    // reserva, precio inventado, servicio no publicado (afirmado u ofrecido
+    // como «lo valora la doctora»), plazo o acción prometidos, y dato que no
+    // se pide. El censo de 79 mensajes enseñó que las firmas de agosto ya no
+    // cazaban nada del modelo con libertad: estas salen de mensajes reales.
+    const vetado = vetoDeterminista(respuestaFinal, datosQueConstan, { citaConsta: e.diasHastaProximaCita != null });
+    const veredicto: VeredictoJuez | null = vetado
+      ? { infringe: true, categoria: vetado.categoria, frase: vetado.frase }
       : await juzgarBorrador({
           borrador: respuestaFinal,
           datosQueConstan,
@@ -1259,6 +1259,9 @@ export async function evaluarTurno(
         cacheLectura: (base.usage.cacheLectura ?? 0) + (veredicto.usage.cacheLectura ?? 0),
       };
     }
+    // 12-09 — el perdón se CUENTA (§9): si sube, el prompt del juez se
+    // degradó; si se va a cero, el bloque de perdones sobra.
+    if (veredicto?.perdonado) base.etiquetasDescartadas.push(`juez:perdonado:${veredicto.perdonado}`);
     if (veredicto == null) {
       respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
       borradorDescartado = { motivo: "juez_no_respondio", frase: null };

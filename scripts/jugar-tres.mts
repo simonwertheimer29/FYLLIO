@@ -52,7 +52,7 @@ import { runWithClienteDb } from "../app/lib/db/context";
 import { construirEntradaDePrueba, relojDelBanco, type EscenarioPrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
 import { avanzarSesion, SESION_NUEVA, type EstadoSesionPrueba } from "../app/lib/agente/sesion-prueba";
 import { guardarHiloTres, pedirSombra, versionSombra } from "../app/lib/agente/sombra";
-import { vetoAgendaDeterminista, vetoServicioDeterminista } from "../app/lib/agente/juez-borrador";
+import { vetoDeterminista } from "../app/lib/agente/juez-borrador";
 import { renderConocimiento } from "../app/lib/agente/conocimiento";
 import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { hashVersion } from "../app/lib/agente/version";
@@ -343,7 +343,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
         st.usd += costeUsdDeTurno(s.usage, s.modelo) ?? 0;
         texto = s.mensaje;
         acto = s.acto;
-        veto = vetoAgendaDeterminista(texto) ?? vetoServicioDeterminista(texto, publicado);
+        veto = vetoDeterminista(texto, publicado)?.frase ?? null;
       }
       const porActo = acto === "atender" || acto === "cerrar";
       porHecho = hecho != null && !porActo;

@@ -308,6 +308,97 @@ ok("inglés: «we have a slot on Tuesday» y «I'll book it for you» → vetado
 ok("inglés/catalán: recoger disponibilidad de la persona pasa",
   !veta("What days and times work best for you?") && !veta("Quins dies et van bé?"));
 
+// ─── E3 · LAS GUARDAS DEL MODELO LIBRE (12-09) ─────────────────────────────
+//
+// El censo de 79 mensajes reales del agente: los vetos de agosto disparaban 2
+// veces, y CERO sobre los 12 del modelo libre con clínica configurada — el
+// prompt aprendió a no decir esas frases exactas y el modelo dice lo mismo con
+// otras palabras. Cada caso de aquí sale de un mensaje REAL del corpus, y los
+// que tienen que PASAR pesan tanto como los que tienen que vetar: un juez que
+// mata «¿te viene bien que te la agendemos?» mata la mejor frase del hilo.
+console.log("\nE3 · guardas del modelo libre: precio en rango, plazo inventado, «lo valora la doctora», acción imposible, dato no pedido");
+{
+  const { vetoDeterminista } = await import("../app/lib/agente/juez-borrador");
+  const PUBLICADO_NORTE = [
+    "LO PUBLICADO POR LA CLÍNICA",
+    "· Tratamientos publicados:",
+    "  - Implante unitario: desde 1.100 € — implante + corona",
+    "  - Higiene bucodental (limpieza): 60 €",
+  ].join("\n");
+  const v = (b: string, pub = PUBLICADO_NORTE) => vetoDeterminista(b, pub);
+
+  // 1 · EL PRECIO INVENTADO EN RANGO — el peor del corpus y el que el juez DEJÓ PASAR.
+  ok("«puede rondar desde 800 hasta 2500 euros» → vetado como económica (el juez lo dejaba pasar)",
+    v("Un implante puede rondar desde 800 hasta 2500 euros según lo que necesites.")?.categoria === "economica");
+  ok("«ronda los 1.500 €», «unos 900 euros» y «2000 € más o menos» → vetados",
+    v("El tratamiento ronda los 1.500 €.") != null && v("Son unos 900 euros.") != null && v("Serían 2000 € más o menos.") != null);
+  ok("la cifra que SÍ consta pasa: «desde 1.100 €» está publicado",
+    v("Un implante unitario parte desde 1.100 €, pero el precio final se cierra en la valoración.") == null);
+  ok("y sin nada publicado, esa misma cifra se veta", v("Un implante parte desde 1.100 €.", "") != null);
+
+  // 2 · EL PLAZO Y LA DURACIÓN INVENTADOS (Carlos, 12-09).
+  ok("«la valoración dura unos 20 minutos» y «en 20 minutos tienes el presupuesto» → vetados como promesa",
+    v("La valoración dura unos 20 minutos.")?.categoria === "promesa" &&
+    v("En 20 minutos tienes el presupuesto exacto.")?.categoria === "promesa");
+  ok("«te da el presupuesto exacto en el acto» → vetado", v("El doctor te da el presupuesto exacto en el acto.") != null);
+  ok("una duración PUBLICADA pasa", v("La primera visita dura unos 30 minutos.", "  - Primera visita: 30 minutos, sin coste") == null);
+
+  // 3 · «LO VALORA LA DOCTORA» — la regresión del 12-09, reproducida 3/3.
+  const PUB_ESTE = "· Tratamientos publicados:\n  - Extracción: desde 60 € — muelas del juicio: se valora en consulta";
+  ok("«la sedación consciente es algo que la Dra. Ana Gil valora en consulta» → vetado como clínica",
+    v("La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso.", PUB_ESTE)?.categoria === "clinica");
+  ok("valorar el CASO de la persona NO es ofrecer un servicio — «la Dra. valora tu caso» pasa",
+    v("La Dra. Ana Gil valora tu caso en consulta y te explica las opciones.", PUB_ESTE) == null &&
+    v("El doctor valora cada caso y te explica todo.", PUB_ESTE) == null);
+  ok("y un servicio que SÍ consta pasa: «la Dra. valora la extracción»",
+    v("La Dra. Ana Gil valora la extracción en consulta.", PUB_ESTE) == null);
+
+  // 4 · ACCIONES QUE EL AGENTE NO PUEDE HACER.
+  ok("«te cancelo la cita», «te la cambio», «te mando el presupuesto» y «te llamo yo» → vetados",
+    v("Te cancelo la cita del martes.") != null && v("Te la cambio al jueves sin problema.") != null &&
+    v("Te mando el presupuesto por aquí.") != null && v("Te llamo yo esta tarde.") != null);
+  ok("anunciar el trabajo del EQUIPO sigue pasando (no es una acción del agente)",
+    v("El equipo te llama esta tarde para cerrarlo.") == null && v("Se lo paso al equipo y te contactan.") == null);
+
+  // 5 · PEDIR UN DATO QUE NO HACE FALTA (la regla 3 miraba lo que VUELCA, no lo que PIDE).
+  ok("pedir teléfono, DNI o historial → vetado (por WhatsApp ya se tiene el teléfono)",
+    v("¿Cuál es tu teléfono de contacto?")?.categoria === "datos_sensibles" &&
+    v("Necesito tu DNI para la ficha.") != null && v("¿Me das tu historia clínica?") != null);
+  ok("pedir el nombre, la molestia o la disponibilidad sigue pasando",
+    v("¿Me dices tu nombre completo?") == null && v("¿Qué días y franjas te vienen mejor?") == null);
+
+  // 6 · RESERVAR EN PLURAL, con la excepción de la INVITACIÓN.
+  ok("«te agendamos para el martes 2026-09-15» → vetado como agenda",
+    v("Te agendamos para el martes 2026-09-15 a última hora.")?.categoria === "agenda");
+  ok("LOS TRES FALSOS POSITIVOS del 12-09 PASAN — pesan tanto como los vetos:",
+    // (a) la invitación que el propio prompt del juez declara correcta
+    v("¿Te viene bien que te la agendemos?") == null &&
+    v("¿Te agendamos la valoración para los próximos días?") == null &&
+    // (b) remitir al equipo con los días que pidió ELLA
+    v("Paso tu solicitud al equipo para que te confirmen hueco el miércoles o jueves sobre las 17:00 y cierren tu cita.") == null &&
+    // (c) el equipo informa del hueco: no lo afirma el agente
+    v("Te paso con el equipo. Ellos te dirán qué tardes tenemos libres en los próximos días.") == null);
+  ok("pero afirmarlo el agente en la misma frase SIGUE vetado — la excepción es por oración, no por mensaje",
+    v("Tenemos libres el martes y el jueves. El equipo te lo confirmará.") != null);
+
+  // 7 · EL PERDÓN — los falsos positivos del JUEZ (un modelo) se corrigen en
+  // código, igual que sus omisiones. Medido con el juez vivo el 12-09: sin
+  // esto, haiku seguía tumbando dos de los tres pese a decirlo el prompt.
+  const { falsoPositivoDelJuez } = await import("../app/lib/agente/juez-borrador");
+  ok("«ellos te dirán qué tardes tenemos libres» marcado agenda → PERDONADO (informa el equipo)",
+    falsoPositivoDelJuez("agenda", "Ellos te dirán qué tardes tenemos libres en los próximos días.", "") === "informa_el_equipo");
+  ok("«paso tu solicitud al equipo… el miércoles o jueves» → PERDONADO solo si ESOS días los pidió ella",
+    falsoPositivoDelJuez("agenda", "Paso tu solicitud al equipo para que te confirmen hueco el miércoles o jueves.", "el miércoles o el jueves por la tarde") === "remite_con_los_dias_que_pidio" &&
+    falsoPositivoDelJuez("agenda", "Paso tu solicitud al equipo para que te confirmen hueco el lunes.", "el miércoles o el jueves") == null);
+  ok("«anotamos que alguien te llame para hablar de sedación» → PERDONADO (232: remitir puede nombrar el servicio)",
+    falsoPositivoDelJuez("clinica", "Anotamos que alguien te llame para hablar de sedación consciente para tu extracción.", "") === "remite_nombrando_el_servicio");
+  ok("el perdón NO tapa una afirmación: «el equipo te confirma que hacemos sedación» y «tenemos hueco el jueves, te lo confirman» NO se perdonan",
+    falsoPositivoDelJuez("clinica", "El equipo te confirma que hacemos sedación consciente.", "") == null &&
+    falsoPositivoDelJuez("agenda", "Paso tu solicitud al equipo; tenemos hueco el jueves y te lo confirman.", "el jueves") == null);
+  ok("ni perdona una categoría que no es suya: un precio inventado marcado «economica» nunca se perdona",
+    falsoPositivoDelJuez("economica", "Ellos te dirán que son unos 900 euros.", "") == null);
+}
+
 // ─── F · rangos de la config (MEJORAS 137): lo absurdo no se publica ────────
 console.log("\nF · rangos: precio y horario absurdos se rechazan; lo publicado real pasa");
 {

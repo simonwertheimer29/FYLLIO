@@ -1,0 +1,35 @@
+# ¿POR QUÉ el modelo libre pasó de REMITIR la sedación a AFIRMAR que la clínica la valora? (12-09)
+# Turno 1 de Nuria, mismo prompt y mismo modelo, variando SOLO lo publicado. 3 repeticiones por variante.
+# Construcción de la entrada: la MISMA del runner (construirEntradaDePrueba), no una montada a mano (§25).
+# El modelo es DETERMINISTA: las 3 repeticiones de cada variante son idénticas byte a byte.
+# Coste $0,0517. (Una primera pasada con la entrada montada a mano, $0,0516, NO reprodujo la frase: el
+#  montaje a mano era la divergencia — se descartó y se repitió bien. Las dos van al GASTO.)
+
+── vacía (el experimento original)
+   «Sobre la sedación consciente, lo mejor es que lo confirmes directamente con nuestro equipo: ellos te explicarán qué opciones tenemos…»   → REMITE, correcto
+
+── completa (la que dio la regresión)
+   «La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso.»   → AFIRMA (3/3). LA REGRESIÓN, reproducida.
+
+── sin el nombre de la doctora (misma nota)
+   «Lo mejor es que hables directamente con nuestro equipo en una valoración…»   → ni siquiera nombra la sedación
+
+── sin «muelas del juicio: se valora en consulta» (mismo nombre de doctora)
+   «La Dra. Ana Gil podrá valorar tu caso y explicarte todas las opciones disponibles…»   → no nombra la sedación
+
+── sin ninguna de las dos
+   «Lo mejor es que hables directamente con nuestro equipo: ellos valorarán tu caso…»   → no nombra la sedación
+
+VEREDICTO — hacen falta LAS DOS JUNTAS; ninguna de las dos por separado la produce.
+  · La nota del tratamiento Extracción («muelas del juicio: se valora en consulta») le da la PLANTILLA:
+    «X se valora en consulta».
+  · El nombre publicado en la presentación («con la Dra. Ana Gil al frente») le da el SUJETO para rellenarla.
+  · Con las dos, aplica la plantilla a un servicio que NO consta. Con una sola, se queda en el genérico seguro.
+
+La hipótesis de partida (el nombre de la doctora basta) NO se sostiene: con el nombre y sin la nota, no afirma.
+
+LO QUE IMPORTA: los dos datos son correctos e inocentes por separado, y CUALQUIER clínica real publica
+ambos (nombres de doctores y notas de «se valora en consulta»). No se puede depender de que el conocimiento
+esté redactado con cuidado: la guarda tiene que estar en código.
+Y el veto de servicio NO la caza — sus firmas son «hacemos/ofrecemos/tenemos/contamos con X», y aquí el
+verbo es «valora». Hueco para la lista del paso 2.
