@@ -127,6 +127,9 @@ export type DecisionTurno = {
   descarte: string | null;
   /** 12-09 — el control quitó SU frase y envió el resto (no es descarte). */
   poda: string | null;
+  /** MEJORAS 233 — descartes SEGUIDOS contando este turno. Lo que el turno
+   *  siguiente lee para saber si viene de un callejón. */
+  descartesSeguidos: number;
   pideNoContacto: boolean;
   malestar: boolean | null;
   urgenciaMedica: boolean | null;
@@ -211,6 +214,7 @@ export function decisionDeEvaluacion(ev: EvaluacionTurno): DecisionTurno {
     campos: aplanarCampos(ev.camposRecogidos),
     descarte: ev.borradorDescartado?.motivo ?? null,
     poda: ev.borradorPodado?.motivo ?? null,
+    descartesSeguidos: ev.descartesSeguidos ?? 0,
     pideNoContacto: ev.pideNoContacto === true,
     malestar: ev.juicios?.malestar ?? null,
     urgenciaMedica: ev.juicios?.urgenciaMedica ?? null,
@@ -235,6 +239,7 @@ export function decisionDePersistido(payload: PayloadEvaluacion | null, eventos:
     campos: aplanarCampos(payload?.camposRecogidos),
     descarte: payload?.borradorDescartado?.motivo ?? null,
     poda: payload?.borradorPodado?.motivo ?? null,
+    descartesSeguidos: typeof payload?.descartesSeguidos === "number" ? payload.descartesSeguidos : 0,
     pideNoContacto: payload?.pideNoContacto === true,
     malestar: payload?.malestar ?? null,
     urgenciaMedica: payload?.urgenciaMedica ?? null,
@@ -322,6 +327,7 @@ export const ETIQUETA_CAUSA: Record<CausaDerivacion, string> = {
   caso_completo: "caso completo",
   antecedente_medico: "antecedente médico",
   no_legible: "mensaje no legible",
+  sin_respuesta_valida: "dos descartes seguidos",
 };
 
 const ETIQUETA_FIN: Record<FinMotivo, string> = {

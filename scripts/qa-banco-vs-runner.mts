@@ -62,6 +62,7 @@ const COMPARABLES: (keyof EntradaEvaluador)[] = [
   "yaDerivado",
   "optOutVigente",
   "cobroYaRecordado",
+  "descartesSeguidosAntes",
   "esperaVigente",
   "ultimoNoLegible",
   "aplazadosPendientes",
@@ -104,6 +105,9 @@ function turnoDesdeLog(t: TurnoJugado, evs: readonly EventoJugado[]): TurnoParaS
     esperaHasta: evs.find((e) => e.evento === "espera_fijada")?.hasta ?? null,
     esperaLevantar: evs.some((e) => e.evento === "espera_levantada"),
     pideNoContacto: evs.some((e) => e.evento === "opt_out"),
+    // MEJORAS 233 — la cuenta corrida que ESCRIBIÓ el turno (no se recalcula
+    // aquí: la regla vive en el evaluador y punto).
+    descartesSeguidos: t.decision?.descartesSeguidos ?? 0,
   };
 }
 
@@ -159,6 +163,13 @@ for (const h of fixture.hilos) {
           // Sin ficha, el nombre ES el teléfono: el del banco es fijo y el
           // del runner es el del guion. Es dato, no construcción: iguales.
           if (k === "nombre" && /^\+\d+$/.test(String(banco.nombre)) && /^\+\d+$/.test(String(runner.nombre))) continue;
+          // MEJORAS 233 — ausente ES cero: así lo lee el evaluador
+          // (`e.descartesSeguidosAntes ?? 0`), y los hilos jugados antes del
+          // 12-09 no traen el campo. Comparar el número, no la ausencia.
+          if (k === "descartesSeguidosAntes") {
+            if (Number(banco[k] ?? 0) !== Number(runner[k] ?? 0)) dif.push(`${k}: banco=${corto(banco[k] ?? 0)} · runner=${corto(runner[k] ?? 0)}`);
+            continue;
+          }
           if (JSON.stringify(banco[k] ?? null) !== JSON.stringify(runner[k] ?? null)) dif.push(`${k}: banco=${corto(banco[k])} · runner=${corto(runner[k])}`);
         }
         const etapas = (x: EntradaEvaluador) => x.objetivosAbiertos.map((o) => o.etapa).join("→");

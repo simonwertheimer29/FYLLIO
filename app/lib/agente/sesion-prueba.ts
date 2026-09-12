@@ -40,9 +40,13 @@ export type EstadoSesionPrueba = {
   /** Un turno anterior entregó el caso: la no-reversión se enseña, no se
    *  esquiva (antes viajaba como `derivadoPrevio`). */
   derivado: boolean;
+  /** MEJORAS 233 — descartes SEGUIDOS del juez hasta aquí. Producción lo lee
+   *  del último turno persistido; aquí lo lleva la sesión, con la misma regla
+   *  (§25 — lo que producción escribe en el turno N y lee en el N+1). */
+  descartesSeguidos: number;
 };
 
-export const SESION_NUEVA: EstadoSesionPrueba = { aplazamientos: [], espera: null, optOut: false, derivado: false };
+export const SESION_NUEVA: EstadoSesionPrueba = { aplazamientos: [], espera: null, optOut: false, derivado: false, descartesSeguidos: 0 };
 
 /** Lo que `avanzarSesion` necesita de un turno: el subconjunto de
  *  `EvaluacionTurno` que persistir-turno escribe. Estructural a propósito —
@@ -59,6 +63,8 @@ export type TurnoParaSesion = {
   esperaHasta: string | null;
   esperaLevantar: boolean;
   pideNoContacto?: boolean;
+  /** MEJORAS 233 — la cuenta corrida que el turno escribió (0 si no descartó). */
+  descartesSeguidos?: number;
 };
 
 /**
@@ -80,7 +86,8 @@ export function avanzarSesion(
   if (ev.fallback) return prev;
   const deriva = ev.decision === "deriva" && ev.causa != null;
   if (ev.sinJuicio) {
-    return { ...prev, derivado: prev.derivado || deriva, espera: deriva && ev.esperaLevantar ? null : prev.espera };
+    // Sin juicio no hay borrador que descartar: el callejón se reinicia.
+    return { ...prev, derivado: prev.derivado || deriva, espera: deriva && ev.esperaLevantar ? null : prev.espera, descartesSeguidos: 0 };
   }
   const porClave = new Map<ClaveAplazado, string>();
   for (const a of ev.aplazamientos) if (!porClave.has(a.clave)) porClave.set(a.clave, a.motivo);
@@ -98,6 +105,7 @@ export function avanzarSesion(
     espera,
     optOut: prev.optOut || ev.pideNoContacto === true,
     derivado: prev.derivado || deriva,
+    descartesSeguidos: Math.max(0, ev.descartesSeguidos ?? 0),
   };
 }
 
@@ -138,5 +146,10 @@ export function leerSesionPrueba(raw: unknown): EstadoSesionPrueba | null {
     espera = { hasta: e.hasta, motivo: e.motivo == null ? null : e.motivo.slice(0, 200) };
   }
   if (typeof r.optOut !== "boolean" || typeof r.derivado !== "boolean") return null;
-  return { aplazamientos, espera, optOut: r.optOut, derivado: r.derivado };
+  // MEJORAS 233 — aditivo: una sesión abierta antes de que existiera el campo
+  // no trae ninguno, y eso es exactamente «cero descartes seguidos». Un valor
+  // con forma equivocada sí es nada (la ruta responde 400).
+  if (r.descartesSeguidos != null && (typeof r.descartesSeguidos !== "number" || !Number.isFinite(r.descartesSeguidos))) return null;
+  const descartesSeguidos = Math.max(0, Math.trunc(Number(r.descartesSeguidos ?? 0)));
+  return { aplazamientos, espera, optOut: r.optOut, derivado: r.derivado, descartesSeguidos };
 }

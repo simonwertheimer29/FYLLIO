@@ -49,6 +49,7 @@ const TITULO_DERIVADO: Record<CausaDerivacion, string> = {
   caso_completo: "El agente terminó su parte — queda cerrarlo",
   insistencia: "Insistió varias veces — el agente no le resuelve",
   no_legible: "Envió un audio, foto o archivo que el agente no puede leer — ábrelo en WhatsApp",
+  sin_respuesta_valida: "El agente no puede contestar esto sin arriesgarse — lo contesta mejor una persona",
 };
 /** Rojo para lo que exige atención inmediata (el mismo criterio que la cola
  *  prioritaria de la derivación); el resto informa sin alarmar. */

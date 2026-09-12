@@ -28,6 +28,7 @@ export const ETIQUETA_CAUSA: Record<string, string> = {
   caso_completo: "con todos los datos: listo para el equipo",
   antecedente_medico: "mencionó un antecedente médico con cita próxima",
   no_legible: "mandó algo que el agente no puede leer (audio, foto, documento…)",
+  sin_respuesta_valida: "el agente no pudo contestar sin infringir dos veces seguidas: pasa a una persona",
 };
 
 /** Por qué el control de seguridad descartó el borrador (`borradorDescartado.motivo`). */

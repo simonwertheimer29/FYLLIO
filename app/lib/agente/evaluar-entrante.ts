@@ -31,7 +31,7 @@ import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import { contextoDeConversacion } from "./contexto-conversacion";
 import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type EntradaEvaluador, type MensajeHilo, type SenalesHilo } from "./evaluador";
-import { persistirTurno } from "./persistir-turno";
+import { persistirTurno, leerPayloadEvaluacion } from "./persistir-turno";
 import { sombraDelTurno } from "./sombra";
 import { entradaDesdeContexto } from "./entrada-desde-contexto";
 import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
@@ -233,7 +233,16 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
         where tipo_caso = 'conversacion' and caso_id = ${e.telefono} and evento = 'evaluacion'
           and created_at > ${ahora}::timestamptz - interval '24 hours'`.execute(trx);
     const turnos24h = Number(t24.rows?.[0]?.n ?? 0);
-    return { hiloRows, eventos, proximaCita, nombresClinicas, turnos24h };
+    // MEJORAS 233 — descartes SEGUIDOS antes de este turno. No hace falta
+    // recorrer el hilo: cada turno escribe su propia cuenta corrida, así que
+    // basta el ÚLTIMO turno persistido. Un turno que no descartó escribe 0 y
+    // el contador se reinicia solo.
+    const ult = await sql<{ json: unknown }>`select evaluacion_json as json from eventos_automatizacion
+        where tipo_caso = 'conversacion' and caso_id = ${e.telefono} and evento = 'evaluacion'
+        order by created_at desc limit 1`.execute(trx);
+    const nSeguidos = leerPayloadEvaluacion(ult.rows?.[0]?.json)?.descartesSeguidos;
+    const descartesSeguidosAntes = typeof nSeguidos === "number" && Number.isFinite(nSeguidos) ? Math.max(0, nSeguidos) : 0;
+    return { hiloRows, eventos, proximaCita, nombresClinicas, turnos24h, descartesSeguidosAntes };
   });
 
   // MEJORAS 145 — el tope. El caso queda VISIBLE como «Sin evaluar» y con
@@ -322,6 +331,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     semaforo: sem,
     diasHastaProximaCita,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
+    descartesSeguidosAntes: datos.descartesSeguidosAntes,
     optOutVigente,
     clinicasDelHilo,
     hoy: e.hoy,

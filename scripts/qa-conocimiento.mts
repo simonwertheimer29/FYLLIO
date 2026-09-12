@@ -506,6 +506,39 @@ console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la fr
   }
 }
 
+// ─── H · MEJORAS 233: dos descartes seguidos son un callejón ───────────────
+console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y el contador se reinicia solo");
+{
+  const { plantillaPasaAPersona, plantillaNeutra } = await import("../app/lib/agente/juez-borrador");
+  const { colaDeDerivacion } = await import("../app/lib/automatizacion/estado");
+  const { avanzarSesion, SESION_NUEVA } = await import("../app/lib/agente/sesion-prueba");
+
+  const p1 = plantillaPasaAPersona("Nuria");
+  ok("la plantilla del segundo descarte NO es la neutra (era el bucle de Nuria)", p1 !== plantillaNeutra("Nuria"));
+  ok("dice que le escribe una persona y usa su nombre", /persona del equipo/.test(p1) && p1.includes("Nuria"));
+  ok("sin nombre real (un teléfono) no inventa vocativo", !plantillaPasaAPersona("+34600000000").includes("+34"));
+  ok("en catalán y en inglés, cada uno en su idioma",
+    /l'equip/.test(plantillaPasaAPersona("Nuria", "ca")) && /from the team/.test(plantillaPasaAPersona("Nuria", "en")));
+  ok("es un callejón del agente, no una urgencia de la paciente → cola normal",
+    colaDeDerivacion("sin_respuesta_valida", null) === "normal" && colaDeDerivacion("sin_respuesta_valida", true) === "normal");
+
+  // El contador entre turnos: la sesión del banco lo lleva con la MISMA regla
+  // que producción persiste (§25) — el turno escribe su cuenta, la sesión la
+  // guarda, y un turno que no descarta la pone a cero.
+  const base = { decision: "sigue" as const, aplazamientos: [], esperaHasta: null, esperaLevantar: false };
+  const turno = { instante: "2026-09-12T10:00:00.000Z", entrante: "hola" };
+  const s1 = avanzarSesion(SESION_NUEVA, { ...base, descartesSeguidos: 1 }, turno);
+  ok("un descarte deja la sesión en 1", s1.descartesSeguidos === 1);
+  const s2 = avanzarSesion(s1, { ...base, descartesSeguidos: 2 }, turno);
+  ok("dos seguidos, en 2 (es el turno que entrega el caso)", s2.descartesSeguidos === 2);
+  const s3 = avanzarSesion(s2, { ...base, descartesSeguidos: 0 }, turno);
+  ok("un turno que NO descarta reinicia el contador a 0", s3.descartesSeguidos === 0);
+  const s4 = avanzarSesion(s2, { ...base, sinJuicio: true, decision: "deriva", causa: "no_legible" }, turno);
+  ok("un turno sin juicio (audio) tampoco arrastra el callejón", s4.descartesSeguidos === 0);
+  ok("un fallo del modelo no toca la sesión (producción no persiste nada)",
+    avanzarSesion(s2, { ...base, fallback: true }, turno).descartesSeguidos === 2);
+}
+
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);
   process.exit(1);

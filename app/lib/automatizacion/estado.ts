@@ -93,7 +93,14 @@ export type CausaDerivacion =
   /** 034 — la persona mandó algo que el agente NO puede leer (audio, foto,
    *  documento, ubicación…): no responde ni inventa, entrega. Se cierra
    *  cuando una persona contesta (hecho del sistema: saliente posterior). */
-  | "no_legible";
+  | "no_legible"
+  /** 050 (MEJORAS 233, 12-09) — DOS descartes seguidos del juez en el mismo
+   *  hilo: el agente no puede contestar sin infringir, así que deja de
+   *  intentarlo y el caso pasa a una persona. Con la poda del mismo día el
+   *  segundo descarte seguido es raro: esto es el freno de emergencia, no la
+   *  salida habitual. Cola normal — es un callejón del agente, no una
+   *  urgencia de la paciente. */
+  | "sin_respuesta_valida";
 
 /** La cola se DERIVA del hecho, no se persiste: si mañana cambia la política,
  *  el histórico (causa + malestar) no se pierde. */

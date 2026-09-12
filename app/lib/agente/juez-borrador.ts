@@ -850,6 +850,21 @@ export function plantillaNeutra(nombre: string, idioma: IdiomaPlantilla = "es"):
   return `Gracias por tu mensaje${coNombre}. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.`;
 }
 
+/** MEJORAS 233 (12-09) — el SEGUNDO descarte seguido. La plantilla neutra
+ *  sirve para no hacer daño una vez; repetida es un callejón: a Nuria le
+ *  llegaron cinco seguidas y nada cortaba el bucle. Aquí el caso YA pasa a una
+ *  persona (causa `sin_respuesta_valida`), así que la promesa está respaldada
+ *  por un hecho del sistema y no incumple la regla 4 — a diferencia de la
+ *  neutra, que no puede prometer nada porque su turno no entrega. */
+export function plantillaPasaAPersona(nombre: string, idioma: IdiomaPlantilla = "es"): string {
+  const n = nombre.split(" ")[0];
+  const esNombreReal = n.length > 1 && !/\d/.test(n);
+  const coNombre = esNombreReal ? `, ${n}` : "";
+  if (idioma === "ca") return `Això t'ho explica millor una persona de l'equip${coNombre} — els hi passo la teva consulta i t'escriuen de seguida.`;
+  if (idioma === "en") return `Someone from the team can answer this better${coNombre} — I'm passing your question on and they'll write to you shortly.`;
+  return `Esto te lo contesta mejor una persona del equipo${coNombre} — les paso tu consulta y te escriben enseguida.`;
+}
+
 // ─── La plantilla que ADEMÁS recoge (22-08) ────────────────────────────────
 //
 // «La plantilla sirve para no hacer daño, no para conversar» — y en el flujo

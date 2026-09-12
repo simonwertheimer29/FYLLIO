@@ -67,6 +67,10 @@ export type PiezasEntrada = {
   senales: SenalesHilo | null;
   optOutVigente: boolean;
   clinicasDelHilo: EntradaEvaluador["clinicasDelHilo"];
+  /** MEJORAS 233 — descartes SEGUIDOS del juez justo antes de este turno. En
+   *  producción sale del último turno persistido (cada turno escribe su
+   *  cuenta); en el banco, de la sesión, que la avanza con la misma regla. */
+  descartesSeguidosAntes: number;
   hoy?: string;
 };
 
@@ -107,6 +111,7 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     ultimoNoLegible,
     cobroYaRecordado: p.hilo.some((m) => m.direccion === "Saliente" && FRASE_RECUERDO_COBRO.test(m.contenido)),
     senales: p.senales,
+    descartesSeguidosAntes: p.descartesSeguidosAntes,
     optOutVigente: p.optOutVigente,
     clinicasDelHilo: p.clinicasDelHilo,
     identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,

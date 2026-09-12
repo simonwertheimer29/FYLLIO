@@ -175,6 +175,7 @@ export function construirEntradaDePrueba(args: {
     semaforo,
     diasHastaProximaCita: null,
     senales: null,
+    descartesSeguidosAntes: s.descartesSeguidos,
     optOutVigente: s.optOut,
     clinicasDelHilo: null,
     hoy: args.hoy,

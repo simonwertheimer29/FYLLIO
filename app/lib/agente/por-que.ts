@@ -331,6 +331,18 @@ export async function replayDeHilo(telefono: string, hasta: string): Promise<Rep
       : null;
   // El opt-out, como el contexto: la situación es la de HOY.
   const optOut = (await optOutDeTelefono(telefono)).activo;
+  // MEJORAS 233 — los descartes seguidos que producción leyó ANTES de ese
+  // turno: la cuenta corrida del último turno anterior, igual que el
+  // orquestador (evaluar-entrante §3). Sin esto el replay juzgaría el turno
+  // sin saber que venía de un callejón, que es justo lo que cambia la salida.
+  const antes = await runWithClienteDb(cliente, (trx) =>
+    sql<{ json: unknown }>`select evaluacion_json as json from eventos_automatizacion
+       where tipo_caso = 'conversacion' and caso_id = ${telefono} and evento = 'evaluacion'
+         and created_at < ${objetivo.ts}::timestamptz
+       order by created_at desc limit 1`.execute(trx),
+  );
+  const nSeguidos = leerPayloadEvaluacion(antes.rows?.[0]?.json)?.descartesSeguidos;
+  const descartesSeguidos = typeof nSeguidos === "number" && Number.isFinite(nSeguidos) ? Math.max(0, nSeguidos) : 0;
 
   const ctx = await contextoDeConversacion(telefono);
   const vivo = ctx.presupuestosVivos[0] ?? null;
@@ -347,6 +359,6 @@ export async function replayDeHilo(telefono: string, hasta: string): Promise<Rep
     escenario,
     hilo,
     mensaje: objetivo.contenido,
-    sesion: { aplazamientos, espera, optOut, derivado: derivadoPrevio },
+    sesion: { aplazamientos, espera, optOut, derivado: derivadoPrevio, descartesSeguidos },
   };
 }

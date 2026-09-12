@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, podarBorrador, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaPasaAPersona, podarBorrador, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
 import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
@@ -133,6 +133,13 @@ export type EntradaEvaluador = {
   /** MEJORAS 120 — ¿ya se le recordó el pago pendiente en esta conversación?
    *  Contado del hilo por el caller; el recuerdo va UNA vez. */
   cobroYaRecordado?: boolean;
+  /** MEJORAS 233 (12-09) — cuántos turnos SEGUIDOS acaban de terminar en
+   *  descarte del juez, contados hacia atrás desde este. Con 1 o más, un
+   *  descarte en este turno es el segundo del callejón: el caso pasa a una
+   *  persona en vez de repetir plantilla (a Nuria le llegaron cinco). Lo trae
+   *  el caller de lo PERSISTIDO, y la sesión del banco lo avanza con la misma
+   *  regla (§25 — lo que producción escribe en el turno N y lee en el N+1). */
+  descartesSeguidosAntes?: number;
   /** MEJORAS 150 — señales del hilo. Ausente = ni una línea en el prompt. */
   senales?: SenalesHilo | null;
   /** MEJORAS 135 — la persona tiene un opt-out vigente (informativo). */
@@ -232,6 +239,10 @@ export type EvaluacionTurno = {
     /** La oración (o las oraciones) que se fueron — es la traza. */
     frase: string;
   };
+  /** MEJORAS 233 — descartes SEGUIDOS contando este turno (0 si este no
+   *  descartó). Viaja al payload para verlo en «ver por qué» y para que el
+   *  turno siguiente sepa que viene de un callejón. */
+  descartesSeguidos?: number;
   /** El modelo no contestó o contestó ilegible: fail-closed compat
    *  (requiere_persona + MOTIVO_FALLBACK en el caller), SIN eventos. */
   fallback: boolean;
@@ -1223,6 +1234,9 @@ export async function evaluarTurno(
   let respuestaFinal = juicio.respuesta;
   let borradorDescartado: EvaluacionTurno["borradorDescartado"];
   let borradorPodado: EvaluacionTurno["borradorPodado"];
+  // MEJORAS 233 — cuántos descartes SEGUIDOS lleva el hilo contando este.
+  const descartesSeguidosAntes = Math.max(0, e.descartesSeguidosAntes ?? 0);
+  let descartesSeguidos = 0;
   if (juicio.pideNoContacto) {
     // MEJORAS 135: como la urgencia, la respuesta la escribe CÓDIGO — ni
     // juez ni coletillas: se acusa recibo y se calla. El caller marca el
@@ -1282,7 +1296,10 @@ export async function evaluarTurno(
     // degradó; si se va a cero, el bloque de perdones sobra.
     if (veredicto?.perdonado) base.etiquetasDescartadas.push(`juez:perdonado:${veredicto.perdonado}`);
     if (veredicto == null) {
-      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
+      descartesSeguidos = descartesSeguidosAntes + 1;
+      respuestaFinal = descartesSeguidos >= 2
+        ? plantillaPasaAPersona(nombreParaPlantilla, juicio.idioma)
+        : plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
       borradorDescartado = { motivo: "juez_no_respondio", frase: null };
       console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
     } else if (veredicto.infringe) {
@@ -1306,11 +1323,17 @@ export async function evaluarTurno(
         borradorPodado = { motivo, frase: poda.quitada };
         console.warn(`[evaluador] frase podada (${motivo}): «${poda.quitada}»`);
       } else {
-        // El reemplazo determinista RECOGE si sabe qué falta (22-08): la
-        // plantilla protege sin matar la conversación.
-        respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
+        descartesSeguidos = descartesSeguidosAntes + 1;
+        // MEJORAS 233 — el SEGUNDO descarte seguido no repite plantilla: el
+        // agente no puede contestar esto sin infringir, así que deja de
+        // intentarlo y el caso pasa a una persona (abajo, `sin_respuesta_valida`).
+        // El reemplazo determinista del PRIMERO RECOGE si sabe qué falta
+        // (22-08): la plantilla protege sin matar la conversación.
+        respuestaFinal = descartesSeguidos >= 2
+          ? plantillaPasaAPersona(nombreParaPlantilla, juicio.idioma)
+          : plantillaNeutraConRecogida(nombreParaPlantilla, camposAPedir, plantillaOpts);
         borradorDescartado = { motivo, frase: veredicto.frase, poda: poda.motivo };
-        console.warn(`[evaluador] borrador descartado (${motivo}, poda: ${poda.motivo}): «${veredicto.frase ?? "?"}»`);
+        console.warn(`[evaluador] borrador descartado (${motivo}, poda: ${poda.motivo}, seguidos: ${descartesSeguidos}): «${veredicto.frase ?? "?"}»`);
       }
     }
   }
@@ -1363,6 +1386,7 @@ export async function evaluarTurno(
       respuesta: respuestaFinal,
       borradorDescartado,
       borradorPodado,
+      descartesSeguidos,
     };
   }
 
@@ -1377,6 +1401,7 @@ export async function evaluarTurno(
       respuesta: respuestaFinal,
       borradorDescartado,
       borradorPodado,
+      descartesSeguidos,
     };
   }
 
@@ -1390,6 +1415,7 @@ export async function evaluarTurno(
       respuesta: respuestaFinal,
       borradorDescartado,
       borradorPodado,
+      descartesSeguidos,
     };
   }
 
@@ -1403,6 +1429,7 @@ export async function evaluarTurno(
       respuesta: respuestaFinal,
       borradorDescartado,
       borradorPodado,
+      descartesSeguidos,
     };
   }
 
@@ -1428,8 +1455,28 @@ export async function evaluarTurno(
       respuesta: respuestaFinal,
       borradorDescartado,
       borradorPodado,
+      descartesSeguidos,
     };
   }
 
-  return { ...base, decision: "sigue", respuesta: respuestaFinal, borradorDescartado, borradorPodado };
+  // MEJORAS 233 — DOS DESCARTES SEGUIDOS SON UN CALLEJÓN. Va el último, sin
+  // precedencia sobre las otras causas: si el turno ya entregaba por queja o
+  // por urgencia, esa causa dice más y la persona lo recibe igual (con la
+  // plantilla de arriba, que ya avisa de que le escriben). Esto solo recoge
+  // el caso que, si no, seguiría dando plantillas al vacío.
+  if (descartesSeguidos >= 2) {
+    return {
+      ...base,
+      decision: "deriva",
+      causa: "sin_respuesta_valida",
+      cola: colaDeDerivacion("sin_respuesta_valida", null),
+      esperaLevantar: e.esperaVigente != null,
+      respuesta: respuestaFinal,
+      borradorDescartado,
+      borradorPodado,
+      descartesSeguidos,
+    };
+  }
+
+  return { ...base, decision: "sigue", respuesta: respuestaFinal, borradorDescartado, borradorPodado, descartesSeguidos };
 }

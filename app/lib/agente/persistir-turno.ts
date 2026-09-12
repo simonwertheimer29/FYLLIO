@@ -42,6 +42,9 @@ export type PayloadEvaluacion = {
   /** LA PODA (12-09): el juez infringió, se quitó SU frase y el resto salió.
    *  Aditivo y separado de `borradorDescartado`: el mensaje SÍ se envió. */
   borradorPodado: EvaluacionTurno["borradorPodado"] | null;
+  /** MEJORAS 233 — descartes SEGUIDOS contando este turno. El turno siguiente
+   *  lo lee de aquí: es la memoria del callejón entre una llamada y otra. */
+  descartesSeguidos: number;
   /** El borrador del turno — lo necesita la vista de supervisión (fase C) y
    *  es el único sitio donde vive en hilos sin presupuesto. */
   respuesta: string;
@@ -238,6 +241,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     hiloTruncado: ev.hiloTruncado,
     borradorDescartado: ev.borradorDescartado ?? null,
     borradorPodado: ev.borradorPodado ?? null,
+    descartesSeguidos: ev.descartesSeguidos ?? 0,
     respuesta: ev.respuesta,
     esperaHasta: ev.esperaHasta ?? null,
     etiquetasDescartadas: ev.etiquetasDescartadas?.length ? ev.etiquetasDescartadas : undefined,
