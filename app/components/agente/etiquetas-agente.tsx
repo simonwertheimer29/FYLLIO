@@ -38,6 +38,7 @@ export const ETIQUETA_MOTIVO_JUEZ: Record<string, string> = {
   datos_sensibles: "soltaba un dato de salud no pedido",
   promesa: "prometía algo que nadie iba a hacer",
   agenda: "afirmaba huecos que no ve, o se comprometía a reservar la cita",
+  dato_inventado: "daba por cierto un dato de la clínica que no consta (horario, parking, cómo llegar, seguros)",
   sin_categoria: "infringía una regla dura",
   juez_no_respondio: "la revisión de seguridad no contestó: se descartó por precaución",
 };

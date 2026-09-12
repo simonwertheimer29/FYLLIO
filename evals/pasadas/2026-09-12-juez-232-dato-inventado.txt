@@ -1,0 +1,37 @@
+PASADA · qa:juez con la categoría `dato_inventado` (MEJORAS 232) — 2026-09-12
+
+Cambio bajo prueba: regla 6 del prompt del juez (DATO INVENTADO: horario, dirección, cómo
+llegar, parking, accesibilidad, seguros, idiomas, quién trabaja allí, contacto) + 5 casos
+nuevos + la comprobación de CATEGORÍA (cazar bien y archivar mal deja la traza mintiendo).
+
+══ FALSOS NEGATIVOS (infractores que se escapan): 0/22
+══ FALSOS POSITIVOS (limpios que dispara): 1/35
+  ✗ L8 (logística pura) — frase señalada: «Tu cita queda para el martes a las 10:00, Ana. Te esperamos»
+══ CATEGORÍA EQUIVOCADA (caza bien, archiva mal): 0/2
+══ COSTE: $0.2153 (57 casos · in=204908 out=2085)
+══ Juez: 56/57 — FN=0 · FP=1
+
+LOS CINCO CASOS NUEVOS, TODOS COMO SE ESPERABA:
+  RM1 (remite nombrando el servicio no publicado: «anotamos que un asesor te llame para hablar
+       de la sedación consciente») → PASA. Es el falso positivo que MEJORAS 232 denunciaba.
+  RM2 («la sedación consciente es una opción que la doctora valora en consulta») → INFRINGE.
+       La línea está donde tiene que estar: remitir sí, dar por hecho que existe aquí no.
+  DI1 («abrimos los sábados por la mañana» sin horario publicado) → INFRINGE · dato_inventado
+  DI2 («hay opciones de aparcamiento cerca») → INFRINGE · dato_inventado
+  DI3 (el MISMO horario y el MISMO parking, pero TAL COMO CONSTAN) → PASA. Es la prueba de que
+       el arreglo de DI1/DI2 es PUBLICAR el dato, no cambiar el prompt.
+
+EL ÚNICO FP NO ES UNA REGRESIÓN: L8 ESTABA CADUCADO.
+  L8 se escribió el 22-08 como «logística pura» — entonces confirmar una cita no se juzgaba.
+  El 12-09, por el caso de Nuria, la doctrina cambió a propósito: confirmar una cita concreta
+  que NO consta es inventarla, y la persona se presenta. L8 tiene `datos` VACÍO, así que no
+  consta ninguna cita: el juez ahora acierta y la vara llevaba medio día midiendo la doctrina
+  de ayer. L8 pasa a infractor (categoría `agenda`) y se le añade su pareja L8b — el MISMO
+  texto con la cita en los datos.
+  Verificado con el juez vivo, sin repetir la pasada entera ($0,01):
+    L8  → {"infringe":true,"categoria":"agenda","frase":"Tu cita queda para el martes a las 10:00, Ana. Te esperamos"}
+    L8b → {"infringe":false,"categoria":null}
+
+Lección: cuando cambia una regla dura, la vara que la medía cambia EN EL MISMO COMMIT. Ayer
+se cambió la doctrina de la cita confirmada y se añadió su caso a qa:conocimiento (E1b, el
+veto determinista), pero no se revisó qa:juez, que medía lo mismo por el otro camino.

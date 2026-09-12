@@ -345,6 +345,7 @@ const ETIQUETA_DESCARTE: Record<string, string> = {
   datos_sensibles: "datos sensibles no pedidos",
   promesa: "prometía una acción sin entregar el caso",
   agenda: "agenda",
+  dato_inventado: "dato de la clínica que no consta",
   sin_categoria: "categoría ilegible",
   juez_no_respondio: "el control no contestó",
 };

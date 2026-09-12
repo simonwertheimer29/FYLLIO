@@ -218,7 +218,7 @@ export type EvaluacionTurno = {
     /** `sin_categoria` = el juez dijo INFRINGE pero su categoría llegó
      *  ilegible. Antes se archivaba como «clinica» (barrido del 17-08, B-2)
      *  y contaminaba la única métrica que detecta un generador degradado. */
-    motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "sin_categoria" | "juez_no_respondio";
+    motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "dato_inventado" | "sin_categoria" | "juez_no_respondio";
     frase: string | null;
     /** 12-09 — por qué NO se pudo podar (§ la poda en `juez-borrador`). Un
      *  descarte es ahora el ÚLTIMO recurso: saber cuál de las cinco razones
@@ -235,7 +235,7 @@ export type EvaluacionTurno = {
    *  los descartes bajan, el generador NO ha mejorado; solo lo estamos
    *  arreglando por detrás. */
   borradorPodado?: {
-    motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "sin_categoria";
+    motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "dato_inventado" | "sin_categoria";
     /** La oración (o las oraciones) que se fueron — es la traza. */
     frase: string;
   };

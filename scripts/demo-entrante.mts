@@ -444,6 +444,10 @@ await runWithCliente("DEMO", async () => {
       : p.borradorDescartado.motivo === "economica" ? "regla económica (comprometía condiciones que no constan)"
       : p.borradorDescartado.motivo === "datos_sensibles" ? "art. 9 (volcaba tratamiento o importe que nadie pidió)"
       : p.borradorDescartado.motivo === "promesa" ? "prometía una acción de la clínica sin entregar el caso"
+      // 12-09: `agenda` faltaba en la cadena desde que existe la regla 5 y caía
+      // en «el juez no contestó» — un error con el nombre de otro (§9).
+      : p.borradorDescartado.motivo === "agenda" ? "afirmaba huecos que no ve, o se comprometía a reservar la cita"
+      : p.borradorDescartado.motivo === "dato_inventado" ? "daba por cierto un dato de la clínica que no consta (horario, parking, cómo llegar)"
       : p.borradorDescartado.motivo === "sin_categoria" ? "el juez dijo que infringe pero su categoría llegó ilegible"
       : "el juez no contestó (fail-closed)";
     console.log(`  ⚠ El borrador del modelo se DESCARTÓ — ${razon}${p.borradorDescartado.frase ? `; la frase: «${p.borradorDescartado.frase}»` : ""}.`);

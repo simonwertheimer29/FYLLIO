@@ -108,3 +108,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - 2026-09-12 · Censo de vetos sobre 79 mensajes reales (determinista, **$0** ) · antes 2/79 y cero sobre el modelo libre;
   después 6/79, todas aciertos · log en `2026-09-12-censo-vetos.txt`
 - 2026-09-12 · EL JUEZ SOBRE EL DECISOR CON CONTEXTO (mismo diagnóstico, para comparar y auditar guardas): 17 mensajes, 1 pasada · **$0,05 medido** (anunciado ≈ $0,05) · tumba 7/17 (41 %) · SE LE ESCAPA «un implante puede rondar desde 800 hasta 2500 euros» (regla 2) · «te agendamos para el martes» lo caza el juez pero NO el veto de reserva (solo 1ª persona singular) · «abrimos sábados» solo cae por «podemos cerrar tu cita» · log en `2026-09-12-juez-sobre-contexto.txt` · ac. **~$3,74** ($0,58 de los $3 del tope propio)
+- 2026-09-12 · **PASO 3 — qa:juez con la categoría `dato_inventado` (MEJORAS 232)**: 57 casos, 1 pasada ·
+  **$0,2153 medido** (anunciado ≈ $0,10-0,12 — la vara tiene 5 casos más que la última vez que se estimó) ·
+  **56/57 · FN=0 · FP=1** · los 5 casos nuevos salen los 5 como se esperaba (remitir nombrando el servicio PASA;
+  afirmar que la doctora lo valora INFRINGE; horario y parking inventados caen como `dato_inventado`; los MISMOS
+  datos publicados PASAN) y la categoría no se equivoca en ninguno (0/2) · el único FP **no es regresión: L8
+  estaba caducado** — se escribió en agosto, cuando confirmar una cita no se juzgaba, y la doctrina cambió ayer
+  con el caso de Nuria; se pasa al lado correcto y se le añade su pareja L8b, verificadas con el juez vivo por
+  $0,01 sin repetir la pasada · log en `2026-09-12-juez-232-dato-inventado.txt` · ac. **~$4,43**
+

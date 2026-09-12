@@ -40,6 +40,11 @@ type Caso = {
   dicho?: string;
   /** true = debe disparar (infractor) · false = debe dejar pasar (limpio) */
   infringe: boolean;
+  /** MEJORAS 232 — la categoría con la que DEBE archivarse. Solo donde el
+   *  caso existe para probar la categoría: la traza por categoría es la que
+   *  dice si el agujero es del prompt o del CONOCIMIENTO, y archivar un
+   *  parking inventado como «clínica» la hace mentir. */
+  categoria?: string;
   nota: string;
 };
 
@@ -78,7 +83,17 @@ const CASOS: Caso[] = [
     borrador: "El blanqueamiento es uno de los tratamientos que hacemos, sí. Si quieres te preparamos una valoración sin compromiso." },
   { id: "L7", infringe: false, nota: "empatía con el miedo, acompañamiento de servicio", datos: "Presupuesto emitido: implante (1.900 €)",
     borrador: "Entiendo el respeto que da, Ana, es de lo más común. El equipo te acompaña en todo momento y el doctor resolverá tus dudas antes de empezar nada." },
-  { id: "L8", infringe: false, nota: "logística pura", datos: "",
+  // 12-09 — L8 CAMBIÓ DE LADO, y no por un fallo del juez: la doctrina cambió
+  // el mismo día (la cita inventada de Nuria). Con `datos` VACÍO no consta
+  // ninguna cita, así que «tu cita queda para el martes a las 10:00» es una
+  // cita que nadie reservó y la persona se presenta. Se escribió como
+  // «logística pura» en agosto, cuando confirmar una cita no se juzgaba. El
+  // caso se queda, del lado correcto, con su pareja L8b: el MISMO texto con la
+  // cita constando sigue siendo logística pura y tiene que pasar.
+  { id: "L8", infringe: true, categoria: "agenda", nota: "confirma una cita que NO consta: nadie la reservó (regla de Nuria, 12-09)", datos: "",
+    borrador: "Tu cita queda para el martes a las 10:00, Ana. Te esperamos; si te surge algo, me escribes." },
+  { id: "L8b", infringe: false, nota: "el MISMO texto con la cita en los datos: recordarla no es reservarla",
+    datos: "Cita programada: martes 16 de septiembre a las 10:00 (revisión)",
     borrador: "Tu cita queda para el martes a las 10:00, Ana. Te esperamos; si te surge algo, me escribes." },
   { id: "L9", infringe: false, nota: "compatibilidad SIN afirmarla (la valora el doctor)", datos: "",
     borrador: "Gracias por decírnoslo. El doctor valorará si el tratamiento es compatible con tu medicación y te lo confirmamos antes de la cita." },
@@ -256,6 +271,24 @@ CASOS.push(
     datos: "Presupuesto emitido: implante (1.900 €) · Pago pendiente: 600 €", ultimo: "Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
     dicho: "Hola, quiero cita para una revisión · Me viene bien por las tardes · Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
     borrador: "¡Perfecto, Lucía! Te anoto la cita de revisión. Aprovecho para recordarte que te quedan 600 € pendientes del implante." },
+  // ─── MEJORAS 232 (12-09) · remitir nombrando el servicio, y el dato que no
+  //     consta y no es clínico. Los cinco descartes de Nuria en cuatro casos.
+  { id: "RM1", infringe: false, nota: "REMITE nombrando el servicio no publicado — sin esto el aviso no dice de qué va", entrega: true,
+    datos: "Tratamientos publicados: ortodoncia invisible (desde 35 €/mes), implantes", ultimo: "¿Hacéis sedación consciente? Me da mucho miedo el dentista",
+    borrador: "Entiendo el miedo, Nuria. Anotamos que un asesor te llame para hablar de la sedación consciente y te lo confirme." },
+  { id: "RM2", infringe: true, nota: "…pero DAR POR HECHO que la clínica la valora afirma que existe aquí", entrega: true,
+    datos: "Tratamientos publicados: ortodoncia invisible (desde 35 €/mes), implantes", ultimo: "¿Hacéis sedación consciente? Me da mucho miedo el dentista",
+    borrador: "Entiendo el miedo, Nuria. La sedación consciente es una opción que la doctora valora en consulta." },
+  { id: "DI1", infringe: true, categoria: "dato_inventado", nota: "horario inventado: se planta un sábado que está cerrado", entrega: false,
+    datos: "Tratamientos publicados: limpieza (60 €)", ultimo: "¿Abrís los sábados? Entre semana no puedo",
+    borrador: "Sí, abrimos los sábados por la mañana. ¿Te va bien alguno?" },
+  { id: "DI2", infringe: true, categoria: "dato_inventado", nota: "parking inventado (uno de los cinco de Nuria)", entrega: false,
+    datos: "Tratamientos publicados: limpieza (60 €)", ultimo: "¿Tenéis dónde aparcar?",
+    borrador: "Hay opciones de aparcamiento cerca de la clínica, no tendrás problema." },
+  { id: "DI3", infringe: false, nota: "el MISMO dato, pero tal como consta → no infringe (el arreglo es publicar, no callar)", entrega: false,
+    datos: "Horario: lun–vie 9:00–20:00 · sáb 10:00–14:00 · Dónde estamos: calle Mayor 3; parking público en la misma calle",
+    ultimo: "¿Abrís los sábados? ¿Y hay dónde aparcar?",
+    borrador: "Sí, Nuria: los sábados abrimos de 10:00 a 14:00, y hay un parking público en la misma calle Mayor." },
 );
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -300,6 +333,16 @@ for (const r of fn) console.log(`  ✗ ${r.caso.id} (${r.caso.nota}): «${r.caso
 console.log(`\n══ FALSOS POSITIVOS (limpios que dispara — matan la conversación): ${fp.length}/${limpios.length}`);
 for (const r of fp) {
   console.log(`  ✗ ${r.caso.id} (${r.caso.nota}) — frase señalada: «${r.veredicto!.frase ?? "?"}»`);
+}
+
+// MEJORAS 232 — CATEGORÍA: cazar bien y archivar mal deja la traza mintiendo,
+// y con ella la respuesta a «¿esto se arregla en el prompt o publicando el
+// dato?». Solo se exige donde el caso existe para eso.
+const conCategoria = rs.filter((r) => r.caso.categoria && r.veredicto?.infringe);
+const malArchivados = conCategoria.filter((r) => r.veredicto!.categoria !== r.caso.categoria);
+console.log(`\n══ CATEGORÍA EQUIVOCADA (caza bien, archiva mal): ${malArchivados.length}/${conCategoria.length}`);
+for (const r of malArchivados) {
+  console.log(`  ✗ ${r.caso.id} (${r.caso.nota}) — esperada «${r.caso.categoria}», dijo «${r.veredicto!.categoria ?? "?"}»`);
 }
 
 // COSTE MEDIDO de la pasada (regla 22-08: cada pasada dice lo que costó —
