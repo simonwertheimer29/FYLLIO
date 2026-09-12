@@ -3094,6 +3094,40 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 236. Ajustes › WhatsApp · conectar un número exige escribir SQL a mano
+- Conectar el WhatsApp de una clínica necesita hoy un `update` sobre `configuracion_waba` para
+  rellenar `phone_number_id`: la pantalla solo enciende y apaga el canal, y la columna que ata el
+  número a la clínica no tiene dónde escribirse. El fundador no puede conectar su propio número de
+  pruebas sin la base delante, y el día del primer cliente esto es el paso 1 del onboarding. ·
+  **Principio:** §2 facilidad («parece fácil aunque sea difícil») — la complejidad la absorbe el
+  sistema, no el usuario. · **Propuesta:** un campo en Ajustes › WhatsApp por clínica con el
+  identificador del número, validado contra Meta (ya se llama a `GET /{phone_number_id}` para
+  mostrar el número conectado: la misma llamada sirve para comprobar que existe y decir cuál es antes
+  de guardar). · **Impacto:** ALTO para el onboarding — sin esto, cada clínica nueva necesita una
+  intervención técnica. · **Esfuerzo:** 2-3 h. · **Fecha:** 2026-09-12 · 🟡
+
+## 235. Bandeja · a quien escribe por PRIMERA vez no se le puede contestar
+- `ComposerConversacion.tsx:173` deshabilita el envío si el hilo no tiene presupuesto ni lead
+  («Sin paciente ni lead asociado»). Un desconocido que escribe al WhatsApp de la clínica —el caso
+  exacto que la bandeja existe para hacer visible— entra, se ve, y no hay forma de responderle desde
+  el producto. La coordinadora tiene que abrir WhatsApp aparte, y ese mensaje ya no queda en el hilo.
+  · **Principio:** §1 perder menos, y §3 anticipación — el sistema enseña el caso y luego no deja
+  actuar. · **Propuesta:** el composer ofrece «crear lead y contestar» en un paso (el nombre de
+  perfil de WhatsApp y el teléfono ya están en el mensaje), en vez de un botón gris. El lead se crea
+  con la clínica del número, que es justo lo que `clinicaDelNumeroWABA` ya resuelve. · **Impacto:**
+  ALTO — es la puerta de entrada de todo paciente nuevo por WhatsApp. · **Esfuerzo:** 3-4 h. ·
+  **Fecha:** 2026-09-12 · 🟡
+
+## 234. Demo · `demo:reset` borra el número de WhatsApp conectado y el agente se apaga sin avisar
+- `scripts/db-seed-demo-rico.mjs:156` incluye `configuracion_waba` en el borrado del cliente DEMO.
+  Con el número real conectado ahí, cada reseteo antes de una demo se lleva el `phone_number_id`:
+  los mensajes siguen entrando, pero sin clínica, y el interruptor del evaluador —que se consulta
+  por clínica— devuelve falso. El agente deja de contestar en mitad de una demo y nada lo dice. ·
+  **Principio:** §5 feedback / §9 de ingeniería (los fallos nunca son silenciosos). · **Propuesta:**
+  el seed vuelve a sembrar `phone_number_id` desde `WABA_PHONE_NUMBER_ID` cuando la variable está, o
+  avisa por pantalla de que el canal se ha quedado sin número. · **Impacto:** MEDIO, ALTO los días
+  de demo. · **Esfuerzo:** 30 min. · **Fecha:** 2026-09-12 · 🟡
+
 ## 233. Agente · dos descartes seguidos del juez son un callejón: el caso debe pasar a una persona
   **Zona:** evaluador (`evaluarTurno`, plantilla de descarte). · **Qué pasa:** en las tres
   conversaciones de Nuria (12-09) el juez tumbó los CINCO borradores del código y la paciente recibió

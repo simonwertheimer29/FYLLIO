@@ -4790,3 +4790,17 @@ es lo segundo que preguntó Simon: **la plantilla de descarte no sirve cuando el
 ejecutar: MEJORAS 233 (el segundo descarte consecutivo entrega el caso a una persona con una
 plantilla distinta) y 232 (categoría «dato inventado» y el caso de remitir en `qa:juez`).
 
+
+## 2026-09-12 (tarde) — WhatsApp real: el número entrante caía en un cliente que no existe
+Al preparar la conexión del WhatsApp de verdad se vio que el webhook resolvía a `PILOT_CLIENTE`
+(RB) escrito a fuego, y **RB no es un cliente**: se sembró como estructura de ejemplo, no hay firma
+ni piloto ni número, y su tenant está vacío (cero clínicas configuradas, cero agenda, evaluador
+apagado). El primer mensaje real se habría guardado donde no lo trabaja nadie — la misma forma que
+el portal del paciente, un tenant vacío tragándose el dato. Ahora el cliente se declara en
+`WABA_CLIENTE` y sin declaración no se procesa, con el motivo del descarte nombrado en el log.
+Y el contrato de entorno vigilaba `META_WHATSAPP_TOKEN`, que solo leía un módulo muerto, mientras
+ninguna de las seis que deciden el canal estaba declarada: con el token caducado `/api/salud` habría
+seguido diciendo que todo iba bien. Declaradas las seis y borrado el módulo, que es lo que exigió
+`qa:sin-fallbacks` al quitar la variable. Queda una deuda menor: el vocabulario de clientes está
+ahora en tres sitios (`cliente-contexto`, `db/context.ts:23`, `cola/qstash.ts:32`); el nuevo
+`esCliente` vive junto al tipo y los otros dos deberían pasar por él.
