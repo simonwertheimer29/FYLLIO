@@ -58,8 +58,14 @@ import {
   parsearSombra,
   type Acto,
   type DecisionCodigoResumen,
+  type Decisor,
+  type GuionTres,
   type HiloSombra,
+  type HiloTres,
+  type MensajeTres,
   type OrigenSombra,
+  type PreferidoTres,
+  type ResumenTres,
   type SombraLibre,
   type SombraModelo,
   type TurnoSombra,
@@ -659,4 +665,92 @@ export async function anotarVeredictoSombra(a: {
         returning id`.execute(trx),
   );
   return r.rows.length === 1;
+}
+
+// ─── Tres conversaciones por guion (049, 12-09) ────────────────────────────
+
+/** Una fila por (guion, decisor): rejugar reemplaza. */
+export async function guardarHiloTres(h: HiloTres): Promise<void> {
+  const cliente = requireCliente("guardarHiloTres");
+  await runWithClienteDb(cliente, (trx) =>
+    sql`insert into agente_sombra_hilos (cliente, guion_id, titulo, categoria, decisor, version, jugado_el, mensajes, resumen, coste_usd)
+        values (${cliente}, ${h.guionId}, ${h.titulo}, ${h.categoria}, ${h.decisor}, ${h.version}, ${h.jugadoEl}::timestamptz,
+                ${JSON.stringify(h.mensajes)}::jsonb, ${JSON.stringify(h.resumen)}::jsonb, ${h.costeUsd})
+        on conflict (cliente, guion_id, decisor) do update set
+          titulo = excluded.titulo, categoria = excluded.categoria, version = excluded.version, jugado_el = excluded.jugado_el,
+          mensajes = excluded.mensajes, resumen = excluded.resumen, coste_usd = excluded.coste_usd, created_at = now()`.execute(trx),
+  );
+}
+
+type FilaHiloTres = {
+  id: string;
+  guion_id: string;
+  titulo: string;
+  categoria: string | null;
+  decisor: Decisor;
+  version: string;
+  jugado_el: Date | string;
+  mensajes: unknown;
+  resumen: unknown;
+  coste_usd: string | number | null;
+};
+type FilaGuionTres = { guion_id: string; preferido: PreferidoTres | null; nota: string | null; en: Date | string | null };
+
+/** Los guiones con sus tres hilos y el veredicto de Simon. */
+export async function listarHilosTres(): Promise<GuionTres[]> {
+  const cliente = requireCliente("listarHilosTres");
+  return runWithClienteDb(cliente, async (trx) => {
+    const h = await sql<FilaHiloTres>`select id, guion_id, titulo, categoria, decisor, version, jugado_el, mensajes, resumen, coste_usd
+        from agente_sombra_hilos order by jugado_el desc`.execute(trx);
+    const g = await sql<FilaGuionTres>`select guion_id, preferido, nota, en from agente_sombra_guiones`.execute(trx);
+    const veredictos = new Map(g.rows.map((r) => [r.guion_id, r]));
+    const porGuion = new Map<string, GuionTres>();
+    for (const f of h.rows) {
+      let x = porGuion.get(f.guion_id);
+      if (!x) {
+        const v = veredictos.get(f.guion_id);
+        x = {
+          guionId: f.guion_id,
+          titulo: f.titulo,
+          categoria: f.categoria ?? "",
+          hilos: {},
+          preferido: v?.preferido ?? null,
+          nota: v?.nota ?? null,
+          preferidoEn: iso(v?.en ?? null),
+        };
+        porGuion.set(f.guion_id, x);
+      }
+      x.hilos[f.decisor] = {
+        id: f.id,
+        guionId: f.guion_id,
+        titulo: f.titulo,
+        categoria: f.categoria ?? "",
+        decisor: f.decisor,
+        version: f.version,
+        jugadoEl: iso(f.jugado_el) ?? "",
+        mensajes: leerJson<MensajeTres[]>(f.mensajes) ?? [],
+        resumen: leerJson<ResumenTres>(f.resumen) ?? {
+          turnos: 0, derivoEn: null, motivo: null, causa: null, porHecho: false, datos: [], aplazados: [], repeticiones: 0, molestiaEn: null, fin: "perdido", detalleFin: "sin resumen", costeUsd: 0,
+        },
+        costeUsd: Number(f.coste_usd ?? 0),
+      };
+    }
+    return [...porGuion.values()];
+  });
+}
+
+/** El veredicto por guion (upsert): cuál habría preferido recibir como paciente. */
+export async function anotarPreferidoTres(a: { guionId: string; preferido: PreferidoTres | null; nota: string | null; por: string }): Promise<boolean> {
+  const cliente = requireCliente("anotarPreferidoTres");
+  const existe = await runWithClienteDb(cliente, (trx) =>
+    sql<{ n: number }>`select count(*)::int as n from agente_sombra_hilos where guion_id = ${a.guionId}`.execute(trx),
+  );
+  if (Number(existe.rows[0]?.n ?? 0) === 0) return false;
+  const hayAlgo = a.preferido != null || (a.nota != null && a.nota !== "");
+  await runWithClienteDb(cliente, (trx) =>
+    sql`insert into agente_sombra_guiones (cliente, guion_id, preferido, nota, por, en)
+        values (${cliente}, ${a.guionId}, ${a.preferido}, ${a.nota}, ${hayAlgo ? a.por : null}, ${hayAlgo ? new Date() : null})
+        on conflict (cliente, guion_id) do update set preferido = excluded.preferido, nota = excluded.nota, por = excluded.por, en = excluded.en`.execute(trx),
+  );
+  return true;
 }

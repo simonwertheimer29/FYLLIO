@@ -10,16 +10,29 @@
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../lib/auth/session";
-import { anotarVeredictoSombra, esVisorSombra, listarSombra, sombraActiva, versionSombra } from "../../lib/agente/sombra";
-import { VEREDICTOS_SOMBRA, type VeredictoSombra } from "../../lib/agente/actos";
+import {
+  anotarPreferidoTres,
+  anotarVeredictoSombra,
+  esVisorSombra,
+  listarHilosTres,
+  listarSombra,
+  sombraActiva,
+  versionSombra,
+} from "../../lib/agente/sombra";
+import { PREFERIDOS_TRES, VEREDICTOS_SOMBRA, type PreferidoTres, type VeredictoSombra } from "../../lib/agente/actos";
 
 export const dynamic = "force-dynamic";
 
 const noExiste = () => NextResponse.json({ error: "No encontrado" }, { status: 404 });
 
-export const GET = withAuth(async (session) => {
+export const GET = withAuth(async (session, req) => {
   if (!esVisorSombra(session)) return noExiste();
+  const vista = new URL(req.url).searchParams.get("vista");
   try {
+    if (vista === "conversaciones") {
+      // 049: las tres conversaciones por guion, con el veredicto de Simon.
+      return NextResponse.json({ guiones: await listarHilosTres() });
+    }
     const hilos = await listarSombra();
     return NextResponse.json({ hilos, activa: sombraActiva(session.cliente), version: versionSombra() });
   } catch (err) {
@@ -36,7 +49,27 @@ export const PATCH = withAuth(async (session, req) => {
   } catch {
     return NextResponse.json({ error: "Cuerpo ilegible" }, { status: 400 });
   }
-  const b = (body ?? {}) as { id?: unknown; veredicto?: unknown; nota?: unknown };
+  const b = (body ?? {}) as { id?: unknown; veredicto?: unknown; nota?: unknown; guionId?: unknown; preferido?: unknown };
+  if (typeof b.guionId === "string" && b.guionId.trim()) {
+    // 049: el veredicto por guion — cuál habría preferido recibir como paciente.
+    let preferido: PreferidoTres | null = null;
+    if (b.preferido != null) {
+      if (!(PREFERIDOS_TRES as readonly string[]).includes(String(b.preferido))) {
+        return NextResponse.json({ error: "Preferido no válido" }, { status: 400 });
+      }
+      preferido = b.preferido as PreferidoTres;
+    }
+    if (b.nota != null && typeof b.nota !== "string") return NextResponse.json({ error: "Nota no válida" }, { status: 400 });
+    const nota = typeof b.nota === "string" ? b.nota.trim().slice(0, 600) || null : null;
+    try {
+      const ok = await anotarPreferidoTres({ guionId: b.guionId.trim(), preferido, nota, por: session.userId });
+      if (!ok) return NextResponse.json({ error: "Ese guion no tiene conversaciones jugadas" }, { status: 404 });
+      return NextResponse.json({ ok: true });
+    } catch (err) {
+      console.error("[sombra] preferido", err instanceof Error ? err.message : err);
+      return NextResponse.json({ error: "No se pudo guardar el veredicto" }, { status: 500 });
+    }
+  }
   const id = typeof b.id === "string" ? b.id.trim() : "";
   if (!id) return NextResponse.json({ error: "Falta id" }, { status: 400 });
   let veredicto: VeredictoSombra | null = null;

@@ -230,6 +230,85 @@ export type TurnoSombra = {
   en: string;
 };
 
+// ─── Tres conversaciones por guion (049, 12-09) ────────────────────────────
+
+/** Quién conduce el hilo de principio a fin. */
+export const DECISORES = ["codigo", "contexto", "libre"] as const;
+export type Decisor = (typeof DECISORES)[number];
+export const ETIQUETA_DECISOR: Record<Decisor, string> = {
+  codigo: "El código (hoy)",
+  contexto: "Modelo con contexto",
+  libre: "Modelo libre",
+};
+
+export type MensajeTres = {
+  /** Turno (0 = lo que la clínica escribió antes del primer mensaje). */
+  n: number;
+  quien: "paciente" | "agente" | "cadencia";
+  texto: string;
+  acto?: Acto | "ilegible" | null;
+  /** Frase que cazaría un veto determinista (o el descarte del juez en el código). */
+  veto?: string | null;
+  /** ESTE mensaje pasa el caso a una persona («el equipo te contacta» y punto). */
+  deriva?: boolean;
+  motivo?: string | null;
+  noLegible?: boolean;
+};
+
+export type FinTres = "derivado" | "resuelto" | "perdido";
+export const ETIQUETA_FIN: Record<FinTres, string> = {
+  derivado: "Pasó a una persona",
+  resuelto: "Resuelto sin pasar a nadie",
+  perdido: "Perdido",
+};
+
+export type ResumenTres = {
+  /** Mensajes del paciente que el agente contestó. */
+  turnos: number;
+  /** En qué mensaje pasó el caso a una persona (null = no lo pasó). */
+  derivoEn: number | null;
+  motivo: string | null;
+  causa: string | null;
+  /** La entrega la forzó un HECHO (urgencia, queja, no legible), no el decisor. */
+  porHecho: boolean;
+  /** Con qué datos llegó el caso («cita.tratamiento_o_molestia: extracción»). */
+  datos: string[];
+  aplazados: string[];
+  /** Veces que el paciente volvió sobre algo ya anotado. */
+  repeticiones: number;
+  /** Primer turno con malestar (null = ninguno). */
+  molestiaEn: number | null;
+  fin: FinTres;
+  detalleFin: string | null;
+  costeUsd: number;
+};
+
+export type HiloTres = {
+  id?: string;
+  guionId: string;
+  titulo: string;
+  categoria: string;
+  decisor: Decisor;
+  version: string;
+  jugadoEl: string;
+  mensajes: MensajeTres[];
+  resumen: ResumenTres;
+  costeUsd: number;
+};
+
+export const PREFERIDOS_TRES = ["codigo", "contexto", "libre", "ninguno"] as const;
+export type PreferidoTres = (typeof PREFERIDOS_TRES)[number];
+
+export type GuionTres = {
+  guionId: string;
+  titulo: string;
+  categoria: string;
+  hilos: Partial<Record<Decisor, HiloTres>>;
+  preferido: PreferidoTres | null;
+  nota: string | null;
+  preferidoEn: string | null;
+};
+
 export type HiloSombra = {
   telefono: string;
   etiqueta: string;

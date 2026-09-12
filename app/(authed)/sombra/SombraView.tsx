@@ -30,8 +30,11 @@ import {
   type VeredictoSombra,
 } from "../../lib/agente/actos";
 
+import { ConversacionesTres } from "./ConversacionesTres";
+
 type Respuesta = { hilos: HiloSombra[]; activa: boolean; version: string };
 type FiltroOrigen = "todos" | "produccion" | "hilos_jugados";
+type Vista = "turnos" | "conversaciones";
 
 const fmtFecha = (iso: string) =>
   new Date(iso).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -67,6 +70,8 @@ export function SombraView() {
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
   const [soloDesacuerdos, setSoloDesacuerdos] = useState(false);
   const [origen, setOrigen] = useState<FiltroOrigen>("todos");
+  // 049: «Turnos» (sombra turno a turno) o «Conversaciones» (tres hilos enteros por guion).
+  const [vista, setVista] = useState<Vista>("turnos");
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -144,7 +149,19 @@ export function SombraView() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {datos && (
+          <div className="inline-flex rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+            {(["turnos", "conversaciones"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setVista(v)}
+                className={`h-8 rounded-md px-3 text-sm ${vista === v ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]" : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"}`}
+              >
+                {v === "turnos" ? "Turnos" : "Conversaciones"}
+              </button>
+            ))}
+          </div>
+          {datos && vista === "turnos" && (
             <StatePill variant={datos.activa ? "success" : "warning"} size="md" title={`Versión del prompt de la sombra: ${datos.version}`}>
               {datos.activa ? "Sombra activa en este cliente" : "Sombra apagada en este cliente"}
             </StatePill>
@@ -160,11 +177,13 @@ export function SombraView() {
         </div>
       </header>
 
-      {error && <ErrorState title="No se pudo leer la sombra" detail={error} onRetry={() => void cargar()} />}
+      {vista === "conversaciones" && <ConversacionesTres />}
 
-      {!datos && !error && <CardListSkeleton rows={4} />}
+      {vista === "turnos" && error && <ErrorState title="No se pudo leer la sombra" detail={error} onRetry={() => void cargar()} />}
 
-      {datos && (
+      {vista === "turnos" && !datos && !error && <CardListSkeleton rows={4} />}
+
+      {vista === "turnos" && datos && (
         <>
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <div className="inline-flex rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">

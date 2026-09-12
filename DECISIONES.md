@@ -4731,3 +4731,30 @@ Dos hallazgos de robustez por el camino, arreglados: el pool de pg no tenía oye
 conexión ociosa cortada por el pooler TUMBABA el proceso entero (`client.ts`, §9); y el script del
 fixture reintenta por turno en vez de morir con la fila a medias.
 
+## 2026-09-12 — El experimento estaba mal planteado: tres conversaciones enteras por guion, una por decisor
+
+Simon, leyendo las tres columnas: el hilo lo conducía el código, y los otros dos decisores respondían
+a mensajes que el paciente escribió DESPUÉS de que el código ya hubiera insistido — a un problema que
+no crearon. Eso no mide quién decide mejor, mide quién se adapta mejor al desastre del código. Lo que
+quiere: por cada guion, tres conversaciones COMPLETAS y SEPARADAS con el mismo perfil y el mismo
+primer mensaje, cada una conducida de principio a fin por un decisor (código · modelo con contexto ·
+modelo libre), con el paciente simulado reaccionando a lo que ESE decisor dijo. Y medir quién LLEVA
+mejor la conversación: en cuántos mensajes pasa el caso a una persona, cuántas veces el paciente
+repite, si hubo molestia y en qué turno, cómo termina (resuelto, derivado con el caso listo, perdido).
+Cómo queda: `scripts/jugar-tres.mts` (`hilos:tres`) — el mundo de cada guion sale del turno 1 del
+fixture de hilos jugados y la entrada de cada turno la construye el MISMO constructor que el banco
+de pruebas (`construirEntradaDePrueba`, vigilado por `qa:banco-vs-runner`); el paciente simulado se
+extrajo de jugar-hilos a `hilos-jugados-paciente.mts` sin cambiar una línea. En B y C el evaluador
+corre igualmente cada turno —aporta los hechos (urgencia, queja, lo anotado, lo recogido) y hace
+avanzar la sesión— pero el mensaje y la decisión de pasar el caso son del decisor: acto «atender» o
+«cerrar» = pasa a una persona y para. Las entregas obligatorias por hechos no se tocan (urgencia,
+queja, no legible pasan el caso lo diga el decisor o no, marcado «por hecho»). Nada se escribe en la
+mensajería: `agente_sombra_hilos` (una fila por guion y decisor: mensajes enteros + resumen) y
+`agente_sombra_guiones` (el veredicto: cuál habría preferido recibir como paciente), migración 049;
+fixture en `evals/hilos-tres/fixture.json`. Pantalla: /sombra › «Conversaciones» — tres columnas
+enteras por guion, resumen encima de cada hilo (en cuántos mensajes pasó, motivo, con qué datos,
+cómo terminó), el mensaje que pasa el caso marcado con su motivo, y el veredicto por guion.
+**No se ha jugado**: Simon pidió el coste antes. `--estimar`: 15 guiones × 3 decisores → tope $6,19
+(todos los hilos hasta maxTurnos), típico ≈ $3,24 (3 turnos por hilo); el acumulado del banco va por
+~$3,16 de un tope de $5, así que hace falta su OK y subir el tope.
+

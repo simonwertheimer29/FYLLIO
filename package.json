@@ -18,6 +18,7 @@
     "hilos:replay": "tsx scripts/replay-hilos.mts",
     "sombra:hilos": "tsx scripts/replay-hilos.mts --sombra",
     "sombra:libre": "tsx scripts/sombra-libre.mts",
+    "hilos:tres": "tsx scripts/jugar-tres.mts",
     "qa:hilos": "tsx scripts/qa-hilos-jugados.mts",
     "qa:banco-vs-runner": "tsx scripts/qa-banco-vs-runner.mts",
     "semaforo": "tsx scripts/semaforo-censo.mts",

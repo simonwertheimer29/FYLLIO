@@ -324,6 +324,32 @@ export interface Tabla_agente_sombra {
   conviene: string | null;
 }
 
+/** 049 — tres conversaciones por guion (una por decisor), enteras y con resumen. */
+export interface Tabla_agente_sombra_hilos {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  guion_id: string;
+  titulo: string;
+  categoria: string | null;
+  decisor: "codigo" | "contexto" | "libre";
+  version: string;
+  jugado_el: Date;
+  mensajes: ColumnType<unknown, string, string>;
+  resumen: ColumnType<unknown, string, string>;
+  coste_usd: number | null;
+  created_at: Generated<Date>;
+}
+
+/** 049 — el veredicto de Simon por guion: cuál habría preferido recibir como paciente. */
+export interface Tabla_agente_sombra_guiones {
+  cliente: "RB" | "INDEP" | "DEMO";
+  guion_id: string;
+  preferido: "codigo" | "contexto" | "libre" | "ninguno" | null;
+  nota: string | null;
+  por: string | null;
+  en: Date | null;
+}
+
 /** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o
  *  red = null, día, métrica); `definicion_v` versiona la definición. */
 export interface Tabla_metricas_diarias {
@@ -612,4 +638,6 @@ export interface DB
   inicio_snapshots: Tabla_inicio_snapshots;
   casos_candidatos_eval: Tabla_casos_candidatos_eval;
   agente_sombra: Tabla_agente_sombra;
+  agente_sombra_hilos: Tabla_agente_sombra_hilos;
+  agente_sombra_guiones: Tabla_agente_sombra_guiones;
 }

@@ -46,7 +46,7 @@ import { getServicioMensajeria } from "../app/lib/presupuestos/mensajeria";
 import { confirmarEnvioManual } from "../app/lib/mensajeria/confirmar-envio";
 import { contenidoEntrante } from "../app/lib/mensajeria/tipos-mensaje";
 import { hoyISO } from "../app/lib/time";
-import { costeUsdDeTurno, type UsageTurno } from "../app/lib/agente/coste";
+import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { leerPayloadEvaluacion } from "../app/lib/agente/persistir-turno";
 import { FUENTE_SIMULACION } from "../app/lib/mensajeria/hilo-jugado";
 import {
@@ -131,71 +131,8 @@ if (topeTurnos && (!Number.isInteger(tope) || tope! < 1)) {
 const estimado = guiones.reduce((s, g) => s + Math.min(g.maxTurnos + (g.sigueTrasDerivar ?? 0), tope ?? 99) * 0.02, 0);
 console.log(`Jugando ${guiones.length} hilos (paciente: ${MODELO_PACIENTE} · agente: producción). Coste estimado tope: $${estimado.toFixed(2)}.`);
 
-// ─── el paciente (modelo) ──────────────────────────────────────────────────
-
-type Espejo = { direccion: "Entrante" | "Saliente"; contenido: string; quien: "paciente" | "agente" | "cadencia" };
-
-function systemPaciente(g: Guion): string {
-  return [
-    `Eres una persona que escribe por WhatsApp a una clínica dental española. Interpretas a este paciente y SOLO a este paciente.`,
-    ``,
-    `PERFIL: ${g.paciente.perfil}`,
-    `LO QUE QUIERES CONSEGUIR: ${g.paciente.objetivo}`,
-    g.paciente.ruido ? `CÓMO ESCRIBES: ${g.paciente.ruido}` : `CÓMO ESCRIBES: como una persona real por WhatsApp.`,
-    ``,
-    `REGLAS:`,
-    `- Mensajes cortos: una a tres frases. Sin listas, sin formalidad, sin firmar.`,
-    `- No repitas con las mismas palabras lo que ya dijiste. Si insistes, insiste de otra manera.`,
-    `- No inventes datos que el perfil no te da, salvo detalles menores coherentes con él.`,
-    `- No hagas de clínica: tú eres el paciente. Reacciona a lo que te contestan.`,
-    `- Responde SOLO con el texto del mensaje, sin comillas, sin prefijos, sin acotaciones.`,
-    `- Cuando ya conseguiste lo que querías, o te han dicho claramente que una persona te llamará o se ocupa, o no tiene sentido seguir, responde exactamente: FIN`,
-  ].join("\n");
-}
-
-function mensajesParaPaciente(espejo: Espejo[]): { role: "user" | "assistant"; content: string }[] {
-  const out: { role: "user" | "assistant"; content: string }[] = [];
-  for (const m of espejo) {
-    const role = m.direccion === "Entrante" ? "assistant" : "user";
-    const content = m.direccion === "Entrante" ? m.contenido : `${m.quien === "cadencia" ? "[Mensaje automático de la clínica] " : ""}${m.contenido}`;
-    const ultimo = out[out.length - 1];
-    if (ultimo && ultimo.role === role) ultimo.content += `\n${content}`;
-    else out.push({ role, content });
-  }
-  if (out.length === 0 || out[0].role !== "user") out.unshift({ role: "user", content: "(Empieza tú la conversación con tu primer mensaje.)" });
-  if (out[out.length - 1].role === "assistant") out.push({ role: "user", content: "(La clínica no ha contestado todavía. Escribe tu siguiente mensaje, o FIN si ya no tiene sentido seguir.)" });
-  return out;
-}
-
-async function pacienteDice(g: Guion, espejo: Espejo[]): Promise<{ texto: string; usage: UsageTurno }> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "x-api-key": process.env.ANTHROPIC_API_KEY!, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({
-      model: MODELO_PACIENTE,
-      max_tokens: 220,
-      // (sin temperature: sonnet 5 la rechaza como obsoleta; el fixture se
-      // juega una vez, la variedad la pone el perfil)
-      system: systemPaciente(g),
-      messages: mensajesParaPaciente(espejo),
-    }),
-  });
-  if (!res.ok) throw new Error(`Paciente (modelo): ${res.status} ${await res.text()}`);
-  const data: any = await res.json();
-  const texto = String(data.content?.find((c: any) => c.type === "text")?.text ?? "").trim();
-  const u = data.usage ?? {};
-  return {
-    texto,
-    usage: {
-      inputTokens: Number(u.input_tokens ?? 0),
-      outputTokens: Number(u.output_tokens ?? 0),
-      cacheEscritura: Number(u.cache_creation_input_tokens ?? 0),
-      cacheLectura: Number(u.cache_read_input_tokens ?? 0),
-    },
-  };
-}
-
-const esFin = (t: string) => /^\s*\*{0,2}FIN\*{0,2}[.!]?\s*$/i.test(t);
+// El paciente simulado vive en hilos-jugados-paciente.mts (compartido con jugar-tres).
+import { pacienteDice, esFin, type Espejo } from "./hilos-jugados-paciente.mts";
 
 // ─── leer lo persistido ────────────────────────────────────────────────────
 
