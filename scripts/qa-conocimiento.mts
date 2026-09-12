@@ -259,6 +259,11 @@ console.log("\nE2 · veto determinista de servicio: «sí, hacemos X» solo si X
   ok("remitir no es afirmar: «te lo confirma la clínica» → pasa",
     vs("Lo de la sedación te lo confirma la clínica enseguida; lo anoto para el doctor.") == null);
   ok("la frase devuelta es la firma exacta", (vs("Sí, hacemos sedación consciente.") ?? "").toLowerCase().startsWith("sí, hacemos sedación"));
+  ok("12-09 (pase de tres hilos): lo RECOGIDO y una conjunción a la cabeza no son un servicio — «tenemos tu nombre y…», «tenemos y cuál es…» pasan",
+    vs("Perfecto, Nuria. Tenemos tu nombre y que prefieres un sábado.") == null &&
+    vs("La mejor forma de saber si la tenemos y cuál es la más adecuada es que te vea el doctor.") == null &&
+    vs("Ya tenemos todos tus datos; el equipo te contacta.") == null &&
+    vs("Tenemos sedación consciente para extracciones.") != null);
 }
 // MEJORAS 136 (auditoría 2026-09-05): el veto es léxico — sin firmas en
 // catalán e inglés, un hilo en otro idioma pasaba de largo.

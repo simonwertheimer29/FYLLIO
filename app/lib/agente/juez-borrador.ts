@@ -334,6 +334,10 @@ export function vetoServicioDeterminista(borrador: string, publicado: string): s
       // Una FUNCIÓN del equipo, no un servicio («tenemos disponibilidad» es
       // de la agenda; «hacemos lo posible», «tenemos que» es lenguaje).
       if (/^(que|lo|todo lo|en cuenta|claro|razon|un hueco|hueco|disponibilidad|horario|horarios|abierto|abierta|muy|mucho|mucha|un equipo|equipo)\b/.test(objeto)) continue;
+      // 12-09 (pase de tres hilos): «tenemos tu nombre y tu disponibilidad»,
+      // «tenemos y cuál es la mejor opción» NO ofrecen un servicio — lo
+      // recogido, un posesivo o una conjunción a la cabeza no es un objeto.
+      if (/^(tu|tus|su|sus|vuestr[oa]s?|nuestr[oa]s?|mi|mis|nombre|datos|todo|toda|todos|todas|ya|apuntad[oa]|anotad[oa]|registrad[oa]|constancia|pendiente|y|o|e|u|si|cual|cuales|como|cuando|donde|aqui)\b/.test(objeto)) continue;
       const habitual = SERVICIOS_HABITUALES.some((h) => objeto.includes(h));
       if (habitual) continue;
       const enPublicado = objeto.split(/\s+/).some((w) => w.length >= 4 && palabrasPublicadas.has(w));
