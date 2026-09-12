@@ -4754,7 +4754,15 @@ mensajería: `agente_sombra_hilos` (una fila por guion y decisor: mensajes enter
 fixture en `evals/hilos-tres/fixture.json`. Pantalla: /sombra › «Conversaciones» — tres columnas
 enteras por guion, resumen encima de cada hilo (en cuántos mensajes pasó, motivo, con qué datos,
 cómo terminó), el mensaje que pasa el caso marcado con su motivo, y el veredicto por guion.
-**No se ha jugado**: Simon pidió el coste antes. `--estimar`: 15 guiones × 3 decisores → tope $6,19
-(todos los hilos hasta maxTurnos), típico ≈ $3,24 (3 turnos por hilo); el acumulado del banco va por
-~$3,16 de un tope de $5, así que hace falta su OK y subir el tope.
+`--estimar`: 15 guiones × 3 decisores → tope $6,19, típico ≈ $3,24. Simon recortó el alcance a
+CUATRO guiones (Carmen/teléfono compartido, Nuria/atasco con la duda clínica, Dani/entrega prematura,
+Carlos/insistencia por precio) con tope propio de $3: peor caso $1,73, típico $0,86.
+**Nuria, la primera (12-09, $0,14 medido):** el CÓDIGO pasó el caso en 5 mensajes por «caso
+completo» tras perseguir la cita (¿dolor?, ¿qué días?), y el juez descartó los CINCO borradores por
+«clínica» (mencionar la sedación consciente lo dispara): la conversación entera fueron plantillas.
+El modelo CON CONTEXTO también persiguió la cita, 5 mensajes, y en el último afirmó «Tenemos tu cita
+para el sábado 19» — una cita que no existe, y el veto de agenda no lo cazó. El modelo LIBRE hizo lo
+que Simon describió: acompañó el miedo en el primer mensaje («alguien te llama para hablar de la
+sedación») y pasó el caso en el segundo, con el parking contestado; sin perseguir ninguna cita.
+Las otras tres se juegan cuando Simon lo diga.
 

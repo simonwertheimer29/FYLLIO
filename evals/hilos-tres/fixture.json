@@ -1,0 +1,291 @@
+{
+ "v": 1,
+ "jugadoEl": "2026-09-12T11:44:04.413Z",
+ "modeloPaciente": "claude-sonnet-5",
+ "hilos": [
+  {
+   "guion": {
+    "id": "aplazamiento_dato",
+    "titulo": "Nuria pregunta por parking y sedación",
+    "categoria": "Aplazamiento por dato que no consta"
+   },
+   "decisores": {
+    "codigo": {
+     "guionId": "aplazamiento_dato",
+     "titulo": "Nuria pregunta por parking y sedación",
+     "categoria": "Aplazamiento por dato que no consta",
+     "decisor": "codigo",
+     "version": "2b246298c6a8",
+     "jugadoEl": "2026-09-12T11:42:41.100Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.",
+       "acto": "acompanar",
+       "veto": "borrador descartado (clinica)",
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Vale, gracias! Y otra cosa, sabéis si hay parking cerca de la clínica? Es que si voy sedada prefiero no conducir yo luego",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Gracias por tu mensaje, Nuria. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.",
+       "acto": "reconocer",
+       "veto": "borrador descartado (clinica)",
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Vale perfecto, luego me confirmáis las dos cosas entonces. Por cierto, abrís los sábados?",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Gracias, Nuria. Para poder ayudarte, ¿tienes dolor ahora o es una consulta sin prisa?",
+       "acto": "recoger",
+       "veto": "borrador descartado (clinica)",
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 4,
+       "quien": "paciente",
+       "texto": "Sin prisa, no tengo dolor ahora mismo, es para programarla con calma.",
+       "noLegible": false
+      },
+      {
+       "n": 4,
+       "quien": "agente",
+       "texto": "Gracias, Nuria. Para poder ayudarte, ¿qué días y franjas te vienen mejor?",
+       "acto": "recoger",
+       "veto": "borrador descartado (clinica)",
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 5,
+       "quien": "paciente",
+       "texto": "Pues entre semana por la tarde me viene mejor, pero si abrís el sábado también me valdría esa opción. Cuando me confirméis lo de la sedación y el parking ya cuadramos día.",
+       "noLegible": false
+      },
+      {
+       "n": 5,
+       "quien": "agente",
+       "texto": "Ya tengo todo lo que necesito, Nuria. Alguien del equipo te contacta con los horarios disponibles.",
+       "acto": "cerrar",
+       "veto": "borrador descartado (clinica)",
+       "deriva": true,
+       "motivo": "caso_completo"
+      }
+     ],
+     "resumen": {
+      "turnos": 5,
+      "derivoEn": 5,
+      "motivo": "caso_completo",
+      "causa": "caso_completo",
+      "porHecho": false,
+      "datos": [
+       "cita.tratamiento_o_molestia: extracción dental",
+       "cita.urgencia: sin prisa",
+       "cita.disponibilidad: entre semana por la tarde, o sábado si abrimos"
+      ],
+      "aplazados": [
+       "duda_clinica",
+       "otro"
+      ],
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "fin": "derivado",
+      "detalleFin": null,
+      "costeUsd": 0.0534
+     },
+     "costeUsd": 0.0534
+    },
+    "contexto": {
+     "guionId": "aplazamiento_dato",
+     "titulo": "Nuria pregunta por parking y sedación",
+     "categoria": "Aplazamiento por dato que no consta",
+     "decisor": "contexto",
+     "version": "91215ba0eadc",
+     "jugadoEl": "2026-09-12T11:43:42.819Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Hola Nuria, entiendo que te preocupe. Sí, en la clínica valoramos cada caso y el doctor te explicará todas las opciones disponibles, incluida la sedación si es necesario. Lo mejor es que nos cuentes un poco más: ¿cuándo te gustaría venir? ¿hay algún día o franja que te venga bien esta semana o la próxima?",
+       "acto": "acompanar",
+       "veto": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Vale, genial que sea una opción... me quedo más tranquila. Otra cosa, ¿sabéis si hay parking cerca de la clínica? Es que si voy sedada prefiero no conducir yo.",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Me alegra que te quedes más tranquila, Nuria. Sobre el parking, la clínica te lo confirma cuando reserves. Lo importante ahora es que nos digas: ¿cuál es tu nombre completo y qué días te vienen mejor para la extracción? ¿Esta semana, la próxima, o prefieres otro momento?",
+       "acto": "recoger",
+       "veto": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Vale, perfecto, esperaré que me lo confirméis. Por cierto, ¿abrís los sábados? Así ya lo cuadro todo bien.",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Sí, abrimos sábados. Perfecto, Nuria, entonces te propongo que me digas tu nombre completo y qué días te vienen mejor: ¿prefieres un sábado como hoy, o te va mejor entre semana? Con eso ya podemos cerrar tu cita.",
+       "acto": "recoger",
+       "veto": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 4,
+       "quien": "paciente",
+       "texto": "Genial, pues me viene bien un sábado. Soy Nuria Martínez, ya os paso el resto por aquí cuando me confirméis lo del parking. Gracias!",
+       "noLegible": false
+      },
+      {
+       "n": 4,
+       "quien": "agente",
+       "texto": "Perfecto, Nuria. Tenemos tu nombre y que prefieres un sábado. Solo me falta saber: ¿te viene bien el sábado 2026-09-19 o el 2026-09-26? ¿Y qué franja te va mejor, mañana o tarde? Con eso cerramos tu cita y el equipo te confirma todo lo demás, incluido el parking.",
+       "acto": "recoger",
+       "veto": "Tenemos tu nombre y que",
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 5,
+       "quien": "paciente",
+       "texto": "Me viene mejor el 19, por la mañana si puede ser. Gracias por todo, esperaré que me confirméis lo de la sedación y el parking!",
+       "noLegible": false
+      },
+      {
+       "n": 5,
+       "quien": "agente",
+       "texto": "Perfecto, Nuria. Tenemos tu cita para el sábado 19 de septiembre por la mañana para la extracción. El equipo te contactará para confirmar la hora exacta, la sedación consciente y todos los detalles del parking y transporte. Gracias por confiar en nosotros.",
+       "acto": "cerrar",
+       "veto": null,
+       "deriva": true,
+       "motivo": "cerrar · Tenemos nombre completo, tratamiento, urgencia, disponibilidad exacta y preferencia de franja. Todo lo que la clínica necesita está anotado. El siguiente paso es que el equipo contacte para confirmar cita, sedación y parking."
+      }
+     ],
+     "resumen": {
+      "turnos": 5,
+      "derivoEn": 5,
+      "motivo": "cerrar · Tenemos nombre completo, tratamiento, urgencia, disponibilidad exacta y preferencia de franja. Todo lo que la clínica necesita está anotado. El siguiente paso es que el equipo contacte para confirmar cita, sedación y parking.",
+      "causa": "caso_completo",
+      "porHecho": false,
+      "datos": [
+       "cita.tratamiento_o_molestia: extracción dental",
+       "cita.urgencia: sin prisa",
+       "cita.nombre_completo: Nuria Martínez",
+       "cita.disponibilidad: sábado 2026-09-19, mañana"
+      ],
+      "aplazados": [
+       "duda_clinica",
+       "otro"
+      ],
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "fin": "derivado",
+      "detalleFin": null,
+      "costeUsd": 0.0658
+     },
+     "costeUsd": 0.0658
+    },
+    "libre": {
+     "guionId": "aplazamiento_dato",
+     "titulo": "Nuria pregunta por parking y sedación",
+     "categoria": "Aplazamiento por dato que no consta",
+     "decisor": "libre",
+     "version": "0ee4c247a70f",
+     "jugadoEl": "2026-09-12T11:44:04.240Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Hola Nuria, es normal tener dudas antes de una extracción. Sobre la sedación consciente, lo mejor es que lo confirmes directamente con nuestro equipo: ellos te explicarán qué opciones tenemos y cuál es la más adecuada para ti. ¿Quieres que alguien de la clínica te llame para hablar de esto?",
+       "acto": "acompanar",
+       "veto": "tenemos y cuál es la",
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Vale, sí porfa que me llamen. Y de paso, sabéis si hay parking cerca de la clínica? Es que como me da tanto agobio prefiero ir en coche.",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Perfecto, Nuria. Anotamos que alguien te llame para hablar de sedación consciente para tu extracción. Sobre el parking, te lo confirmarán cuando te contacten: ellos conocen bien la zona y te dirán las opciones más cómodas. Nos ponemos en contacto contigo pronto.",
+       "acto": "cerrar",
+       "veto": null,
+       "deriva": true,
+       "motivo": "cerrar · Reconocer que ya está anotado que alguien le llamará sobre sedación, responder sobre el parking (dato práctico que la calma) y cerrar para que el equipo contacte sin dilatar más."
+      }
+     ],
+     "resumen": {
+      "turnos": 2,
+      "derivoEn": 2,
+      "motivo": "cerrar · Reconocer que ya está anotado que alguien le llamará sobre sedación, responder sobre el parking (dato práctico que la calma) y cerrar para que el equipo contacte sin dilatar más.",
+      "causa": "caso_completo",
+      "porHecho": false,
+      "datos": [
+       "cita.tratamiento_o_molestia: extracción dental"
+      ],
+      "aplazados": [
+       "duda_clinica",
+       "otro"
+      ],
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "fin": "derivado",
+      "detalleFin": null,
+      "costeUsd": 0.0222
+     },
+     "costeUsd": 0.0222
+    }
+   }
+  }
+ ]
+}
