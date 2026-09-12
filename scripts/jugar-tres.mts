@@ -45,7 +45,10 @@ process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { sql } from "kysely";
 import { evaluarTurno, SYSTEM_PROMPT_EVALUADOR, type EntradaEvaluador, type EvaluacionTurno } from "../app/lib/agente/evaluador";
+import { parseConocimiento, type ConocimientoClinica } from "../app/lib/agente/conocimiento";
+import { runWithClienteDb } from "../app/lib/db/context";
 import { construirEntradaDePrueba, relojDelBanco, type EscenarioPrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
 import { avanzarSesion, SESION_NUEVA, type EstadoSesionPrueba } from "../app/lib/agente/sesion-prueba";
 import { guardarHiloTres, pedirSombra, versionSombra } from "../app/lib/agente/sombra";
@@ -74,6 +77,14 @@ const topeTurnos = flag("--turnos") ? Number(flag("--turnos")) : null;
 const decisores = (flag("--decisores")?.split(",").filter(Boolean) ?? [...DECISORES]) as Decisor[];
 if (decisores.some((d) => !(DECISORES as readonly string[]).includes(d))) {
   console.error(`✗ --decisores admite ${DECISORES.join(", ")}.`);
+  process.exit(1);
+}
+// 12-09: el conocimiento de cada clínica sale del fixture (el mundo del turno
+// 1, jugado con las clínicas VACÍAS) o, con `--conocimiento db`, de lo que hay
+// AHORA publicado en DEMO (npm run demo:conocimiento) — el caso real.
+const conocimientoDe = (flag("--conocimiento") ?? "fixture") as "fixture" | "db";
+if (conocimientoDe !== "fixture" && conocimientoDe !== "db") {
+  console.error("✗ --conocimiento admite fixture | db.");
   process.exit(1);
 }
 if (!existsSync(RUTA_FIXTURE)) {
@@ -185,8 +196,31 @@ function aplanar(campos: EvaluacionTurno["camposRecogidos"]): Record<string, str
   return out;
 }
 
+/** Lo publicado AHORA por la clínica del guion, con el parser REAL (el mismo
+ *  que `conocimientoDeClinica`). Por NOMBRE porque el fixture no lleva el id:
+ *  es configuración de demo, no identidad de una persona (§20). */
+async function conocimientoPublicadoDe(clinicaNombre: string | null): Promise<ConocimientoClinica> {
+  if (!clinicaNombre) throw new Error("el guion no lleva clínica: no se puede leer su conocimiento");
+  return runWithCliente("DEMO", () =>
+    runWithClienteDb("DEMO", async (trx) => {
+      const r: any = await sql`select ca.conocimiento
+          from configuracion_automatizaciones ca
+          join clinicas c on c.id = ca.clinica_id and c.cliente = ca.cliente
+         where c.nombre = ${clinicaNombre}
+         limit 1`.execute(trx);
+      if (!r.rows?.[0]) throw new Error(`sin configuración para «${clinicaNombre}» en DEMO (npm run demo:reset)`);
+      return parseConocimiento(r.rows[0].conocimiento ?? null);
+    }),
+  );
+}
+
 async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<HiloTres> {
-  const base = h.turnos[0]!.entrada!;
+  // 12-09: `--conocimiento db` juega con LO PUBLICADO ahora por esa clínica
+  // (el caso real); por defecto, el mundo del turno 1 del fixture.
+  const base: EntradaEvaluador =
+    conocimientoDe === "db"
+      ? { ...h.turnos[0]!.entrada!, conocimiento: await conocimientoPublicadoDe(h.turnos[0]!.entrada!.clinica ?? null) }
+      : h.turnos[0]!.entrada!;
   const g = h.guion;
   const maxTurnos = maxDe(h);
   // El arranque común: lo que la clínica escribió antes (cadencia, recordatorio)
@@ -213,7 +247,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     detalleFin: "se agotaron los turnos",
   };
   const publicado = renderConocimiento(base.conocimiento).join("\n");
-  console.log(`\n  ── ${decisor}`);
+  console.log(`\n  ── ${decisor} · conocimiento (${conocimientoDe}): ${publicado ? `${publicado.split("\n").length} líneas publicadas` : "clínica vacía"}`);
 
   for (let n = 1; n <= maxTurnos; n++) {
     // Cadencias del guion antes de este turno (en el turno 1 ya vienen en el hilo base).
@@ -371,7 +405,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     `  ▸ ${decisor}: ${resumen.fin}${resumen.derivoEn ? ` en ${resumen.derivoEn} mensaje${resumen.derivoEn === 1 ? "" : "s"} (${resumen.motivo})` : ""} · repitió ${resumen.repeticiones} · molestia ${resumen.molestiaEn ?? "no"} · datos ${resumen.datos.length} · $${resumen.costeUsd.toFixed(3)}`,
   );
   const version = decisor === "codigo" ? hashVersion(SYSTEM_PROMPT_EVALUADOR) : versionSombra(decisor === "contexto" ? "produccion" : "libre");
-  return { guionId: g.id, titulo: g.titulo, categoria: g.categoria, decisor, version, jugadoEl: new Date().toISOString(), mensajes: st.mensajes, resumen, costeUsd: resumen.costeUsd };
+  return { guionId: g.id, titulo: g.titulo, categoria: g.categoria, decisor, version, jugadoEl: new Date().toISOString(), mensajes: st.mensajes, resumen, costeUsd: resumen.costeUsd, conocimientoDe };
 }
 
 // ─── el pase ───────────────────────────────────────────────────────────────

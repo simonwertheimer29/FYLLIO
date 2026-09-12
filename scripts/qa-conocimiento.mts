@@ -18,6 +18,7 @@ import {
   parseConocimiento,
   renderConocimiento,
   esConocimientoVacio,
+  capacidadesDe,
   plazosParaReloj,
   horarioLegible,
   CONOCIMIENTO_VACIO,
@@ -170,6 +171,39 @@ ok("sin nada PUBLICADO, la cabecera «LO PUBLICADO» no aparece — un título s
   !rIdentidad.includes("LO PUBLICADO POR LA CLÍNICA"));
 ok("y el assert del plan básico SIGUE: los campos nuevos en null no emiten ni un byte",
   renderConocimiento(parseConocimiento(JSON.stringify({ quienesSois: {}, alcance: {} }))).length === 0);
+
+// ─── D3 · Dónde estáis (12-09) ─────────────────────────────────────────────
+// Lo que el modelo inventaba sin campo («hay opciones cerca» de parking,
+// «abrimos sábados»): si consta, entra en LO PUBLICADO tal cual; si no, nada.
+console.log("\nD3 · dónde estáis: dirección, cómo llegar y parking entran tal cual; en blanco no emiten nada");
+
+const conUbicacion = parseConocimiento(JSON.stringify({
+  ubicacion: {
+    direccion: "C/ Alcalá 120, 28009 Madrid",
+    comoLlegar: "Metro Goya (L2, L4)",
+    parking: "  Parking público en Felipe II, a 3 min; no tenemos propio  ",
+  },
+}));
+const rUbicacion = renderConocimiento(conUbicacion);
+ok("los tres entran bajo LO PUBLICADO, cada uno en su línea y recortados",
+  rUbicacion[0]!.startsWith("LO PUBLICADO POR LA CLÍNICA") &&
+    rUbicacion.includes("· Dirección de la clínica: C/ Alcalá 120, 28009 Madrid") &&
+    rUbicacion.includes("· Cómo llegar: Metro Goya (L2, L4)") &&
+    rUbicacion.includes("· Parking: Parking público en Felipe II, a 3 min; no tenemos propio"));
+const soloParking = renderConocimiento(parseConocimiento(JSON.stringify({ ubicacion: { parking: "Zona azul en la calle" } })));
+ok("solo parking: la cabecera y UNA línea — sin dirección ni cómo llegar inventados",
+  soloParking.length === 2 && soloParking[1] === "· Parking: Zona azul en la calle");
+ok("plan básico intacto: ubicacion ausente, vacía o en blanco no emite ni un byte y sigue siendo «vacío»",
+  renderConocimiento(parseConocimiento(JSON.stringify({ ubicacion: {} }))).length === 0 &&
+    renderConocimiento(parseConocimiento(JSON.stringify({ ubicacion: { direccion: "", parking: null } }))).length === 0 &&
+    esConocimientoVacio(parseConocimiento(JSON.stringify({ ubicacion: { comoLlegar: "   " } }))));
+ok("ubicacion ilegible LANZA: un número, una lista, o un texto por encima del tope (300)",
+  lanza(JSON.stringify({ ubicacion: { parking: 5 } })) &&
+    lanza(JSON.stringify({ ubicacion: [] })) &&
+    lanza(JSON.stringify({ ubicacion: { direccion: "x".repeat(301) } })));
+ok("capacidades: con parking guardado PUEDE decirlo; sin nada guardado NO PUEDE, y la pantalla lo dice",
+  capacidadesDe(conUbicacion).puede.some((p) => p.includes("parking")) &&
+    capacidadesDe(parseConocimiento(null)).noPuede.some((p) => p.includes("parking")));
 
 // ─── D2 · La política de cobro (F5) ────────────────────────────────────────
 console.log("\nD2 · política de cobro: topes del parser y defaults 7/30");

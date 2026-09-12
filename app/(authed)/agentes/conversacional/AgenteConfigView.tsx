@@ -359,6 +359,30 @@ export function AgenteConfigView() {
             </div>
           </Seccion>
 
+          {/* ── GRUPO 1b · Dónde estáis — lo que el agente se inventaba
+              cuando no tenía dónde leerlo (parking, cómo llegar; 12-09) ── */}
+          <Seccion
+            titulo="Dónde estáis"
+            consecuencia="Con esto el agente dice la dirección, cómo llegar y qué parking hay; sin ello, lo deja para tu equipo — nunca se lo inventa."
+          >
+            {([
+              { clave: "direccion" as const, etiqueta: "Dirección", placeholder: "C/ Alcalá 120, 28009 Madrid" },
+              { clave: "comoLlegar" as const, etiqueta: "Cómo llegar", placeholder: "Metro Goya (L2, L4) · bus 21 y 53" },
+              { clave: "parking" as const, etiqueta: "Parking", placeholder: "Parking público en Felipe II, a 3 minutos; no tenemos parking propio" },
+            ]).map((c) => (
+              <label key={c.clave} className="block max-w-2xl">
+                <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{c.etiqueta}</span>
+                <input
+                  type="text"
+                  value={config.ubicacion[c.clave] ?? ""}
+                  onChange={(e) => setConfig({ ...config, ubicacion: { ...config.ubicacion, [c.clave]: e.target.value || null } })}
+                  placeholder={c.placeholder}
+                  className={INPUT + " mt-1 w-full"}
+                />
+              </label>
+            ))}
+          </Seccion>
+
           {/* ── GRUPO 2 · Qué sabe el agente ──────────────────────────── */}
           <Seccion
             id="tratamientos"

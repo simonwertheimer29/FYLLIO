@@ -294,6 +294,10 @@ export type HiloTres = {
   mensajes: MensajeTres[];
   resumen: ResumenTres;
   costeUsd: number;
+  /** 12-09: con qué conocimiento de clínica se jugó — el del fixture (las
+   *  clínicas vacías del turno 1) o el publicado en DEMO al jugar. Ausente en
+   *  los hilos anteriores = fixture. */
+  conocimientoDe?: "fixture" | "db";
 };
 
 export const PREFERIDOS_TRES = ["codigo", "contexto", "libre", "ninguno"] as const;

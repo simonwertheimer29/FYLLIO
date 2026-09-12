@@ -39,6 +39,20 @@ export type EnlacePublicado = {
   url: string;
 };
 
+/** GRUPO 2b — DÓNDE ESTÁIS (12-09). Lo que el modelo se inventaba cuando no
+ *  tenía campo: «hay opciones cerca» de parking, «abrimos sábados». Si no
+ *  consta, el agente remite; si consta, lo dice tal cual (leer no es
+ *  negociar). Los seguros NO van aquí: ya son una política publicada. */
+export type Ubicacion = {
+  /** Dirección tal cual se publica («C/ Alcalá 120, 28009 Madrid»). */
+  direccion: string | null;
+  /** Cómo llegar («Metro Goya L2/L4 · bus 21 y 53»). */
+  comoLlegar: string | null;
+  /** Parking: qué hay y de quién es («parking público en Felipe II, 3 min;
+   *  no tenemos parking propio»). */
+  parking: string | null;
+};
+
 /** LOS NIVELES DE AGENDA (acordados, PLAN §11 — el aplazamiento con más
  *  volumen y el único que la clínica elimina sola conectando una fuente):
  *    1 · sin conexión — el agente recoge la disponibilidad DECLARADA de la
@@ -113,6 +127,7 @@ export type ConocimientoClinica = {
   tratamientos: TratamientoPublicado[];
   politicas: PoliticaPublicada[];
   enlaces: EnlacePublicado[];
+  ubicacion: Ubicacion;
   agendaNivel: NivelAgenda;
   alcance: AlcanceAgente;
   plazos: PlazosRespuesta;
@@ -142,6 +157,7 @@ export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
   tratamientos: [],
   politicas: [],
   enlaces: [],
+  ubicacion: { direccion: null, comoLlegar: null, parking: null },
   agendaNivel: 1,
   alcance: { umbralInsistencia: null, urgencias: null, urgenciaDefinicionExtra: null },
   plazos: PLAZOS_VACIOS,
@@ -158,6 +174,9 @@ export function esConocimientoVacio(c: ConocimientoClinica): boolean {
     c.tratamientos.length === 0 &&
     c.politicas.length === 0 &&
     c.enlaces.length === 0 &&
+    c.ubicacion.direccion == null &&
+    c.ubicacion.comoLlegar == null &&
+    c.ubicacion.parking == null &&
     c.alcance.urgenciaDefinicionExtra == null &&
     c.plazos.horario == null
   );
@@ -251,6 +270,7 @@ export function esHoraValida(hhmm: string): boolean {
 const TOPE_PRESENTACION = 400;
 const TOPE_POLITICA = 800;
 const TOPE_NOMBRE_TRATAMIENTO = 80;
+const TOPE_UBICACION = 300;
 
 function esPoliticaValida(p: unknown): p is PoliticaPublicada {
   if (typeof p !== "object" || p === null) return false;
@@ -327,6 +347,26 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
   if (trato !== null && trato !== "tu" && trato !== "usted") {
     throw new ConocimientoIlegibleError("trato no válido (tu | usted)", raw);
   }
+
+  // Grupo 2b — dónde estáis: tres textos opcionales con tope. Un JSON
+  // anterior sin el grupo parsea igual (todo null = no se emite ni un byte).
+  const ubRaw = (x["ubicacion"] ?? {}) as Record<string, unknown>;
+  if (typeof ubRaw !== "object" || ubRaw === null || Array.isArray(ubRaw)) {
+    throw new ConocimientoIlegibleError("ubicacion no válida", raw);
+  }
+  const textoUbicacion = (clave: "direccion" | "comoLlegar" | "parking"): string | null => {
+    const v = ubRaw[clave] ?? null;
+    if (!esTextoONull(v)) throw new ConocimientoIlegibleError(`ubicacion.${clave} no válido`, raw);
+    if (typeof v === "string" && v.trim().length > TOPE_UBICACION) {
+      throw new ConocimientoIlegibleError(`ubicacion.${clave} demasiado largo (> ${TOPE_UBICACION})`, raw);
+    }
+    return typeof v === "string" && v.trim() !== "" ? v.trim() : null;
+  };
+  const ubicacion: Ubicacion = {
+    direccion: textoUbicacion("direccion"),
+    comoLlegar: textoUbicacion("comoLlegar"),
+    parking: textoUbicacion("parking"),
+  };
 
   // Grupo 3 — hasta dónde llega.
   const alRaw = (x["alcance"] ?? {}) as Record<string, unknown>;
@@ -438,6 +478,7 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
     })),
     politicas: politicas.map((p) => ({ titulo: p.titulo.trim(), texto: p.texto.trim() })),
     enlaces: enlaces.map((e) => ({ etiqueta: e.etiqueta.trim(), url: e.url.trim() })),
+    ubicacion,
     agendaNivel: 1,
     alcance: {
       umbralInsistencia: (umbral as number | null),
@@ -539,6 +580,11 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
   } else {
     noPuede.push("No puede compartir enlaces (reserva online, web) — no hay ninguno");
   }
+  if (c.ubicacion.direccion || c.ubicacion.comoLlegar || c.ubicacion.parking) {
+    puede.push("Decir dónde estáis, cómo llegar y qué parking hay (lo que tengáis guardado)");
+  } else {
+    noPuede.push("No puede decir dónde estáis, cómo llegar ni qué parking hay — no está guardado: «¿hay parking?» lo resuelve tu equipo");
+  }
   // El nivel de agenda — el aplazamiento con más volumen (PLAN §11). Con
   // nivel 1, recoger disponibilidad SÍ (ya está arriba, es el trabajo base);
   // el hueco es no ver la agenda, y es el único que se elimina conectando
@@ -628,8 +674,9 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
     );
     lineas.push("");
   }
+  const hayUbicacion = c.ubicacion.direccion != null || c.ubicacion.comoLlegar != null || c.ubicacion.parking != null;
   const hayPublicado =
-    c.plazos.horario != null || c.tratamientos.length > 0 || c.politicas.length > 0 || c.enlaces.length > 0;
+    c.plazos.horario != null || c.tratamientos.length > 0 || c.politicas.length > 0 || c.enlaces.length > 0 || hayUbicacion;
   if (hayPublicado) {
     lineas.push(
       "LO PUBLICADO POR LA CLÍNICA — puedes afirmarlo tal cual (leer no es negociar). Adaptarlo a esta persona (su descuento, su cobertura, su plan) NO: eso se anota siempre.",
@@ -637,6 +684,11 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
     // UN dato, dos consecuencias: el mismo horario que mide los plazos es el
     // que el agente dice — el texto se deriva, no se escribe dos veces.
     if (c.plazos.horario) lineas.push(`· Horario de APERTURA (cuándo abre la clínica): ${horarioLegible(c.plazos.horario)} — NO son huecos libres: los huecos no los ves. Se dice «abrimos de X a Y», jamás «tenemos disponibilidad de X a Y».`);
+    // Dónde estáis (12-09): lo que no esté aquí (parking, cómo llegar) NO se
+    // sabe — se remite, no se rellena con «hay opciones cerca».
+    if (c.ubicacion.direccion) lineas.push(`· Dirección de la clínica: ${c.ubicacion.direccion}`);
+    if (c.ubicacion.comoLlegar) lineas.push(`· Cómo llegar: ${c.ubicacion.comoLlegar}`);
+    if (c.ubicacion.parking) lineas.push(`· Parking: ${c.ubicacion.parking}`);
     if (c.tratamientos.length > 0) {
       lineas.push("· Tratamientos publicados:");
       for (const t of c.tratamientos) {

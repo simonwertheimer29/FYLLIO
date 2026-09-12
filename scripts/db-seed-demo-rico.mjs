@@ -17,6 +17,7 @@ import pg from "pg";
 import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
+import { CONOCIMIENTO_DEMO } from "./demo-conocimiento.mjs";
 
 const db = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_APP, ssl: { rejectUnauthorized: false } });
 await db.connect();
@@ -1443,10 +1444,18 @@ try {
   // persona envía). Con el log del agente sembrado desde los hilos, un agente
   // «apagado» en la config contradiría el log — y la demo enseña el agente.
   // Sin WABA en el entorno demo nada sale de verdad.
-  for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_automatizaciones", {
-    clinica_id: cid, activa: true, dias_inactividad_alerta: 3, dias_portal_sin_respuesta: 7, dias_reactivacion: 60,
-    modo_whatsapp: "manual", evaluador_activo: true, actualizado_en: dISO(-2),
-  });
+  // 12-09 — LO PUBLICADO por cada sede (demo-conocimiento.mjs). Sin ello el
+  // agente aplaza precios, horarios y parking que la demo cree publicados, y
+  // los guiones jugados miden al agente con las clínicas vacías.
+  for (const [nombre, cid] of [["Clínica Demo Centro", CENTRO], ["Clínica Demo Norte", NORTE], ["Clínica Demo Sur", SUR], ["Clínica Demo Este", ESTE]]) {
+    const conocimiento = CONOCIMIENTO_DEMO[nombre];
+    if (!conocimiento) throw new Error(`sin conocimiento demo para ${nombre} (scripts/demo-conocimiento.mjs)`);
+    await ins("configuracion_automatizaciones", {
+      clinica_id: cid, activa: true, dias_inactividad_alerta: 3, dias_portal_sin_respuesta: 7, dias_reactivacion: 60,
+      modo_whatsapp: "manual", evaluador_activo: true, actualizado_en: dISO(-2),
+      conocimiento: JSON.stringify(conocimiento),
+    });
+  }
   // El HITO de la demo (2.6, MEJORAS 181): el agente se encendió hace tres
   // semanas en cada clínica — la marca que Analíticas › Antes y después ofrece.
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_historial", {
