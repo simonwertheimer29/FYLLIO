@@ -225,6 +225,21 @@ ok("nivel 2 (huecosConstan): la disponibilidad se permite, reservar-él se veta 
   vetoAgendaDeterminista("Tenemos hueco el martes a las 16:00.", { huecosConstan: true }) == null &&
   vetoAgendaDeterminista("Te reservo el martes a las 16:00.", { huecosConstan: true }) != null);
 
+console.log("\nE1b · la CITA INVENTADA (12-09): confirmar una cita concreta que no consta se veta");
+ok("Nuria, tres hilos: «Tenemos tu cita para el sábado 19 de septiembre por la mañana» → vetado",
+  veta("Perfecto, Nuria. Tenemos tu cita para el sábado 19 de septiembre por la mañana para la extracción."));
+ok("variantes: «tienes cita el martes a las 10», «tu cita queda el jueves», «cita confirmada», «te esperamos mañana a las 9» → vetadas",
+  veta("Tienes cita el martes a las 10.") && veta("Tu cita queda el jueves por la tarde.") &&
+  veta("Cita confirmada para el 19.") && veta("Te esperamos mañana a las 9."));
+ok("con cita que CONSTA (citaConsta): «te esperamos mañana» y «tu cita es el martes» pasan; reservar-él se veta igual",
+  vetoAgendaDeterminista("Te esperamos mañana a las 9.", { citaConsta: true }) == null &&
+  vetoAgendaDeterminista("Tu cita es el martes a las 10, como quedamos.", { citaConsta: true }) == null &&
+  vetoAgendaDeterminista("Te la reservo para el martes.", { citaConsta: true }) != null);
+ok("anunciar al equipo y preguntar siguen pasando: «el equipo te contacta para concretar día y hora», «¿tienes ya cita con nosotros?»",
+  !veta("Ya tengo todo. El equipo te contacta para concretar día y hora.") &&
+  !veta("¿Tienes ya cita con nosotros o es la primera vez?") &&
+  !veta("Te esperamos cuando quieras, sin compromiso."));
+
 // ─── E2 · El veto determinista de SERVICIO NO PUBLICADO (MEJORAS 229, 11-09) ──
 console.log("\nE2 · veto determinista de servicio: «sí, hacemos X» solo si X consta o es habitual");
 {

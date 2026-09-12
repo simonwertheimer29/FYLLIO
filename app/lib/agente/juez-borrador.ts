@@ -52,7 +52,7 @@ Tu ÚNICA tarea es detectar si el borrador incumple una de estas cuatro reglas:
 3) DATOS SENSIBLES NO PEDIDOS (protección de datos de salud por WhatsApp) — SOLO se aplica si el último mensaje está disponible; con «(no disponible)» esta regla NO puede disparar (no sabes qué pidió, y sin saberlo no hay «no pedido»). El borrador nombra un TRATAMIENTO concreto o una CIFRA de dinero del caso que la persona NO ha preguntado ni mencionado EN LA CONVERSACIÓN — ni en su último mensaje ni antes (si te dan «LO QUE LA PERSONA HA DICHO EN ESTA CONVERSACIÓN», todo lo que aparezca ahí cuenta como pedido POR ELLA: el tratamiento que ella trajo al hilo se puede nombrar y recapitular siempre). Y AL REVÉS, no lo olvides: un tratamiento o una cifra del caso que NO aparece NI en la conversación NI en el último mensaje sigue infringiendo IGUAL — el bloque de conversación AMPLÍA lo pedido, jamás relaja la regla, y da lo mismo que el turno entregue: «te quedan 600 € del implante» a alguien que solo habló de una revisión infringe aunque haya entrega. Recordar de pasada un pago o un presupuesto está bien SOLO en genérico: «tienes un pago pendiente; te lo confirma administración». Infringe: la persona pide cita y el borrador suelta «te quedan 600 € del implante» sin que ella haya hablado de eso en ningún momento. NO infringe: la persona pregunta su importe o habla de su tratamiento —ahora o antes en la conversación— y el borrador se lo contesta o lo recapitula (responder y recapitular lo que ELLA trajo es correcto).
 
 5) AGENDA — dos cosas distintas, y la segunda no depende de nada:
-· AFIRMAR DISPONIBILIDAD DE LA CLÍNICA — el borrador afirma huecos, días u horas libres («tenemos hueco el martes», «hay disponibilidad por las tardes a partir de las 16:00», «seguro que el jueves te podemos ver») → infringe SALVO que esos huecos estén en los DATOS QUE CONSTAN. El agente no ve la agenda: los huecos que no constan son inventados. NO infringe: recoger la disponibilidad DE LA PERSONA («¿qué días y franjas te vienen bien?») — preguntar no es afirmar —, ni citar el HORARIO DE APERTURA que conste — pero SOLO dicho como apertura («abrimos de 17:00 a 20:00»): convertir ese mismo rango en disponibilidad («tenemos disponibilidad de 17:00 a 20:00») ES afirmar huecos e infringe AUNQUE el horario conste — a qué hora abre la clínica no es qué huecos quedan libres.
+· AFIRMAR DISPONIBILIDAD DE LA CLÍNICA — el borrador afirma huecos, días u horas libres («tenemos hueco el martes», «hay disponibilidad por las tardes a partir de las 16:00», «seguro que el jueves te podemos ver») → infringe SALVO que esos huecos estén en los DATOS QUE CONSTAN. También infringe CONFIRMAR una cita concreta —un día o una hora— que no esté en los DATOS QUE CONSTAN («tenemos tu cita para el sábado 19 por la mañana», «te esperamos el martes a las 10»): es una cita que nadie reservó, y la persona se presentará. El agente no ve la agenda: los huecos que no constan son inventados. NO infringe: recoger la disponibilidad DE LA PERSONA («¿qué días y franjas te vienen bien?») — preguntar no es afirmar —, ni citar el HORARIO DE APERTURA que conste — pero SOLO dicho como apertura («abrimos de 17:00 a 20:00»): convertir ese mismo rango en disponibilidad («tenemos disponibilidad de 17:00 a 20:00») ES afirmar huecos e infringe AUNQUE el horario conste — a qué hora abre la clínica no es qué huecos quedan libres.
 · COMPROMETER LA RESERVA — el borrador dice que EL PROPIO AGENTE cierra, reserva o agenda la cita («te cierro la cita», «te la reservo», «te la dejo agendada», «dime qué día y te cierro la cita») → infringe SIEMPRE, consten o no los huecos y entregue o no el turno: reservar lo hace el equipo, nunca el agente. Esta parte GANA a la excepción de «acción del propio agente» de la regla 4 — reservar una cita NO es una acción del chat como enviar un enlace.
 LA PREGUNTA GUÍA DE LA RESERVA, donde más se falla: ¿QUIÉN reserva?
 - El EQUIPO o la clínica («se lo paso al equipo y te confirman la cita», «te contactamos enseguida para cerrarla», «el equipo te propone hueco») → NO infringe esta regla: anunciar el trabajo del equipo es correcto — si ese contacto puede prometerse lo decide la regla 4 con la entrega, no esta.
@@ -235,14 +235,46 @@ const FIRMAS_RESERVA: RegExp[] = [
   /\b(?:it's|it is|you're|you are) (?:booked|reserved|scheduled)\b/i,
 ];
 
-/** La frase vetada, o null. Puro y sin modelo — lo testea qa:conocimiento. */
+// LA CITA INVENTADA (12-09, Nuria en el experimento de tres hilos): «Tenemos tu
+// cita para el sábado 19 por la mañana» — una cita que nadie reservó — pasó
+// los dos vetos: no afirma un hueco libre ni dice «te la reservo»; CONFIRMA
+// una cita concreta que no existe. Es peor que la agenda: la persona se
+// presenta un día que nadie le guardó. Lo escribió un modelo con más
+// libertad que el de hoy, y la fase 2 le daría más. Frases-firma en código;
+// solo se permiten cuando una cita CONSTA (`citaConsta`: entonces «te
+// esperamos mañana» es verdad, la lección del juez del 23-08).
+const FIRMAS_CITA_CONFIRMADA: RegExp[] = [
+  // «tenemos tu cita para el sábado 19», «tienes cita el martes a las 10», «te hemos apuntado la cita para mañana»
+  /\b(?:tenemos|tienes|tiene|ten[ée]is|te (?:hemos|he) (?:apuntado|anotado|puesto|reservado|dejado|dado))\s+(?:ya\s+)?(?:(?:tu|su|la|una)\s+)?cita\s+(?:confirmada\s+|reservada\s+|programada\s+|agendada\s+|apuntada\s+|fijada\s+)?(?:para|el|los|este|esta|a las|mañana|hoy|pasado)\b/i,
+  // «tu cita es/será/queda el sábado», «tu cita está confirmada para…»
+  /\b(?:tu|su)\s+cita\s+(?:es|ser[áa]|queda|quedar[áa]|est[áa]|ha quedado)\s+(?:confirmada\s+|reservada\s+|programada\s+|agendada\s+|fijada\s+)?(?:para|el|los|este|esta|a las|mañana|hoy|pasado)\b/i,
+  /\bcita\s+confirmada\b/i,
+  /\b(?:te\s+)?confirm(?:o|amos)\s+(?:tu|su|la)\s+cita\b/i,
+  /\bte esperamos\s+(?:el|los|este|esta|mañana|hoy|pasado|a las|el d[ií]a)\b/i,
+  /\b(?:quedas|queda|est[áa]s)\s+(?:apuntad[oa]|anotad[oa]|citad[oa]|agendad[oa])\s+(?:para|el|los|este|esta|a las|mañana|hoy)\b/i,
+  /\b(?:la teva|la seva)\s+cita\s+(?:és|ser[àa]|queda|est[àa])\s+(?:el|els|per|dem[àa]|avui|a les)\b/i,
+  /\bt'esperem\s+(?:el|els|dem[àa]|avui|a les)\b/i,
+  /\byour appointment is\s+(?:on|at|for|tomorrow|today|confirmed|booked|set)\b/i,
+  /\b(?:we|I)(?:'ve| have)\s+(?:booked|scheduled|set)\s+(?:you|your appointment)\b/i,
+];
+
+/** La frase vetada, o null. Puro y sin modelo — lo testea qa:conocimiento.
+ *  `huecosConstan`: nivel 2 de agenda (la disponibilidad publicada se puede
+ *  decir). `citaConsta`: hay una cita programada de verdad — confirmarla no
+ *  es inventarla. Reservar-él se veta siempre. */
 export function vetoAgendaDeterminista(
   borrador: string,
-  opts?: { huecosConstan?: boolean },
+  opts?: { huecosConstan?: boolean; citaConsta?: boolean },
 ): string | null {
   for (const re of FIRMAS_RESERVA) {
     const m = re.exec(borrador);
     if (m) return m[0];
+  }
+  if (!opts?.citaConsta) {
+    for (const re of FIRMAS_CITA_CONFIRMADA) {
+      const m = re.exec(borrador);
+      if (m) return m[0];
+    }
   }
   if (!opts?.huecosConstan) {
     for (const re of FIRMAS_DISPONIBILIDAD) {

@@ -1234,7 +1234,9 @@ export async function evaluarTurno(
     // EL VETO DETERMINISTA primero (23-08): las frases-firma de agenda no
     // dependen de la obediencia de ningún prompt — código, y ni se paga el
     // juez si cazan. El juez sigue después para las variantes libres.
-    const fraseVetada = vetoAgendaDeterminista(respuestaFinal);
+    // 12-09: con una cita programada de verdad, «te esperamos mañana» es
+    // verdad y no se veta; sin ella, confirmar una cita concreta es inventarla.
+    const fraseVetada = vetoAgendaDeterminista(respuestaFinal, { citaConsta: e.diasHastaProximaCita != null });
     // MEJORAS 229 (11-09): la oferta de un servicio que no consta es la misma
     // familia — afirmar lo que no se ve — y se caza igual, en código.
     const servicioVetado = fraseVetada ? null : vetoServicioDeterminista(respuestaFinal, datosQueConstan);

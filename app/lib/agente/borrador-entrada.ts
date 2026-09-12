@@ -160,7 +160,11 @@ export async function borradorDeEntrada(args: {
   // protegía SOLO el borrador del evaluador — y este, que es el que la
   // persona veía en el composer, no pasaba por él. Mismo veto, mismo sitio:
   // en código, antes del juez.
-  const fraseVetada = vetoAgendaDeterminista(borrador);
+  // 12-09: confirmar una cita concreta que no consta también se veta. La
+  // ficha solo sabe de la cita del LEAD; un paciente con cita real puede
+  // perder aquí un «te esperamos mañana» (borrador descartado, la persona lo
+  // escribe a mano) — fail-closed a propósito: peor es una cita inventada.
+  const fraseVetada = vetoAgendaDeterminista(borrador, { citaConsta: ficha.lead?.fechaCita != null });
   if (fraseVetada) {
     return { ok: false, motivo: "descartado", categoria: "agenda", frase: fraseVetada };
   }

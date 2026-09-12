@@ -4766,3 +4766,27 @@ que Simon describió: acompañó el miedo en el primer mensaje («alguien te lla
 sedación») y pasó el caso en el segundo, con el parking contestado; sin perseguir ninguna cita.
 Las otras tres se juegan cuando Simon lo diga.
 
+## 2026-09-12 — La cita inventada se veta en código; y por qué Nuria recibió cinco plantillas
+
+**El hueco (cerrado):** «Tenemos tu cita para el sábado 19 por la mañana» pasó los dos vetos de
+agenda: no afirma un hueco libre ni dice «te la reservo» — CONFIRMA una cita concreta que nadie
+reservó, y la persona se presentaría. Lo escribió un modelo con más libertad que el de hoy; la fase 2
+le daría más. `FIRMAS_CITA_CONFIRMADA` en `vetoAgendaDeterminista` (tenemos/tienes tu cita para…, tu
+cita es/queda el…, cita confirmada, te esperamos el/mañana…, y variantes ca/en), con `citaConsta`:
+con una cita programada de verdad «te esperamos mañana» es verdad y no se veta (la lección del juez
+del 23-08). El evaluador pasa `diasHastaProximaCita != null`; el compositor solo conoce la cita del
+lead, así que un paciente con cita real puede perder ahí un «te esperamos mañana» — fail-closed a
+propósito. El juez aprende la variante libre. QA en `qa:conocimiento` E1b (la frase de Nuria, cuatro
+variantes, las que pasan con cita, y «¿tienes ya cita con nosotros?» que no se toca).
+**El diagnóstico de las cinco plantillas:** el juez tumbó los cinco borradores del código con Nuria.
+Leídos uno a uno: tres eran hechos inventados no clínicos («hay opciones cerca» de parking, «abrimos
+sábados» sin horario que conste) etiquetados como «clínica» — descartes correctos, categoría falsa;
+uno era la oferta del servicio («la sedación consciente es una opción que la clínica valida») —
+correcto; y uno era REMITIR («un asesor te confirma lo de la sedación consciente»), que la regla
+declara correcto y el juez tumbó igual — falso positivo. Así que la regla no es «demasiado amplia» en
+lo que caza: el evaluador insiste en afirmar lo que no consta y el juez hace su trabajo. Lo que falla
+es lo segundo que preguntó Simon: **la plantilla de descarte no sirve cuando el descarte se repite**
+— siempre cae a la misma, nada corta el bucle y la paciente recibe cinco genéricas. Propuestas, sin
+ejecutar: MEJORAS 233 (el segundo descarte consecutivo entrega el caso a una persona con una
+plantilla distinta) y 232 (categoría «dato inventado» y el caso de remitir en `qa:juez`).
+

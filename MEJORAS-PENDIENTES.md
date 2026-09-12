@@ -3094,6 +3094,33 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 233. Agente · dos descartes seguidos del juez son un callejón: el caso debe pasar a una persona
+  **Zona:** evaluador (`evaluarTurno`, plantilla de descarte). · **Qué pasa:** en las tres
+  conversaciones de Nuria (12-09) el juez tumbó los CINCO borradores del código y la paciente recibió
+  cinco plantillas genéricas seguidas («Preferimos dártelo exacto antes que a medias…», «¿tienes dolor
+  ahora?»). Pasa hoy en producción: cuando el agente no puede decir nada sin infringir (una duda sobre
+  un servicio no publicado), el descarte cae siempre a la misma plantilla y nada corta el bucle. ·
+  **Principio:** perder menos — una paciente con miedo se va tras la segunda plantilla. ·
+  **Propuesta:** (a) el segundo descarte CONSECUTIVO en el mismo hilo entrega el caso a una persona
+  (causa nueva `sin_respuesta_valida`, cola normal) con una plantilla distinta («esto te lo contesta
+  mejor una persona del equipo; te escriben enseguida») en vez de repetir la de recogida; (b) el
+  contador de descartes consecutivos viaja en el payload para verlo en «ver por qué». · **Impacto:**
+  ALTO (es exactamente la conversación que el experimento quiere que el agente lleve bien). ·
+  **Esfuerzo:** 2 h + vara. · **Fecha:** 2026-09-12 · 🔴
+
+## 232. Juez · «clínica» está tapando dos cosas distintas: hechos inventados y un falso positivo sobre remitir
+  **Zona:** `juez-borrador.ts` (regla 1 tras la 229). · **Qué pasa:** de los cinco descartes de Nuria,
+  tres eran HECHOS INVENTADOS no clínicos («hay opciones cerca» de parking, «abrimos sábados» sin que
+  conste el horario) etiquetados como «clínica»; uno era la oferta del servicio («es una opción que la
+  clínica valida») — correcto; y uno era REMITIR («un asesor te confirma lo de la sedación consciente»),
+  que la propia regla declara correcto y el juez tumbó igual. La métrica de descartes por categoría
+  miente y el falso positivo quita al agente la única frase que podía decir. · **Principio:** orden
+  (una métrica que no distingue no sirve) y perder menos. · **Propuesta:** categoría `dato_inventado`
+  para lo que no es clínico ni económico (afirmar horario, parking, ubicación que no constan), con
+  ejemplo en el prompt; y un caso en `qa:juez` con «un asesor te confirma lo de la sedación» que tiene
+  que PASAR. · **Impacto:** MEDIO. · **Esfuerzo:** 1 h + pasada de `qa:juez` (~$0,10). ·
+  **Fecha:** 2026-09-12 · 🟡
+
 ## 231. Cola · una duda clínica entregada por «la red» sale como «Listos para cerrar»
 - Nuria (replay 11-09): cita declinada + duda de sedación anotada + nada más que recoger → el agente
   entrega por «la red» con causa `caso_completo`, y la cola la etiqueta «El agente terminó su parte —
