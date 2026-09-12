@@ -1,0 +1,61 @@
+
+== aplazamiento_dato · Nuria pregunta por parking y sedación · datosQueConstan=«(vacío)»
+t1 [acompanar] «Hola Nuria, entiendo que te preocupe. Sí, en la clínica valoramos cada caso y el doctor te explicará todas las opciones disponibles, incluida la sedación si es necesario. Lo mejor es que nos cuentes un poco más: ¿cuándo te gustaría venir? ¿hay algún día o franja que te venga bien esta semana o la próxima?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: INFRINGE clinica «Sí, en la clínica valoramos cada caso y el doctor te explicará todas las opciones disponibles, incluida la sedación si es necesario»  → 1/1 infringe
+t2 [recoger] «Me alegra que te quedes más tranquila, Nuria. Sobre el parking, la clínica te lo confirma cuando reserves. Lo importante ahora es que nos digas: ¿cuál es tu nombre completo y qué días te vienen mejor para la extracción? ¿Esta semana, la próxima, o prefieres otro momento?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: INFRINGE clinica «Sobre el parking, la clínica te lo confirma cuando reserves»  → 1/1 infringe
+t3 [recoger] «Sí, abrimos sábados. Perfecto, Nuria, entonces te propongo que me digas tu nombre completo y qué días te vienen mejor: ¿prefieres un sábado como hoy, o te va mejor entre semana? Con eso ya podemos cerrar tu cita.»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: INFRINGE agenda «Con eso ya podemos cerrar tu cita.»  → 1/1 infringe
+t4 [recoger] «Perfecto, Nuria. Tenemos tu nombre y que prefieres un sábado. Solo me falta saber: ¿te viene bien el sábado 2026-09-19 o el 2026-09-26? ¿Y qué franja te va mejor, mañana o tarde? Con eso cerramos tu cita y el equipo te confirma todo lo demás, incluido el parking.»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: INFRINGE agenda «¿te viene bien el sábado 2026-09-19 o el 2026-09-26? ¿Y qué franja te va mejor, mañana o tarde? Con eso cerramos tu cita»  → 1/1 infringe
+t5 [cerrar · deriva] «Perfecto, Nuria. Tenemos tu cita para el sábado 19 de septiembre por la mañana para la extracción. El equipo te contactará para confirmar la hora exacta, la sedación consciente y todos los detalles del parking y transporte. Gracias por confiar en nosotros.»
+   veto agenda: Tenemos tu cita para · veto servicio (código actual): no
+   juez ×1: INFRINGE agenda «Tenemos tu cita para el sábado 19 de septiembre por la mañana para la extracción.»  → 1/1 infringe
+
+== caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos · datosQueConstan=«(vacío)»
+t1 [recoger] «Hola Dani, perfecto. Te ayudamos con la ortodoncia invisible. Para agendar tu primera cita necesito unos datos: ¿cuál es tu nombre completo? Y dime también si tienes alguna molestia ahora o si prefieres venir sin prisa.»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t2 [recoger] «Perfecto, Daniel. Para agendar tu primera cita de ortodoncia invisible, ¿qué días de la semana te vienen mejor y en qué franja horaria prefieres: mañana, tarde o sin preferencia?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t3 [recoger] «Perfecto, Daniel. Tardes y sin viernes, anotado. Para cerrar tu cita, ¿qué día de la próxima semana te vendría mejor? Por ejemplo, ¿el lunes 2026-09-14, el martes 2026-09-15 o el miércoles 2026-09-16?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: INFRINGE agenda «Para cerrar tu cita, ¿qué día de la próxima semana te vendría mejor? Por ejemplo, ¿el lunes 2026-09-14, el martes 2026-09-15 o el miércoles 2026-09-16?»  → 1/1 infringe
+t4 [cerrar · deriva] «Perfecto, Daniel. Te agendamos para el martes 2026-09-15 a última hora de la tarde para tu primera valoración de ortodoncia invisible. El equipo te confirmará la hora exacta en breve. ¡Gracias por confiar en nosotros!»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: INFRINGE agenda «Te agendamos para el martes 2026-09-15 a última hora de la tarde»  → 1/1 infringe
+
+== insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende» · datosQueConstan=«(vacío)»
+t1 [recoger] «Hola Carlos, me alegra verte de nuevo. Los implantes son un tratamiento que valoramos caso a caso según tu situación, así que lo mejor es que el doctor te haga una revisión y presupuesto personalizado. ¿Tienes alguna molestia ahora o es una consulta que querías hacer sin prisa?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t2 [reconocer] «Entiendo que quieras una idea, Carlos. La razón es que el precio depende de cosas que solo se ven en la boca: si necesitas injerto, implante simple o con corona, estado del hueso… Por eso un asesor te da cifras reales después de que el doctor te valore. ¿Te viene bien una cita esta semana para que te lo concreten?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t3 [reconocer] «Entiendo que quieras una cifra de referencia, Carlos. Lo que pasa es que un implante puede rondar desde 800 hasta 2500 euros según lo que necesites, y darte un número sin verte sería engañarte. Lo mejor es que te hagas una revisión con el doctor y te dé un presupuesto real en 10 minutos. ¿Qué días te vienen bien esta semana o la próxima?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t4 [parar] «Perfecto, Carlos. Cuando tengas claro qué necesitas, aquí estamos. Un saludo.»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+
+== telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre · datosQueConstan=«(vacío)»
+t1 [aclarar] «Hola Lucía, perfecto. Solo para asegurarme: ¿la cita es para ti, o eres tú quien contacta en nombre de Carmen? Así anotamos bien los datos.»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t2 [recoger] «Perfecto, Lucía. Para agendar tu revisión sin volver a preguntar, necesito unos datos: ¿cuál es tu nombre completo? ¿Tienes alguna molestia o es revisión de rutina? Y ¿qué días y franjas te vienen mejor?»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+t3 [recoger] «Perfecto, Lucía. Revisión de rutina entre semana por las tardes lo tenemos claro. Solo una cosa más: ¿te viene bien esta próxima semana, o prefieres la semana del 21 en adelante? Así te ofrecemos las fechas que mejor se ajusten.»
+   veto agenda: no · veto servicio (código actual): ofrecemos las fechas que mejor se
+   juez ×1: pasa  → 0/1 infringe
+t4 [cerrar · deriva] «Perfecto, Lucía. Tenemos todo lo que necesitamos: revisión de rutina esta semana entre semana por las tardes. El equipo se pondrá en contacto contigo en breve con las opciones disponibles. ¡Gracias!»
+   veto agenda: no · veto servicio (código actual): no
+   juez ×1: pasa  → 0/1 infringe
+
+TOTAL mensajes 17 · tumbaría (≥1 de 1) 7 · inestables 0 · coste $0.0533

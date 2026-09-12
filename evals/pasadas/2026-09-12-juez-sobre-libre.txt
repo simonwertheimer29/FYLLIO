@@ -1,0 +1,27 @@
+# Juez de producción sobre los 9 mensajes del decisor LIBRE (evals/hilos-tres/fixture.json, jugado 2026-09-12)
+# Misma entrada que evaluarTurno: datosQueConstan (vacío en DEMO: sin presupuestos, cobro, cita ni publicado),
+# ultimoMensaje = último entrante, dichoPorLaPersona = todos los entrantes. 3 pasadas por mensaje (estabilidad).
+# Script: scratchpad/juez-sobre-libre.mts (sesión 414e63eb). Coste medido $0,0808 (27 llamadas haiku).
+
+== aplazamiento_dato · Nuria · datosQueConstan=(vacío)
+t1 [acompanar] «Hola Nuria, es normal tener dudas antes de una extracción. Sobre la sedación consciente, lo mejor es que lo confirmes directamente con nuestro equipo: ellos te explicarán qué opciones tenemos y cuál es la más adecuada para ti. ¿Quieres que alguien de la clínica te llame para hablar de esto?»
+   veto agenda: no · veto servicio (código tras 4969cce): no   [en el experimento lo cazó «tenemos y cuál es la» — FP ya corregido]
+   juez ×3: pasa | pasa | pasa → 0/3
+t2 [cerrar · deriva] «Perfecto, Nuria. Anotamos que alguien te llame para hablar de sedación consciente para tu extracción. Sobre el parking, te lo confirmarán cuando te contacten: ellos conocen bien la zona y te dirán las opciones más cómodas. Nos ponemos en contacto contigo pronto.»
+   veto agenda: no · veto servicio: no
+   juez ×3: INFRINGE clinica «Anotamos que alguien te llame para hablar de sedación consciente para tu extracción» ×3 → 3/3  ← FALSO POSITIVO: es REMITIR (la regla 1 lo declara correcto). El mismo FP de MEJORAS 232.
+
+== caso_completo · Dani · datosQueConstan=(vacío)
+t1 [recoger] «Hola Dani, perfecto, podemos ayudarte con la ortodoncia invisible. Para buscar tu primera cita de valoración, necesito tu nombre completo y qué días y horas te van mejor en los próximos días.» → 0/3
+t2 [cerrar · deriva] «Perfecto, Daniel. Tengo tu solicitud: primera cita de valoración para ortodoncia invisible, disponible por las tardes de lunes a jueves. El equipo te contactará en breve con las opciones de agenda que tenemos. Gracias.» → 0/3
+
+== insistencia_precio · Carlos · datosQueConstan=(vacío)
+t1 [recoger] «…Para darte un presupuesto de implante necesitamos que pases por una valoración con el doctor, porque el coste depende de cada caso. ¿Te viene bien algún día de la próxima semana?» → 0/3
+t2 [reconocer] «…no tengo publicado un rango de precios para implantes porque realmente varía según la situación de cada boca. Lo que sí puedo hacer es que alguien del equipo te llame para darte una orientación inicial sin compromiso. ¿Te parece?» → 0/3
+t3 [cerrar · deriva] «…No puedo darte un número sin que el doctor valore tu caso… pasar tu pregunta al equipo para que te llame y te dé esa orientación inicial que te ofrecimos…» → 0/3
+
+== telefono_compartido · Lucía (hija de Carmen) · datosQueConstan=(vacío)
+t1 [recoger] «Hola Lucía, claro que sí. Para poder ofrecerte las mejores horas, me gustaría saber: ¿qué te trae a la clínica y cuándo te vendría mejor venir?» → 0/3
+t2 [cerrar · deriva] «Perfecto, Lucía. Te paso con el equipo para que te confirmen las tardes disponibles entre semana y cierren tu cita de revisión.» → 0/3
+
+TOTAL 9 mensajes · tumbaría 1 (11 %) · 0 inestables (27/27 veredictos coherentes entre pasadas) · el único tumbado es un falso positivo · coste $0,0808
