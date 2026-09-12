@@ -16,6 +16,17 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 export type Cliente = "RB" | "INDEP" | "DEMO";
 
+/** El vocabulario, al lado del tipo. Lo necesita todo borde que recibe un
+ *  cliente como TEXTO (una variable de entorno, el cuerpo de un trabajo de la
+ *  cola): `as Cliente` sobre un string no comprueba nada, y un cliente
+ *  inventado se lleva por delante el aislamiento. */
+const CLIENTES: ReadonlySet<string> = new Set<Cliente>(["RB", "INDEP", "DEMO"]);
+
+/** ¿Este texto es un cliente de verdad? Fail-closed en el borde (§3). */
+export function esCliente(valor: string | null | undefined): valor is Cliente {
+  return !!valor && CLIENTES.has(valor);
+}
+
 const clienteContext = new AsyncLocalStorage<Cliente>();
 
 /**

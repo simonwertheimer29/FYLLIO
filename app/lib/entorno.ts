@@ -58,11 +58,6 @@ export const CONTRATO: Requisito[] = [
     nivel: "funcional",
   },
   {
-    nombre: "META_WHATSAPP_TOKEN",
-    rompe: "El envío de WhatsApp: los mensajes no salen.",
-    nivel: "funcional",
-  },
-  {
     nombre: "RETENCION_CONVERSACIONES_DIAS",
     rompe:
       "La caducidad de conversaciones por plazo (MEJORAS 147): sin plazo declarado el cron de retención no borra nada. El plazo lo fija la consulta legal; hasta entonces solo existe el borrado por petición (derecho de supresión).",
@@ -92,10 +87,69 @@ export const CONTRATO: Requisito[] = [
       "La lectura de agendas externas (nivel 2, Google Calendar): las conectadas dejan de refrescarse y lo dicen.",
     nivel: "funcional",
   },
+  // ─── WhatsApp (WABA de Meta) ──────────────────────────────────────────────
+  //
+  // El canal ENTERO, entrada y salida, y hasta hoy el contrato declaraba una
+  // variable que no se usa (`META_WHATSAPP_TOKEN`, que solo lee
+  // `lib/whatsapp/outbound.ts`, un módulo muerto que se borra en este mismo
+  // cambio) y ninguna de las que deciden de verdad. El guard `qa:sin-fallbacks`
+  // lo cazó al quitarla: o la variable está declarada, o el código que decide
+  // con ella no existe. Consecuencia: el día que caduque el token de
+  // Meta —el de pruebas dura 24 h— `/api/salud` seguiría diciendo que todo va
+  // bien mientras cada envío devuelve 401. Es exactamente el agujero del
+  // portal del paciente y el de las llamadas de voz, por tercera vez.
+  //
+  // `soloEnProduccion` en todas: en el portátil no llega ningún webhook de
+  // Meta ni se envía nada real, y un contrato que grita en falso todos los
+  // días acaba ignorado justo cuando importa.
   {
     nombre: "WABA_PHONE_NUMBER_ID",
-    rompe: "El envío de WhatsApp: falta el número emisor.",
+    rompe:
+      "WhatsApp entero: sin el número de la clínica no sale ningún mensaje, y los que entran se descartan porque no se reconocen como nuestros.",
     nivel: "funcional",
+    soloEnProduccion: true,
+  },
+  {
+    nombre: "WABA_ACCESS_TOKEN",
+    rompe:
+      "El envío por WhatsApp: la bandeja da error al enviar. Es el que CADUCA (el token de pruebas de Meta, a las 24 h), así que su ausencia es lo más probable que rompa el canal un día cualquiera.",
+    nivel: "funcional",
+    soloEnProduccion: true,
+  },
+  {
+    nombre: "WABA_VERIFY_TOKEN",
+    rompe:
+      "El alta del webhook en Meta: sin él no se puede dar de alta ni volver a verificar la conexión, y Meta la desactiva si deja de responder.",
+    nivel: "funcional",
+    soloEnProduccion: true,
+  },
+  {
+    nombre: "META_APP_SECRET",
+    rompe:
+      "La recepción de WhatsApp: sin él el webhook rechaza TODO lo que llega (fail-closed, no se salta la firma ni en desarrollo). Los mensajes de los pacientes no entran.",
+    nivel: "funcional",
+    soloEnProduccion: true,
+  },
+  {
+    nombre: "WABA_BUSINESS_ACCOUNT_ID",
+    rompe:
+      "La recepción y el envío: hoy no se usa para llamar a Meta, pero el webhook exige las cinco credenciales juntas y sin ella responde 503 a todo.",
+    nivel: "funcional",
+    soloEnProduccion: true,
+  },
+  {
+    nombre: "WABA_ENABLED",
+    rompe:
+      "El proceso de lo que entra. Es el peor de todos porque NO parece roto: si no vale exactamente «true», el webhook acepta cada mensaje con un 200, Meta lo da por entregado, y no se guarda ni se contesta nada.",
+    nivel: "funcional",
+    soloEnProduccion: true,
+  },
+  {
+    nombre: "WABA_CLIENTE",
+    rompe:
+      "El destino de lo que entra: sin declarar de qué cliente es el número, los mensajes se ignoran (fail-closed) en vez de caer en un cliente equivocado.",
+    nivel: "funcional",
+    soloEnProduccion: true,
   },
   // El portal del paciente vive en KV y NO estaba declarado aquí: por eso nadie
   // se enteró de que el store al que apuntaban las variables ya no existía

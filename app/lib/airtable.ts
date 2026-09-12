@@ -9,5 +9,5 @@
 // contexto) para no reescribir ~150 imports en un movimiento con más riesgo
 // que valor. Los nuevos import van a `lib/cliente-contexto` directamente.
 
-export { runWithCliente, currentCliente, requireCliente } from "./cliente-contexto";
+export { runWithCliente, currentCliente, requireCliente, esCliente } from "./cliente-contexto";
 export type { Cliente } from "./cliente-contexto";

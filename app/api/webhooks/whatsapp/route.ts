@@ -46,8 +46,7 @@ import { evaluarEntranteConversacion } from "../../../lib/agente/evaluar-entrant
 import { avisarFalloAgente } from "../../../lib/agente/avisos";
 import { encolar } from "../../../lib/cola/qstash";
 import { buscarLeadActivoPorTelefono } from "../../../lib/leads/leads";
-import { runWithCliente, currentCliente, type Cliente } from "../../../lib/airtable";
-import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
+import { runWithCliente, currentCliente, esCliente, type Cliente } from "../../../lib/airtable";
 import {
   tipoDeMeta,
   esLegible,
@@ -58,21 +57,57 @@ import {
 } from "../../../lib/mensajeria/tipos-mensaje";
 import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
 
-// Sprint B / MULTI_CLIENTE_PENDIENTE — resuelve el cliente por el número WABA que
-// recibe el mensaje. Mientras RB es el único cliente vivo: si el phone_number_id
-// coincide con el WABA configurado (RB) → PILOT_CLIENTE; cualquier otro número →
-// null (fail-closed, NO asume RB). Al entrar el 2º cliente: mapear su número.
-function resolveClienteFromWebhook(payload: unknown): Cliente | null {
+// ─── De quién es el mensaje que acaba de entrar ──────────────────────────────
+//
+// Dos comprobaciones, las dos fail-closed (§3):
+//   1. El `phone_number_id` del lote es el número que tenemos configurado.
+//   2. `WABA_CLIENTE` declara a QUÉ cliente pertenece ese número.
+//
+// Antes, el paso 2 era `PILOT_CLIENTE` escrito a fuego — RB, «el único cliente
+// vivo». Nunca lo fue: RB se sembró como estructura de ejemplo y no hay nada
+// cerrado con ellos (no hay firma, ni piloto, ni número). Su tenant está vacío,
+// así que el mensaje de un paciente real caía en un cliente sin clínicas
+// configuradas, sin agenda y con el evaluador apagado: se guardaba y no lo
+// trabajaba nadie. Es el mismo fallo que el portal del paciente pagó en
+// producción (§1, matiz), con un tenant vacío tragándose el dato.
+//
+// Ahora el cliente se DECLARA en el entorno, y sin declaración no se procesa.
+// Cambiar de tenant es cambiar una variable, no desplegar código.
+type ResolucionCliente = { cliente: Cliente } | { cliente: null; motivo: string };
+
+function resolveClienteFromWebhook(payload: unknown): ResolucionCliente {
   const value = (payload as { entry?: Array<{ changes?: Array<{ value?: ValorCambio }> }> })?.entry?.[0]?.changes?.[0]?.value;
   const incomingPhoneNumberId = String(value?.metadata?.phone_number_id ?? "");
-  if (!incomingPhoneNumberId) return null;
-  let rbPhoneNumberId = "";
-  try {
-    rbPhoneNumberId = getWABACredentials().phoneNumberId;
-  } catch {
-    return null;
+  if (!incomingPhoneNumberId) {
+    return { cliente: null, motivo: "el lote no trae phone_number_id" };
   }
-  return incomingPhoneNumberId === rbPhoneNumberId ? PILOT_CLIENTE : null;
+
+  let numeroConfigurado = "";
+  try {
+    numeroConfigurado = getWABACredentials().phoneNumberId;
+  } catch {
+    return { cliente: null, motivo: "faltan credenciales WABA en el entorno" };
+  }
+  if (incomingPhoneNumberId !== numeroConfigurado) {
+    return {
+      cliente: null,
+      motivo: `phone_number_id ${incomingPhoneNumberId} no es el número configurado (WABA_PHONE_NUMBER_ID)`,
+    };
+  }
+
+  // El motivo va SIEMPRE con nombre y con el valor que se leyó (§9): sin esto,
+  // «variable sin poner» y «mensaje de otro número» son la misma línea de log
+  // y el diagnóstico de una conexión nueva se vuelve adivinanza.
+  const declarado = process.env.WABA_CLIENTE?.trim();
+  if (!esCliente(declarado)) {
+    return {
+      cliente: null,
+      motivo: declarado
+        ? `WABA_CLIENTE="${declarado}" no es un cliente conocido`
+        : "WABA_CLIENTE no está configurada: no se sabe de qué cliente es este número",
+    };
+  }
+  return { cliente: declarado };
 }
 
 export const dynamic = "force-dynamic";
@@ -145,11 +180,12 @@ export async function POST(req: Request) {
 
   // 6. Resolver el cliente por el número WABA (fail-closed: número desconocido →
   // ignoramos con 200 para que Meta no reintente algo que no es nuestro).
-  const cliente = resolveClienteFromWebhook(payload);
-  if (!cliente) {
-    console.warn("[waba webhook] phone_number_id no reconocido — ignorado (fail-closed)");
+  const resolucion = resolveClienteFromWebhook(payload);
+  if (!resolucion.cliente) {
+    console.warn(`[waba webhook] lote ignorado (fail-closed): ${resolucion.motivo}`);
     return NextResponse.json({ ok: true, ignored: true });
   }
+  const cliente = resolucion.cliente;
 
   // 7. Persistir TODOS los mensajes de forma SÍNCRONA antes de responder 200,
   // dentro del contexto del cliente. En Vercel el trabajo sin await tras la
