@@ -3094,6 +3094,38 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 239. Agente · el borrador que envía la coordinadora sigue muriendo entero: el mismo control, dos comportamientos
+  **Zona:** `borrador-entrada.ts` (la sugerencia del modo A que una persona manda a mano). · **Qué
+  pasa:** desde hoy, el borrador que el agente envía solo pierde la frase que infringe (poda) y, si
+  esa frase era la respuesta, se reescribe. El borrador que se le SUGIERE a la coordinadora, en
+  cambio, sigue devolviendo `{ok:false}` y desaparece entero por una frase — el mismo juez, el mismo
+  veredicto, dos comportamientos. · **Principio:** coherencia (patrón paralelo, §6) y orden: la
+  coordinadora reescribe a mano lo que el sistema ya sabe podar. · **Propuesta:** que
+  `borrador-entrada` llame a `podarBorrador` con el mismo veredicto y devuelva el texto podado
+  marcando qué se quitó, y que solo caiga a `descartado` cuando la poda no puede. · **Impacto:**
+  MEDIO (le ahorra reescrituras a mano en la zona donde hoy más se usa el agente). · **Esfuerzo:**
+  1 h. · **Fecha:** 2026-09-12 · 🔵
+
+## 238. Analíticas · «descartes» ya no cuenta la historia sola, y la pantalla no lo dice
+  **Zona:** métricas del agente (`descartes_juez` · `podas_juez`). · **Qué pasa:** desde hoy un
+  borrador que infringe puede acabar en descarte, en poda (sale el mensaje sin la frase) o en
+  reescritura. Si solo se mira «mensajes descartados», el número baja y parece que el generador ha
+  mejorado cuando lo que ha pasado es que lo arreglamos por detrás. La regla «se leen juntas» vive en
+  un comentario del código y en el diario, no en la pantalla. · **Principio:** el sistema piensa
+  (§3) — una métrica que hay que saber interpretar no informa. · **Propuesta:** una sola fila
+  «el control actuó N veces» desglosada en quitó una frase · reescribió · descartó · entregó a una
+  persona, con las reescrituras sacadas de `etiquetasDescartadas` (`juez:reescrito:*`) a métrica
+  propia. · **Impacto:** MEDIO. · **Esfuerzo:** 2 h. · **Fecha:** 2026-09-12 · 🔵
+
+## 237. Agente · el camino completo del control no tiene ninguna prueba con modelo
+  **Zona:** `evaluador.ts` (bucle veto → juez → poda → reescritura → descarte → 233). · **Qué pasa:**
+  las piezas están probadas sueltas y deterministas (`qa:conocimiento` G y H, `qa:juez`), pero NADA
+  ejecuta el bucle entero: que un borrador infractor acabe podado, que uno cuya frase era la
+  respuesta acabe reescrito, y que dos descartes seguidos entreguen el caso. Es el §25 otra vez —
+  lo probado no es lo que corre. · **Principio:** orden. · **Propuesta:** un guion en el banco (o un
+  `qa:control` con 4 borradores fijos y el modelo vivo, ~$0,05) que recorra los cuatro finales y los
+  afirme. · **Impacto:** MEDIO. · **Esfuerzo:** 2 h + $0,05 por pasada. · **Fecha:** 2026-09-12 · 🔵
+
 ## 236. Ajustes › WhatsApp · conectar un número exige escribir SQL a mano
 - Conectar el WhatsApp de una clínica necesita hoy un `update` sobre `configuracion_waba` para
   rellenar `phone_number_id`: la pantalla solo enciende y apaga el canal, y la columna que ata el
