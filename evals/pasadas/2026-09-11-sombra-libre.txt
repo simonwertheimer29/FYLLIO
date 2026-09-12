@@ -1,0 +1,94 @@
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Sombra LIBRE (haiku, versión 0ee4c247a70f) de 15 hilos · 36 turnos · coste estimado $0.11
+
+━━ lead_precio · Desconocida pregunta cuánto cuesta un blanqueamiento
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_lead_precio_1)
+  t1 · libre=recoger · código=recoger (coinciden) · «Marta llega desde Instagram interesada en blanqueamiento dental. Es una consulta directa sobre precio: está en»
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_lead_precio_2)
+  t2 · libre=contestar · código=recoger ≠ · «Marta viene de Instagram interesada en blanqueamiento y quiere saber precio antes de comprometerse a una valor»
+  t3 · libre=reconocer · código=recoger ≠ · «Marta busca un precio aproximado de blanqueamiento y la clínica le ha pedido datos sin responder a su pregunta»
+  t4 · libre=recoger · código=atender ≠ · «Marta está interesada en blanqueamiento pero quiere un precio aproximado antes de comprometerse a una cita. Ha»
+
+━━ presupuesto_financiacion · Jorge quiere saber cuánto sería al mes
+  t1 · libre=reconocer · código=recoger ≠ · «Jorge tiene un presupuesto de implante de 3.200€ y pregunta por fraccionamiento en pagos mensuales. Es una pre»
+  t2 · libre=reconocer · código=reconocer (coinciden) · «Jorge necesita una cifra aproximada de cuota mensual para decidir si puede asumir el implante. Está en el punt»
+  t3 · libre=cerrar · código=atender ≠ · «Jorge necesita una cifra aproximada de cuota mensual para decidir si puede asumir el fraccionamiento del impla»
+
+━━ cobro_vencido · Lucía pide cita de revisión con un pago pendiente
+  t1 · libre=cerrar · código=acompanar ≠ · «Lucía tiene una molestia real tras una endodoncia hace un mes (corona alta al morder) y pide una revisión esta»
+  t2 · libre=cerrar · código=cerrar (coinciden) · «Lucía tiene molestia al morder tras una endodoncia y quiere revisión esta semana. Está tranquila con el pago p»
+
+━━ recordatorio_cita · Andrés contesta al recordatorio: no puede mañana
+  t1 · libre=cerrar · código=contestar ≠ · «Andrés tiene un imprevisto (viaje de trabajo) y no puede asistir a su cita de mañana. Necesita reprogramarla p»
+
+━━ cadencia_en_medio · Elena pregunta por los retenedores y la cadencia le escribe encima
+  t1 · libre=reconocer · código=recoger ≠ · «Elena pregunta por un detalle concreto del presupuesto de ortodoncia que ya tiene en mano: si los retenedores »
+  t2 · libre=atender · código=reconocer ≠ · «Elena necesita una respuesta clara sobre qué incluye el presupuesto de ortodoncia antes de decidirse. Ha pregu»
+  t3 · libre=parar · código=atender ≠ · «Elena está molesta porque la clínica insiste después de que ella ya pidió espacio para pensar. Necesita que la»
+
+━━ queja_trato · Rosa esperó cuarenta minutos y quiere hablar con un responsable
+  t1 · libre=atender · código=atender (coinciden) · «Rosa está molesta por una mala experiencia ayer: espera prolongada y trato inadecuado. Necesita que alguien re»
+
+━━ queja_economica · Pablo dice que le cobraron 150 € más de lo presupuestado
+  t1 · libre=atender · código=recoger ≠ · «Pablo ha pagado 150€ más de lo que constaba en el presupuesto y pregunta por la diferencia. Es una discrepanci»
+  t2 · libre=atender · código=atender (coinciden) · «Pablo está molesto porque pagó 150€ más de lo presupuestado y no quiere que quede en promesas vagas. Necesita »
+
+━━ urgencia_dolor · Miguel no ha dormido: dolor fuerte e hinchazón
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_urgencia_dolor_1)
+  t1 · libre=atender · código=atender (coinciden) · «Miguel tiene dolor agudo e inflamación desde anoche, ha intentado medicarse sin resultado y busca atención urg»
+
+━━ urgencia_ambigua · Sonia: se le ha despegado una carilla y el sábado tiene una boda
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_urgencia_ambigua_1)
+  t1 · libre=atender · código=atender (coinciden) · «Sonia tiene una urgencia estética con plazo muy corto: una carilla despegada y una boda el sábado. Está en mod»
+
+━━ opt_out · Teresa pide que dejen de escribirle
+  t1 · libre=parar · código=parar (coinciden) · «Teresa rechaza explícitamente recibir más mensajes sobre el presupuesto de blanqueamiento. Es un cierre de com»
+
+━━ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos
+  t1 · libre=recoger · código=acompanar ≠ · «Dani es nueva, quiere una primera cita para ortodoncia invisible y se dirige a la clínica de forma clara y edu»
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_caso_completo_2)
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_caso_completo_2)
+  t2 · sin sombra libre (el modelo no respondió)
+  t3 · libre=cerrar · código=recoger ≠ · «Daniel es nuevo, sin prisa, quiere informarse sobre ortodoncia invisible. Está tranquilo y decidido a explorar»
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_caso_completo_4)
+  t4 · libre=recoger · código=cerrar ≠ · «Daniel es nuevo, sin prisa, quiere informarse sobre ortodoncia invisible y ha dado sus preferencias (tardes, s»
+
+━━ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende»
+  t1 · libre=recoger · código=recoger (coinciden) · «Carlos es un paciente conocido que pregunta por el precio de un implante dental. Es una pregunta directa sobre»
+  t2 · libre=reconocer · código=reconocer (coinciden) · «Carlos es paciente conocido que busca un precio orientativo de implante dental. Insiste en una cifra «básica» »
+  t3 · libre=reconocer · código=reconocer (coinciden) · «Carlos es paciente conocido que insiste en un rango de precio para implantes. Está buscando una cifra aproxima»
+  t4 · libre=reconocer · código=atender ≠ · «Carlos está frustrado porque le hemos rechazado tres veces dar un número de precio, aunque sea aproximado. Se »
+
+━━ aplazamiento_dato · Nuria pregunta por parking y sedación
+  t1 · libre=acompanar · código=acompanar (coinciden) · «Nuria tiene miedo a una extracción dental y pregunta por sedación consciente. Es su primera pregunta en el hil»
+  t2 · libre=atender · código=reconocer ≠ · «Nuria tiene miedo a una extracción programada en unas semanas y quiere saber si la clínica ofrece sedación con»
+  t3 · libre=atender · código=reconocer ≠ · «Nuria tiene miedo a una extracción programada en unas semanas y quiere saber si la clínica ofrece sedación con»
+  t4 · libre=recoger · código=recoger (coinciden) · «Nuria tiene miedo a una extracción programada en unas semanas y quiere saber si la clínica ofrece sedación con»
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_aplazamiento_dato_5)
+  t5 · libre=reconocer · código=reconocer (coinciden) · «Nuria tiene miedo a una extracción programada y quiere saber si la clínica ofrece sedación consciente. Está in»
+
+━━ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre
+  t1 · libre=recoger · código=recoger (coinciden) · «Lucía escribe desde el móvil de su madre Carmen (paciente de la clínica) para pedir una cita para ella misma. »
+  t2 · libre=cerrar · código=recoger ≠ · «Lucía quiere una cita de revisión general para ella misma. Es su primer contacto real con la clínica (escribe »
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_telefono_compartido_3)
+[sombra:libre] pedirSombra error: This operation was aborted
+[sombra:libre] sin respuesta del modelo — turno sin sombra (jug_telefono_compartido_3)
+  t3 · sin sombra libre (el modelo no respondió)
+
+━━ audio_no_legible · Fernando manda un audio y luego escribe
+  t1 · sin fila de producción (corre antes npm run sombra:hilos) — se salta
+
+════════════════════════════════════════════════════════════════════════
+Libre: 33 guardadas · 18 distintas del código · 1 sin fila de producción · 2 sin modelo · coste medido $0.1040 · léela en /sombra
+Apunta el coste en evals/pasadas/GASTO.md.
+exit: 0

@@ -48,6 +48,14 @@ export function getPool(): Pool {
       // Supabase exige TLS; el pooler presenta cert válido.
       ssl: { rejectUnauthorized: false },
     });
+    // Un cliente OCIOSO que el pooler corta emite 'error' en el pool; sin
+    // oyente, Node tumba el proceso entero («Unhandled 'error' event»). Pasó
+    // el 11-09 en `sombra:libre` a mitad de una llamada lenta al modelo: la
+    // conexión ociosa cayó y el script murió con la fila a medias. Se
+    // registra con contexto (§9) y el pool abre otra conexión al siguiente uso.
+    pool.on("error", (err) => {
+      console.error("[db] conexión ociosa del pool caída:", err instanceof Error ? err.message : err);
+    });
   }
   return pool;
 }

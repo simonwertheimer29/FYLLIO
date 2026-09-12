@@ -313,11 +313,15 @@ export interface Tabla_agente_sombra {
   modelo: string | null;
   usage: ColumnType<unknown, string | null, string | null>;
   latencia_ms: number | null;
-  veredicto: "modelo" | "codigo" | "los_dos" | "ninguno" | null;
+  veredicto: "modelo" | "libre" | "codigo" | "los_dos" | "ninguno" | null;
   veredicto_nota: string | null;
   veredicto_por: string | null;
   veredicto_en: Date | null;
   created_at: Generated<Date>;
+  /** 048 — 'produccion' (misma entrada que el evaluador) | 'libre' (sin objetivos ni campos). */
+  variante: Generated<"produccion" | "libre">;
+  /** 048 — «qué le conviene a esta persona ahora» (variante libre). */
+  conviene: string | null;
 }
 
 /** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o

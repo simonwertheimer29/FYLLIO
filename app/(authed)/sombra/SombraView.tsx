@@ -21,6 +21,7 @@ import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import {
   DEFINICION_ACTO,
   ETIQUETA_ORIGEN,
+  ETIQUETA_VARIANTE,
   ETIQUETA_VEREDICTO,
   VEREDICTOS_SOMBRA,
   type Acto,
@@ -273,7 +274,7 @@ function Turno({ t, onVeredicto }: { t: TurnoSombra; onVeredicto: (t: TurnoSombr
           {t.turno != null ? `Turno ${t.turno}` : "Turno"} · {fmtFecha(t.en)}
         </span>
         <span>
-          {t.coinciden ? (
+          {t.coinciden && (t.libre == null || t.libre.actoModelo === t.actoCodigo) ? (
             <StatePill variant="neutral" size="sm">Coinciden</StatePill>
           ) : (
             <StatePill variant="info" size="sm">Difieren</StatePill>
@@ -291,7 +292,31 @@ function Turno({ t, onVeredicto }: { t: TurnoSombra; onVeredicto: (t: TurnoSombr
         <p className="italic text-[var(--color-foreground)]">{t.situacion}</p>
       </div>
 
-      {t.coinciden ? (
+      {t.libre ? (
+        // Tres columnas (048): el código, el modelo con el contexto de
+        // producción y el modelo libre. Siempre las tres: Simon compara mensajes.
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="space-y-2 rounded-xl border border-[var(--color-border)] p-3">
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">Hizo el código</div>
+            <ActoPill acto={t.actoCodigo} />
+            {decisionTexto(t) && <p className="text-xs text-[var(--color-muted)]">{decisionTexto(t)}</p>}
+            <Mensaje texto={t.mensajeCodigo} />
+          </div>
+          <div className={`space-y-2 rounded-xl border p-3 ${t.coinciden ? "border-[var(--color-border)]" : "border-[color-mix(in_srgb,var(--color-accent)_35%,transparent)]"}`}>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{ETIQUETA_VARIANTE.produccion}</div>
+            <ActoPill acto={t.actoModelo} crudo={t.actoCrudo} destacado={!t.coinciden} />
+            {t.porQue && <p className="text-xs text-[var(--color-muted)]">{t.porQue}</p>}
+            <Mensaje texto={t.mensajeModelo} veto={t.vetoModelo} />
+          </div>
+          <div className={`space-y-2 rounded-xl border p-3 ${t.libre.actoModelo === t.actoCodigo ? "border-[var(--color-border)]" : "border-[color-mix(in_srgb,var(--color-accent)_35%,transparent)]"}`}>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-accent)]">{ETIQUETA_VARIANTE.libre}</div>
+            <ActoPill acto={t.libre.actoModelo} crudo={t.libre.actoCrudo} destacado={t.libre.actoModelo !== t.actoCodigo} />
+            <p className="text-xs italic text-[var(--color-foreground)]">{t.libre.situacion}</p>
+            {t.libre.conviene && <p className="text-xs text-[var(--color-muted)]">Le conviene: {t.libre.conviene}</p>}
+            <Mensaje texto={t.libre.mensajeModelo} veto={t.libre.vetoModelo} />
+          </div>
+        </div>
+      ) : t.coinciden ? (
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <ActoPill acto={t.actoCodigo} />
@@ -315,7 +340,7 @@ function Turno({ t, onVeredicto }: { t: TurnoSombra; onVeredicto: (t: TurnoSombr
             <Mensaje texto={t.mensajeCodigo} />
           </div>
           <div className="space-y-2 rounded-xl border border-[color-mix(in_srgb,var(--color-accent)_35%,transparent)] p-3">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-accent)]">Habría hecho el modelo</div>
+            <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-accent)]">{ETIQUETA_VARIANTE.produccion}</div>
             <ActoPill acto={t.actoModelo} crudo={t.actoCrudo} destacado />
             {t.porQue && <p className="text-xs text-[var(--color-muted)]">{t.porQue}</p>}
             <Mensaje texto={t.mensajeModelo} veto={t.vetoModelo} />
@@ -363,6 +388,16 @@ function Turno({ t, onVeredicto }: { t: TurnoSombra; onVeredicto: (t: TurnoSombr
           <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] p-2 text-[11px] leading-snug text-[var(--color-foreground)]">{t.entrada}</pre>
         ) : (
           <p className="mt-2">Sin la entrada renderizada.</p>
+        )}
+        {t.libre?.entrada && (
+          <>
+            <p className="mt-2">
+              Lo que vio el modelo libre · {t.libre.modelo ?? "modelo desconocido"}
+              {t.libre.latenciaMs != null ? ` · ${(t.libre.latenciaMs / 1000).toFixed(1)} s` : ""}
+              {t.libre.costeUsd != null ? ` · $${t.libre.costeUsd.toFixed(4)}` : ""} · sombra libre {t.libre.versionSombra}
+            </p>
+            <pre className="mt-1 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] p-2 text-[11px] leading-snug text-[var(--color-foreground)]">{t.libre.entrada}</pre>
+          </>
         )}
       </details>
     </Card>

@@ -102,11 +102,23 @@ export function canonizarActo(raw: unknown): Acto | null {
 export type SombraModelo = {
   /** La situación en palabras del modelo (1-2 frases). */
   situacion: string;
+  /** Variante libre: «qué le conviene a esta persona ahora». */
+  conviene: string | null;
   acto: Acto | "ilegible";
   actoCrudo: string | null;
   porQue: string | null;
   /** El mensaje que el modelo habría enviado con SU acto. Sin juez. */
   mensaje: string;
+};
+
+/** Las dos variantes de la sombra (048): con la MISMA entrada que producción
+ *  (objetivos y campos incluidos) o LIBRE (hilo + publicado + datos de la
+ *  persona, sin objetivos ni campos — información y límites, no instrucciones). */
+export const VARIANTES_SOMBRA = ["produccion", "libre"] as const;
+export type VarianteSombra = (typeof VARIANTES_SOMBRA)[number];
+export const ETIQUETA_VARIANTE: Record<VarianteSombra, string> = {
+  produccion: "Modelo con contexto de producción",
+  libre: "Modelo libre",
 };
 
 /** El JSON de la sombra. null = sin JSON o sin lo mínimo (situación y
@@ -127,18 +139,20 @@ export function parsearSombra(raw: string): SombraModelo | null {
   const actoCrudo = typeof obj.acto === "string" && obj.acto.trim() ? obj.acto.trim().slice(0, 60) : null;
   const acto = canonizarActo(actoCrudo) ?? "ilegible";
   const porQue = typeof obj.porQue === "string" && obj.porQue.trim() ? obj.porQue.trim() : null;
-  return { situacion, acto, actoCrudo, porQue, mensaje };
+  const conviene = typeof obj.conviene === "string" && obj.conviene.trim() ? obj.conviene.trim() : null;
+  return { situacion, conviene, acto, actoCrudo, porQue, mensaje };
 }
 
 // ─── Lo que lee el visor ───────────────────────────────────────────────────
 
-export const VEREDICTOS_SOMBRA = ["modelo", "codigo", "los_dos", "ninguno"] as const;
+export const VEREDICTOS_SOMBRA = ["codigo", "modelo", "libre", "los_dos", "ninguno"] as const;
 export type VeredictoSombra = (typeof VEREDICTOS_SOMBRA)[number];
 export const ETIQUETA_VEREDICTO: Record<VeredictoSombra, string> = {
-  modelo: "Tenía razón el modelo",
   codigo: "Tenía razón el código",
-  los_dos: "Las dos valen",
-  ninguno: "Ninguna de las dos",
+  modelo: "El modelo con contexto",
+  libre: "El modelo libre",
+  los_dos: "Varias valen",
+  ninguno: "Ninguna",
 };
 
 export const ORIGENES_SOMBRA = ["produccion", "hilos_jugados"] as const;
@@ -159,11 +173,32 @@ export type DecisionCodigoResumen = {
   tema: string | null;
 };
 
+/** La sombra LIBRE del mismo turno (048), al lado de la de producción. */
+export type SombraLibre = {
+  id: string;
+  situacion: string;
+  conviene: string | null;
+  actoModelo: Acto | "ilegible";
+  actoCrudo: string | null;
+  mensajeModelo: string;
+  vetoModelo: string | null;
+  entrada: string | null;
+  versionSombra: string;
+  modelo: string | null;
+  latenciaMs: number | null;
+  costeUsd: number | null;
+  en: string;
+};
+
 export type TurnoSombra = {
   id: string;
   telefono: string;
   mensajeId: string;
   origen: OrigenSombra;
+  /** De qué variante es la fila base del turno (normalmente 'produccion'). */
+  variante: VarianteSombra;
+  /** La variante libre del mismo turno, si se calculó. */
+  libre: SombraLibre | null;
   turno: number | null;
   hiloEtiqueta: string | null;
   persona: string | null;

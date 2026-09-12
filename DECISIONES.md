@@ -4700,3 +4700,34 @@ obedeció al prompt de producción. Nada de esto decide: la lectura y los veredi
 Pendiente de comprobar en un móvil real: a 390 px el cascarón mide ~570 px en headless, igual que
 «Qué dicen» (pre-existente, no de esta pantalla).
 
+## 2026-09-11 (noche, 2) — La sombra LIBRE: sin objetivos ni campos, y en el orden de Simon
+
+Simon leyó los desacuerdos: el diagnóstico de la situación el modelo lo hace muy bien, pero sus
+MENSAJES se parecían demasiado a los del código. Su sospecha, comprobada leyendo la entrada guardada:
+la sombra recibía la MISMA entrada que producción, y esa entrada lleva `OBJETIVOS ABIERTOS` con su
+propósito («Recoger lo necesario para poder cerrarle una cita sin volver a preguntar») y la lista
+completa de campos con su pregunta. No lleva «objetivo activo» ni «campos que faltan» (eso lo cuenta
+el código después), pero lleva el encargo entero: se veía lo que el modelo hace CON la presión del
+código encima, no lo que haría libre. Segunda variante (`variante = 'libre'`, migración 048): el
+modelo ve PRIMERO la conversación y después «lo que tienes a mano» — los mismos hechos que producción
+(`lineasDeHechos`, extraída de `renderEntrada` sin cambiar un byte: comprobado contra las 35 entradas
+guardadas, 35 idénticas), la cita programada, lo publicado y lo que ya se le dijo que un asesor le
+confirmará — y NUNCA objetivos ni campos. El prompt sigue el orden dictado: leer el hilo → entender
+qué necesita → mirar a qué tiene acceso → recordar las reglas (no inventar, no comprometer dinero, no
+dar criterio clínico, ni agenda, ni servicios no publicados) → y solo entonces escribir. Información
+y límites, no instrucciones de qué pedir; devuelve además «qué le conviene a esta persona ahora».
+Visor a tres columnas (código · modelo con contexto de producción · modelo libre) y el veredicto
+admite «el modelo libre». `sombraDelTurno` calcula las dos variantes en vivo; `sombra:libre` calcula
+solo la libre sobre las filas de producción ya guardadas, sin rejugar el evaluador.
+**Primera lectura de la libre (33 turnos, haiku, ~$0,18 en tres pases):** 18 de 33 distintas del
+código, 20 de 33 distintas de la sombra con contexto — es OTRA cosa, no una redacción distinta.
+Actos de la libre: atender 8 · reconocer 8 · recoger 7 · cerrar 6 · parar 2 · acompañar 1 ·
+contestar 1. Donde Simon había marcado «ninguna de las dos» o «hay que derivar», la libre hace lo que
+sus notas pedían: Nuria t2 y t3 → «atender» (que la vea el doctor, no perseguir una cita que ya
+tiene), Sonia t1 → «atender», Elena t3 → «parar». Y donde había marcado «el código tenía razón»
+(Carmen t1, Dani t4) la libre también se aparta del código — la lectura sigue siendo suya. Dos
+turnos sin libre (Dani t2, Lucía hija de Carmen t3): el modelo no contestó en 20 s dos veces.
+Dos hallazgos de robustez por el camino, arreglados: el pool de pg no tenía oyente de `error` y una
+conexión ociosa cortada por el pooler TUMBABA el proceso entero (`client.ts`, §9); y el script del
+fixture reintenta por turno en vez de morir con la fila a medias.
+

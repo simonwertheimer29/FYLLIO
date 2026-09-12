@@ -459,11 +459,12 @@ function renderObjetivos(objetivos: readonly ObjetivoAgente[]): string {
   return `OBJETIVOS ABIERTOS (en orden de prioridad):\n${partes.join("\n")}`;
 }
 
-export function renderEntrada(e: EntradaEvaluador): {
-  texto: string;
-  truncado: boolean;
-} {
-  const { hilo, truncado, omitidos } = truncarHilo(e.hilo);
+/** LOS HECHOS del caso, en líneas (fecha y calendario, persona, presupuestos,
+ *  pagos, opt-out, identidad, red, señales, espera). Extraído de renderEntrada
+ *  el 11-09 SIN cambiar un byte de su salida, para que la SOMBRA LIBRE
+ *  (sombra.ts) pueda dar al modelo los mismos hechos SIN los objetivos:
+ *  una construcción, un sitio (§25). */
+export function lineasDeHechos(e: EntradaEvaluador): string[] {
   const lineas: string[] = [];
 
   // La fecha, para que «el viernes» sea un día y no una interpretación. Y el
@@ -541,6 +542,15 @@ export function renderEntrada(e: EntradaEvaluador): {
       `ESPERA VIGENTE: la persona pidió que no se le contactara hasta el ${e.esperaVigente.hasta}${e.esperaVigente.motivo ? ` — dijo: ${e.esperaVigente.motivo}` : ""}. Tú respondes igualmente (responder no es contactar); juzga en "respondeAlMotivoDeEspera" si este mensaje RESUELVE aquello.`,
     );
   }
+  return lineas;
+}
+
+export function renderEntrada(e: EntradaEvaluador): {
+  texto: string;
+  truncado: boolean;
+} {
+  const { hilo, truncado, omitidos } = truncarHilo(e.hilo);
+  const lineas: string[] = lineasDeHechos(e);
   // Fase D grupo 2 — lo publicado, ANTES de los objetivos: es contexto de
   // «qué puedes afirmar», no de «qué persigues». Vacío → ni una línea.
   const publicado = renderConocimiento(e.conocimiento);

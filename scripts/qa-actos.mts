@@ -69,6 +69,9 @@ console.log("\n3 · parsearSombra: el JSON de la sombra");
   ok("JSON roto → null", parsearSombra("{\"situacion\": ") === null);
   const sinPorQue = parsearSombra(JSON.stringify({ situacion: "s", acto: "parar", mensaje: "m", porQue: "   " }));
   ok("porQue en blanco → null (no se inventa)", sinPorQue?.porQue === null && sinPorQue.acto === "parar");
+  const libre = parsearSombra(JSON.stringify({ situacion: "s", conviene: "Que la vea el doctor hoy.", acto: "atender", mensaje: "m" }));
+  ok("variante libre: «conviene» se lee; sin porQue → null", libre?.conviene === "Que la vea el doctor hoy." && libre.porQue === null && libre.acto === "atender");
+  ok("sin «conviene» → null", sinPorQue?.conviene === null);
 }
 
 console.log(fallos ? `\n✗ ${fallos} fallo(s)` : "\n✓ qa:actos en verde");
