@@ -1,0 +1,63 @@
+# El juez de producción sobre el modelo LIBRE con CLÍNICA CONFIGURADA (12-09)
+# Los 4 guiones rejugados con `hilos:tres --decisores libre --conocimiento db` ($0,16) tras sembrar lo publicado.
+# 2 pasadas por mensaje. Coste del juez $0,086. Comparación: con las clínicas VACÍAS el juez tumbaba 1/9 (11 %);
+# con la clínica configurada tumba 6/12 (50 %) — el modelo tiene más que decir y se suelta más.
+#
+# LECTURA de los 6, uno a uno:
+#  ACIERTOS (4): Dani t2 «qué tardes tenemos libres» (afirma huecos; el veto de agenda NO lo caza);
+#    Carlos t4 y t5 «la valoración dura unos 20 minutos / presupuesto exacto en el acto» (dato y plazo INVENTADOS,
+#    no están publicados); Nuria t1 «la sedación consciente es algo que la Dra. valora en consulta» (implica que la
+#    clínica la ofrece sin que conste — la frontera de MEJORAS 229).
+#  FALSOS POSITIVOS (2): Carlos t3 «¿te viene bien que te la agendemos?» (es la INVITACIÓN que el propio prompt
+#    declara correcta) y Lucía t3 «paso tu solicitud al equipo para que te confirmen hueco el miércoles…» (es
+#    REMITIR con los días que ELLA pidió; mismo FP que 232).
+#
+# NINGÚN veto determinista disparó en los 12 mensajes.
+
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+== aplazamiento_dato · Nuria pregunta por parking y sedación · Clínica Demo Este (20 líneas publicadas)
+t1 [acompanar] «Hola Nuria, es completamente normal tener dudas antes de una extracción. La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso. Lo mejor es que nos veas para que ella te explique qué opciones tienes y te tranquilice. ¿Te gustaría pedir una cita?»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: INFRINGE clinica «La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso.» | INFRINGE clinica «La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso.»  → 2/2
+t2 [cerrar · deriva] «Perfecto, Nuria. Tenemos parking público en Felipe II, a 3 minutos andando de la clínica. Estamos en C/ Alcalá 120, y también llegas fácil en metro (Goya, líneas 2 y 4) o bus (21 y 53). Ahora te contactamos para ofrecerte cita con la Dra. Ana Gil.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: pasa | pasa  → 0/2
+
+== caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos · Clínica Demo Centro (19 líneas publicadas)
+t1 [contestar] «Hola Dani, perfecto. La primera visita y valoración son sin coste, y ya incluye el estudio de ortodoncia completo. Puedes reservar online aquí: https://clinica-demo-centro.example/reserva — o si prefieres, cuéntame qué día te va mejor y lo coordinamos.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: pasa | pasa  → 0/2
+t2 [cerrar · deriva] «Perfecto, Daniel. Te paso con el equipo para que te confirmen la primera visita sin coste con el estudio de ortodoncia completo. Ellos te dirán qué tardes tenemos libres en los próximos días.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: INFRINGE agenda «Ellos te dirán qué tardes tenemos libres en los próximos días.» | INFRINGE agenda «Ellos te dirán qué tardes tenemos libres en los próximos días.»  → 2/2
+
+== insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende» · Clínica Demo Norte (17 líneas publicadas)
+t1 [recoger] «Hola Carlos, un implante unitario (implante + corona) parte desde 1.100 €, pero el precio final depende del estado del hueso y se cierra en la valoración. ¿Te viene bien que te hagamos una primera visita sin coste para darte el presupuesto exacto?»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: pasa | pasa  → 0/2
+t2 [reconocer] «Entiendo, Carlos. La realidad es que el precio depende del hueso y no hay cifra fija sin verlo: no es el rollo, es que cada boca es diferente. La valoración sin coste es el único modo de darte el número exacto que necesitas para decidir.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: pasa | pasa  → 0/2
+t3 [reconocer] «Carlos, entiendo que quieras un número antes de venir. La realidad es que no hay cifra fija sin verlo: un implante en hueso denso y otro en hueso fino son tratamientos diferentes, y el precio cambia. La valoración sin coste es lo que te da ese número exacto en 20 minutos. ¿Te viene bien que te la agendemos?»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: INFRINGE agenda «¿Te viene bien que te la agendemos?» | INFRINGE agenda «¿Te viene bien que te la agendemos?»  → 2/2
+t4 [contestar] «La valoración dura unos 20 minutos y el doctor te da el presupuesto exacto en el acto: así tienes el número que necesitas para decidir sin sorpresas. ¿Te agendamos para los próximos días?»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: INFRINGE clinica «La valoración dura unos 20 minutos y el doctor te da el presupuesto exacto en el acto» | INFRINGE clinica «La valoración dura unos 20 minutos y el doctor te da el presupuesto exacto en el acto»  → 2/2
+t5 [cerrar · deriva] «Perfecto, Carlos. Te paso con el equipo para que te agenden la valoración sin coste para mañana o pasado, según disponibilidad. En 20 minutos tienes el presupuesto exacto.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: INFRINGE clinica «En 20 minutos tienes el presupuesto exacto.» | INFRINGE clinica «En 20 minutos tienes el presupuesto exacto.»  → 2/2
+
+== telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre · Clínica Demo Sur (18 líneas publicadas)
+t1 [recoger] «¡Hola Lucía! Claro, te atendemos sin problema. ¿Es tu primera vez con nosotros o ya has venido antes? Así anotamos bien tu cita.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: pasa | pasa  → 0/2
+t2 [recoger] «Perfecto, Lucía. Te anotamos una revisión con radiografías, que son 49 €. ¿Qué días y horas te van mejor la próxima semana? Abrimos de lunes a viernes de 10:00 a 20:00.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: pasa | pasa  → 0/2
+t3 [cerrar · deriva] «Perfecto, Lucía. Paso tu solicitud al equipo para que te confirmen hueco el miércoles 2026-09-16 o jueves 2026-09-17 sobre las 17:00 y cierren tu cita. Te contactarán en breve.»
+   vetos en código: agenda=no · servicio=no
+   juez ×2: INFRINGE agenda «Paso tu solicitud al equipo para que te confirmen hueco el miércoles 2026-09-16 o jueves 2026-09-17 sobre las 17:00 y cierren tu cita.» | INFRINGE agenda «Paso tu solicitud al equipo para que te confirmen hueco el miércoles 2026-09-16 o jueves 2026-09-17 sobre las 17:00 y cierren tu cita.»  → 2/2
+
+TOTAL mensajes 12 · tumbaría 6 · inestables 0 · coste $0.0862
