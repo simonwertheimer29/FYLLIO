@@ -99,4 +99,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   vacías** — 4 aciertos (huecos afirmados, «20 minutos» inventado ×2, sedación no publicada) y 2 falsos positivos
   (la invitación «¿te agendamos?» y remitir con los días que pidió ella) · 0 inestables · log en
   `2026-09-12-juez-libre-clinica-configurada.txt` · ac. **~$4,07** ($0,91 de los $3 del tope propio)
+- 2026-09-12 · **PASO 2 — diagnóstico de la regresión de la sedación**: turno 1 de Nuria × 5 variantes de lo publicado × 3
+  repeticiones · **$0,10 medido** ($0,052 con la entrada montada a mano, que NO reprodujo la frase y se descartó, + $0,052
+  con la construcción del runner, que la reprodujo 3/3) · hacen falta LAS DOS cosas juntas: el nombre de doctora publicado
+  y una nota «se valora en consulta» · log en `2026-09-12-diagnostico-sedacion.txt` · ac. **~$4,17**
+- 2026-09-12 · Verificación de los falsos positivos con el juez VIVO tras el perdón (6 casos × 2 pasadas) · **$0,03 medido** ·
+  los 4 falsos positivos pasan, los 2 aciertos siguen cayendo · ac. **~$4,20** ($1,04 de los $3 del tope propio)
+- 2026-09-12 · Censo de vetos sobre 79 mensajes reales (determinista, **$0** ) · antes 2/79 y cero sobre el modelo libre;
+  después 6/79, todas aciertos · log en `2026-09-12-censo-vetos.txt`
 - 2026-09-12 · EL JUEZ SOBRE EL DECISOR CON CONTEXTO (mismo diagnóstico, para comparar y auditar guardas): 17 mensajes, 1 pasada · **$0,05 medido** (anunciado ≈ $0,05) · tumba 7/17 (41 %) · SE LE ESCAPA «un implante puede rondar desde 800 hasta 2500 euros» (regla 2) · «te agendamos para el martes» lo caza el juez pero NO el veto de reserva (solo 1ª persona singular) · «abrimos sábados» solo cae por «podemos cerrar tu cita» · log en `2026-09-12-juez-sobre-contexto.txt` · ac. **~$3,74** ($0,58 de los $3 del tope propio)

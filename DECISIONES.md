@@ -4804,3 +4804,25 @@ seguido diciendo que todo iba bien. Declaradas las seis y borrado el módulo, qu
 `qa:sin-fallbacks` al quitar la variable. Queda una deuda menor: el vocabulario de clientes está
 ahora en tres sitios (`cliente-contexto`, `db/context.ts:23`, `cola/qstash.ts:32`); el nuevo
 `esCliente` vive junto al tipo y los otros dos deberían pasar por él.
+
+## 2026-09-12 · Las guardas del modelo libre, y el perdón de los falsos positivos del juez
+El experimento de los cuatro guiones se había jugado sobre clínicas VACÍAS, así que «no consta» era la
+respuesta a todo. Con lo publicado sembrado (`demo-conocimiento.mjs`, `npm run demo:conocimiento`) y los
+cuatro guiones rejugados solo con el modelo libre, el juez pasó de tumbar 1/9 a **6/12** — el modelo tiene
+más que decir y se suelta más. De esos 6: 2 aciertos, 3 falsos positivos, y 1 que se arregla quitando la
+frase, no el mensaje. **El problema mayor del juez no es lo que se le escapa: es que tumba lo correcto.**
+**El censo de 79 mensajes reales contestó la pregunta del veto:** disparaba 2 veces, y CERO sobre los 12
+del modelo libre. Cazaba las frases EXACTAS de agosto; el prompt aprendió a no decirlas y el modelo dice lo
+mismo con otras palabras. Toda la seguridad se apoyaba en el juez, que es un modelo. Ahora `vetoDeterminista`
+(un solo sitio) cubre seis familias sacadas de mensajes reales — precio inventado en rango (el peor, y el
+que el juez DEJABA PASAR), plazo y duración, «lo valora la doctora», reservar en plural con día, acción
+imposible y pedir un dato que no se pide: **6/79, todas aciertos, cero falsos positivos.**
+**La regresión de la sedación se diagnosticó antes de tocar nada** y hacen falta DOS datos juntos: un nombre
+de doctora publicado y una nota «se valora en consulta» (la plantilla). Por separado ninguno la produce; los
+dos son inocentes y toda clínica real publica ambos — por eso la guarda va en código y no en cómo esté
+redactado el conocimiento. Reproducido 3/3 con la construcción del runner (el primer intento, con la entrada
+montada a mano, no reprodujo la frase: §25 otra vez).
+**Y los falsos positivos del juez también se corrigen en código** (`falsoPositivoDelJuez`, contado en
+`perdonado`): la invitación «¿te viene bien que te la agendemos?», el equipo informando del hueco, remitir
+con los días que pidió ella y remitir nombrando el servicio (MEJORAS 232). Se escribieron primero en el
+prompt y haiku siguió tumbando dos: la obediencia no aguanta, la misma lección del veto de agenda del 23-08.
