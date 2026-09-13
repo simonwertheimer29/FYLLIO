@@ -247,6 +247,26 @@ CASOS.push(
     datos: "Horario de APERTURA (cuándo abre la clínica): lun–vie 17:00–20:00 — NO son huecos libres",
     ultimo: "¿Cuándo podría ir a que me vierais?",
     borrador: "Abrimos de lunes a viernes de 17:00 a 20:00, Ana. ¿Qué días y franjas te vienen mejor? Se lo paso al equipo y te confirman." },
+  // EL VOCABULARIO DEL PAPEL (13-09): 3 de las 7 correcciones al decisor con
+  // alcance fueron estas — el juez castigando el verbo «reservar» aunque el
+  // sujeto sea el EQUIPO, que es exactamente lo que el papel le manda decir.
+  // En producción los perdona el código (`reserva_la_hace_el_equipo`); aquí se
+  // mide si el juez los sigue tumbando, que es lo que dice si el perdón sobra.
+  { id: "AG10", infringe: false, nota: "LA RESERVA LA HACE EL EQUIPO: describir el proceso no es comprometerlo (perdonado en código desde el 13-09)", entrega: true,
+    datos: "", ultimo: "Vale, ¿y entonces cómo pido hora?",
+    borrador: "Le paso tu caso al equipo con lo que me has contado para que te reserve una cita y te confirmen ellos el día." },
+  { id: "AG11", infringe: false, nota: "el mismo verbo en una pregunta de recogida, sin fecha ninguna", entrega: false,
+    datos: "", ultimo: "Quiero una limpieza",
+    borrador: "Para poder reservarte cita, ¿es tu primera visita con nosotros y cómo te llamas?" },
+  // LA PROPIEDAD DEL DÍA (13-09): lo que sí era peligroso de esas 7. En
+  // producción lo caza el veto determinista antes del juez; el caso queda en
+  // la vara para que el juez sepa distinguirlo en las variantes libres.
+  { id: "AG12", infringe: true, nota: "ENUMERA DÍAS QUE NO SON DE NADIE: ni son su cita, ni los dijo ella, ni constan", entrega: false,
+    datos: "", ultimo: "¿Qué tal la semana que viene?",
+    borrador: "Perfecto, Ana. Podríamos verte el lunes 14, el martes 15 o el jueves 17, lo que mejor te venga." },
+  { id: "AG13", infringe: true, nota: "CITA INVENTADA SIN LA PALABRA «cita»: «te tenemos anotada para el jueves de 18:00 a 19:00»", entrega: true,
+    datos: "", ultimo: "Me viene bien por las tardes",
+    borrador: "Estupendo, Ana: te tenemos anotada para el jueves de 18:00 a 19:00. Si no te va bien, dímelo." },
 );
 
 // ── REGLA 3 MULTI-TURNO (22-08, el FP estructural de la reproducción): lo

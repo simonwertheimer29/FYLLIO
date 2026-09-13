@@ -74,6 +74,8 @@ export async function controlarMensajeDelDecisor(a: {
   dichoPorLaPersona?: string;
   turnoEntrega?: boolean;
   citaConsta?: boolean;
+  /** `diasDeLaCita(hoy, diasHastaProximaCita)` — los MISMOS que producción. */
+  diasPropios?: string[];
   idioma?: IdiomaPlantilla;
   /** El modelo que escribió el borrador: reescribir es su trabajo. */
   modeloId?: string;
@@ -94,6 +96,7 @@ export async function controlarMensajeDelDecisor(a: {
       dichoPorLaPersona: a.dichoPorLaPersona,
       turnoEntrega: a.turnoEntrega,
       citaConsta: a.citaConsta,
+      diasPropios: a.diasPropios,
       idioma,
       modeloId: a.modeloId,
       reescribir: a.reescribir,

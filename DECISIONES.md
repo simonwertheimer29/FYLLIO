@@ -5248,3 +5248,39 @@ orden + «pides UNA cosa» → 0 a tiempo, 2 tarde (+2), 3 podas por pedir el te
 límite de preguntas → 1 a tiempo, 1 tarde, 1 sin entregar, 0 podas de teléfono · + «ya no puedo
 avanzar yo» → **2 a tiempo, 1 tarde, 0 sin entregar**. Cada vuelta quitó una licencia, ninguna añadió
 una prohibición.
+
+## 2026-09-13 · Las firmas de agenda no eran el falso positivo: era el juez, y lo que faltaba era la PROPIEDAD
+El punto 2 del orden decía «firmas de agenda a sombra». Antes de moverlas se comprobó cuál de las
+dos capas tumbaba realmente las tres frases del papel, y la respuesta cambia el arreglo: **ninguna
+firma determinista las caza**. «Le paso tu caso al equipo para que te reserve una cita» y «para
+poder reservarte cita, ¿es tu primera visita?» pasan el veto de código enteras — quien las tumbó fue
+**el JUEZ**, con su categoría `agenda`. Y en la dirección contraria: **«te tenemos anotada para el
+jueves de 18:00 a 19:00» —la cita inventada del 13-09— también pasa el veto entero**, porque
+`FIRMAS_CITA_CONFIRMADA` exige la palabra «cita» y ahí no está. Mandar las firmas a sombra habría
+perdido lo poco que sí cazan sin tocar el falso positivo. Así que el punto 2 se hace donde vive cada
+problema, no donde se suponía:
+**(a) LA PROPIEDAD DEL DÍA Y DE LA HORA** (`vetoPropiedadDeterminista`), guarda de HECHO y no de
+verbo: el agente solo puede nombrar un día que ya sea de alguien — su cita (`diasDeLaCita`, que
+convierte `diasHastaProximaCita` en nombre de día, ISO y d/m), suyo porque ella lo dijo en el hilo, o
+publicado. Lo demás lo acaba de inventar. Caza las dos correcciones peligrosas de la medida y deja
+pasar las tres del papel (no llevan día). Plantar la fecha dentro de una pregunta cuenta igual
+(«¿te viene bien el martes?» es un hueco afirmado de perfil); preguntar sin nombrarla sigue libre.
+Dos puertas para no vetar por ignorancia: la oración tiene que hablar de agenda (un «hoy mismo lo
+paso al equipo» es un PLAZO, otra familia) y el HORARIO DE APERTURA está exento. **La hora solo se
+comprueba cuando se sabe cuál es la suya** — hoy la entrada nunca trae la hora de la cita, así que
+compararla sería vetar «tu cita es el jueves a las 10, como quedamos»; en cuanto `diasPropios` traiga
+la hora, se enciende sola.
+**(b) EL PERDÓN `reserva_la_hace_el_equipo`**, que es el «no actúa, cuenta» del punto 2 puesto en la
+capa correcta: el juez marca `agenda` y el código lo perdona y lo CUENTA (§9) cuando el sujeto no es
+él, no afirma hueco y **no hay ninguna fecha dentro** — con una fecha decide la propiedad, no el
+perdón. Si este contador sube, el prompt del juez se degradó; si se va a cero, el bloque sobra.
+**(c) LA PODA NO PUEDE LLEVARSE LA ÚNICA PREGUNTA** (`era_la_unica_pregunta`). La otra mitad de
+`era_la_respuesta`: aquella protege la respuesta a lo que preguntó ELLA, esta la pregunta con la que
+avanza el caso. Un mensaje podado sin ninguna interrogación sale correcto y estéril, y el turno
+siguiente empieza de cero — tardanza fabricada por el control, justo la que se está midiendo desde
+el 12-09. Va a reescritura, que sí sabe decir lo mismo sin la infracción y con la pregunta dentro.
+**Un arreglo de traza de propina:** el payload del turno copiaba a mano la lista de motivos de poda,
+así que un motivo nuevo se quedaba fuera sin que nada fallara. Ahora importa `MotivoPoda` (§25).
+Todo determinista y probado sin modelo: `qa:conocimiento` E3 (10 casos de propiedad + 2 del perdón) y
+G6c (3 de la única pregunta), en verde. En la vara del juez quedan AG10–AG13 —los dos del papel y los
+dos peligrosos— **sin medir todavía**: falta la pasada de `qa:juez` y la de los 4 guiones.

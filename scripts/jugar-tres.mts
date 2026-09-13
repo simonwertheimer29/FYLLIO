@@ -73,7 +73,7 @@ import { construirEntradaDePrueba, relojDelBanco, type EscenarioPrueba, type Tur
 import { avanzarSesion, SESION_NUEVA, type EstadoSesionPrueba } from "../app/lib/agente/sesion-prueba";
 import { guardarHiloTres, pedirSombra, versionSombra } from "../app/lib/agente/sombra";
 import { controlarMensajeDelDecisor } from "../app/lib/agente/control-decisor";
-import { MODELO_JUEZ } from "../app/lib/agente/juez-borrador";
+import { diasDeLaCita, MODELO_JUEZ } from "../app/lib/agente/juez-borrador";
 import { renderConocimiento } from "../app/lib/agente/conocimiento";
 import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { hashVersion } from "../app/lib/agente/version";
@@ -443,6 +443,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
           // sin esto, la regla de la promesa juzga contra otro turno.
           turnoEntrega: porActo || hecho != null || ev.aplazamientos.length > 0 || ev.casoCompleto === true,
           citaConsta: entrada.diasHastaProximaCita != null,
+          diasPropios: diasDeLaCita(entrada.hoy ?? new Date().toISOString().slice(0, 10), entrada.diasHastaProximaCita),
           idioma: ev.idioma ?? "es",
           modeloId: s?.modelo,
           descartesSeguidosAntes: st.descartesSeguidos,
