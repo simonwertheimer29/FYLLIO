@@ -3094,6 +3094,34 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 240. Legal · la política de privacidad publicada es PROVISIONAL y no puede sobrevivir al primer cliente
+  **Zona:** `app/(public)/privacidad/page.tsx` (URL `/privacidad`, publicada el 13-09-2026). · **Qué
+  pasa:** existe por una razón acotada — Meta exige una URL pública de política de privacidad para
+  publicar la app, y sin app publicada no llega ningún mensaje real al webhook. Lo que dice es
+  verdad (cada afirmación se corresponde con lo que hace el código hoy: los proveedores son los siete
+  que tratan datos de verdad, el borrado describe exactamente lo que hace `contacto/supresion.ts`, y
+  donde no hay plazo se dice que no hay plazo en vez de inventarlo). Pero **no la ha revisado un
+  abogado** y le faltan cuatro cosas que solo puede decidir la consulta legal: (1) el **plazo** de
+  conservación —hoy `RETENCION_CONVERSACIONES_DIAS` no tiene valor y el cron de caducidad no borra
+  nada, y el art. 5.1.e exige un plazo—; (2) la **base jurídica** del tratamiento de datos de salud
+  (art. 9), que la página delega en la clínica como responsable, lo cual es correcto pero deja el
+  hueco abierto; (3) la **forma jurídica y el NIF** del responsable, que no se ponen porque no hay
+  sociedad constituida; (4) si la transferencia a **Anthropic** necesita algo más que su DPA, y si
+  hay que exigir retención cero (ZDR) en la API, que hoy **no está activada**. A eso se suma que el
+  **contrato de encargado del tratamiento (art. 28)** con la clínica todavía no existe. ·
+  **Principio:** §1 misión y honestidad del producto — una política que promete lo que el sistema no
+  cumple es peor que no tenerla, y §2: el paciente tiene que entender qué se hace con sus mensajes
+  sin leer un contrato. · **Propuesta:** sustituir la página por la versión que salga de
+  [`CONSULTA-LEGAL-AGENTE.md`](CONSULTA-LEGAL-AGENTE.md) §1 y §2, y con ella declarar
+  `RETENCION_CONVERSACIONES_DIAS` para que la caducidad por plazo empiece a ejecutarse de verdad. ·
+  **CONDICIÓN DE CIERRE (es lo que importa):** esto **no** se cierra revisando el texto. Se cierra
+  cuando la versión legal REEMPLAZA la página, y tiene que pasar **antes de que entre el primer
+  cliente real**. Hoy no hay ninguno, así que no hay nadie a quien la página pueda engañar; el día
+  que una clínica firme, sus pacientes leen esto y la clínica responde de ello como responsable del
+  tratamiento. · **Impacto:** ALTO y con condición — no bloquea la prueba propia por WhatsApp (es
+  justo lo que la desbloquea), bloquea el primer cliente. · **Esfuerzo:** la consulta legal + 1-2 h
+  de redacción. · **Fecha:** 2026-09-13 · 🔴
+
 ## 239. Agente · el borrador que envía la coordinadora sigue muriendo entero: el mismo control, dos comportamientos
   **Zona:** `borrador-entrada.ts` (la sugerencia del modo A que una persona manda a mano). · **Qué
   pasa:** desde hoy, el borrador que el agente envía solo pierde la frase que infringe (poda) y, si
