@@ -116,4 +116,10 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   estaba caducado** — se escribió en agosto, cuando confirmar una cita no se juzgaba, y la doctrina cambió ayer
   con el caso de Nuria; se pasa al lado correcto y se le añade su pareja L8b, verificadas con el juez vivo por
   $0,01 sin repetir la pasada · log en `2026-09-12-juez-232-dato-inventado.txt` · ac. **~$4,43**
+- 2026-09-13 · **EL CONTROL NUEVO SOBRE CONVERSACIONES** (encargo: «mide sobre conversaciones») · **$0,53 medido**
+  (anunciado ≈ $0,56 típico / $1,13 tope): rejugar los 4 guiones con `codigo` y `libre` y clínica configurada
+  **$0,33**, + `control:hilos` sobre libre (13 msj) **$0,064**, sobre codigo (13 msj) **$0,056**, y sobre los
+  MISMOS 12 mensajes del 12-09 **$0,038 ×2** (la 1ª encontró el bug del troceo por «Dra.»; la 2ª, con el arreglo) ·
+  **LA CIFRA: de 6/12 tumbados a 0/12 muertos** · log en `2026-09-13-control-sobre-conversaciones.txt` ·
+  ac. **~$4,96** ($1,57 de los $3 del tope propio)
 

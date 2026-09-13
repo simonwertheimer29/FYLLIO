@@ -226,7 +226,7 @@ export type EvaluacionTurno = {
      *  lo trajo aquí es lo que dice si la poda está trabajando o se apagó
      *  sola (`no_localizada` subiendo = la frase del juez dejó de ser
      *  citable y nadie se entera). */
-    poda?: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando";
+    poda?: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando" | "queda_residuo";
     /** 12-09 — se intentó reescribir y la reescritura TAMBIÉN infringió. Es
      *  el descarte más caro que existe (dos llamadas al juez y una al
      *  generador): si esto es frecuente, el prompt del generador es el

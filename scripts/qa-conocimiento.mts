@@ -498,6 +498,38 @@ console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la fr
       p.motivo === "queda_colgando", p.podado ? p.texto : "");
   }
 
+  // G6b · EL MENSAJE QUE SEGUÍA AFIRMANDO LO VETADO (13-09, hallazgo de la
+  //       medición sobre conversaciones). «La Dra. Ana Gil valora en consulta»
+  //       se partía en dos por el punto de la abreviatura: se quitaba «…la
+  //       Dra.» y quedaba «Ana Gil valora en consulta según cada caso» —
+  //       justo lo que se quería quitar—, en un mensaje que parecía revisado.
+  {
+    const b = "Hola Nuria, es normal tener dudas. La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso. ¿Te gustaría pedir cita?";
+    const f = "La sedación consciente es algo que la Dra. Ana Gil valora en consulta según cada caso.";
+    const p = podarBorrador(b, f, { ultimoEntrante: "¿Hacéis sedación consciente?", publicado: PUBLICADO });
+    ok("«Dra.» no parte la oración: se va entera o no se va",
+      !p.podado || !p.texto.includes("valora en consulta"), p.podado ? p.texto : p.motivo);
+    // La INVARIANTE, que es lo que de verdad protege: un texto podado nunca
+    // conserva un trozo largo de la frase que se fue. La red de seguridad de
+    // `podarBorrador` es de cinturón y tirantes —con el troceo arreglado casi
+    // no se alcanza—, así que se afirma el resultado, no la rama.
+    const casos: [string, string, string][] = [
+      [b, f, "¿Hacéis sedación consciente?"],
+      ["Hola Ana. La valoración dura unos 20 minutos y el Dr. Pérez te da el presupuesto en el acto. ¿Te agendamos?", "La valoración dura unos 20 minutos y el Dr. Pérez te da el presupuesto en el acto.", "¿Cuánto dura?"],
+      ["Perfecto. Te la reservo para el martes a las 10. Un asesor te confirma todo.", "Te la reservo para el martes a las 10.", "¿Qué día tenéis?"],
+    ];
+    const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+    const conResiduo = casos.filter(([bb, ff, uu]) => {
+      const r = podarBorrador(bb, ff, { ultimoEntrante: uu, publicado: PUBLICADO });
+      if (!r.podado) return false;
+      const nf = norm(ff), nt = norm(r.texto);
+      for (let i = 0; i + 30 <= nf.length; i++) if (nt.includes(nf.slice(i, i + 30))) return true;
+      return false;
+    });
+    ok("INVARIANTE: lo podado nunca conserva 30 caracteres seguidos de la frase que se fue",
+      conResiduo.length === 0, conResiduo.map(([, ff]) => ff.slice(0, 40)).join(" | "));
+  }
+
   // G7 · el detector de cortesía, que es quien decide si queda mensaje.
   {
     ok("«Gracias por tu mensaje, Ana.» es cortesía", esSoloCortesia("Gracias por tu mensaje, Ana."));

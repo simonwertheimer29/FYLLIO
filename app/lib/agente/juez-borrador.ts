@@ -707,8 +707,25 @@ export function vetoDeterminista(
 const paraCotejar = (s: string) =>
   normalizarTexto(s).replace(/[^a-z0-9]+/g, " ").trim();
 
-const partirOraciones = (t: string): string[] =>
-  t.split(/(?<=[.!?…])\s+/).filter((s) => s.trim() !== "");
+/** Abreviaturas con punto que NO terminan oración. Sin esto, «la Dra. Ana Gil
+ *  valora en consulta» se parte en dos por el punto de «Dra.» y podar la
+ *  primera mitad deja la segunda —que es justo la afirmación que se quería
+ *  quitar— suelta en el mensaje. Medido el 13-09 sobre los mensajes reales de
+ *  Nuria: el texto podado seguía afirmando lo vetado. */
+const ABREVIATURAS = /(?:\b(?:dr|dra|sr|sra|srta|d|dña|av|avda|c|ctra|núm|num|pág|pag|tel|ext|apdo|s|ss|aprox|máx|max|mín|min|etc|ej|p\.?\s?ej|vs|ud|uds)|\b[a-záéíóúñ])\.$/i;
+
+const partirOraciones = (t: string): string[] => {
+  const trozos = t.split(/(?<=[.!?…])\s+/).filter((x) => x.trim() !== "");
+  const out: string[] = [];
+  for (const trozo of trozos) {
+    const previo = out[out.length - 1];
+    // Se pega al anterior si el anterior acababa en abreviatura. Una inicial
+    // suelta («A.») cuenta igual: es un nombre partido, no una oración.
+    if (previo != null && ABREVIATURAS.test(previo.trim())) out[out.length - 1] = `${previo} ${trozo}`;
+    else out.push(trozo);
+  }
+  return out;
+};
 
 /** Palabras que por sí solas no dicen nada: saludo, gracias, cierre. Una
  *  oración es cortesía si TODAS sus palabras están aquí salvo como mucho una
@@ -754,7 +771,7 @@ export type Poda =
       /** Por qué NO se pudo podar. Va al payload del turno: si «no_localizada»
        *  sube, la frase del juez dejó de ser citable y la poda se está
        *  apagando sola sin que nadie lo note (§9). */
-      motivo: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando";
+      motivo: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando" | "queda_residuo";
       quitada: string | null;
     };
 
@@ -766,6 +783,19 @@ export type Poda =
  *  límite conocido, y la reescritura es su sitio. */
 const ARRANQUE_QUE_SE_APOYA =
   /^(?:eso|esa|ese|esto|esos|esas|en ese caso|en esa|por eso|tambien|ademas|lo mismo|igualmente|ahi|entonces|de paso|ese dia|esa hora|ese precio|ese importe)\b/;
+
+/** ¿Sobrevive en el texto un trozo largo de la frase vetada? Ventana de 30
+ *  caracteres normalizados: por debajo se cazarían coincidencias inocentes
+ *  («te lo confirma el equipo» aparece en media conversación). */
+function residuoDeLaFrase(texto: string, frase: string | null): boolean {
+  const f = paraCotejar(frase ?? "");
+  const t = paraCotejar(texto);
+  if (f.length < 30 || t === "") return false;
+  for (let i = 0; i + 30 <= f.length; i++) {
+    if (t.includes(f.slice(i, i + 30))) return true;
+  }
+  return false;
+}
 
 /** Quita del texto la oración (o las oraciones) que contienen la frase.
  *  `null` = la frase no se localiza, y entonces no se toca nada: podar por
@@ -828,6 +858,12 @@ export function podarBorrador(
   if (vetoDeterminista(texto, publicado, vetoOpts) != null) {
     return { podado: false, motivo: "sigue_vetado", quitada };
   }
+  // LA RED DE SEGURIDAD (13-09): si un trozo sustancial de la frase vetada
+  // SIGUE en el texto, no se poda. Enumerar abreviaturas ayuda pero no cierra
+  // el caso —siempre habrá una que falte, y el fallo es el peor posible: un
+  // mensaje que parece revisado y sigue afirmando lo que no puede—. Esto sí
+  // lo cierra, porque mira el resultado en vez de confiar en el troceo.
+  if (residuoDeLaFrase(texto, frase)) return { podado: false, motivo: "queda_residuo", quitada };
   if (texto.trim() === "") return { podado: false, motivo: "era_todo", quitada };
   if (partirOraciones(texto).every(esSoloCortesia)) return { podado: false, motivo: "solo_cortesia", quitada };
   if (siguientes.some((s) => ARRANQUE_QUE_SE_APOYA.test(paraCotejar(s)))) {
