@@ -19,14 +19,17 @@ import { Card } from "../../components/ui/Card";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill } from "../../components/ui/StatePill";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
-import { AlertTriangle, Flag, RefreshCw, ICON_STROKE } from "../../components/icons";
+import { AlertTriangle, Flag, Hourglass, RefreshCw, ICON_STROKE } from "../../components/icons";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import {
+  agregarTardanza,
   DECISORES,
   DEFINICION_ACTO,
   ETIQUETA_DECISOR,
   ETIQUETA_FIN,
+  fraseTardanza,
   PREFERIDOS_TRES,
+  tardanzaDe,
   type Decisor,
   type GuionTres,
   type HiloTres,
@@ -115,6 +118,8 @@ export function ConversacionesTres() {
         <EmptyState title="Todavía no hay conversaciones jugadas" hint="Se juegan con «npm run hilos:tres» (tres por guion; --estimar dice el coste antes)." />
       )}
 
+      {datos && guiones.length > 0 && <ComparadorTardanza guiones={guiones} />}
+
       {datos && guiones.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
           <aside className="space-y-2 lg:max-h-[calc(100vh-240px)] lg:overflow-y-auto lg:pr-1">
@@ -197,6 +202,7 @@ function Resumen({ hilo }: { hilo: HiloTres }) {
         {r.repeticiones > 0 ? ` · el paciente repitió ${r.repeticiones} ${r.repeticiones === 1 ? "vez" : "veces"}` : ""}
         {r.molestiaEn != null ? ` · molestia en el mensaje ${r.molestiaEn}` : ""}
       </p>
+      <Tarde hilo={hilo} />
       {r.motivo && <p className="text-xs text-[var(--color-muted)]">Motivo: {r.motivo}</p>}
       {r.detalleFin && <p className="text-xs text-[var(--color-muted)]">{r.detalleFin}</p>}
       <p className="text-xs text-[var(--color-muted)]">
@@ -204,6 +210,73 @@ function Resumen({ hilo }: { hilo: HiloTres }) {
         {r.aplazados.length ? ` · anotado: ${r.aplazados.join(", ")}` : ""}
       </p>
       <p className="text-[11px] text-[var(--color-muted)]">${r.costeUsd.toFixed(3)} · versión {hilo.version}</p>
+    </Card>
+  );
+}
+
+/** ENTREGA TARDÍA (13-09), por hilo. Los jugados antes de la métrica dicen
+ *  «sin medir»: un 0 ahí sería un dato inventado (§4 del estándar). */
+function Tarde({ hilo }: { hilo: HiloTres }) {
+  const t = tardanzaDe(hilo.resumen);
+  const malo = t.estado === "tarde" || t.estado === "nunca" || t.estado === "incoherente";
+  return (
+    <p className={`flex items-start gap-1.5 text-xs ${malo ? "text-[var(--color-warning)]" : "text-[var(--color-muted)]"}`}>
+      <Hourglass size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" />
+      <span>{fraseTardanza(t)}</span>
+    </p>
+  );
+}
+
+/** El mismo número sobre TODOS los guiones jugados, decisor a decisor: es la
+ *  comparación que no se ve mirando un hilo — quién sigue preguntando cuando
+ *  el caso ya estaba listo. */
+function ComparadorTardanza({ guiones }: { guiones: GuionTres[] }) {
+  const filas = DECISORES.map((d) => ({ decisor: d, a: agregarTardanza(guiones.map((g) => g.hilos[d])) })).filter((f) => f.a.hilos > 0);
+  if (filas.length === 0) return null;
+  const nadaMedido = filas.every((f) => f.a.medidos === 0 && f.a.sinContrato === 0);
+  return (
+    <Card padding="md" className="space-y-3">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+        <Hourglass size={13} strokeWidth={ICON_STROKE} />
+        Entrega tardía · mensajes con el caso ya listo
+      </div>
+      {nadaMedido ? (
+        <p className="text-sm text-[var(--color-muted)]">
+          Sin medir: estos hilos se jugaron antes de la métrica. Se llena en la próxima jugada («npm run hilos:tres»).
+        </p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-3">
+          {filas.map(({ decisor, a }) => (
+            <div key={decisor} className="space-y-1">
+              <div
+                className="text-xs font-medium text-[var(--color-foreground)]"
+                title={decisor === "codigo" ? "El código entrega en el mismo mensaje en que se cubre el objetivo: su cifra es 0 por construcción y sirve de referencia para las otras dos." : undefined}
+              >
+                {ETIQUETA_DECISOR[decisor]}
+              </div>
+              <div className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold tabular-nums text-[var(--color-foreground)]">
+                {a.medidos === 0 ? "sin medir" : `+${a.turnosDeMas}`}
+              </div>
+              {a.medidos > 0 && (
+                <p className="text-xs text-[var(--color-muted)]">
+                  {a.tarde} de {a.medidos} entregaron tarde · {a.aTiempo} en cuanto lo tuvieron todo
+                </p>
+              )}
+              {a.nunca > 0 && (
+                <p className="text-xs text-[var(--color-warning)]">
+                  {a.nunca} lo {a.nunca === 1 ? "tuvo" : "tuvieron"} todo y no {a.nunca === 1 ? "entregó" : "entregaron"} (+{a.turnosDeMasNunca})
+                </p>
+              )}
+              <p className="text-[11px] text-[var(--color-muted)]">
+                {a.sinContrato > 0 ? `${a.sinContrato} sin llegar a tenerlo todo · ` : ""}
+                {a.noMedidos > 0 ? `${a.noMedidos} sin medir · ` : ""}
+                {a.hilos} {a.hilos === 1 ? "hilo" : "hilos"}
+                {a.incoherentes > 0 ? ` · ${a.incoherentes} con la medida incoherente` : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

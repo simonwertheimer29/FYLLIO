@@ -273,6 +273,12 @@ export type ResumenTres = {
   causa: string | null;
   /** La entrega la forzó un HECHO (urgencia, queja, no legible), no el decisor. */
   porHecho: boolean;
+  /** ENTREGA TARDÍA (13-09): primer turno en que el caso ya se PODÍA entregar
+   *  — `casoCompleto` del evaluador, que corre en los tres decisores aunque
+   *  el mensaje lo escriba otro. `null` = el contrato del objetivo nunca se
+   *  cubrió; AUSENTE = hilo jugado antes de la métrica (no medido: no es 0).
+   *  Solo se mira hasta el turno de la entrega, así que nunca es posterior. */
+  pudoEn?: number | null;
   /** Con qué datos llegó el caso («cita.tratamiento_o_molestia: extracción»). */
   datos: string[];
   aplazados: string[];
@@ -301,6 +307,105 @@ export type HiloTres = {
    *  los hilos anteriores = fixture. */
   conocimientoDe?: "fixture" | "db";
 };
+
+// ─── entrega tardía (13-09) ────────────────────────────────────────────────
+// La pregunta que ninguna otra cifra del resumen contesta: cuando el caso ya
+// estaba listo para pasar a una persona, ¿cuántos mensajes más siguió
+// contestando el paciente? Se mide contra el MISMO contrato en los tres
+// decisores (`casoCompleto` del evaluador, que corre siempre), así que compara
+// manzanas con manzanas: el código entrega en cuanto se cubre —salvo cuando
+// otra regla gana (vuelve sobre un aplazado, opt-out)—, y el modelo puede
+// seguir conversando sin darse cuenta de que ya lo tiene todo.
+//   · a_tiempo     entregó en el turno en que se pudo.
+//   · tarde        entregó N mensajes después.
+//   · nunca        se pudo y el hilo terminó sin entregar (el peor caso).
+//   · sin_contrato entregó (o terminó) sin llegar a cubrir el objetivo.
+//   · no_medido    jugado antes de la métrica. NO es «0 de más» (§4).
+
+export type EstadoTardanza = "no_medido" | "sin_contrato" | "a_tiempo" | "tarde" | "nunca" | "incoherente";
+
+export type Tardanza = {
+  estado: EstadoTardanza;
+  /** Turno en que se pudo entregar (null = nunca se cubrió o no se midió). */
+  pudoEn: number | null;
+  /** Turno en que se entregó de verdad (null = no entregó). */
+  derivoEn: number | null;
+  /** Mensajes que el hilo siguió con el caso ya listo. null = no medible. */
+  turnosDeMas: number | null;
+};
+
+export function tardanzaDe(r: ResumenTres): Tardanza {
+  const derivoEn = r.derivoEn ?? null;
+  if (r.pudoEn === undefined) return { estado: "no_medido", pudoEn: null, derivoEn, turnosDeMas: null };
+  const pudoEn = r.pudoEn;
+  if (pudoEn == null) return { estado: "sin_contrato", pudoEn: null, derivoEn, turnosDeMas: null };
+  if (derivoEn == null) return { estado: "nunca", pudoEn, derivoEn: null, turnosDeMas: Math.max(0, r.turnos - pudoEn) };
+  const turnosDeMas = derivoEn - pudoEn;
+  // Imposible por construcción (`pudoEn` solo se apunta en turnos jugados y el
+  // hilo para al entregar): si aparece, es un dato mal escrito y se dice, no
+  // se redondea a 0 (§9).
+  if (turnosDeMas < 0) return { estado: "incoherente", pudoEn, derivoEn, turnosDeMas: null };
+  return { estado: turnosDeMas === 0 ? "a_tiempo" : "tarde", pudoEn, derivoEn, turnosDeMas };
+}
+
+/** La misma frase en el terminal y en la pantalla (§25: una construcción, un sitio). */
+export function fraseTardanza(t: Tardanza): string {
+  const m = (n: number) => `${n} mensaje${n === 1 ? "" : "s"}`;
+  switch (t.estado) {
+    case "no_medido":
+      return "Entrega tardía: sin medir (jugado antes de la métrica)";
+    case "sin_contrato":
+      return t.derivoEn != null ? "Entregó sin tener todo lo que pide el objetivo" : "Nunca llegó a tener todo lo que pide el objetivo";
+    case "a_tiempo":
+      return `Entregó en cuanto lo tuvo todo (mensaje ${t.pudoEn})`;
+    case "tarde":
+      return `Lo tuvo todo en el ${t.pudoEn} y entregó en el ${t.derivoEn} — ${m(t.turnosDeMas!)} de más`;
+    case "nunca":
+      return `Lo tuvo todo en el ${t.pudoEn} y no entregó nunca — ${m(t.turnosDeMas!)} de más`;
+    case "incoherente":
+      return `Medida incoherente: lo tuvo todo en el ${t.pudoEn} y consta entregado en el ${t.derivoEn}`;
+  }
+}
+
+export type TardanzaAgregada = {
+  hilos: number;
+  noMedidos: number;
+  /** Hilos con la métrica y con el objetivo cubierto: el denominador honesto. */
+  medidos: number;
+  aTiempo: number;
+  tarde: number;
+  /** Mensajes de más sumados SOLO sobre los que sí entregaron tarde. */
+  turnosDeMas: number;
+  /** Se pudo entregar y el hilo terminó sin hacerlo (se cuentan aparte). */
+  nunca: number;
+  turnosDeMasNunca: number;
+  sinContrato: number;
+  incoherentes: number;
+};
+
+export function agregarTardanza(hilos: (HiloTres | undefined)[]): TardanzaAgregada {
+  const a: TardanzaAgregada = { hilos: 0, noMedidos: 0, medidos: 0, aTiempo: 0, tarde: 0, turnosDeMas: 0, nunca: 0, turnosDeMasNunca: 0, sinContrato: 0, incoherentes: 0 };
+  for (const h of hilos) {
+    if (!h) continue;
+    a.hilos++;
+    const t = tardanzaDe(h.resumen);
+    if (t.estado === "no_medido") a.noMedidos++;
+    else if (t.estado === "sin_contrato") a.sinContrato++;
+    else if (t.estado === "incoherente") a.incoherentes++;
+    else {
+      a.medidos++;
+      if (t.estado === "a_tiempo") a.aTiempo++;
+      else if (t.estado === "tarde") {
+        a.tarde++;
+        a.turnosDeMas += t.turnosDeMas ?? 0;
+      } else {
+        a.nunca++;
+        a.turnosDeMasNunca += t.turnosDeMas ?? 0;
+      }
+    }
+  }
+  return a;
+}
 
 export const PREFERIDOS_TRES = ["codigo", "contexto", "libre", "ninguno"] as const;
 export type PreferidoTres = (typeof PREFERIDOS_TRES)[number];

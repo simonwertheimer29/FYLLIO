@@ -4977,3 +4977,22 @@ presentación. Cuando poda o reescribe, el composer lo dice con la frase que se 
 que corría a la vez sobre el mismo árbol y capturó el índice con un `git add -A`. Nada se perdió; la
 historia queda mal atribuida y no se reescribió con la otra sesión viva.
 
+## 2026-09-13 · La entrega tardía: cuántos mensajes sigue el paciente con el caso ya listo
+Ninguna cifra del resumen de los tres decisores contestaba la pregunta de la que depende la fase 2:
+cuando el caso ya se podía pasar a una persona, ¿cuántos mensajes más siguió contestando el paciente?
+Se mide contra el MISMO contrato en los tres —`casoCompleto` del evaluador, que corre en los tres
+aunque el mensaje lo escriba otro—: `pudoEn` (primer turno con el objetivo cubierto) contra `derivoEn`.
+`tardanzaDe` / `agregarTardanza` viven en `actos.ts` (módulo puro: la misma frase en el terminal y en
+/sombra, §25), se apunta al jugar en `jugar-tres.mts` y hay 16 casos deterministas en `qa:actos`.
+**Tres decisiones para que la cifra no salga bonita y falsa.** (1) Un hilo jugado antes de hoy dice
+«sin medir», nunca 0: la clave AUSENTE y la clave en `null` significan cosas distintas —no se midió
+vs se midió y el objetivo nunca se cubrió— y el tipo lo declara. (2) Los hilos que se pudieron
+entregar y NO se entregaron se cuentan aparte, con sus turnos hasta el final, en vez de diluirse en
+la media de los que sí entregaron: es el peor caso y tiene que verse solo. (3) Una entrega anterior
+al turno en que se pudo —imposible por construcción, porque el hilo para al entregar— sale como
+«incoherente» en lugar de redondearse a 0 (§9).
+**Lo que la métrica NO discrimina, dicho antes de que alguien lo lea al revés:** el código entrega en
+el mismo turno en que se cubre el objetivo (`evaluador.ts:1446`), así que su cifra es 0 por
+construcción — es la referencia, no una virtud. Y se llena en el próximo `npm run hilos:tres`: los
+15 × 3 hilos ya jugados no guardaron el turno en que se pudo y salen «sin medir» hasta entonces.
+

@@ -57,7 +57,7 @@ import { renderConocimiento } from "../app/lib/agente/conocimiento";
 import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { hashVersion } from "../app/lib/agente/version";
 import { RUTA_FIXTURE, type FixtureHilos, type HiloJugado } from "../app/lib/agente/hilos-jugados";
-import { DECISORES, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
+import { agregarTardanza, DECISORES, ETIQUETA_DECISOR, fraseTardanza, tardanzaDe, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
 import { runWithCliente } from "../app/lib/cliente-contexto";
 import { hoyISO } from "../app/lib/time";
 import { pacienteDice, esFin, MODELO_PACIENTE, type Espejo } from "./hilos-jugados-paciente.mts";
@@ -178,6 +178,8 @@ type Estado = {
   motivo: string | null;
   causa: string | null;
   porHecho: boolean;
+  /** Primer turno con el objetivo cubierto (entrega tardía, 13-09). */
+  pudoEn: number | null;
   datos: Record<string, string>;
   aplazados: Set<string>;
   repeticiones: number;
@@ -239,6 +241,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     motivo: null,
     causa: null,
     porHecho: false,
+    pudoEn: null,
     datos: {},
     aplazados: new Set(),
     repeticiones: 0,
@@ -306,6 +309,11 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     if (ev.juicios?.malestar && st.molestiaEn == null) st.molestiaEn = n;
     Object.assign(st.datos, aplanar(ev.camposRecogidos));
     for (const a of ev.aplazamientos) st.aplazados.add(a.clave);
+    // ENTREGA TARDÍA: el turno en que el caso YA se podía entregar. Es del
+    // evaluador —que corre en los tres decisores—, no del que redacta: por eso
+    // compara los tres contra el mismo contrato. El código entrega aquí mismo
+    // salvo que otra regla gane; el modelo puede seguir preguntando.
+    if (ev.casoCompleto && st.pudoEn == null) st.pudoEn = n;
     const hecho = ev.sinJuicio ? "no_legible" : ev.juicios?.urgenciaMedica ? "urgencia" : ev.juicios?.peticionOQueja ? "peticion_queja" : null;
 
     // El decisor.
@@ -393,6 +401,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     motivo: st.motivo,
     causa: st.causa,
     porHecho: st.porHecho,
+    pudoEn: st.pudoEn,
     datos: Object.entries(st.datos).map(([k, v]) => `${k}: ${v}`),
     aplazados: [...st.aplazados],
     repeticiones: st.repeticiones,
@@ -404,6 +413,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
   console.log(
     `  ▸ ${decisor}: ${resumen.fin}${resumen.derivoEn ? ` en ${resumen.derivoEn} mensaje${resumen.derivoEn === 1 ? "" : "s"} (${resumen.motivo})` : ""} · repitió ${resumen.repeticiones} · molestia ${resumen.molestiaEn ?? "no"} · datos ${resumen.datos.length} · $${resumen.costeUsd.toFixed(3)}`,
   );
+  console.log(`    ${fraseTardanza(tardanzaDe(resumen))}`);
   const version = decisor === "codigo" ? hashVersion(SYSTEM_PROMPT_EVALUADOR) : versionSombra(decisor === "contexto" ? "produccion" : "libre");
   return { guionId: g.id, titulo: g.titulo, categoria: g.categoria, decisor, version, jugadoEl: new Date().toISOString(), mensajes: st.mensajes, resumen, costeUsd: resumen.costeUsd, conocimientoDe };
 }
@@ -415,6 +425,9 @@ const previo: FixtureTres | null = existsSync(RUTA_FIXTURE_TRES) ? (JSON.parse(r
 const salida: FixtureTres = previo ?? { v: 1, jugadoEl: new Date().toISOString(), modeloPaciente: MODELO_PACIENTE, hilos: [] };
 const hoy = hoyISO();
 let usdTotal = 0;
+// Solo lo jugado EN ESTE PASE: el fixture arrastra hilos de pases anteriores
+// (sin la métrica) y mezclarlos daría un denominador que no es de nadie.
+const jugados: Record<Decisor, HiloTres[]> = { codigo: [], contexto: [], libre: [] };
 
 for (const h of hilosBase) {
   console.log("\n" + "═".repeat(72) + `\n▶ ${h.guion.id} · ${h.guion.titulo}`);
@@ -423,6 +436,7 @@ for (const h of hilosBase) {
     try {
       const hilo = await jugarHilo(h, d, hoy);
       usdTotal += hilo.costeUsd;
+      jugados[d].push(hilo);
       entradaGuion.decisores[d] = hilo;
       await runWithCliente("DEMO", () => guardarHiloTres(hilo));
     } catch (err) {
@@ -436,5 +450,17 @@ for (const h of hilosBase) {
 }
 
 console.log("\n" + "═".repeat(72));
+console.log("ENTREGA TARDÍA — mensajes que el paciente siguió contestando con el caso ya listo:");
+for (const d of decisores) {
+  const a = agregarTardanza(jugados[d]);
+  if (a.hilos === 0) continue;
+  const media = a.tarde > 0 ? ` (${(a.turnosDeMas / a.tarde).toFixed(1)} de media)` : "";
+  console.log(
+    `  ${ETIQUETA_DECISOR[d]}: ${a.medidos}/${a.hilos} con el objetivo cubierto · a tiempo ${a.aTiempo} · tarde ${a.tarde} (+${a.turnosDeMas}${media})` +
+      ` · se pudo y no entregó ${a.nunca}${a.nunca ? ` (+${a.turnosDeMasNunca})` : ""} · sin cubrirlo ${a.sinContrato}` +
+      `${a.incoherentes ? ` · INCOHERENTES ${a.incoherentes}` : ""}`,
+  );
+}
+console.log("═".repeat(72));
 console.log(`${hilosBase.length} guiones × ${decisores.length} decisores · coste medido $${usdTotal.toFixed(2)} · fixture ${RUTA_FIXTURE_TRES} · léelo en /sombra › Conversaciones`);
 console.log("Apunta el coste en evals/pasadas/GASTO.md.");

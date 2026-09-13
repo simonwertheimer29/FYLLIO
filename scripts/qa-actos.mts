@@ -5,9 +5,28 @@
 //   · actoDelCodigo: el acto que hizo el código, en el ORDEN en que decide.
 //   · canonizarActo: el borde («Acompañar» = acompanar; fuera de catálogo = null).
 //   · parsearSombra: el JSON de la sombra (con y sin ruido; acto ilegible contable).
+//   · tardanzaDe / agregarTardanza: la ENTREGA TARDÍA — los mensajes que el
+//     paciente siguió contestando con el caso ya listo, y el agregado por
+//     decisor (lo no medido no vale 0).
+//     Esto prueba el CÁLCULO, no la captura: que `pudoEn` se apunte al jugar
+//     (`ev.casoCompleto` en jugar-tres) y llegue al visor lo demuestra el
+//     siguiente pase de `npm run hilos:tres`, que imprime la frase por hilo y
+//     el agregado por decisor — coste de modelo, cubierto ahí (§25).
 // Salidas: 0 · 1 hay fallos.
 
-import { ACTOS, actoDelCodigo, canonizarActo, parsearSombra, DEFINICION_ACTO, type BanderasActo } from "../app/lib/agente/actos";
+import {
+  ACTOS,
+  actoDelCodigo,
+  agregarTardanza,
+  canonizarActo,
+  fraseTardanza,
+  parsearSombra,
+  tardanzaDe,
+  DEFINICION_ACTO,
+  type BanderasActo,
+  type HiloTres,
+  type ResumenTres,
+} from "../app/lib/agente/actos";
 
 let fallos = 0;
 const ok = (n: string, c: boolean, extra = "") => {
@@ -72,6 +91,50 @@ console.log("\n3 · parsearSombra: el JSON de la sombra");
   const libre = parsearSombra(JSON.stringify({ situacion: "s", conviene: "Que la vea el doctor hoy.", acto: "atender", mensaje: "m" }));
   ok("variante libre: «conviene» se lee; sin porQue → null", libre?.conviene === "Que la vea el doctor hoy." && libre.porQue === null && libre.acto === "atender");
   ok("sin «conviene» → null", sinPorQue?.conviene === null);
+}
+
+console.log("\n4 · entrega tardía: el turno en que se pudo vs el turno en que se entregó");
+{
+  const resumen = (p: Partial<ResumenTres>): ResumenTres => ({
+    turnos: 6, derivoEn: null, motivo: null, causa: null, porHecho: false, datos: [], aplazados: [],
+    repeticiones: 0, molestiaEn: null, fin: "derivado", detalleFin: null, costeUsd: 0, ...p,
+  });
+  // La distinción que sostiene toda la métrica: SIN la clave = jugado antes
+  // de medirla; con la clave en null = se midió y el objetivo nunca se cubrió.
+  const viejo = tardanzaDe(resumen({ derivoEn: 4 }));
+  ok("hilo jugado antes de la métrica → «no medido», nunca 0 de más", viejo.estado === "no_medido" && viejo.turnosDeMas === null);
+  ok("y su frase no promete ninguna cifra", !/\d/.test(fraseTardanza(viejo)));
+  const sinCubrir = tardanzaDe(resumen({ pudoEn: null, derivoEn: 4 }));
+  ok("medido y sin cubrir el objetivo → «sin contrato» (no es tardanza)", sinCubrir.estado === "sin_contrato" && sinCubrir.turnosDeMas === null);
+  const aTiempo = tardanzaDe(resumen({ pudoEn: 3, derivoEn: 3 }));
+  ok("entregó en el turno en que se pudo → a tiempo, 0 de más", aTiempo.estado === "a_tiempo" && aTiempo.turnosDeMas === 0);
+  const tarde = tardanzaDe(resumen({ pudoEn: 2, derivoEn: 5 }));
+  ok("se pudo en el 2 y entregó en el 5 → tarde, 3 de más", tarde.estado === "tarde" && tarde.turnosDeMas === 3);
+  ok("y la frase lo dice con las dos cifras", fraseTardanza(tarde).includes("2") && fraseTardanza(tarde).includes("5") && fraseTardanza(tarde).includes("3 mensajes de más"));
+  ok("singular: 1 mensaje de más", fraseTardanza(tardanzaDe(resumen({ pudoEn: 2, derivoEn: 3 }))).includes("1 mensaje de más"));
+  const nunca = tardanzaDe(resumen({ pudoEn: 3, derivoEn: null, turnos: 6, fin: "perdido" }));
+  ok("se pudo en el 3 y el hilo acabó sin entregar → nunca, 3 de más", nunca.estado === "nunca" && nunca.turnosDeMas === 3);
+  const raro = tardanzaDe(resumen({ pudoEn: 5, derivoEn: 3 }));
+  ok("entrega anterior a poder (dato imposible) → incoherente, no un 0 disfrazado", raro.estado === "incoherente" && raro.turnosDeMas === null);
+
+  const hilo = (r: Partial<ResumenTres>): HiloTres => ({
+    guionId: "g", titulo: "t", categoria: "c", decisor: "libre", version: "v", jugadoEl: "", mensajes: [], resumen: resumen(r), costeUsd: 0,
+  });
+  const a = agregarTardanza([
+    hilo({ pudoEn: 2, derivoEn: 5 }),          // tarde, +3
+    hilo({ pudoEn: 1, derivoEn: 2 }),          // tarde, +1
+    hilo({ pudoEn: 4, derivoEn: 4 }),          // a tiempo
+    hilo({ pudoEn: 2, derivoEn: null, turnos: 6, fin: "perdido" }), // nunca, +4
+    hilo({ pudoEn: null, derivoEn: 3 }),       // sin cubrir
+    hilo({ derivoEn: 3 }),                     // sin medir
+    undefined,                                 // decisor no jugado
+  ]);
+  ok("el agregado cuenta 6 hilos y deja fuera el no jugado", a.hilos === 6);
+  ok("medidos = a tiempo + tarde + nunca (ni «sin medir» ni «sin cubrir»)", a.medidos === 4 && a.aTiempo === 1 && a.tarde === 2 && a.nunca === 1);
+  ok("los mensajes de más suman solo los que SÍ entregaron tarde (+4)", a.turnosDeMas === 4);
+  ok("los que nunca entregaron van aparte (+4), no diluidos en la media", a.turnosDeMasNunca === 4);
+  ok("«sin medir» y «sin cubrir» se cuentan y no se suman a nada", a.noMedidos === 1 && a.sinContrato === 1 && a.incoherentes === 0);
+  ok("un agregado sin hilos no inventa denominador", agregarTardanza([]).medidos === 0 && agregarTardanza([]).turnosDeMas === 0);
 }
 
 console.log(fallos ? `\n✗ ${fallos} fallo(s)` : "\n✓ qa:actos en verde");
