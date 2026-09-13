@@ -2029,6 +2029,11 @@ verdad: un editor, un vocabulario, un renderizador.
 - **El arreglo:** extensión natural del modelo 033 — `agendas_externas.staff_id` nullable +
   `clinica_id`, y sus ocupaciones se restan como bloqueo global en el compositor. El conector no
   cambia. Dictado el 31-08: «sí, pero después».
+- **Atado a esta entrada (13-09): MEJORAS 242.** El día que se abra el nivel 2, entra con él la
+  llamada real a Google Calendar. Hoy `qa:agenda-externa` afirma sobre fixtures escritos «con la
+  forma real de la API de Google» **sin que nadie haya llamado nunca a Google**, así que lo que
+  valida es nuestra suposición sobre esa forma. De esos fixtures salen los huecos que el agente
+  ofrece. El nivel 2 no está terminado sin eso.
 - **Fecha:** 2026-08-31
 
 ---
@@ -2351,8 +2356,9 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   conteste sobre los encargados del tratamiento.** No es «pendiente de hacer», es pendiente de una
   respuesta que no tenemos. Y lleva una condición atada, que es lo que no se puede olvidar:
   **encenderlo obliga a actualizar la política de privacidad EN EL MISMO CAMBIO**, porque el destino
-  del drenaje recibe registros con contenido y sería el **octavo** encargado — la página publicada el
-  13-09 nombra siete (Meta, Anthropic, Supabase, Vercel, Upstash, Twilio, OpenAI). Poner
+  del drenaje recibe registros con contenido y sería el **séptimo** encargado — la página nombra seis
+  (Meta, Anthropic, Supabase, Vercel, Upstash, OpenAI; Twilio salió el 13-09 por decisión de Simon,
+  no se va a usar). Poner
   `LOG_DRAIN_URL` sin tocar `/privacidad` deja la política diciendo algo falso el mismo día. La
   opción (a) de 241 se hizo el 13-09 y no añade ningún proveedor.
 
@@ -3135,14 +3141,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   calendario de pruebas con los cinco casos raros sembrados a mano (cancelado, transparent, día
   entero en invierno, recurrente expandido, evento sin fin); se compara el JSON que devuelve Google
   con los fixtures campo a campo, y lo que difiera se corrige en el fixture. Resultado anotado en la
-  cabecera con su fecha, como en `cola/qstash.ts`. · **Pendiente de comprobar y no lo doy por hecho:**
-  si Twilio (`lib/whatsapp/send.ts`) y la transcripción de OpenAI (`api/copilot/transcribe`) se han
-  llamado de verdad alguna vez en producción; si no, entran en esta misma entrada. WhatsApp de Meta
-  **sí** está probado desde el 13-09 (el primer mensaje real salió y llegó), y Vapi está declarado
-  inerte por `llamadasOperativas()`, que es honesto y no un falso verde. · **Impacto:** MEDIO-ALTO —
-  la agenda externa alimenta lo que el agente puede decir sobre huecos, que es de lo poco donde
-  inventar tiene consecuencia clínica y comercial. · **Esfuerzo:** 1-2 h, casi todo montar el
-  calendario de pruebas. · **Fecha:** 2026-09-13 · 🔵
+  cabecera con su fecha, como en `cola/qstash.ts`. · **CUÁNDO (decisión de Simon, 13-09): atada al
+  trabajo del NIVEL 2, no suelta.** No se hace por su cuenta ni antes: se hace **dentro** del cambio
+  que toque el nivel 2 de agenda, que es donde va a doler, porque de esos fixtures salen los huecos
+  que el agente ofrece. Si alguien abre el nivel 2 y no incluye esto, el nivel 2 no está terminado.
+  Hermana: MEJORAS 116 (calendario de clínica, nivel 2). · **Los otros dos terceros, resueltos por
+  Simon el 13-09 y fuera de esta entrada:** OpenAI se queda (es la transcripción de la herramienta
+  interna, no mensajes de pacientes) y **Twilio NO se va a usar** — se quitó de la política ese mismo
+  día; el código sigue vivo pero apagado, ver abajo. WhatsApp de Meta **sí** está probado desde el
+  13-09 (el primer mensaje real salió y llegó), y Vapi está declarado inerte por
+  `llamadasOperativas()`, que es honesto y no un falso verde. · **Impacto:** MEDIO-ALTO — la agenda
+  externa alimenta lo que el agente puede decir sobre huecos, que es de lo poco donde inventar tiene
+  consecuencia clínica y comercial. · **Esfuerzo:** 1-2 h, casi todo montar el calendario de pruebas,
+  y van dentro del presupuesto del nivel 2. · **Fecha:** 2026-09-13 · 🔵 atada al nivel 2
 
 ## 241. Incidencias · el redactor se come el motivo de los errores de API y deja la incidencia muda
   **Zona:** `app/lib/incidencias.ts:90` (`redactar`, usado por `resumirError`). · **Qué pasa:** el

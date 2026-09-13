@@ -4926,3 +4926,22 @@ parecen y no son lo mismo: «sin modelo» suele ser coste legítimo y cubierto e
 entrada es obligatoria. Censo de las catorce cabeceras que lo declaran hoy → MEJORAS 242: doce son
 coste cubierto y **una es deuda de verdad**, `qa:agenda-externa`, que afirma sobre fixtures «con la
 forma real de la API de Google» sin haber llamado nunca a Google. Es la misma frase que la cola.
+
+## 2026-09-13 (noche) — Twilio fuera de la política, y el QA de Google atado al nivel 2
+
+**Twilio no se va a usar** (Simon): era de un intento de agente de recordatorios de hace meses y el
+canal es Meta. Sale de `/privacidad`, que ahora nombra **seis** encargados (Meta, Anthropic, Supabase,
+Vercel, Upstash, OpenAI). Corrige la cuenta de la condición de 162: el drenaje de logs sería el
+**séptimo**, no el octavo. **El código sigue vivo pero apagado y no es de borrado trivial:**
+`lib/whatsapp/send.ts` tiene cinco importadores —`no-shows/acciones` y los crons `confirm`, `daily`,
+`feedback`, `reminders`— y el interruptor `CRON_TWILIO_WHATSAPP` no está declarado en `lib/entorno`,
+así que por defecto está en false y no sale nada. Retirarlo es quitar las ramas antes que la variable
+(§11) y decidir qué hacen esos crons de no-shows, que son alcance diferido del Sprint B. Ya estaba
+anotado para borrar en `DIAGNOSTICO-ESTRATEGICO-2026-09-06.md`.
+
+**OpenAI se queda** en la política: es la transcripción de voz de la herramienta interna, no mensajes
+de pacientes, y así está redactado.
+
+**MEJORAS 242 deja de estar suelta.** La llamada real a Google Calendar entra **dentro** del cambio
+que abra el nivel 2 de agenda, no antes y no por su cuenta: de esos fixtures salen los huecos que el
+agente ofrece, así que el nivel 2 no está terminado sin ella. Atada en los dos sentidos, 242 ↔ 116.

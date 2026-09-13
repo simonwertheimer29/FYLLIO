@@ -208,7 +208,6 @@ export default function PrivacidadPage() {
               nombre="Upstash"
               para="guarda de forma temporal las tareas pendientes de procesar y los enlaces de los presupuestos que se comparten contigo."
             />
-            <Encargado nombre="Twilio" para="envía algunos recordatorios automáticos por WhatsApp." />
             <Encargado
               nombre="OpenAI"
               para="transcribe las notas de voz que graba el personal de la clínica al usar la herramienta. No se le envían mensajes de pacientes."
