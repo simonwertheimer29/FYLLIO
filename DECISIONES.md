@@ -5179,3 +5179,27 @@ recibe «pues lo pensaré, ya os diré algo», se despide y **no pasa el caso** 
 por primera vez («lo tuvo todo en el 4 y no entregó nunca»), que es justo el agujero que el arreglo
 de esta tarde tapa en producción, donde quien decide entregar es el código. La cláusula del orden
 todavía no está medida: eso pide la pasada entera, ≈ $0,72.
+
+## 2026-09-13 · La cláusula del orden: contesta antes, sí — pero entrega dos mensajes más tarde
+Los mismos 4 guiones, la misma clínica publicada, el control en los dos, con `--conocimiento db`.
+**Lo que la cláusula SÍ consiguió, y era la idea de Simon:** el decisor con alcance contesta antes de
+recoger. Con Dani el primer mensaje ya no es «¿qué días te van mejor?» sino «la primera visita con
+estudio de ortodoncia no tiene coste»; con Carlos contesta el precio publicado tres turnos seguidos
+sin pedirle nada. Y **entrega en los 4 guiones** (antes 3/4): ningún caso se queda sin pasar a una
+persona.
+**Lo que salió en contra, y es la cifra que decide:** llega MÁS TARDE. Sus dos entregas medibles
+llegaron **con +2 mensajes cada una** (media 2,0); antes de la cláusula eran una a tiempo y otra con
++1. Con Dani lo tuvo todo en el 3 y entregó en el 5; con Lucía, igual. El mecanismo se lee en los
+mensajes: «solo después, y solo si encaja, pides UNA cosa» legitima una cadencia de gota a gota —un
+dato por turno— y el modelo, cuando ya no le falta nada, **se inventa qué pedir**.
+**Y ahí está el hallazgo nuevo, que es peor que la tardanza:** tres de las siete correcciones del
+control al alcance son de familia `datos_sensibles`, y las tres son la misma: **pidió el teléfono a
+alguien que le está escribiendo POR WhatsApp**. Antes de la cláusula las correcciones eran de familia
+`agenda` (el vocabulario del papel, que ya sabíamos que era falso positivo). Esta no lo es: pedir un
+dato que ya tienes es trabajo inútil para el paciente y un dato sensible pedido sin motivo.
+**Lo que NO cambió:** el volumen de correcciones (7 de 16 mensajes del alcance vs 2 de 11 del libre).
+La cláusula no toca esa asimetría, lo que confirma que no venía del orden.
+**Conclusión para el paso siguiente, sin tocar nada todavía:** el orden se queda —contestar primero
+es correcto y se ve—, pero la mitad de «pides UNA cosa» hay que revisarla: lo que falta en el papel
+no es cadencia sino el CIERRE («si ya tienes lo que hace falta, cierra en ESE mensaje, no un turno
+más»). Va con n=4 y con un paciente sintético estocástico: es una señal, no una ley.

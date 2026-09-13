@@ -158,3 +158,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   `2026-09-13-orden-en-el-papel-CORTADA-SIN-CREDITO.txt` · ac. **~$6,85**
   **Queda pendiente**: repetir los 4 guiones × (libre, alcance) con `--conocimiento db` cuando haya
   crédito — ≈ $0,72 típico / $1,44 tope. Es la medida de la cláusula del orden.
+
+- **13-09 (noche) · LA CLÁUSULA DEL ORDEN, medida** (los mismos 4 guiones × libre y alcance, clínica
+  publicada, crédito recargado) · **$0,55 medido** (anunciado ≈ $0,72 típico / $1,44 tope) · **LA
+  CIFRA: el alcance pasa a entregar 4/4 (antes 3/4) pero LLEGA MÁS TARDE — sus dos entregas medibles
+  llegaron con +2 mensajes cada una (antes: una a tiempo y otra con +1).** El libre, 2/4 entregados y
+  1/4 cubierto. Y lo que no cambió: la revisión sigue corrigiendo 7 de 16 mensajes del alcance contra
+  2 de 11 del libre — pero **han cambiado de familia**: tres son `datos_sensibles` porque el alcance
+  se puso a pedir el teléfono a gente que escribe POR WhatsApp · log en
+  `2026-09-13-orden-en-el-papel.txt` · ac. **~$7,40**
