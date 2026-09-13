@@ -209,7 +209,12 @@ function Resumen({ hilo }: { hilo: HiloTres }) {
         {r.datos.length ? `Llegó con: ${r.datos.join(" · ")}` : "Llegó sin datos recogidos"}
         {r.aplazados.length ? ` · anotado: ${r.aplazados.join(", ")}` : ""}
       </p>
-      <p className="text-[11px] text-[var(--color-muted)]">${r.costeUsd.toFixed(3)} · versión {hilo.version}</p>
+      {/* CON QUÉ MUNDO se jugó. Sin esto, un hilo jugado con la clínica vacía
+          se compara en silencio contra uno jugado con ella publicada, que es
+          justo la variable que más cambia lo que dice el modelo (12-09). */}
+      <p className="text-[11px] text-[var(--color-muted)]">
+        {hilo.conocimientoDe === "db" ? "Clínica publicada" : "Clínica vacía"} · ${r.costeUsd.toFixed(3)} · versión {hilo.version}
+      </p>
     </Card>
   );
 }

@@ -129,4 +129,10 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   el de contexto cubre 3/4 y entrega 1 mensaje tarde en dos de ellos; el código, 2/2 a tiempo y 2
   entregados por un hecho sin cubrir · log en `2026-09-13-entrega-tardia.txt` · ac. **~$5,60**
   ($2,21 de los $3 del tope propio)
+- 2026-09-13 · **EL LIBRE CON LA CLÍNICA VACÍA** (hipótesis de Simon: publicar datos le quita las ganas
+  de derivar) · **$0,21 medido** ($0,04 de un pase de 1 turno para probar el arreglo + $0,17 del pase;
+  anunciado ≈ $0,30 típico / $0,60 tope) · **LA CIFRA: vacía 4/4 entregados y 2/4 con el objetivo
+  cubierto; publicada 2/4 entregados y 0/4 cubierto.** Mismo código, mismos guiones, mismo día: lo
+  único que cambia es el mundo · log en `2026-09-13-libre-clinica-vacia.txt` · ac. **~$5,81**
+  ($2,42 de los $3 del tope propio)
 

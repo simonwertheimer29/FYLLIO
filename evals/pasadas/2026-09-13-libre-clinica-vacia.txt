@@ -1,0 +1,71 @@
+
+> fyllio-mvp@0.1.0 hilos:tres
+> tsx scripts/jugar-tres.mts --solo aplazamiento_dato,caso_completo,insistencia_precio,telefono_compartido --decisores libre
+
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+Tres conversaciones por guion · 4 guiones · decisores: libre · paciente claude-sonnet-5 · coste TOPE $0.60 (todos los hilos hasta maxTurnos) · típico ≈ $0.30 (3 turnos por hilo)
+
+════════════════════════════════════════════════════════════════════════
+▶ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos
+
+  ── libre · conocimiento (fixture): clínica vacía
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 libre [recoger]: «Hola Dani, perfecto, podemos ayudarte con la primera valoración de ortodoncia invisible. P»
+[evaluador] frase podada (agenda): «Tenemos disponibilidad de lunes a jueves y sábados por las tardes.»
+  t2 paciente: «Daniel Arribas Soto. Me viene bien cualquier día menos los viernes, y »
+  t2 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Daniel. Tenemos tu solicitud: primera valoración de ortodoncia invisible, tardes»
+  ▸ libre: derivado en 2 mensajes (cerrar · Cerrar esta recogida de datos y pasar el caso al equipo para que busque y ofrezca citas reales, porque Daniel ya ha dado todo lo que necesita la clínica para contactarle con opciones concretas.) · repitió 0 · molestia no · datos 7 · $0.019
+    Entregó en cuanto lo tuvo todo (mensaje 2)
+
+════════════════════════════════════════════════════════════════════════
+▶ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende»
+
+  ── libre · conocimiento (fixture): clínica vacía
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 libre [recoger]: «Hola Carlos, me alegra verte de nuevo. Para darte un presupuesto de implante necesitamos q»
+  t2 paciente: «Ya, pero antes de la cita quiero hacerme una idea. El más básico, sin »
+  t2 libre [reconocer]: «Carlos, entiendo que quieras tener una idea antes. El problema es que el precio depende de»
+  t3 paciente: «Vale pero un número aproximado, aunque sea una horquilla, digo yo que »
+  t3 libre [reconocer]: «Carlos, entiendo que quieras saber en qué rango te mueves antes de venir. La realidad es q»  ⚠ tenemos un precio de salida publicado
+  t4 paciente: «Pero vamos a ver, ¿más o menos de mil euros? Solo dime si estoy en ese»
+  t4 libre [reconocer]: «Carlos, veo que lo necesitas claro y tienes razón en insistir. La clínica no publica rango»
+  t5 paciente: «Nada, no hay manera. Pues nada, ya llamaré o miraré en otro sitio.»
+  t5 libre [reconocer · PASA A UNA PERSONA]: «Carlos, tienes razón: tres veces es demasiado. No te voy a dar una cifra que no sea la tuy»
+  ▸ libre: derivado en 5 mensajes (por hecho: queja o petición de persona) · repitió 4 · molestia 5 · datos 4 · $0.070
+    Entregó sin tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+▶ aplazamiento_dato · Nuria pregunta por parking y sedación
+
+  ── libre · conocimiento (fixture): clínica vacía
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 libre [acompanar]: «Hola Nuria, es completamente normal tener miedo a una extracción. La sedación consciente e»  ⚠ el doctor valora en cada caso
+[evaluador] frase podada (agenda, tras reescribir): «Ahora bien, para cerrar tu cita de extracción, necesito saber: ¿cuándo te vendría bien venir?»
+  t2 paciente: «Vale, genial, me quedo más tranquila. Otra cosa, ¿hay parking cerca de»
+  t2 libre [recoger]: «Sí, Nuria, tenemos parking en la clínica. Ahora que te sientes más tranquila, ¿qué día te »  ⚠ tenemos parking en la clínica
+[evaluador] frase podada (agenda, tras reescribir): «Una vez que me digas qué días te vienen bien, cerramos tu cita.»
+  t3 paciente: «Perfecto, eso me viene genial. Por cierto, ¿abrís los sábados? Así mir»
+  t3 libre [recoger]: «Nuria, no tengo a mano nuestro horario de sábados: te lo confirma el equipo cuando te llam»
+  t4 paciente: «Vale, prefiero esperar a que me confirméis lo del sábado, así organizo»
+  t4 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Nuria. El equipo te llamará para confirmar la disponibilidad de sábado y fijar t»
+  ▸ libre: derivado en 4 mensajes (cerrar · Cerrar esta conversación y pasar el caso al equipo para que contacte a Nuria, confirme disponibilidad de sábados y fije la cita con el doctor que valorará la extracción y las opciones de sedación.) · repitió 0 · molestia no · datos 3 · $0.059
+    Entregó en cuanto lo tuvo todo (mensaje 4)
+
+════════════════════════════════════════════════════════════════════════
+▶ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre
+
+  ── libre · conocimiento (fixture): clínica vacía
+  t1 paciente: «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de»
+  t1 libre [recoger]: «Hola Lucía, claro que sí. Para poder darte cita, necesito tu teléfono de contacto y qué ti»  ⚠ necesito tu teléfono
+  t2 paciente: «Vale, mi número es 622 145 903. Es solo una revisión general, hace bas»
+  t2 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Lucía. Tengo tu número y que buscas una revisión general. Dejo esto anotado para»
+  ▸ libre: derivado en 2 mensajes (cerrar · Cerrar esta gestión pasándola al equipo de agenda para que confirmen disponibilidad y citen a Lucía, porque ella ya ha dado todo lo que necesita.) · repitió 0 · molestia no · datos 3 · $0.023
+    Entregó sin tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+ENTREGA TARDÍA — mensajes que el paciente siguió contestando con el caso ya listo:
+  Modelo libre: 2/4 con el objetivo cubierto · a tiempo 2 · tarde 0 (+0) · se pudo y no entregó 0 · sin cubrirlo 2
+════════════════════════════════════════════════════════════════════════
+4 guiones × 1 decisores · coste medido $0.17 · fixture evals/hilos-tres/fixture.json · léelo en /sombra › Conversaciones
+Apunta el coste en evals/pasadas/GASTO.md.

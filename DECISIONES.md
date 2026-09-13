@@ -5016,3 +5016,33 @@ medir» ahora solo sale si de verdad no hay medida; con el objetivo nunca cubier
 en ámbar. Con datos de verdad se ve en diez segundos lo que con «sin medir» en todas las columnas era
 invisible: una pantalla vacía no prueba una pantalla.
 
+## 2026-09-13 · Publicar el conocimiento le quita al modelo las ganas de derivar (hipótesis de Simon, confirmada)
+Mismos 4 guiones, mismo decisor libre, mismo código, mismo día; lo único que cambia es el mundo:
+**clínica VACÍA → 4/4 entregados, 2/4 con el objetivo cubierto. Clínica PUBLICADA → 2/4 entregados,
+0/4 cubierto** (dos hilos muertos: uno «resuelto», otro «perdido»). Con la clínica vacía los motivos
+del propio modelo son «pasar el caso al equipo para que busque y ofrezca citas reales»; con ella
+publicada, cierra él. Es la misma señal que el 12-09 por otro camino (el juez tumbaba 1/9 con la
+clínica vacía y 6/12 con ella publicada): **tener datos le da permiso mental para resolver en vez de
+derivar.** No es un fallo del modelo: es que le damos hechos y no le damos el límite de lo que puede
+hacer con ellos. $0,21.
+**El caso más grave del experimento, y ninguna guarda lo paró:** el decisor con contexto le dijo a
+Nuria «Te tenemos anotada para el jueves 2026-09-18 de 18:00 a 19:00 en C/ Alcalá 120» — una cita que
+nadie reservó. Dos motivos, y el segundo es el que importa: **(1)** en el banco los mensajes de B y C
+no pasan por el control (cabecera de `jugar-tres.mts`), así que nada iba a pararlo; **(2)** aunque
+hubiera corrido, `vetoAgendaDeterminista` **no lo caza** — comprobado en seco: las once firmas de
+`FIRMAS_CITA_CONFIRMADA` exigen la palabra «cita» pegada al verbo, y «te tenemos ANOTADA» pone a la
+persona como objeto. Tampoco caza «¿qué franja te va mejor: de 17:00 a 18:00, de 18:00 a 19:00…?»,
+porque `FIRMAS_DISPONIBILIDAD` busca afirmaciones de hueco, no una pregunta que enumera tres franjas.
+§27 dos veces en el mismo mensaje.
+**Y el matiz que cambia dónde está el problema:** «abrimos los sábados de 10:00 a 14:00» NO es
+inventado — está publicado, y el render se lo dice literalmente («se dice "abrimos de X a Y", jamás
+"tenemos disponibilidad de X a Y"»). El agente obedeció esa frase y en la oración siguiente convirtió
+el horario en un menú de franjas. El horario de apertura es la materia prima de los huecos
+inventados, y hoy entra en el mismo saco que la dirección y los precios: «puedes afirmarlo tal cual».
+**Dos fallos de la herramienta, cazados al ir a medir.** El modo por defecto de `hilos:tres`
+(`--conocimiento fixture` = clínica vacía) llevaba roto desde el 12-09: el conocimiento del fixture se
+guardó el 10-09, antes de que existiera `ubicacion`, y `esConocimientoVacio` lee
+`c.ubicacion.direccion`. Nadie lo vio porque desde entonces todas las pasadas usan `--conocimiento db`.
+Y peor: **el script salía con código 0** tras fallar los cuatro guiones, anunciando «coste medido
+$0.00» — un fallo total con cara de pase vacío (§9). Ahora cuenta los hilos no jugados y sale 1.
+

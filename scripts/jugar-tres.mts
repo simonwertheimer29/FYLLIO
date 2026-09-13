@@ -47,7 +47,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { sql } from "kysely";
 import { evaluarTurno, SYSTEM_PROMPT_EVALUADOR, type EntradaEvaluador, type EvaluacionTurno } from "../app/lib/agente/evaluador";
-import { parseConocimiento, type ConocimientoClinica } from "../app/lib/agente/conocimiento";
+import { CONOCIMIENTO_VACIO, parseConocimiento, type ConocimientoClinica } from "../app/lib/agente/conocimiento";
 import { runWithClienteDb } from "../app/lib/db/context";
 import { construirEntradaDePrueba, relojDelBanco, type EscenarioPrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
 import { avanzarSesion, SESION_NUEVA, type EstadoSesionPrueba } from "../app/lib/agente/sesion-prueba";
@@ -219,10 +219,16 @@ async function conocimientoPublicadoDe(clinicaNombre: string | null): Promise<Co
 async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<HiloTres> {
   // 12-09: `--conocimiento db` juega con LO PUBLICADO ahora por esa clínica
   // (el caso real); por defecto, el mundo del turno 1 del fixture.
+  // 13-09: el conocimiento del fixture se guardó el 10-09, ANTES de que
+  // existiera `ubicacion` (dirección · cómo llegar · parking, 12-09), y
+  // `esConocimientoVacio` lee `c.ubicacion.direccion`: usarlo tal cual
+  // reventaba los cuatro guiones en el modo por defecto. Se completa con
+  // CONOCIMIENTO_VACIO — que es lo que este modo significa— en vez de
+  // confiar en que un artefacto viejo tenga la forma de hoy.
   const base: EntradaEvaluador =
     conocimientoDe === "db"
       ? { ...h.turnos[0]!.entrada!, conocimiento: await conocimientoPublicadoDe(h.turnos[0]!.entrada!.clinica ?? null) }
-      : h.turnos[0]!.entrada!;
+      : { ...h.turnos[0]!.entrada!, conocimiento: { ...CONOCIMIENTO_VACIO, ...(h.turnos[0]!.entrada!.conocimiento ?? {}) } };
   const g = h.guion;
   const maxTurnos = maxDe(h);
   // El arranque común: lo que la clínica escribió antes (cadencia, recordatorio)
@@ -428,6 +434,10 @@ let usdTotal = 0;
 // Solo lo jugado EN ESTE PASE: el fixture arrastra hilos de pases anteriores
 // (sin la métrica) y mezclarlos daría un denominador que no es de nadie.
 const jugados: Record<Decisor, HiloTres[]> = { codigo: [], contexto: [], libre: [] };
+// §9: «no pude jugar» y «jugué» no pueden salir con el mismo código. El 13-09
+// los cuatro guiones petaron en el modo por defecto y el pase terminó con
+// «coste medido $0.00» y salida 0 — un fallo total con cara de pase vacío.
+let fallos = 0;
 
 for (const h of hilosBase) {
   console.log("\n" + "═".repeat(72) + `\n▶ ${h.guion.id} · ${h.guion.titulo}`);
@@ -440,6 +450,7 @@ for (const h of hilosBase) {
       entradaGuion.decisores[d] = hilo;
       await runWithCliente("DEMO", () => guardarHiloTres(hilo));
     } catch (err) {
+      fallos++;
       console.error(`  ✗ ${h.guion.id}/${d}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -464,3 +475,7 @@ for (const d of decisores) {
 console.log("═".repeat(72));
 console.log(`${hilosBase.length} guiones × ${decisores.length} decisores · coste medido $${usdTotal.toFixed(2)} · fixture ${RUTA_FIXTURE_TRES} · léelo en /sombra › Conversaciones`);
 console.log("Apunta el coste en evals/pasadas/GASTO.md.");
+if (fallos > 0) {
+  console.error(`\n✗ ${fallos} hilo(s) NO se jugaron: lo de arriba no es un pase completo.`);
+  process.exit(1);
+}
