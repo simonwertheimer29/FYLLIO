@@ -421,8 +421,31 @@ console.log("\nE3 · guardas del modelo libre: precio en rango, plazo inventado,
     v("Para poder reservarte cita, ¿es tu primera visita?") == null &&
     v("El equipo te ayudará a reservar la cita con la disponibilidad que tengáis.") == null);
   ok("`diasDeLaCita` traduce los días que faltan a las formas en que se escriben",
-    JSON.stringify(diasDeLaCita("2026-09-13", 1)) === JSON.stringify(["lunes", "2026-09-14", "14/9", "manana"]) &&
+    JSON.stringify(diasDeLaCita("2026-09-13", 1)) === JSON.stringify(["lunes", "lunes 14", "2026-09-14", "14/9", "manana"]) &&
     JSON.stringify(diasDeLaCita("2026-09-13", null)) === "[]");
+
+  // 8b · LO QUE ENSEÑÓ LA PRIMERA MEDICIÓN (13-09, $0,58). La guarda se comió
+  // la frase con la que el agente RECOGÍA, dos turnos seguidos, y el caso se
+  // entregó a medias: el modelo dice «de lunes a jueves por la tarde» —la
+  // ventana de la clínica, abreviada «lun–jue» en lo publicado— y la primera
+  // versión leía cuatro fechas inventadas. La corrección distingue la VENTANA
+  // (un rango, un plural, el horario) de la FECHA (un día suelto, un día con
+  // número, un día del mes).
+  const HORARIO = "· Horario de APERTURA (cuándo abre la clínica): lun–jue 17:00–20:00 · sáb 10:00–14:00 — NO son huecos libres";
+  const DANI = "Quería primera cita para ortodoncia. Cualquier día menos los viernes me viene bien, y prefiero por la tarde.";
+  ok("EL CASO DE DANI: «de lunes a jueves por la tarde» es la ventana publicada, no cuatro huecos",
+    v("Para reservarte una cita de lunes a jueves por la tarde, necesito tu nombre completo.", HORARIO, { dichoPorLaPersona: DANI }) == null &&
+    v("Solo me falta tu nombre completo para que el equipo cierre la cita en una tarde de lunes a jueves.", HORARIO, { dichoPorLaPersona: DANI }) == null);
+  ok("…y el PLURAL también es ventana: «los sábados» de ella vale para «un sábado» del agente",
+    v("¿Te vendría mejor un sábado por la mañana o prefieres entre semana?", HORARIO, { dichoPorLaPersona: "¿Abrís los sábados?" }) == null);
+  ok("pero la FECHA dentro de esa misma frase sigue vetada: «19 o 26 de septiembre» no los dijo nadie",
+    v("¿Te vendría mejor un sábado (19 o 26 de septiembre) o prefieres entre semana?", HORARIO, { dichoPorLaPersona: "¿Abrís los sábados?" }) != null);
+  ok("EL HORARIO NO DA PROPIEDAD sobre un día suelto: abrir de lun a jue no hace verdad «el jueves»",
+    v("Te tenemos anotada para el jueves de 18:00 a 19:00.", HORARIO) != null &&
+    v("Podríamos verte el lunes 14, el martes 15 o el jueves 17.", HORARIO) != null);
+  ok("y su propia cita se puede recordar CON el número del día",
+    v("Tu cita es el jueves 17, como quedamos.", HORARIO, { citaConsta: true, diasPropios: diasDeLaCita("2026-09-13", 4) }) == null &&
+    v("Tu cita es el lunes 14, como quedamos.", HORARIO, { citaConsta: true, diasPropios: diasDeLaCita("2026-09-13", 4) }) != null);
 
   // 7 · EL PERDÓN — los falsos positivos del JUEZ (un modelo) se corrigen en
   // código, igual que sus omisiones. Medido con el juez vivo el 12-09: sin
@@ -548,16 +571,21 @@ console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la fr
       p.motivo === "queda_colgando", p.podado ? p.texto : "");
   }
 
-  // G6c · LA ÚNICA PREGUNTA (13-09). G1 protege la respuesta a lo que preguntó
-  //       ELLA; esto protege la pregunta con la que avanza el caso. Un mensaje
-  //       podado que se queda sin ninguna interrogación sale correcto y
-  //       estéril, y el turno siguiente empieza de cero: es tardanza fabricada
-  //       por el control.
+  // G6c · LO ÚNICO QUE PEDÍA (13-09). G1 protege la respuesta a lo que preguntó
+  //       ELLA; esto protege la petición con la que avanza el caso. Un mensaje
+  //       podado que se queda sin pedir nada sale correcto y estéril, y el turno
+  //       siguiente empieza de cero: es tardanza fabricada por el control.
   {
     const b = "Le paso tu caso al equipo con lo que me has contado. ¿Te lo reservo para el martes?";
     const p = podarBorrador(b, "¿Te lo reservo para el martes?", { publicado: PUBLICADO });
-    ok("la poda se llevaba la ÚNICA pregunta → era_la_unica_pregunta (lo arregla la reescritura, no la poda)",
-      p.motivo === "era_la_unica_pregunta", p.podado ? p.texto : "");
+    ok("la poda se llevaba la ÚNICA pregunta → era_lo_unico_que_pedia (lo arregla la reescritura, no la poda)",
+      p.motivo === "era_lo_unico_que_pedia", p.podado ? p.texto : "");
+    // EL CASO DE DANI (13-09, medido): pedir no siempre lleva interrogación.
+    const d = podarBorrador(
+      "Perfecto, Dani. Para reservarte la cita, necesito tu nombre completo. El equipo te lo confirma en cuanto lo tenga.",
+      "Para reservarte la cita, necesito tu nombre completo.", { publicado: PUBLICADO });
+    ok("…y una petición SIN interrogación cuenta igual («necesito tu nombre completo»)",
+      d.motivo === "era_lo_unico_que_pedia", d.podado ? d.texto : "");
     const q = podarBorrador(
       "Le paso tu caso al equipo. ¿Cómo te llamas? ¿Te lo reservo para el martes?",
       "¿Te lo reservo para el martes?", { publicado: PUBLICADO });

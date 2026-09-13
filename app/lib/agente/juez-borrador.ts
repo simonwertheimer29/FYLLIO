@@ -376,11 +376,25 @@ const DIA_CANONICO: Record<string, string> = {
   domingo: "domingo", diumenge: "domingo", sunday: "domingo",
   hoy: "hoy", avui: "hoy", today: "hoy",
   manana: "manana", dema: "manana", tomorrow: "manana",
+  // Las abreviaturas con las que `horarioLegible` escribe el horario
+  // publicado («lun–jue 17:00–20:00»). Sin ellas los días que la clínica SÍ
+  // publica no se reconocen y la guarda los trata como inventados.
+  lun: "lunes", mar: "martes", mie: "miercoles", jue: "jueves",
+  vie: "viernes", sab: "sabado", dom: "domingo",
 };
+
+/** El orden de la semana, para desplegar los RANGOS. */
+const ORDEN_SEMANA = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+
+/** Lo que une los dos extremos de un rango: «lun–jue», «de lunes a jueves»,
+ *  «lunes hasta jueves». Un rango NO es una lista de huecos: es la ventana en
+ *  la que se puede hablar, y si la clínica publica «lun–jue», los cuatro días
+ *  son suyos. */
+const UNE_UN_RANGO = /^\s*(?:[-–—]|a|al|hasta|fins a|to)\s*$/;
 
 /** Una sola alternancia, compilada una vez: esto corre por cada oración de
  *  cada borrador y de cada poda. */
-const RE_DIAS = new RegExp(`\\b(${Object.keys(DIA_CANONICO).join("|")})\\b`, "g");
+const RE_DIAS = new RegExp(`\\b(${Object.keys(DIA_CANONICO).join("|")})(s)?\\b`, "g");
 
 const MES_NUM: Record<string, number> = {
   enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
@@ -392,7 +406,7 @@ const MES_NUM: Record<string, number> = {
  *  guarda (`vetoPlazoDeterminista`)— y aquí solo harían ruido: sin esta
  *  puerta, cualquier adverbio de prontitud se leería como una cita inventada. */
 const HABLA_DE_AGENDA =
-  /\b(?:cita|citas|hueco|huecos|visita|visitas|valoracion|revision|agenda|agendar|agendamos|agendada|reservar|reservamos|reservada|apuntar|apuntamos|apuntad[oa]|anotad[oa]|esperamos|verte|atenderte|vienes|venir|te viene bien|te va bien|te encaja|te cuadra)\b/;
+  /\b(?:cita|citas|hueco|huecos|visita|visitas|valoracion|revision|agenda|agendar|agendamos|agendada|reservar|reservamos|reservada|apuntar|apuntamos|apuntad[oa]|anotad[oa]|esperamos|verte|atenderte|vienes|venir|te (?:viene|va|vendr[ií]a|ir[ií]a|quedar[ií]a) (?:bien|mejor)|te encaja|te cuadra)\b/;
 
 /** El HORARIO DE APERTURA es un dato publicado, no un hueco: «abrimos de
  *  17:00 a 20:00» nombra una hora que no es de nadie y es correcto. Lo que no
@@ -401,7 +415,15 @@ const HABLA_DE_AGENDA =
 const HABLA_DE_APERTURA =
   /\b(?:abrimos|abre|abren|abierto|abierta|cerramos|cierra|cierran|cerrado|cerrada|horario|horarios|festivo|festivos|obrim|obert|tanquem|open|opening|closed)\b/;
 
-type SenalesCalendario = { dias: Set<string>; horas: Set<string> };
+type SenalesCalendario = {
+  dias: Set<string>;
+  horas: Set<string>;
+  /** Los días que salen DENTRO de un rango («de lunes a jueves»). Un rango es
+   *  la ventana en la que se puede hablar, no una lista de huecos: por eso no
+   *  se le exige propiedad. Un día suelto sí — «te esperamos el jueves» apunta
+   *  a una fecha concreta y alguien se planta ahí. */
+  enRango: Set<string>;
+};
 
 /** Los días y las horas que un texto NOMBRA, normalizados para poder cruzarlos
  *  entre textos distintos (el borrador contra lo que ella dijo, lo publicado y
@@ -410,6 +432,8 @@ export function senalesDeCalendario(texto: string): SenalesCalendario {
   const t = normalizarTexto(texto);
   const dias = new Set<string>();
   const horas = new Set<string>();
+  const enRango = new Set<string>();
+  const encontrados: { dia: string; ini: number; fin: number }[] = [];
   for (const m of t.matchAll(RE_DIAS)) {
     const canonico = DIA_CANONICO[m[1] ?? ""];
     if (canonico == null) continue;
@@ -417,16 +441,42 @@ export function senalesDeCalendario(texto: string): SenalesCalendario {
     // («las mañanas») no entra aquí porque el \b pide la palabra exacta.
     if (canonico === "manana" && /\b(?:la|las)\s+$/.test(t.slice(Math.max(0, m.index - 10), m.index))) continue;
     dias.add(canonico);
+    // «los sábados», «los martes por la tarde»: el PLURAL es un día de la
+    // semana en general, no una fecha — la misma ventana que un rango. Ella lo
+    // usa para decir cuándo puede («abrís los sábados?») y el agente para
+    // preguntarlo; exigirle propiedad a eso es exigírsela al calendario.
+    if (m[2] != null) enRango.add(canonico);
+    const fin = m.index + (m[1] ?? "").length + (m[2]?.length ?? 0);
+    // «martes 15» no es «un martes»: es UNA fecha. Se guarda aparte para que
+    // la propiedad la exija aunque el día de la semana sea de todos.
+    const conNumero = /^\s+(?:d[ií]a\s+)?(\d{1,2})\b/.exec(t.slice(fin, fin + 12));
+    const n = conNumero ? Number(conNumero[1]) : null;
+    if (n != null && n >= 1 && n <= 31) dias.add(`${canonico} ${n}`);
+    encontrados.push({ dia: canonico, ini: m.index, fin });
+  }
+  // «de lunes a jueves» nombra los cuatro, no dos: si solo se leen los
+  // extremos, el martes de en medio parece inventado.
+  for (let i = 0; i + 1 < encontrados.length; i++) {
+    const a = ORDEN_SEMANA.indexOf(encontrados[i]!.dia);
+    const b = ORDEN_SEMANA.indexOf(encontrados[i + 1]!.dia);
+    if (a < 0 || b < 0 || b <= a) continue;
+    if (!UNE_UN_RANGO.test(t.slice(encontrados[i]!.fin, encontrados[i + 1]!.ini))) continue;
+    for (let k = a; k <= b; k++) {
+      dias.add(ORDEN_SEMANA[k]!);
+      enRango.add(ORDEN_SEMANA[k]!);
+    }
   }
   for (const m of t.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) dias.add(`${Number(m[3])}/${Number(m[2])}`);
   for (const m of t.matchAll(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/g)) dias.add(`${Number(m[1])}/${Number(m[2])}`);
-  for (const m of t.matchAll(/\b(\d{1,2}) de ([a-z]+)\b/g)) {
+  for (const m of t.matchAll(/\b(\d{1,2}(?:\s*(?:,|o|y|al?|hasta)\s*\d{1,2})*) de ([a-z]+)\b/g)) {
     const mes = MES_NUM[m[2] ?? ""];
-    if (mes != null) dias.add(`${Number(m[1])}/${mes}`);
+    if (mes == null) continue;
+    // «19 o 26 de septiembre» nombra DOS fechas y el mes va una sola vez.
+    for (const n of (m[1] ?? "").split(/[^0-9]+/).filter((x) => x !== "")) dias.add(`${Number(n)}/${mes}`);
   }
   for (const m of t.matchAll(/\b(\d{1,2})[:.](\d{2})\b/g)) horas.add(`${Number(m[1])}:${m[2]}`);
   for (const m of t.matchAll(/\ba las (\d{1,2})\b(?![:.]\d)/g)) horas.add(`${Number(m[1])}:00`);
-  return { dias, horas };
+  return { dias, horas, enRango };
 }
 
 /** Las formas en que se escribe el día de SU cita. Sin esto, `citaConsta` solo
@@ -440,6 +490,9 @@ export function diasDeLaCita(hoy: string, diasHasta: number | null | undefined):
   const nombre = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"][d.getUTCDay()];
   return [
     nombre ?? "",
+    // «el jueves 17» es una fecha, y la suya lo es: sin esta forma, recordarle
+    // su propia cita con el número del día se leería como inventada.
+    nombre != null ? `${nombre} ${d.getUTCDate()}` : "",
     d.toISOString().slice(0, 10),
     `${d.getUTCDate()}/${d.getUTCMonth() + 1}`,
     ...(diasHasta === 0 ? ["hoy"] : diasHasta === 1 ? ["manana"] : []),
@@ -455,8 +508,17 @@ export function vetoPropiedadDeterminista(
   borrador: string,
   opts: { publicado?: string; dichoPorLaPersona?: string; diasPropios?: string[] } = {},
 ): string | null {
+  // EL HORARIO DE APERTURA NO DA PROPIEDAD SOBRE LOS DÍAS. Dice cuándo abre la
+  // clínica, no qué día es de esta persona: si contara, bastaría con abrir de
+  // lunes a viernes para que «te esperamos el jueves» fuese verdad. Se le quita
+  // esa línea a lo publicado y el resto sí cuenta — cuando exista el nivel 2,
+  // los huecos que consten vivirán ahí y serán propiedad de pleno derecho.
+  const publicadoSinHorario = (opts.publicado ?? "")
+    .split("\n")
+    .filter((l) => !HABLA_DE_APERTURA.test(normalizarTexto(l)))
+    .join("\n");
   const propio = senalesDeCalendario(
-    [opts.publicado ?? "", opts.dichoPorLaPersona ?? "", (opts.diasPropios ?? []).join(" ")].join(" \n "),
+    [publicadoSinHorario, opts.dichoPorLaPersona ?? "", (opts.diasPropios ?? []).join(" ")].join(" \n "),
   );
   // LA HORA SOLO SE MIRA SI SE SABE CUÁL ES LA SUYA. Hoy la entrada del
   // evaluador trae los DÍAS que faltan hasta su cita y nunca la hora
@@ -470,7 +532,7 @@ export function vetoPropiedadDeterminista(
     const n = normalizarTexto(oracion);
     if (!HABLA_DE_AGENDA.test(n) || HABLA_DE_APERTURA.test(n)) continue;
     const dice = senalesDeCalendario(oracion);
-    if ([...dice.dias].some((d) => !propio.dias.has(d))) return oracion.trim();
+    if ([...dice.dias].some((d) => !dice.enRango.has(d) && !propio.dias.has(d))) return oracion.trim();
     // La hora solo se mira si la oración ya nombra un día suyo: una hora
     // suelta sin día no es una cita, es un plazo, y ese es otro veto.
     if (suyas.size > 0 && dice.dias.size > 0 && [...dice.horas].some((h) => !suyas.has(h))) return oracion.trim();
@@ -956,7 +1018,7 @@ export type Poda =
         | "era_todo"
         | "solo_cortesia"
         | "era_la_respuesta"
-        | "era_la_unica_pregunta"
+        | "era_lo_unico_que_pedia"
         | "sigue_vetado"
         | "queda_colgando"
         | "queda_residuo";
@@ -974,6 +1036,13 @@ export type MotivoPoda = Extract<Poda, { podado: false }>["motivo"];
  *  cierre inocente el 90 % de las veces y meterlo apagaría la poda casi
  *  siempre. Los pronombres pegados al verbo («cambiarla») no se cazan aquí —
  *  límite conocido, y la reescritura es su sitio. */
+/** Lo que hace que un mensaje PIDA algo. No siempre lleva interrogación: «solo
+ *  me falta tu nombre completo» pide igual que «¿cómo te llamas?», y medido el
+ *  13-09 con Dani era justo esa forma la que se perdía —la poda se llevó dos
+ *  turnos seguidos la única frase que recogía, y el caso se entregó a medias. */
+const PIDE_ALGO =
+  /[?¿]|\b(?:necesito|necesitamos|me dices|me das|me pasas|me mandas|me env[ií]as|me confirmas|me indicas|dime|dinos|cu[ée]ntame|env[ií]ame|m[áa]ndame|(?:solo\s+)?(?:me|nos)\s+falta)\b/;
+
 const ARRANQUE_QUE_SE_APOYA =
   /^(?:eso|esa|ese|esto|esos|esas|en ese caso|en esa|por eso|tambien|ademas|lo mismo|igualmente|ahi|entonces|de paso|ese dia|esa hora|ese precio|ese importe)\b/;
 
@@ -1081,15 +1150,17 @@ export function podarBorrador(
   if (preguntó && !REMITE_A_UNA_PERSONA.test(paraCotejar(texto))) {
     return { podado: false, motivo: "era_la_respuesta", quitada };
   }
-  // LA ÚNICA PREGUNTA (13-09). La otra mitad de lo mismo: arriba se protege la
-  // respuesta a lo que preguntó ELLA; aquí, la pregunta que hacía AVANZAR el
-  // caso. Un mensaje al que la poda le quita su única interrogación sale
-  // correcto y estéril —no infringe y no pide nada—, y el turno siguiente
-  // vuelve a empezar de cero: es la tardanza que se está midiendo desde el
-  // 12-09, fabricada por el control. La reescritura sí sabe decir lo mismo sin
-  // la infracción Y conservando la pregunta; podar, no.
-  if (/\?/.test(borrador) && !/\?/.test(texto)) {
-    return { podado: false, motivo: "era_la_unica_pregunta", quitada };
+  // LO ÚNICO QUE PEDÍA (13-09). La otra mitad de lo mismo: arriba se protege la
+  // respuesta a lo que preguntó ELLA; aquí, la petición que hacía AVANZAR el
+  // caso. Un mensaje al que la poda le quita lo único que pedía sale correcto y
+  // estéril —no infringe y no pide nada—, y el turno siguiente vuelve a empezar
+  // de cero: es la tardanza que se está midiendo desde el 12-09, fabricada por
+  // el control. La reescritura sí sabe decir lo mismo sin la infracción Y
+  // conservando la petición; podar, no. Medido el 13-09: la primera versión
+  // miraba solo la interrogación y se le escapó «necesito tu nombre completo»,
+  // que es la forma en la que este modelo pide la mitad de las veces.
+  if (PIDE_ALGO.test(borrador) && !PIDE_ALGO.test(texto)) {
+    return { podado: false, motivo: "era_lo_unico_que_pedia", quitada };
   }
   return { podado: true, texto, quitada };
 }

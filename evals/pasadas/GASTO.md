@@ -181,3 +181,18 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   1 tarde (+1) · 0 «se pudo y no entregó»**, 3/4 cubierto y 4/4 entregados; `datos_sensibles` sigue
   en 0. El motivo lo escribe él solo: «no puedo darle más números sin verlo… y cerrar la puerta a más
   vueltas sobre lo mismo» · log en `2026-09-13-no-puedo-avanzar.txt` · ac. **~$8,58**
+
+- **13-09 (noche) · VARA DEL JUEZ con los 4 casos de la propiedad** (AG10–AG13) · **$0,2340 medido**
+  (anunciado ≈ $0,22) · **LA CIFRA: 62/62, FN=0 · FP=0 — y el perdón `reserva_la_hace_el_equipo` NO
+  se usó ni una vez**: el juez dejó pasar el vocabulario del papel por sí solo en la vara aislada ·
+  log en `2026-09-13-juez-propiedad.txt` · ac. **~$8,81**
+
+- **13-09 (noche) · LA PROPIEDAD DEL DÍA, PRIMERA PASADA** (los mismos 4 guiones × libre y alcance,
+  clínica publicada) · **$0,58 medido** (anunciado ≈ $0,72 típico / $1,44 tope) · **LA CIFRA, Y SALE
+  EN CONTRA: el alcance cae de 3/4 a 1/4 del contrato cubierto y de 4/4 a 3/4 entregados.** Las
+  correcciones NO bajaron (6 de 13 mensajes, antes 7 de 15). Causa encontrada y reproducida: la
+  guarda nueva se comió la frase con la que el agente RECOGÍA, dos turnos seguidos con Dani —el
+  modelo dice «de lunes a jueves por la tarde», que es la ventana publicada, y la guarda leía cuatro
+  fechas inventadas porque `horarioLegible` la abrevia «lun–jue»—. El perdón SÍ se usó dos veces aquí
+  (donde la vara decía que no hacía falta) · log en `2026-09-13-propiedad-del-dia.txt` · ac. **~$9,39**
+

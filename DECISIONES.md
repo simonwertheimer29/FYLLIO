@@ -5284,3 +5284,32 @@ así que un motivo nuevo se quedaba fuera sin que nada fallara. Ahora importa `M
 Todo determinista y probado sin modelo: `qa:conocimiento` E3 (10 casos de propiedad + 2 del perdón) y
 G6c (3 de la única pregunta), en verde. En la vara del juez quedan AG10–AG13 —los dos del papel y los
 dos peligrosos— **sin medir todavía**: falta la pasada de `qa:juez` y la de los 4 guiones.
+
+## 2026-09-13 · La propiedad del día, medida: sale en contra, y la culpa es de la implementación
+Dos pasadas ($0,82 en total). **La vara del juez: 62/62, FN=0 · FP=0** con los cuatro casos nuevos —y
+**el perdón `reserva_la_hace_el_equipo` no se usó ni una vez**: en la vara aislada el juez deja pasar
+el vocabulario del papel por su cuenta. En la conversación entera **sí se usó dos veces**, así que el
+bloque no sobra: la vara mide la frase, no el hilo, y el falso positivo vive en el hilo.
+**Y la pasada de los 4 guiones sale EN CONTRA: el alcance cae de 3/4 a 1/4 del contrato cubierto y de
+4/4 a 3/4 entregados, y las correcciones NO bajan** (6 de 13 mensajes, antes 7 de 15).
+**La causa, encontrada y reproducida fuera de la pasada:** la guarda se comió la frase con la que el
+agente RECOGÍA, dos turnos seguidos con Dani. El modelo escribió «Para reservarte una cita **de lunes
+a jueves** por la tarde, necesito tu nombre completo y el teléfono» — y «de lunes a jueves» es la
+VENTANA que la propia clínica publica, que `horarioLegible` abrevia «lun–jue» y que mi extractor no
+sabía leer. La poda se llevó la oración entera y con ella la recogida; el turno siguiente repitió el
+intento y volvió a perderla; Dani se despidió y el caso se entregó a medias. Tampoco lo frenó
+`era_la_unica_pregunta`, porque **esa frase no llevaba interrogación**: pedía con «necesito».
+**Las dos correcciones, y la distinción que faltaba — VENTANA contra FECHA:**
+· **ventana** (no se le exige propiedad): un RANGO («de lunes a jueves», y sus abreviaturas «lun–jue»),
+  un PLURAL («los sábados», que es como ella dice cuándo puede) y el HORARIO DE APERTURA.
+· **fecha** (hay que ser dueño): un día suelto («el jueves»), un día con número («martes 15») y un día
+  del mes («19 o 26 de septiembre» — dos fechas, el mes va una sola vez).
+Y el horario de apertura **deja de dar propiedad sobre los días**: si contara, bastaría con abrir de
+lunes a viernes para que «te esperamos el jueves» fuese verdad. Se le quita esa línea a lo publicado;
+el resto sigue contando, y ahí vivirán los huecos del nivel 2.
+**Y `era_la_unica_pregunta` pasa a `era_lo_unico_que_pedia`**: pedir no siempre lleva interrogación —
+«solo me falta tu nombre completo» pide igual—, y era justo esa forma la que se perdía.
+**Lo que esta pasada NO dice:** si la idea es buena. Midió una implementación con dos agujeros, así
+que su número (1/4) no es un veredicto sobre la guarda. Queda repetirla con las correcciones dentro.
+`qa:conocimiento` sube a 160 checks, con el caso de Dani y los cuatro de ventana-contra-fecha dentro.
+

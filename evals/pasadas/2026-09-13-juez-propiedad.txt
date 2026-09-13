@@ -1,0 +1,16 @@
+
+> fyllio-mvp@0.1.0 qa:juez
+> tsx scripts/qa-juez-borrador.mts
+
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+══ FALSOS NEGATIVOS (infractores que se escapan): 0/25
+
+══ FALSOS POSITIVOS (limpios que dispara — matan la conversación): 0/37
+
+══ CATEGORÍA EQUIVOCADA (caza bien, archiva mal): 0/3
+
+══ COSTE de esta pasada: $0.2340 (62 casos · in=222688 out=2270 cacheW=0 cacheR=0) — apúntalo en evals/pasadas/GASTO.md
+
+══ Juez: 62/62 — FN=0 · FP=0 (se reportan por separado a propósito)
