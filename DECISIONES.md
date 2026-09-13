@@ -4894,3 +4894,35 @@ hubo que reproducirlo contra la API real para leerlo. No se toca el redactor en 
 un control de privacidad: propuesta en MEJORAS 241, con `LOG_DRAIN_URL` (162) como el arreglo de
 fondo. **Lección: un redactor que deja la incidencia sin una sola palabra no está protegiendo, está
 degradando — y encima parece que funciona (§9).**
+
+## 2026-09-13 (tarde) — el redactor conserva las claves del JSON, y «sin llamar a X» pasa a ser tarea el día que se escribe
+
+**241 (a), por orden de Simon.** `redactar` deja pasar las CLAVES de un objeto JSON y sigue redactando
+los valores. Una clave va precedida de `{` o `,`, parece un identificador y va seguida de dos puntos:
+es esquema del remoto, no dato nuestro. El cuerpo de error que ayer se guardó como `{"…":"…"}` ahora
+queda como `{"error":"…"}`, y el de Meta como `{"error":{"message":"…","type":"…","code":131030}}`.
+**Lo que compra es la FORMA, no el motivo** — con esto solo, el 400 de ayer habría dicho «el remoto
+mandó un campo error» y habría hecho falta reproducirlo igual. El motivo lo devuelve el drenaje (162).
+
+**El QA cazó mi primera versión, y conviene que quede escrito porque es el mismo pecado que arreglaba.**
+Usé un lookahead, `"[^"]*"(?!\s*:)`. Al fallar el lookahead sobre `"error"`, el motor no se rinde:
+reintenta desde la comilla de cierre y empareja `":"` como si fuera una cadena. Resultado: el
+separador se convertía en `"…"` y el VALOR quedaba fuera de comillas y por tanto **sin redactar** —
+más fuga que antes, no menos. Lo delató el contra-caso de Meta (`qa:incidencias`), que existe
+precisamente porque Meta mete el teléfono del destinatario dentro del mensaje de error. Un control de
+privacidad se toca con una prueba que intente sacarle el dato (§5), no leyendo la regex.
+
+**162 aplazada, con condición atada.** El drenaje espera respuesta del abogado sobre los encargados
+del tratamiento. Y encenderlo **obliga a actualizar `/privacidad` en el mismo cambio**: el destino
+recibe registros con contenido, sería el OCTAVO encargado y la página publicada ayer nombra siete.
+(b) descartada: no se puede declarar segura ni para QStash, porque el cuerpo que publicamos lleva
+teléfono y contenido.
+
+**Regla nueva del §25, y es la que más lejos llega.** «Sin llamar a QStash» estuvo seis días escrito,
+siendo honesto, sin que nadie lo leyera como una tarea. Desde hoy esa frase, en cualquier QA, **nace
+como entrada en MEJORAS el mismo día que se escribe**, no cuando se paga. Con dos categorías que se
+parecen y no son lo mismo: «sin modelo» suele ser coste legítimo y cubierto en otro sitio (regla del
+17-08) y se cita dónde; «sin red / sin credencial / sin llamar a X» sobre un tercero es el caso 5 y la
+entrada es obligatoria. Censo de las catorce cabeceras que lo declaran hoy → MEJORAS 242: doce son
+coste cubierto y **una es deuda de verdad**, `qa:agenda-externa`, que afirma sobre fixtures «con la
+forma real de la API de Google» sin haber llamado nunca a Google. Es la misma frase que la cola.

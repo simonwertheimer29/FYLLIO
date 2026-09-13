@@ -57,6 +57,19 @@ async function main() {
     const pg = Object.assign(new Error("duplicate key"), { code: "23505" });
     check(resumirError(pg).error_codigo === "23505", "el código de Postgres se conserva");
 
+    // Las claves del JSON sobreviven y los valores no (MEJORAS 241). El caso
+    // real: este cuerpo exacto se guardó como `{"…":"…"}` y el 400 de la cola
+    // hubo que reproducirlo contra la API para saber qué decía.
+    const qstash = redactar(`{"error":"DeduplicationId cannot contain ':'"}`);
+    check(qstash.includes('"error"'), `la clave del JSON se queda: ${qstash}`);
+    check(!qstash.includes("Deduplication"), "el valor del JSON se va igual que antes");
+    check(qstash !== '{"…":"…"}', "y ya no queda en nada, que era el fallo");
+    // El contra-caso, que es el que justifica que los valores NO se conserven:
+    // Meta mete el teléfono del destinatario dentro del mensaje de error.
+    const meta = redactar(`{"error":{"message":"Recipient phone number +34600123456 not in allowed list","type":"OAuthException","code":131030}}`);
+    check(meta.includes('"message"') && meta.includes('"type"'), `las claves de Meta se quedan: ${meta}`);
+    check(!meta.includes("600123456") && !meta.includes("Recipient"), "el teléfono del valor NO sobrevive");
+
     console.log("Cubo por hora");
     const ahora = new Date();
     for (let i = 0; i < 3; i++) {

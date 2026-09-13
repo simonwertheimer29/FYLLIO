@@ -85,11 +85,47 @@ const TITULO_TIPO: Record<TipoIncidencia, string> = {
 // exist»)… hasta que no lo es: Postgres cita el valor que no encaja («invalid
 // input syntax: "hola qué tal"»), Meta devuelve el número, el modelo puede
 // devolver un fragmento del prompt. Se quita lo entrecomillado, los correos y
-// las tiras de dígitos, y se trunca. Sobre-redactar es el lado seguro.
+// las tiras de dígitos, y se trunca. Sobre-redactar es el lado seguro — con UNA
+// excepción, las CLAVES de un JSON, que son esquema del remoto y no dato
+// nuestro: sin ella el cuerpo de error de una API quedaba en `{"…":"…"}`, que no
+// es redactar, es borrar. Los valores siguen redactados, y es ahí donde Meta
+// mete el teléfono.
+
+/** ¿Este trozo entrecomillado es una CLAVE de un objeto JSON, y por tanto
+ *  esquema del remoto y no un dato nuestro? Solo si va precedido de `{` o `,`,
+ *  parece un identificador y va seguido de dos puntos. Deliberadamente
+ *  estricto: en texto libre, `column "fecha": no existe` NO es una clave y se
+ *  redacta como siempre. */
+function esClaveJson(contenido: string, anterior: string, dosPuntos: string | undefined): boolean {
+  if (dosPuntos === undefined) return false;
+  if (anterior !== "" && anterior !== "{" && anterior !== ",") return false;
+  return /^[A-Za-z_][A-Za-z0-9_.-]{0,39}$/.test(contenido);
+}
 
 export function redactar(texto: string): string {
   return texto
-    .replace(/"[^"\n]*"/g, '"…"')
+    // Excepción de las CLAVES de un JSON (13-09-2026, MEJORAS 241). Sin ella el
+    // cuerpo de error de una API —que es JSON, donde TODO está entrecomillado—
+    // quedaba en `{"…":"…"}`, o sea en nada: QStash mandó el diagnóstico entero
+    // en una frase y la incidencia solo pudo decir «hubo un 400». Los VALORES
+    // siguen redactados, y es ahí donde Meta mete el teléfono.
+    //
+    // Se consume el `:` junto con la clave a propósito. La primera versión usaba
+    // un lookahead `"[^"]*"(?!\s*:)` y `qa:incidencias` la tumbó: al fallar el
+    // lookahead sobre `"error"`, el motor reintentaba desde la comilla de cierre
+    // y emparejaba `":"` como si fuera una cadena, dejando el valor FUERA de
+    // comillas y por tanto sin redactar — más fuga que antes, no menos.
+    //
+    // Lo que esto compra es la FORMA de la respuesta, no el motivo. Para el
+    // motivo hace falta el drenaje de logs (162), aplazado hasta que el abogado
+    // conteste sobre los encargados del tratamiento.
+    .replace(
+      /"([^"\n]*)"(\s*:)?/g,
+      (match: string, contenido: string, dosPuntos: string | undefined, offset: number, completo: string) => {
+        const anterior = completo.slice(0, offset).trimEnd().slice(-1);
+        return esClaveJson(contenido, anterior, dosPuntos) ? match : `"…"${dosPuntos ?? ""}`;
+      },
+    )
     .replace(/'[^'\n]*'/g, "'…'")
     .replace(/«[^»\n]*»/g, "«…»")
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "@…")

@@ -500,7 +500,20 @@ Reglas:
   demuestra que la fórmula vieja SÍ fallaba, en vez de suponerlo»).
 - **Un QA que declara en su cabecera lo que NO prueba está pidiendo una segunda prueba que sí lo
   haga, no quedándose absuelto.** «Sin llamar a QStash» era honesto y quedó escrito seis días; lo
-  que faltó fue que alguien tratara esa frase como una tarea abierta.
+  que faltó fue que alguien tratara esa frase como una tarea abierta. **Regla operativa (Simon,
+  13-09): esa frase, en cualquier QA, nace como entrada en `MEJORAS-PENDIENTES.md` el mismo día que
+  se escribe** — no cuando se paga. La cabecera dice qué no prueba; la entrada dice quién lo prueba
+  entonces, y mientras no haya respuesta la entrada sigue abierta. Escribir la declaración sin abrir
+  la entrada es dejar una nota para nadie.
+  Distinguir dos cosas que se parecen y no lo son:
+  - **«Sin modelo» / «sin base» / «determinista»** suele ser una decisión de COSTE legítima (regla
+    del 17-08: los QA de iteración no gastan modelo) y está cubierta en otro sitio — `qa:evals`, el
+    banco, los hilos jugados. Se declara y se cita DÓNDE se cubre. Si no se puede citar, no está
+    cubierta y vuelve a ser el caso de abajo.
+  - **«Sin red» / «sin credencial» / «sin llamar a X»** sobre un TERCERO es el caso 5: nadie ha
+    comprobado nunca qué acepta X. Fixtures «con la forma real de la API» son nuestras suposiciones
+    sobre esa forma, que es justo lo que falla. Aquí la entrada de MEJORAS es obligatoria y pide una
+    llamada real, una vez.
 - **Una construcción, un sitio.** Lo que producción calcula antes de llamar al modelo (entrada,
   contexto, render) vive en UN constructor puro; producción trae datos de la base y la prueba trae
   datos sintéticos, pero los dos llaman a la misma función. Un «como en producción» escrito a mano

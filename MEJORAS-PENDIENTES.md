@@ -2347,6 +2347,14 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   de 241 — conservar las claves del JSON del error —, treinta minutos y ningún proveedor nuevo.
   **Recomendación:** (a) primero por ser gratis en superficie legal; el drenaje, cuando el abogado
   haya contestado sobre los encargados.
+- **DECISIÓN 13-09 (Simon), y es la que manda: el drenaje queda APLAZADO hasta que el abogado
+  conteste sobre los encargados del tratamiento.** No es «pendiente de hacer», es pendiente de una
+  respuesta que no tenemos. Y lleva una condición atada, que es lo que no se puede olvidar:
+  **encenderlo obliga a actualizar la política de privacidad EN EL MISMO CAMBIO**, porque el destino
+  del drenaje recibe registros con contenido y sería el **octavo** encargado — la página publicada el
+  13-09 nombra siete (Meta, Anthropic, Supabase, Vercel, Upstash, Twilio, OpenAI). Poner
+  `LOG_DRAIN_URL` sin tocar `/privacidad` deja la política diciendo algo falso el mismo día. La
+  opción (a) de 241 se hizo el 13-09 y no añade ningún proveedor.
 
 ## 163. Fase 0 · Barrido de reevaluación — el turno perdido no se reintenta
 - Modelo caído o timeout de 20 s → turno perdido; el caso queda en «Sin evaluar» hasta que alguien
@@ -3107,6 +3115,35 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 242. QA · el censo de lo que los QA declaran que NO prueban, que es donde vive el próximo caso 5
+  **Zona:** cabeceras de `scripts/qa-*.mts`. · **Por qué existe esta entrada:** la regla operativa
+  nueva (§25 del skill, por orden de Simon el 13-09) dice que «sin llamar a X» en un QA nace como
+  entrada en este fichero el mismo día que se escribe. Nace hoy, así que lo primero es aplicarla a lo
+  que ya estaba escrito. Censo hecho sobre las catorce cabeceras que declaran un hueco, separadas en
+  las dos categorías que el skill distingue: · **Coste, y cubierto en otro sitio (no es deuda):**
+  «SIN modelo» en `qa:actos`, `qa:bandeja`, `qa:barrido`, `qa:cola`, `qa:conocimiento`,
+  `qa:estado-persona`, `qa:ficha`, `qa:generar-cola`, `qa:hilos`, `qa:parseo`, `qa:banco-vs-runner`,
+  `qa:supresion`. Es la regla del 17-08 (los QA de iteración no gastan modelo) y el camino del modelo
+  se ejercita en `qa:evals`, el banco y los hilos jugados. Se quedan como están. · **Tercero que nadie
+  ha llamado nunca (ESTO sí es deuda, y es la forma exacta del caso 5):**
+  **`qa:agenda-externa`** declara «sin red ni credencial» y afirma sobre `mapearEvento` con fixtures
+  «con la forma real de la API de Google». Esa frase es la trampa: los fixtures son NUESTRA suposición
+  sobre la forma de Google Calendar, que es precisamente lo que un tercero desmiente. Si Google manda
+  un campo que no previmos, o un día entero con otra forma, el QA sigue verde y la agenda externa
+  mapea mal la ocupación — y lo que sale de ahí son huecos que el agente puede ofrecer. ·
+  **Propuesta:** una llamada real a Google Calendar, **una vez**, con la credencial de servicio y un
+  calendario de pruebas con los cinco casos raros sembrados a mano (cancelado, transparent, día
+  entero en invierno, recurrente expandido, evento sin fin); se compara el JSON que devuelve Google
+  con los fixtures campo a campo, y lo que difiera se corrige en el fixture. Resultado anotado en la
+  cabecera con su fecha, como en `cola/qstash.ts`. · **Pendiente de comprobar y no lo doy por hecho:**
+  si Twilio (`lib/whatsapp/send.ts`) y la transcripción de OpenAI (`api/copilot/transcribe`) se han
+  llamado de verdad alguna vez en producción; si no, entran en esta misma entrada. WhatsApp de Meta
+  **sí** está probado desde el 13-09 (el primer mensaje real salió y llegó), y Vapi está declarado
+  inerte por `llamadasOperativas()`, que es honesto y no un falso verde. · **Impacto:** MEDIO-ALTO —
+  la agenda externa alimenta lo que el agente puede decir sobre huecos, que es de lo poco donde
+  inventar tiene consecuencia clínica y comercial. · **Esfuerzo:** 1-2 h, casi todo montar el
+  calendario de pruebas. · **Fecha:** 2026-09-13 · 🔵
+
 ## 241. Incidencias · el redactor se come el motivo de los errores de API y deja la incidencia muda
   **Zona:** `app/lib/incidencias.ts:90` (`redactar`, usado por `resumirError`). · **Qué pasa:** el
   primer fallo real de la cola guardó esto como motivo: `{"…":"…"}`. La regla que sustituye todo lo
@@ -3128,7 +3165,16 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   loguea, lo que falta es que sobreviva más de un día. · **Recomendación:** (c) + (a); (b) solo si
   Simon quiere el motivo dentro del producto y acepta el riesgo. · **Impacto:** ALTO en diagnóstico —
   no pierde datos, pero convierte cada fallo de integración en una investigación. · **Esfuerzo:** (a)
-  30 min · (c) ya pendiente. · **Fecha:** 2026-09-13 · 🔵
+  30 min · (c) ya pendiente. · **Fecha:** 2026-09-13 · 🟢 **(a) HECHA el 13-09**, por orden de Simon:
+  las claves del JSON se conservan y los valores se siguen redactando, con el contra-caso de Meta
+  (teléfono dentro del valor) en `qa:incidencias`. La primera versión, con un lookahead, la tumbó ese
+  mismo QA: al fallar sobre `"error"` el motor emparejaba `":"` y el valor quedaba fuera de comillas y
+  SIN redactar — más fuga, no menos. **(b) descartada** (no se puede declarar segura ni para QStash:
+  el cuerpo que publicamos lleva teléfono y contenido, así que un remoto que lo eco-ara los filtraría).
+  **(c) aplazada** por decisión de Simon; ver la condición en 162. **Lo que (a) NO arregla, dicho
+  claro:** compra la FORMA de la respuesta (`{"error":"…"}`), no el motivo. Con (a) sola, el 400 de
+  QStash de ayer habría dicho que el remoto mandó un campo `error` y nada más: seguiría haciendo falta
+  reproducirlo. El motivo solo lo devuelve (c).
 
 ## 240. Legal · la política de privacidad publicada es PROVISIONAL y no puede sobrevivir al primer cliente
   **Zona:** `app/(public)/privacidad/page.tsx` (URL `/privacidad`, publicada el 13-09-2026). · **Qué
