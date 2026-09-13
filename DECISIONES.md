@@ -5154,3 +5154,28 @@ que S sigue siendo S— y ninguno de los fixtures C1 con la cita abierta declina
 estrena el bloque 2b con las diez condiciones de la regla, sin modelo. Lo que la lente vio de paso y
 NO se ejecuta: MEJORAS 244 (tras declinar, `identificar` sigue pidiendo el nombre) y 245 (si el juez
 descarta el borrador, la plantilla de entrega promete un contacto que nadie pidió).
+
+## 2026-09-13 · Se acabó el crédito a mitad de pasada, y el instrumento lo guardó como si fuera una medida
+La pasada que medía la cláusula del orden murió con «Your credit balance is too low» en la sexta
+llamada. Dos guiones se jugaron enteros; los otros dos salieron **«perdido · nunca llegó a tener
+todo lo que pide el objetivo»** — la cara EXACTA de la métrica que esa pasada mide (§4) — y el pase
+terminó imprimiendo «1/4 con el objetivo cubierto» y saliendo 0. Peor: como `guardarHiloTres` hace
+upsert por (cliente, guion, decisor), los hilos muertos **pisaron en el visor los buenos de la
+pasada anterior**. Es la tercera vez que este error cambia de disfraz (el 13-09 por la mañana, un
+corte de red; a mediodía, cuatro guiones que petaron con salida 0).
+**Lo que se arregla, que es la clase y no la instancia:** (1) un `fallback` del evaluador **lanza** —
+el hilo no se escribe ni en el fixture ni en la base, y el pase lo cuenta y sale distinto de 0—;
+(2) `pedirSombra` estrena `estricto` para el banco, y ahí distingue lo que antes era el mismo `null`
+(§9): **«no pude preguntar»** (sin clave, 4xx, timeout) **lanza**, mientras que «contestó algo
+inservible» sigue devolviendo null, porque eso sí es una medida del decisor. En producción no se usa:
+allí la sombra es prescindible y jamás puede romper un turno real.
+**Y el fixture es la fuente; la tabla del visor, una proyección:** `npm run hilos:tres:restaurar`
+la vuelve a proyectar desde el fichero (que va en git), sin modelo y sin gastar nada. Con él se
+devolvieron los dos guiones pisados. `RUTA_FIXTURE_TRES` y `FixtureTres` se mudan a `actos.ts`
+—donde ya vive `HiloTres`— porque los usan dos scripts y `jugar-tres` no se puede importar sin
+ejecutarlo.
+**Lo poco que la pasada rota sí deja, de los dos guiones jugados:** con Carlos, el modelo libre
+recibe «pues lo pensaré, ya os diré algo», se despide y **no pasa el caso** — la métrica lo canta
+por primera vez («lo tuvo todo en el 4 y no entregó nunca»), que es justo el agujero que el arreglo
+de esta tarde tapa en producción, donde quien decide entregar es el código. La cláusula del orden
+todavía no está medida: eso pide la pasada entera, ≈ $0,72.

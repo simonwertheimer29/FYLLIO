@@ -1,0 +1,128 @@
+PASADA CORTADA — NO ES UNA MEDIDA (13-09, ~20:30)
+El crédito de la API de Anthropic se agotó a mitad: 6 llamadas devolvieron
+«Your credit balance is too low». Jugados de verdad: caso_completo (libre y
+alcance) e insistencia_precio (libre y alcance). aplazamiento_dato y
+telefono_compartido murieron y salieron como «perdido · nunca llegó a tener
+todo lo que pide el objetivo», que es EXACTAMENTE la cara de la métrica que
+mide esta pasada (§4). La línea de ENTREGA TARDÍA del final (1/4 y 1/4) NO
+vale: su denominador incluye dos hilos que no se jugaron.
+Los dos guiones muertos se devolvieron al fixture y al visor desde git
+(`hilos:tres:restaurar`). El instrumento se arregló después: un fallback del
+evaluador o un «no pude preguntar» al decisor ahora LANZAN, así que el hilo no
+se guarda y el pase no sale en 0.
+────────────────────────────────────────────────────────────────────────
+
+
+> fyllio-mvp@0.1.0 hilos:tres
+> tsx scripts/jugar-tres.mts --solo caso_completo,insistencia_precio,aplazamiento_dato,telefono_compartido --decisores libre,alcance --conocimiento db
+
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+Tres conversaciones por guion · 4 guiones · decisores: libre, alcance · paciente claude-sonnet-5 · coste TOPE $1.44 (todos los hilos hasta maxTurnos) · típico ≈ $0.72 (3 turnos por hilo)
+
+════════════════════════════════════════════════════════════════════════
+▶ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos
+
+  ── libre · conocimiento (db): 19 líneas publicadas
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 libre [contestar]: «Hola Dani, perfecto. La primera visita y valoración es sin coste, incluye estudio de ortod»
+[evaluador] frase podada (agenda): «Abrimos de lunes a jueves por las tardes hasta las 20:00, así que tienes mucha flexibilidad.»
+  t2 paciente: «Genial, muchas gracias! Prefiero por las tardes si puede ser, y vierne»
+  t2 libre [contestar]: «Perfecto, Dani. Puedes reservar directamente en el enlace que te pasé: https://clinica-dem»
+  t3 paciente: «Vale perfecto, ahora entro y reservo. Ah, tengo Sanitas por si os sirv»
+  t3 libre [reconocer]: «Perfecto, Dani. Sobre Sanitas, el equipo te lo confirmará en la primera visita: cada póliz»
+  t4 ■ paciente: FIN
+  ▸ libre: resuelto · repitió 0 · molestia no · datos 5 · $0.066
+    Revisión de seguridad: no tocó ningún mensaje
+    Nunca llegó a tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 19 líneas publicadas
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 alcance [recoger]: «Hola Dani, perfecto. La primera visita con estudio de ortodoncia no tiene coste. Puedes re»
+[evaluador] frase podada (agenda): «Perfecto, tardes de lunes a jueves nos viene bien.»
+  t2 paciente: «Genial, muchas gracias. Me viene bien por las tardes, cualquier día me»
+  t2 alcance [recoger]: «Perfecto, Dani. ¿Te vendría mejor esta semana (14 a 17 de septiembre) o la próxima (21 a 2»  ⚠ podado (agenda): se fue «Te apuntamos para una tarde de lunes a jueves.»
+  t3 paciente: «Esta semana mejor si puede ser, por la tarde algún día entre el 14 y e»
+  t3 alcance [recoger]: «Perfecto, Dani. Para reservarte entre el 14 y el 17 por la tarde, ¿hay alguna hora que te »
+[evaluador] frase podada (agenda): «Solo me falta tu nombre completo para cerrar la cita.»
+  t4 paciente: «A partir de las 17:00 me viene mejor, si puede ser.»
+  t4 alcance [cerrar · PASA A UNA PERSONA]: «Perfecto, Dani. El equipo te confirma el día y la hora exacta en las próximas horas. Nos v»  ⚠ podado (agenda): se fue «Te reservamos una cita entre el 14 y el 17 de septiembre a partir de las 17:00 para tu primer estudio de ortodoncia invisible.»
+  ▸ alcance: derivado en 4 mensajes (cerrar · Cerrar la cita ahora con lo que ya sabe el equipo (fecha entre 14-17 de septiembre, a partir de las 17:00, primer estudio de ortodoncia) para que la reserven sin más vueltas.) · repitió 0 · molestia no · datos 5 · $0.066
+    Revisión de seguridad: 2 podados
+    Entregó sin tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+▶ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende»
+
+  ── libre · conocimiento (db): 17 líneas publicadas
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 libre [contestar]: «Hola Carlos, el implante unitario (implante + corona) parte desde 1.100 €, pero el precio »
+  t2 paciente: «Vale pero el más básico, sin nada raro, ¿cuánto sería? Lo digo por sab»
+  t2 libre [reconocer]: «Entiendo que quieras un número fijo, Carlos. El problema es que el precio depende del hues»
+  t3 paciente: «Ya, pero por darme una idea, ¿más o menos ronda los 1000 o se va más p»
+  t3 libre [reconocer]: «Entiendo, Carlos. Lo que te puedo decir es que el implante unitario parte desde 1.100 €, y»  ⚠ reescrito (agenda): la frase que infringía ERA la respuesta — «¿Te vienes el lunes 2026-09-14 o prefieres otro día?»
+[evaluador] borrador reescrito (agenda, solo_cortesia): «te cerramos la cita sin problema»
+  t4 paciente: «Vale, pues lo pensaré, ya os diré algo.»
+  t4 libre [parar]: «Perfecto, Carlos. Cuando te decidas, nos llamas o escribes. Estamos en Avda. de Alberto Al»
+  t5 ■ paciente: FIN
+  ▸ libre: resuelto · repitió 1 · molestia no · datos 4 · $0.090
+    Revisión de seguridad: 1 reescrito
+    Lo tuvo todo en el 4 y no entregó nunca — 0 mensajes de más
+
+  ── alcance · conocimiento (db): 17 líneas publicadas
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 alcance [recoger]: «Hola Carlos, un implante unitario (implante más corona) parte desde 1.100 €, aunque el pre»
+  t2 paciente: «Vale pero solo lo más básico, sin florituras, ¿ese es el de 1100 segur»
+  t2 alcance [recoger]: «Carlos, entiendo que quieras certeza. El 1.100 € es el punto de partida, pero el precio fi»
+[evaluador] frase podada (clinica): «El rango exacto depende de cada caso — hay pacientes que cierran en 1.100 y otros en 1.500 o más, según el hueso y si necesitan injerto.»
+  t3 paciente: «Ya, pero un aproximado nada más, ¿ronda los 1100-1200 o se va mucho má»
+  t3 alcance [reconocer]: «Carlos, lo entiendo, pero no puedo darte un rango seguro sin que el doctor vea tu hueso — »
+  t4 paciente: «Vale, pues nada, dejarlo así. Si no me dais un número no puedo saber s»
+  t4 alcance [reconocer]: «Carlos, entiendo que necesites un número antes de venir — es lógico. La realidad es que el»
+  t5 ■ paciente: FIN
+  ▸ alcance: resuelto · repitió 2 · molestia 4 · datos 3 · $0.081
+    Revisión de seguridad: no tocó ningún mensaje
+    Lo tuvo todo en el 4 y no entregó nunca — 0 mensajes de más
+
+════════════════════════════════════════════════════════════════════════
+▶ aplazamiento_dato · Nuria pregunta por parking y sedación
+
+  ── libre · conocimiento (db): 20 líneas publicadas
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 libre [acompanar]: «Hola Nuria, es completamente normal tener dudas antes de una extracción. La Dra. Ana Gil y»
+[juez-borrador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011Cf1tnFWCAp8FfZopt9s22"}
+[evaluador] juez no respondió: borrador descartado (fail-closed)
+[sombra:libre] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011Cf1tnGi87P5pa3UypSoty"}
+[sombra:libre] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011Cf1tnS8fDWGnKQ4WkKTfu"}
+  ▸ libre: perdido · repitió 1 · molestia no · datos 2 · $0.024
+    Revisión de seguridad: no tocó ningún mensaje
+    Nunca llegó a tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 20 líneas publicadas
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011Cf1tnUv6RULCxLFz4pAka"}
+  ▸ alcance: perdido · repitió 0 · molestia no · datos 0 · $0.000
+    Revisión de seguridad: no tocó ningún mensaje
+    Nunca llegó a tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+▶ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre
+
+  ── libre · conocimiento (db): 18 líneas publicadas
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011Cf1tnXLwiQpS5z8GiYK3m"}
+  ▸ libre: perdido · repitió 0 · molestia no · datos 0 · $0.000
+    Revisión de seguridad: no tocó ningún mensaje
+    Nunca llegó a tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 18 líneas publicadas
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011Cf1tnaDaZg889uKUUjrj9"}
+  ▸ alcance: perdido · repitió 0 · molestia no · datos 0 · $0.000
+    Revisión de seguridad: no tocó ningún mensaje
+    Nunca llegó a tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+ENTREGA TARDÍA — mensajes que el paciente siguió contestando con el caso ya listo:
+  Modelo libre: 1/4 con el objetivo cubierto · a tiempo 0 · tarde 0 (+0) · se pudo y no entregó 1 (+0) · sin cubrirlo 3
+  Modelo con su alcance: 1/4 con el objetivo cubierto · a tiempo 0 · tarde 0 (+0) · se pudo y no entregó 1 (+0) · sin cubrirlo 3
+════════════════════════════════════════════════════════════════════════
+4 guiones × 2 decisores · coste medido $0.33 · fixture evals/hilos-tres/fixture.json · léelo en /sombra › Conversaciones
+Apunta el coste en evals/pasadas/GASTO.md.

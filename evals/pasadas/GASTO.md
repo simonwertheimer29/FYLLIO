@@ -145,3 +145,16 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   cubierto y 3/4 entregados.** Y la de al lado, que es la que no se ve sola: la revisión corrigió
   **2 de 14** mensajes del libre y **7 de 15** del alcance · log en
   `2026-09-13-alcance-vs-libre.txt` · ac. **~$6,40**
+
+- **13-09 (tarde) · DECLINAR = ENTREGA + el orden en el papel** · **$0,45 medidos en total**, de los
+  que **$0,12 fueron útiles**: (a) $0,10 de un repro por el banco que no sirvió —el paciente
+  sintético no declinó y además se jugó con la clínica vacía por no pasar `--conocimiento db`—;
+  (b) **$0,02 del repro que sí decide**: el mismo turno con el código viejo y el nuevo (temperature
+  0, así que el juicio es idéntico) → viejo `sigue`, nuevo `deriva · caso_completo · cita`, y el
+  paciente lee exactamente lo mismo; (c) **$0,33 de la pasada C vs D que murió a mitad: se acabó el
+  crédito de la API**. De esa pasada solo se jugaron de verdad `caso_completo` e `insistencia_precio`
+  (los dos decisores); los otros dos guiones salieron «perdido», que es la cara de la métrica que
+  mide la pasada — **la línea de entrega tardía de ese log NO vale** · log en
+  `2026-09-13-orden-en-el-papel-CORTADA-SIN-CREDITO.txt` · ac. **~$6,85**
+  **Queda pendiente**: repetir los 4 guiones × (libre, alcance) con `--conocimiento db` cuando haya
+  crédito — ≈ $0,72 típico / $1,44 tope. Es la medida de la cláusula del orden.

@@ -78,12 +78,11 @@ import { renderConocimiento } from "../app/lib/agente/conocimiento";
 import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { hashVersion } from "../app/lib/agente/version";
 import { RUTA_FIXTURE, type FixtureHilos, type HiloJugado } from "../app/lib/agente/hilos-jugados";
-import { agregarTardanza, DECISORES, type VarianteSombra, ETIQUETA_DECISOR, fraseControl, fraseTardanza, tardanzaDe, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
+import { agregarTardanza, DECISORES, type VarianteSombra, ETIQUETA_DECISOR, fraseControl, fraseTardanza, tardanzaDe, RUTA_FIXTURE_TRES, type Decisor, type FinTres, type FixtureTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
 import { runWithCliente } from "../app/lib/cliente-contexto";
 import { hoyISO } from "../app/lib/time";
 import { pacienteDice, esFin, MODELO_PACIENTE, type Espejo } from "./hilos-jugados-paciente.mts";
 
-export const RUTA_FIXTURE_TRES = "evals/hilos-tres/fixture.json";
 const COSTE_TURNO: Record<Decisor, number> = { codigo: 0.022, contexto: 0.03, libre: 0.03, alcance: 0.03 };
 /** Qué prompt de la sombra lleva cada decisor. El código no lleva ninguno. */
 const VARIANTE_DE: Record<Exclude<Decisor, "codigo">, VarianteSombra> = {
@@ -336,10 +335,14 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     const ev = await evaluarTurno(entrada);
     st.usd += costeUsdDeTurno(ev.usage, ev.modelo) ?? 0;
     if (ev.fallback) {
-      st.fin = "perdido";
-      st.detalleFin = "el evaluador no respondió";
-      st.mensajes.push({ n, quien: "agente", texto: "", deriva: false, motivo: "fallo del evaluador" });
-      break;
+      // §4 + §9 — UN FALLO DEL INSTRUMENTO NO ES UNA MEDIDA, y este tiene la
+      // cara exacta de lo que medimos («perdido · nunca llegó a tener todo lo
+      // que pide el objetivo»). Se LANZA: así el hilo no se escribe ni en el
+      // fixture ni en el visor —donde pisaría por upsert el hilo bueno de la
+      // pasada anterior— y el pase cuenta el fallo y sale distinto de 0. El
+      // 13-09 el crédito de la API se acabó a mitad de una pasada y los hilos
+      // muertos salieron como 1/4 «con el objetivo cubierto».
+      throw new Error(`el evaluador no respondió en el turno ${n} (fallback): no hay medida que guardar`);
     }
 
     // Hechos del turno (los mismos para los tres): repetición, molestia, datos, anotado.
@@ -396,6 +399,10 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
       const opts = {
         variante: VARIANTE_DE[decisor],
         objetivo: defObjetivo ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito } : null,
+        // §9 — «no pude preguntar» (sin clave, 4xx, timeout) LANZA y el hilo no
+        // se guarda; «contestó algo inservible» sigue devolviendo null, porque
+        // eso sí es una medida del decisor y se cuenta como hilo perdido.
+        estricto: true,
       };
       let s = ev.sinJuicio ? null : await pedirSombra(entrada, opts);
       if (!s && !ev.sinJuicio) {
@@ -536,7 +543,6 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
 
 // ─── el pase ───────────────────────────────────────────────────────────────
 
-type FixtureTres = { v: 1; jugadoEl: string; modeloPaciente: string; hilos: { guion: { id: string; titulo: string; categoria: string }; decisores: Partial<Record<Decisor, HiloTres>> }[] };
 const previo: FixtureTres | null = existsSync(RUTA_FIXTURE_TRES) ? (JSON.parse(readFileSync(RUTA_FIXTURE_TRES, "utf8")) as FixtureTres) : null;
 const salida: FixtureTres = previo ?? { v: 1, jugadoEl: new Date().toISOString(), modeloPaciente: MODELO_PACIENTE, hilos: [] };
 const hoy = hoyISO();

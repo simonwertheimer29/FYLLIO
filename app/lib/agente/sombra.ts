@@ -288,10 +288,21 @@ export async function pedirSombra(
     variante?: VarianteSombra;
     /** Solo variante 'alcance': el caso abierto, en una frase. */
     objetivo?: { etapa: string; proposito: string } | null;
+    /** BANCO: «no pude preguntar» LANZA en vez de devolver null (§9: no es lo
+     *  mismo que «pregunté y contestó algo inservible», que sigue siendo null
+     *  porque ESO sí es una medida del decisor). Sin clave, sin red, un 4xx de
+     *  la API o un timeout no son un hilo perdido: son un instrumento roto, y
+     *  guardarlos como hilo pisa en el visor el hilo bueno de la pasada
+     *  anterior. En producción NO se usa: ahí la sombra es prescindible y
+     *  jamás puede romper el turno real. */
+    estricto?: boolean;
   },
 ): Promise<RespuestaSombra | null> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
-  if (!apiKey) return null;
+  if (!apiKey) {
+    if (opts?.estricto) throw new Error("sin ANTHROPIC_API_KEY: no se puede preguntar al decisor");
+    return null;
+  }
   const variante = opts?.variante ?? "produccion";
   const modelo = MODELOS[opts?.modelo ?? "haiku"];
   const mapa = construirMapaAnonimizacion(e.clinica ? [e.clinica] : []);
@@ -320,7 +331,9 @@ export async function pedirSombra(
     });
     const latenciaMs = Date.now() - t0;
     if (!res.ok) {
-      console.error(`[sombra:${variante}] Claude API error:`, res.status, await res.text());
+      const cuerpo = await res.text();
+      console.error(`[sombra:${variante}] Claude API error:`, res.status, cuerpo);
+      if (opts?.estricto) throw new Error(`la API no contestó al decisor (${res.status}): ${cuerpo.slice(0, 200)}`);
       return null;
     }
     const data = await res.json();
@@ -342,6 +355,7 @@ export async function pedirSombra(
     return { ...parse, variante, usage, latenciaMs, modelo: modelo.id, entrada: texto };
   } catch (err) {
     console.error(`[sombra:${variante}] pedirSombra error:`, err instanceof Error ? err.message : err);
+    if (opts?.estricto) throw err instanceof Error ? err : new Error(String(err));
     return null;
   } finally {
     clearTimeout(timeoutId);

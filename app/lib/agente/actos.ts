@@ -345,6 +345,21 @@ export type HiloTres = {
   conocimientoDe?: "fixture" | "db" | null;
 };
 
+/** EL FIXTURE ES LA FUENTE, la tabla del visor es una proyección (13-09): el
+ *  fichero va en git y se puede volver atrás; `guardarHiloTres` hace upsert por
+ *  (cliente, guion, decisor), así que una pasada que muere a mitad ya ha pisado
+ *  en la base los hilos buenos de la anterior. `hilos:tres:restaurar` vuelve a
+ *  proyectarlo. La ruta y la forma viven AQUÍ, al lado de `HiloTres`, porque
+ *  las usan dos scripts y `jugar-tres` no se puede importar (es un script: se
+ *  ejecutaría). */
+export const RUTA_FIXTURE_TRES = "evals/hilos-tres/fixture.json";
+export type FixtureTres = {
+  v: 1;
+  jugadoEl: string;
+  modeloPaciente: string;
+  hilos: { guion: { id: string; titulo: string; categoria: string }; decisores: Partial<Record<Decisor, HiloTres>> }[];
+};
+
 // ─── entrega tardía (13-09) ────────────────────────────────────────────────
 // La pregunta que ninguna otra cifra del resumen contesta: cuando el caso ya
 // estaba listo para pasar a una persona, ¿cuántos mensajes más siguió
