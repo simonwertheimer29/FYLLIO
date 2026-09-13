@@ -23,7 +23,6 @@ await c.query("select set_config('app.cliente','DEMO',true)");
 const admin = (await c.query("select id,nombre from usuarios where email='demo@fyllio.com'")).rows[0];
 await c.query("rollback");
 c.release();
-await pool.end();
 if (!admin) {
   console.error("✗ no existe demo@fyllio.com");
   process.exit(2);
@@ -109,6 +108,44 @@ for (const [ancho, alto, nombre] of [
   for (const e of errores) console.log("     ", e.slice(0, 200));
   await ctx.close();
 }
+
+// 4 · EL CONTADOR SE MUEVE AL ETIQUETAR (14-09). Venía del servidor y no se
+// recalculaba: Simon etiquetó un centenar de mensajes viendo «0 etiquetados» y
+// paró, convencido de que no se guardaba nada. Se guardaba todo. Esto lo vigila.
+console.log("\n4 · El contador sube al etiquetar (y lo etiquetado se guarda)");
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await ctx.addCookies([{ name: "fyllio_session", value: tokenDemo, domain: "localhost", path: "/" }]);
+  const page = await ctx.newPage();
+  const claves = [];
+  page.on("requestfinished", (r) => {
+    if (r.url().includes("/api/sombra/agenda") && r.method() === "PATCH") claves.push(JSON.parse(r.postData() ?? "{}").clave);
+  });
+  await page.goto(`${BASE}/sombra/agenda`, { waitUntil: "networkidle", timeout: 60000 });
+  const leer = async () => Number(/(\d+) de (\d+)/.exec(await page.locator("text=/\\d+ de \\d+/").first().textContent())?.[1] ?? -1);
+  const antes = await leer();
+  await page.keyboard.press("3");
+  await page.waitForTimeout(900);
+  const despues = await leer();
+  const ok = despues === antes + 1 && claves.length === 1;
+  if (!ok) fallos++;
+  console.log(`  ${ok ? "✓" : "✗ FALLO"} etiquetados ${antes} → ${despues} tras una etiqueta (PATCH enviados: ${claves.length})`);
+  await ctx.close();
+  // La prueba no deja rastro en el corpus de Simon.
+  if (claves.length) {
+    const p2 = new pg.Pool({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, max: 1, ssl: { rejectUnauthorized: false } });
+    const c2 = await p2.connect();
+    await c2.query("begin");
+    await c2.query("select set_config('app.cliente','DEMO',true)");
+    const d = await c2.query("delete from agenda_corpus where cliente='DEMO' and clave = any($1) returning id", [claves]);
+    await c2.query("commit");
+    c2.release();
+    await p2.end();
+    console.log(`     (borradas ${d.rowCount} filas de la prueba)`);
+  }
+}
+
 await browser.close();
-console.log(fallos ? `\n✗ ${fallos} fallo(s)` : "\n✓ candado, ceguera y pantalla en verde");
+await pool.end();
+console.log(fallos ? `\n✗ ${fallos} fallo(s)` : "\n✓ candado, ceguera, pantalla y contador en verde");
 process.exit(fallos ? 1 : 0);

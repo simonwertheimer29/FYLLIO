@@ -5441,3 +5441,24 @@ Sus 42 etiquetas **no se rehacen**: se guardan por clave, los 14 «afirma»/«re
 las 7 filas de mensajes que ya no son candidatos se quedan en `agenda_corpus` (si el filtro se
 abriera otra vez, vuelven con su etiqueta). Quedan **91 candidatos**: 35 de conversación variada
 (todos etiquetados), 21 del canal real y 35 de los cuatro guiones.
+
+## 2026-09-14 · El contador venía del servidor y no se movía: parecía que no se guardaba nada
+Simon para de etiquetar convencido de haber leído un centenar de mensajes para nada. **No se perdió
+ni una etiqueta.** En `agenda_corpus` hay **58 filas suyas, las 58 con etiqueta** (34 «ninguno», 20
+«repite», 6 «afirma»): 48 casan con candidatos de hoy (35 de conversación variada, 13 del canal real)
+y **10 son huérfanas** — mensajes que dejaron de ser candidatos al quitar la «cita» pelada; su
+etiqueta sigue guardada y vuelve sola si el filtro se abre.
+**El fallo era de pantalla y era uno solo:** `resumen` venía del payload del servidor y **no se
+recalculaba nunca**. Etiquetabas veinte, el estado optimista los sacaba de la lista —«desaparecen»—
+y el contador seguía diciendo 0 hasta recargar. Un contador que no se mueve mientras trabajas se lee
+como «esto no guarda», y era exactamente al revés. Ahora el resumen se calcula en el cliente desde
+el estado de la pantalla (`useMemo` sobre `todos`); el del servidor solo sirve para la primera
+pintada. Y cuando no queda nada pendiente en el filtro, la pantalla **lo dice** en vez de quedarse
+muda, que era la otra mitad de la sensación de «el botón no hace nada».
+**Lo que NO se pudo reproducir:** el guardado fallando. Probado sobre las claves concretas de los
+hilos de prueba por WhatsApp (`wamid…`, que llevan `=` dentro) y sobre las de los guiones, por HTTP
+y pulsando en el navegador, y con seis etiquetas seguidas de teclado: **200 y persistido en los tres
+materiales**. La regresión queda vigilada en `dev-captura-agenda-etiquetado.mjs`: etiqueta uno de
+verdad, comprueba que el contador sube, y borra su propia fila.
+Estado al cerrar: **48 de 91 etiquetados**. Faltan 8 de «Simon (prueba WhatsApp)» y los 35 de los
+cuatro guiones.

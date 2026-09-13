@@ -189,8 +189,39 @@ export function EtiquetadoAgendaView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [etiquetar, mover, actual, guardar]);
 
-  const r = datos?.resumen;
+  // EL CONTADOR SE CALCULA AQUÍ, NO EN EL SERVIDOR (14-09). Venía del payload
+  // y no se recalculaba nunca: etiquetabas veinte, los mensajes desaparecían de
+  // la lista (estado optimista) y el contador seguía diciendo 0 hasta recargar.
+  // Un contador que no se mueve mientras trabajas se lee como «no se guarda
+  // nada» — y era mentira: se guardaba todo. El resumen del servidor solo sirve
+  // para la primera pintada; a partir de ahí manda el estado de la pantalla.
+  const r = useMemo<ResumenCorpus | null>(() => {
+    if (!datos) return null;
+    const base = datos.resumen;
+    const vacio = () => ({ candidatos: 0, etiquetados: 0, hilos: 0 });
+    const porOrigen = { hilos_jugados: vacio(), produccion: vacio(), guiones: vacio() } as ResumenCorpus["porOrigen"];
+    const hilosPorOrigen: Record<string, Set<string>> = { hilos_jugados: new Set(), produccion: new Set(), guiones: new Set() };
+    for (const c of todos) {
+      porOrigen[c.origen].candidatos++;
+      if (c.etiqueta != null) porOrigen[c.origen].etiquetados++;
+      hilosPorOrigen[c.origen]!.add(c.hilo);
+    }
+    for (const o of ORIGENES_CORPUS) porOrigen[o].hilos = hilosPorOrigen[o]!.size;
+    return {
+      ...base,
+      candidatos: todos.length,
+      etiquetados: todos.filter((c) => c.etiqueta != null).length,
+      afirma: todos.filter((c) => c.etiqueta === "afirma").length,
+      repite: todos.filter((c) => c.etiqueta === "repite").length,
+      ninguno: todos.filter((c) => c.etiqueta === "ninguno").length,
+      seArroga: todos.filter((c) => c.seArroga != null).length,
+      porOrigen,
+    };
+  }, [datos, todos]);
   const pct = r && r.candidatos > 0 ? Math.round((r.etiquetados / r.candidatos) * 100) : 0;
+  // Cuando no queda nada pendiente en el filtro, la pantalla lo DICE: hasta hoy
+  // se quedaba muda en el último y parecía que el botón no hacía nada.
+  const pendientesAqui = lista.filter((c) => c.etiqueta == null).length;
 
   return (
     <div className="p-4 lg:p-6">
@@ -320,7 +351,12 @@ export function EtiquetadoAgendaView() {
               )}
             </Card>
 
-            <div ref={detalleRef} className="order-1 overflow-auto lg:order-2 lg:max-h-[70vh]">
+            <div ref={detalleRef} className="order-1 space-y-3 overflow-auto lg:order-2 lg:max-h-[70vh]">
+              {pendientesAqui === 0 && (
+                <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-sm text-[var(--color-muted)]">
+                  No queda ningún mensaje sin etiquetar {origen === "todos" ? "en todo el material" : `en «${ETIQUETA_ORIGEN_CORPUS[origen].etiqueta}»`}. Cambia de material arriba.
+                </p>
+              )}
               {actual ? <Detalle c={actual} guardando={guardando} nota={nota} setNota={setNota} etiquetar={etiquetar} guardar={guardar} /> : null}
             </div>
           </div>
