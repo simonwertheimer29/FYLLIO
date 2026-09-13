@@ -2334,6 +2334,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   — otro proveedor recibiendo registros con contenido es otra superficie que justificar ante el
   abogado. Lo capturable desde nuestro código va a `incidencias` (207); esto cubre solo lo que
   muere fuera de él.
+- **Decisión 13-09 (Simon): PRIORIDAD, al cerrar el juez** — es la causa de fondo de que el primer
+  fallo de integración real (el 400 de QStash) se diagnosticara a ciegas; ver MEJORAS 241. Tres
+  matices que hay que tener delante al ejecutarla, porque cambian el plan: **(1) no es una hora de
+  código, es cero.** `lib/log-drain` está escrito y declarado desde el 6-09; lo que falta es crear el
+  destino y poner `LOG_DRAIN_URL` en Vercel. **(2) Choca con la decisión del 6-09 que está justo
+  arriba**, y el choque es real: un drenaje externo recibe registros CON CONTENIDO, o sea un
+  encargado del tratamiento más — el octavo — y la política de privacidad publicada el 13-09 nombra
+  siete. Si se enciende, la página se actualiza **en el mismo cambio**, y el proveedor entra en la
+  lista de la consulta legal. **(3) No cubre lo que 241 pide de verdad:** el drenaje hace que el
+  motivo SOBREVIVA más de un día, no que se pueda leer DESDE EL PRODUCTO. Eso último es la opción (a)
+  de 241 — conservar las claves del JSON del error —, treinta minutos y ningún proveedor nuevo.
+  **Recomendación:** (a) primero por ser gratis en superficie legal; el drenaje, cuando el abogado
+  haya contestado sobre los encargados.
 
 ## 163. Fase 0 · Barrido de reevaluación — el turno perdido no se reintenta
 - Modelo caído o timeout de 20 s → turno perdido; el caso queda en «Sin evaluar» hasta que alguien

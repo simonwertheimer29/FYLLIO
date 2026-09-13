@@ -464,8 +464,8 @@ de un módulo de servidor y el build de Vercel murió con «Can't resolve 'dns'�
 > → `db/context` → `pg`. Vercel: nueve errores. El build también fallaba en local; nadie lo vio
 > porque el gate miró el árbol equivocado.
 
-### 25. Se verifica LO QUE SE USA, por construcción — cuatro veces verificamos otra cosa
-Cuatro veces en un mes la prueba miró algo distinto de lo que corría en producción, y las cuatro
+### 25. Se verifica LO QUE SE USA, por construcción — cinco veces verificamos otra cosa
+Cinco veces en un mes la prueba miró algo distinto de lo que corría en producción, y las cinco
 dieron verde mientras producción hacía otra cosa:
 1. **El servidor de 31 días**: la vara se midió contra un servidor con código viejo.
 2. **El borrador que nadie enviaba**: el flujo se probó con el agente redactando, y en modo A la
@@ -475,7 +475,32 @@ dieron verde mientras producción hacía otra cosa:
    evaluador cada uno a su manera. Con el mismo mensaje el banco decía «sigue» y producción
    entregaba el caso al primer turno por el nombre de perfil de WhatsApp. El banco, cuya única
    razón de existir es probar producción, no podía verlo: no ejecutaba la misma construcción.
+5. **La cola que no publicaba** (13-sep): `qa:cola-trabajos` declara en su cabecera «sin llamar a
+   QStash». Probaba la firma, la idempotencia y el callback de fallo del RECEPTOR — todo verde, seis
+   días — mientras el PUBLICADOR fallaba el 100 % de las veces con un 400: QStash prohíbe «:» en el
+   `deduplicationId` y la clave lo llevaba por diseño (`tipo:cliente:mensaje_id`). Ni un solo trabajo
+   se publicó nunca desde que se montó la cola. Y no parecía roto: el turno cae al `after()` del
+   webhook, el agente contesta igual, y lo único que falta es justo lo que la cola existía para dar.
 Reglas:
+- **Una integración externa que no se ha llamado DE VERDAD al menos una vez no está probada.** Es la
+  regla que faltaba y la que habría cazado el caso 5 el primer día. Ni el tipo, ni el SDK, ni un
+  mock, ni el receptor prueban lo que el tercero ACEPTA: sus reglas no viven en nuestro código y no
+  las conoce nadie hasta que contesta. Un mock hereda nuestras suposiciones, no las del tercero —
+  por eso da verde exactamente en el caso en que nos equivocamos. Basta UNA llamada real, una vez,
+  contra la API de verdad.
+- **Si la llamada real no cabe en el QA de cada día** (gasta cuota, deja efectos, necesita
+  credenciales de producción), la prueba se parte en dos y ninguna mitad se salta: una comprobación
+  **local de la FORMA** de lo que vamos a mandar (el alfabeto de la clave, en `qa:cola-trabajos`), y
+  una **llamada real de una sola vez** cuyo resultado se anota en el código, con fecha, junto a la
+  constante que decide (`PROHIBIDO_EN_CLAVE` en `cola/qstash.ts`: qué caracteres se probaron y qué
+  contestó). Lo que no vale es que NADIE haya llamado nunca.
+- **Cuando el tercero rechaza, se reproduce el rechazo antes de arreglarlo** y se vuelve a llamar con
+  el arreglo. Eso convierte «creo que era esto» en «era esto», y de paso mide el arreglo contra la
+  única autoridad que cuenta, que es el tercero. Corolario del §7 y del corolario del §16 («se
+  demuestra que la fórmula vieja SÍ fallaba, en vez de suponerlo»).
+- **Un QA que declara en su cabecera lo que NO prueba está pidiendo una segunda prueba que sí lo
+  haga, no quedándose absuelto.** «Sin llamar a QStash» era honesto y quedó escrito seis días; lo
+  que faltó fue que alguien tratara esa frase como una tarea abierta.
 - **Una construcción, un sitio.** Lo que producción calcula antes de llamar al modelo (entrada,
   contexto, render) vive en UN constructor puro; producción trae datos de la base y la prueba trae
   datos sintéticos, pero los dos llaman a la misma función. Un «como en producción» escrito a mano
@@ -506,6 +531,13 @@ Reglas:
 > nada. Y encima el reloj sintético del banco (un minuto entre mensajes) metía la conversación
 > entera en la ventana de ráfaga de `vueltasPorClave`: aunque hubiera contado, tres insistencias
 > eran UNA vuelta. Los hilos jugados tienen el mismo agujero por otra vía (MEJORAS 227).
+>
+> **Y la quinta (13-09): la cola.** El primer mensaje real de un paciente por WhatsApp llegó con una
+> incidencia, `cola/publicar_fallo`, 400 de QStash. No eran las credenciales (un 400 no es un 401) ni
+> la URL pública. Era un carácter del `deduplicationId`, y estaba ahí desde el commit que montó la
+> cola. Seis días de turnos corriendo sin reintento, con `ESTADO.md` diciendo «la cola está viva»
+> porque lo verificado fue la configuración y el receptor. Coste de la regla que faltaba: una
+> llamada. Coste de no tenerla: seis días, y sin la cola no se puede encender el modo B.
 
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo
