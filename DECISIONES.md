@@ -5396,3 +5396,26 @@ rejugar hilos. Lo que falta para cerrar el rediseño: llevar la hora a la entrad
 retirar `FIRMAS_DISPONIBILIDAD`/`FIRMAS_CITA_CONFIRMADA` y los tres perdones (pieza 2), el juicio
 especializado que se guarda mientras Simon etiqueta, la vista de desacuerdos y el acuerdo consigo
 mismo (pieza 4).
+
+## 2026-09-14 · El corpus leía media fuente: los cuatro guiones estaban en otra tabla
+Objeción de Simon a mi frase «la mayoría son hilos de prueba»: **era falsa y estaba medida sobre los
+cinco primeros candidatos del listado**. El censo de verdad: de los 66, **42 eran conversación
+completa** del fixture de 15 hilos y 24 eran pruebas sueltas del canal real (QA, «Simon prueba
+WhatsApp», dos teléfonos). Y el agujero: **`hilos:tres` no escribe en `agente_sombra` sino en
+`agente_sombra_hilos`**, otra tabla que el corpus no miraba — 16 conversaciones (4 guiones × 4
+decisores), 60 mensajes del agente, **38 candidatos** del 12-09, los más recientes y los que
+descubrieron el fallo. Arreglado: `listarCorpusAgenda` lee las dos tablas → **104 candidatos**
+(42 · 24 · 38).
+**Lo que NO pasa, y conviene tenerlo escrito**: no hay pasadas acumuladas. `agente_sombra` tiene
+índice único por (mensaje_id, versión, variante) y el lector se queda con la fila más nueva;
+`agente_sombra_hilos` hace `on conflict (guion, decisor) do update`. Medido: 104 candidatos, 104
+textos distintos. Rejugar no habría añadido corpus — solo variantes del mismo guion. **Decisión de
+Simon: no se rejuega.**
+**El sesgo real es otro, y es de SITUACIONES, no de mensajes:** los cuatro guiones son las MISMAS
+cuatro conversaciones que ya están en el fixture (Nuria, Carlos, Dani, Lucía), contestadas por cuatro
+decisores. Aportan 38 candidatos y **cero situaciones nuevas**: el corpus tiene 17 situaciones
+distintas, y cuatro de ellas cargan el 36 % de los mensajes. Por eso: filtro por material en la
+pantalla (conversación variada · canal real · los cuatro guiones, con su contador) y **los guiones
+van al final del orden por defecto** — gastar el criterio de Simon en lo repetido y llegar cansado a
+lo variado sesga la vara. En los guiones se etiqueta el BORRADOR cuando el control lo cambió (8
+casos): lo que se juzga es lo que escribió el agente, no lo que salió de la poda.

@@ -23,12 +23,13 @@ import {
   type CandidatoAgenda,
   type EtiquetaAgenda,
   type FuenteCandidato,
+  type MensajeDelHilo,
+  type OrigenCorpus,
   type ResumenCorpus,
-  type TurnoDelHilo,
 } from "./agenda-enrutador";
 
 type FilaSombra = {
-  origen: string;
+  origen: "produccion" | "hilos_jugados";
   variante: string;
   telefono: string;
   mensaje_id: string;
@@ -40,6 +41,19 @@ type FilaSombra = {
   mensaje_modelo: string;
   created_at: Date | string;
 };
+
+/** Una conversación entera de `hilos:tres`: un guion contestado por UN decisor.
+ *  Vive en otra tabla que la sombra turno a turno, y el corpus se la dejaba
+ *  fuera hasta el 14-09 — eran 38 candidatos invisibles, los más recientes. */
+type FilaGuion = {
+  guion_id: string;
+  titulo: string;
+  decisor: string;
+  mensajes: unknown;
+  jugado_el: Date | string;
+};
+
+type MensajeGuion = { n: number; quien: "paciente" | "agente" | "cadencia"; texto: string; borrador?: string | null };
 
 type FilaEtiqueta = {
   clave: string;
@@ -53,8 +67,16 @@ const iso = (d: Date | string | null): string | null => (d == null ? null : d in
 
 export const claveCandidato = (mensajeId: string, fuente: FuenteCandidato) => `${mensajeId}|${fuente}`;
 
-/** El texto de cada fuente en un turno. `null` = esa fuente no existe para
- *  este turno (p. ej. la variante libre no se calculó). */
+/** La identidad de un mensaje de guion. Lleva el decisor dentro porque los
+ *  cuatro contestan a la MISMA frase: sin él, cuatro mensajes distintos
+ *  compartirían clave y se pisarían la etiqueta. */
+const idDeGuion = (guionId: string, decisor: string, n: number) => `guion:${guionId}:${decisor}:${n}`;
+
+/** El texto que se etiqueta de un mensaje de guion: el BORRADOR cuando el
+ *  control lo cambió. Lo que se juzga es lo que escribió el agente; lo que
+ *  salió ya pasó por la poda, y etiquetarlo mediría el control, no el juicio. */
+const textoDelGuion = (m: MensajeGuion) => (m.borrador ?? m.texto ?? "").trim();
+
 function textosDelTurno(porVariante: Map<string, FilaSombra>): Partial<Record<FuenteCandidato, string>> {
   const produccion = porVariante.get("produccion");
   const libre = porVariante.get("libre");
@@ -67,23 +89,16 @@ function textosDelTurno(porVariante: Map<string, FilaSombra>): Partial<Record<Fu
   };
 }
 
-/** Todos los candidatos del cliente, en orden de lectura (hilo y turno), con
- *  su etiqueta si ya la tiene. Sin el juicio: se etiqueta a ciegas. */
-export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgenda[]; resumen: ResumenCorpus }> {
-  const cliente = requireCliente("listarCorpusAgenda");
-  const { filas, etiquetas } = await runWithClienteDb(cliente, async (trx) => {
-    const s = await sql<FilaSombra>`select origen, variante, telefono, mensaje_id, turno, hilo_etiqueta, persona,
-          entrante, mensaje_codigo, mensaje_modelo, created_at
-        from agente_sombra
-        order by created_at desc
-        limit 4000`.execute(trx);
-    // A CIEGAS: aquí no se pide `juicio`, `juicio_se_arroga` ni `juicio_por_que`.
-    const e = await sql<FilaEtiqueta>`select clave, etiqueta, se_arroga, nota, en from agenda_corpus`.execute(trx);
-    return { filas: s.rows, etiquetas: e.rows };
-  });
+const leerMensajes = (raw: unknown): MensajeGuion[] => {
+  const v = typeof raw === "string" ? JSON.parse(raw) : raw;
+  return Array.isArray(v) ? (v as MensajeGuion[]) : [];
+};
 
+/** Los candidatos de la sombra turno a turno (fixture de 15 hilos y canal real). */
+function candidatosDeLaSombra(filas: FilaSombra[]): Omit<CandidatoAgenda, "etiqueta" | "seArroga" | "nota" | "etiquetadoEn">[] {
   // Por turno, la fila vigente de cada variante (las filas vienen de más nueva
-  // a más vieja: la primera de cada variante es la buena).
+  // a más vieja: la primera de cada variante es la buena). Rejugar con el mismo
+  // prompt reemplaza, así que aquí no se acumulan pasadas.
   const porTurno = new Map<string, Map<string, FilaSombra>>();
   const ordenTurno: string[] = [];
   for (const f of filas) {
@@ -114,46 +129,136 @@ export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgend
     });
   }
 
-  const porClave = new Map(etiquetas.map((e) => [e.clave, e]));
-  const candidatos: CandidatoAgenda[] = [];
-
+  const out: Omit<CandidatoAgenda, "etiqueta" | "seArroga" | "nota" | "etiquetadoEn">[] = [];
   for (const [telefono, lista] of porHilo) {
     for (const { mensajeId, fila } of lista) {
       const textos = textosDelTurno(porTurno.get(mensajeId)!);
-      const turnos: TurnoDelHilo[] = lista.map((x) => ({
-        turno: x.fila.turno,
-        entrante: x.fila.entrante,
-        respuesta: x.fila.mensaje_codigo,
-        esElCandidato: x.mensajeId === mensajeId,
-      }));
       for (const fuente of ["codigo", "modelo_produccion", "modelo_libre"] as const) {
         const texto = textos[fuente];
         if (!texto) continue;
         const senal = senalDeAgenda(texto);
         if (!senal.candidato) continue;
-        const clave = claveCandidato(mensajeId, fuente);
-        const e = porClave.get(clave);
-        candidatos.push({
-          clave,
+        const mensajes: MensajeDelHilo[] = [];
+        for (const x of lista) {
+          mensajes.push({ quien: "paciente", texto: x.fila.entrante, esElCandidato: false });
+          const esEl = x.mensajeId === mensajeId;
+          mensajes.push({ quien: "agente", texto: esEl ? texto : x.fila.mensaje_codigo, esElCandidato: esEl });
+        }
+        out.push({
+          clave: claveCandidato(mensajeId, fuente),
           mensajeId,
           fuente,
           telefono,
           hilo: fila.hilo_etiqueta ?? fila.persona ?? telefono,
           persona: fila.persona,
           origen: fila.origen,
+          decisor: null,
+          aviso: null,
           texto,
           senal,
           dichoPorLaPersona: fila.entrante,
-          turnos,
+          mensajes,
           en: iso(fila.created_at) ?? "",
-          etiqueta: e?.etiqueta ?? null,
-          seArroga: e?.se_arroga ?? null,
-          nota: e?.nota ?? null,
-          etiquetadoEn: iso(e?.en ?? null),
         });
       }
     }
   }
+  return out;
+}
+
+/** Los candidatos de los cuatro guiones (una fila = un guion contestado por un
+ *  decisor). `on conflict (guion, decisor) do update` en origen: aquí tampoco
+ *  se acumulan pasadas, solo sobrevive la última de cada combinación. */
+function candidatosDeLosGuiones(filas: FilaGuion[]): Omit<CandidatoAgenda, "etiqueta" | "seArroga" | "nota" | "etiquetadoEn">[] {
+  const out: Omit<CandidatoAgenda, "etiqueta" | "seArroga" | "nota" | "etiquetadoEn">[] = [];
+  for (const f of filas) {
+    const ms = leerMensajes(f.mensajes);
+    for (let i = 0; i < ms.length; i++) {
+      const m = ms[i]!;
+      if (m.quien !== "agente") continue;
+      const texto = textoDelGuion(m);
+      const senal = senalDeAgenda(texto);
+      if (!texto || !senal.candidato) continue;
+      const mensajeId = idDeGuion(f.guion_id, f.decisor, m.n);
+      const dicho = [...ms.slice(0, i)].reverse().find((x) => x.quien === "paciente")?.texto ?? "";
+      const cambiado = m.borrador != null && m.borrador.trim() !== (m.texto ?? "").trim();
+      out.push({
+        clave: claveCandidato(mensajeId, "codigo"),
+        mensajeId,
+        fuente: "codigo",
+        telefono: null,
+        hilo: f.titulo,
+        persona: null,
+        origen: "guiones",
+        decisor: f.decisor,
+        aviso: cambiado
+          ? "La revisión de seguridad cambió este mensaje antes de enviarlo: aquí se etiqueta lo que escribió el agente, no lo que salió."
+          : null,
+        texto,
+        senal,
+        dichoPorLaPersona: dicho,
+        mensajes: ms.map((x, j) => ({
+          quien: x.quien === "paciente" ? "paciente" : x.quien === "cadencia" ? "clinica" : "agente",
+          texto: j === i ? texto : (x.texto ?? ""),
+          esElCandidato: j === i,
+        })),
+        en: iso(f.jugado_el) ?? "",
+      });
+    }
+  }
+  return out;
+}
+
+/** Todos los candidatos del cliente, en orden de lectura, con su etiqueta si ya
+ *  la tiene. Sin el juicio: se etiqueta a ciegas.
+ *
+ *  EL ORDEN NO ES INOCENTE (14-09): los cuatro guiones van AL FINAL. Son cuatro
+ *  situaciones contestadas por cuatro decisores cada una —muchos mensajes, poca
+ *  variedad—, y empezar por ahí gasta el criterio de Simon en lo repetido y deja
+ *  lo variado para cuando ya está cansado. La pantalla además deja filtrar. */
+export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgenda[]; resumen: ResumenCorpus }> {
+  const cliente = requireCliente("listarCorpusAgenda");
+  const { filas, guiones, etiquetas } = await runWithClienteDb(cliente, async (trx) => {
+    const s = await sql<FilaSombra>`select origen, variante, telefono, mensaje_id, turno, hilo_etiqueta, persona,
+          entrante, mensaje_codigo, mensaje_modelo, created_at
+        from agente_sombra
+        order by created_at desc
+        limit 4000`.execute(trx);
+    const g = await sql<FilaGuion>`select guion_id, titulo, decisor, mensajes, jugado_el
+        from agente_sombra_hilos order by guion_id, decisor`.execute(trx);
+    // A CIEGAS: aquí no se pide `juicio`, `juicio_se_arroga` ni `juicio_por_que`.
+    const e = await sql<FilaEtiqueta>`select clave, etiqueta, se_arroga, nota, en from agenda_corpus`.execute(trx);
+    return { filas: s.rows, guiones: g.rows, etiquetas: e.rows };
+  });
+
+  const porClave = new Map(etiquetas.map((e) => [e.clave, e]));
+  const crudos = [...candidatosDeLaSombra(filas), ...candidatosDeLosGuiones(guiones)];
+  const candidatos: CandidatoAgenda[] = crudos.map((c) => {
+    const e = porClave.get(c.clave);
+    return {
+      ...c,
+      etiqueta: e?.etiqueta ?? null,
+      seArroga: e?.se_arroga ?? null,
+      nota: e?.nota ?? null,
+      etiquetadoEn: iso(e?.en ?? null),
+    };
+  });
+  const PESO: Record<OrigenCorpus, number> = { hilos_jugados: 0, produccion: 1, guiones: 2 };
+  candidatos.sort((a, b) => PESO[a.origen] - PESO[b.origen]);
+
+  const vacio = () => ({ candidatos: 0, etiquetados: 0, hilos: 0 });
+  const porOrigen: Record<OrigenCorpus, { candidatos: number; etiquetados: number; hilos: number }> = {
+    hilos_jugados: vacio(),
+    produccion: vacio(),
+    guiones: vacio(),
+  };
+  const hilosPorOrigen: Record<OrigenCorpus, Set<string>> = { hilos_jugados: new Set(), produccion: new Set(), guiones: new Set() };
+  for (const c of candidatos) {
+    porOrigen[c.origen].candidatos++;
+    if (c.etiqueta != null) porOrigen[c.origen].etiquetados++;
+    hilosPorOrigen[c.origen].add(c.hilo);
+  }
+  for (const o of Object.keys(porOrigen) as OrigenCorpus[]) porOrigen[o].hilos = hilosPorOrigen[o].size;
 
   const resumen: ResumenCorpus = {
     candidatos: candidatos.length,
@@ -162,7 +267,8 @@ export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgend
     repite: candidatos.filter((c) => c.etiqueta === "repite").length,
     ninguno: candidatos.filter((c) => c.etiqueta === "ninguno").length,
     seArroga: candidatos.filter((c) => c.seArroga != null).length,
-    hilos: porHilo.size,
+    hilos: new Set(candidatos.map((c) => c.hilo)).size,
+    porOrigen,
   };
   return { candidatos, resumen };
 }
@@ -171,13 +277,29 @@ export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgend
  *  el mensaje: lo que se congela en el corpus tiene que salir de la misma
  *  fuente que la lista, o la etiqueta acabaría pegada a un texto que nadie
  *  vio. `null` = esa clave no existe para este cliente. */
-async function textoDeClave(clave: string): Promise<{ mensajeId: string; fuente: FuenteCandidato; texto: string; telefono: string } | null> {
+async function textoDeClave(clave: string): Promise<{ mensajeId: string; fuente: FuenteCandidato; texto: string; telefono: string | null } | null> {
   const corte = clave.lastIndexOf("|");
   if (corte <= 0) return null;
   const mensajeId = clave.slice(0, corte);
   const fuente = clave.slice(corte + 1) as FuenteCandidato;
   if (fuente !== "codigo" && fuente !== "modelo_produccion" && fuente !== "modelo_libre") return null;
   const cliente = requireCliente("textoDeClave");
+  // Los cuatro guiones viven en otra tabla y su id la lleva dentro.
+  if (mensajeId.startsWith("guion:")) {
+    const [, guionId, decisor, nCrudo] = mensajeId.split(":");
+    const n = Number(nCrudo);
+    if (!guionId || !decisor || !Number.isFinite(n)) return null;
+    const g = await runWithClienteDb(cliente, (trx) =>
+      sql<FilaGuion>`select guion_id, titulo, decisor, mensajes, jugado_el
+          from agente_sombra_hilos where guion_id = ${guionId} and decisor = ${decisor}`.execute(trx),
+    );
+    const fila = g.rows[0];
+    if (!fila) return null;
+    const m = leerMensajes(fila.mensajes).find((x) => x.quien === "agente" && x.n === n);
+    const texto = m ? textoDelGuion(m) : "";
+    if (!texto) return null;
+    return { mensajeId, fuente, texto, telefono: null };
+  }
   const r = await runWithClienteDb(cliente, (trx) =>
     sql<FilaSombra>`select origen, variante, telefono, mensaje_id, turno, hilo_etiqueta, persona,
           entrante, mensaje_codigo, mensaje_modelo, created_at

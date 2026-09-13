@@ -37,13 +37,17 @@ import {
   DEFINICION_ETIQUETA,
   ETIQUETAS_AGENDA,
   ETIQUETA_FUENTE,
+  ETIQUETA_ORIGEN_CORPUS,
+  ORIGENES_CORPUS,
   type CandidatoAgenda,
   type EtiquetaAgenda,
+  type OrigenCorpus,
   type ResumenCorpus,
 } from "../../../lib/agente/agenda-enrutador";
 
 type Respuesta = { candidatos: CandidatoAgenda[]; resumen: ResumenCorpus };
 type Filtro = "pendientes" | "todos" | "etiquetados";
+type FiltroOrigen = OrigenCorpus | "todos";
 
 const LA_PREGUNTA = "Si ese día resulta no estar libre, ¿el mensaje se vuelve falso o sigue en pie?";
 
@@ -60,6 +64,10 @@ export function EtiquetadoAgendaView() {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [filtro, setFiltro] = useState<Filtro>("pendientes");
+  // Por material: Simon etiqueta primero lo variado y deja los cuatro guiones
+  // para el final — cuatro situaciones repetidas al principio gastan el
+  // criterio donde menos información hay.
+  const [origen, setOrigen] = useState<FiltroOrigen>("todos");
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [nota, setNota] = useState("");
@@ -92,10 +100,11 @@ export function EtiquetadoAgendaView() {
   // la lista el que acabas de etiquetar, la nota que escribes después se
   // quedaría sin dueño. Lo etiquetado sigue visible hasta recargar el filtro.
   const lista = useMemo(() => {
-    if (filtro === "todos") return todos;
-    if (filtro === "etiquetados") return todos.filter((c) => c.etiqueta != null);
-    return todos.filter((c) => c.etiqueta == null || c.clave === seleccion);
-  }, [todos, filtro, seleccion]);
+    const deEsteOrigen = origen === "todos" ? todos : todos.filter((c) => c.origen === origen);
+    if (filtro === "todos") return deEsteOrigen;
+    if (filtro === "etiquetados") return deEsteOrigen.filter((c) => c.etiqueta != null);
+    return deEsteOrigen.filter((c) => c.etiqueta == null || c.clave === seleccion);
+  }, [todos, filtro, origen, seleccion]);
 
   useEffect(() => {
     if (lista.length && (seleccion == null || !lista.some((c) => c.clave === seleccion))) {
@@ -245,6 +254,36 @@ export function EtiquetadoAgendaView() {
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-surface-muted)]">
               <div className="h-full rounded-full bg-[var(--color-accent)] transition-all" style={{ width: `${pct}%` }} />
             </div>
+            {/* Por material: los cuatro guiones son muchos mensajes de pocas
+                situaciones y van al final de la lista; desde aquí se eligen. */}
+            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setOrigen("todos")}
+                className={`h-8 rounded-lg border px-3 text-sm transition-colors ${origen === "todos" ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]" : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"}`}
+              >
+                Todo el material
+              </button>
+              {ORIGENES_CORPUS.map((o) => {
+                const x = r?.porOrigen?.[o];
+                if (!x || x.candidatos === 0) return null;
+                return (
+                  <button
+                    key={o}
+                    type="button"
+                    title={ETIQUETA_ORIGEN_CORPUS[o].que}
+                    onClick={() => setOrigen(o)}
+                    className={`h-8 rounded-lg border px-3 text-sm transition-colors ${origen === o ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]" : "border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"}`}
+                  >
+                    {ETIQUETA_ORIGEN_CORPUS[o].etiqueta}{" "}
+                    <span className="tabular-nums opacity-70">
+                      {x.etiquetados}/{x.candidatos}
+                    </span>
+                    <span className="ml-1 text-xs opacity-60">· {x.hilos} {x.hilos === 1 ? "conversación" : "conversaciones"}</span>
+                  </button>
+                );
+              })}
+            </div>
           </Card>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
@@ -268,7 +307,9 @@ export function EtiquetadoAgendaView() {
                           {c.etiqueta ? (
                             <StatePill variant={VARIANTE_ETIQUETA[c.etiqueta]}>{DEFINICION_ETIQUETA[c.etiqueta].etiqueta}</StatePill>
                           ) : (
-                            <span className="text-[10px] text-[var(--color-muted)]">{ETIQUETA_FUENTE[c.fuente]}</span>
+                            <span className="text-[10px] text-[var(--color-muted)]">
+                              {c.origen === "guiones" ? `Guion · ${c.decisor}` : ETIQUETA_FUENTE[c.fuente]}
+                            </span>
                           )}
                         </div>
                         <p className="mt-0.5 line-clamp-2 text-sm text-[var(--color-foreground)]">{c.texto}</p>
@@ -317,8 +358,11 @@ function Detalle({
     <Card className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-display text-base font-semibold text-[var(--color-foreground)]">{c.hilo}</span>
+        <StatePill variant="neutral" size="md" title={ETIQUETA_ORIGEN_CORPUS[c.origen].que}>
+          {ETIQUETA_ORIGEN_CORPUS[c.origen].etiqueta}
+        </StatePill>
         <StatePill variant={c.fuente === "codigo" ? "info" : "neutral"} size="md">
-          {ETIQUETA_FUENTE[c.fuente]}
+          {c.origen === "guiones" ? `Decisor: ${c.decisor}` : ETIQUETA_FUENTE[c.fuente]}
         </StatePill>
         {c.senal.cuando.length > 0 && (
           <span className="text-xs text-[var(--color-muted)]">día u hora: {c.senal.cuando.join(" · ")}</span>
@@ -327,30 +371,37 @@ function Detalle({
 
       {/* El hilo alrededor: sin él la pregunta no se puede contestar, porque lo
           que decide es si el día lo trajo ELLA o se lo inventó el agente. */}
+      {c.aviso && (
+        <p className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-xs text-[var(--color-muted)]">
+          {c.aviso}
+        </p>
+      )}
+
       <div className="space-y-2 rounded-xl border border-[var(--color-border)] p-3">
-        {c.turnos.map((t, i) => (
-          <div key={`${t.turno ?? i}`} className="space-y-1">
-            <div className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
+        {c.mensajes.map((m, i) =>
+          m.esElCandidato ? (
+            <div key={i} className="rounded-lg border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-3 py-2">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-accent)]">
+                Agente · el mensaje que se etiqueta
+              </div>
+              <p className="mt-0.5 whitespace-pre-wrap text-sm text-[var(--color-foreground)]">{m.texto}</p>
+            </div>
+          ) : m.quien === "paciente" ? (
+            <div key={i} className="rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
               <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
                 {c.persona ? c.persona.split(" ")[0] : "Paciente"}
               </div>
-              <p className="mt-0.5 whitespace-pre-wrap text-sm text-[var(--color-foreground)]">{t.entrante}</p>
+              <p className="mt-0.5 whitespace-pre-wrap text-sm text-[var(--color-foreground)]">{m.texto}</p>
             </div>
-            {t.esElCandidato ? (
-              <div className="rounded-lg border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-3 py-2">
-                <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-accent)]">
-                  Agente · el mensaje que se etiqueta
-                </div>
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-[var(--color-foreground)]">{c.texto}</p>
+          ) : (
+            <div key={i} className="rounded-lg px-3 py-2">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                {m.quien === "clinica" ? "La clínica escribió sola" : "Agente"}
               </div>
-            ) : (
-              <div className="rounded-lg px-3 py-2">
-                <div className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">Agente</div>
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-[var(--color-muted)]">{t.respuesta}</p>
-              </div>
-            )}
-          </div>
-        ))}
+              <p className="mt-0.5 whitespace-pre-wrap text-sm text-[var(--color-muted)]">{m.texto}</p>
+            </div>
+          ),
+        )}
       </div>
 
       <div className="space-y-2 border-t border-[var(--color-border)] pt-3">

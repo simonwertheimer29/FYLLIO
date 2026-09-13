@@ -169,12 +169,28 @@ export const ETIQUETA_FUENTE: Record<FuenteCandidato, string> = {
   modelo_libre: "Lo habría escrito el modelo libre",
 };
 
-/** Un turno del hilo, para leer el mensaje candidato en su sitio. */
-export type TurnoDelHilo = {
-  turno: number | null;
-  entrante: string;
-  respuesta: string;
-  /** El turno donde vive el candidato: la pantalla lo ancla y lo resalta. */
+/** DE QUÉ MATERIAL sale el candidato — y es lo que evita leer el corpus como
+ *  si todo pesara igual (censo del 14-09, objeción de Simon):
+ *   · `hilos_jugados`  15 conversaciones distintas del fixture, una por situación;
+ *   · `produccion`     lo que llegó por el canal real, hoy casi todo pruebas sueltas;
+ *   · `guiones`        los cuatro guiones de `hilos:tres`, cada uno contestado por
+ *                      cuatro decisores: MUCHOS mensajes de POCAS situaciones. */
+export const ORIGENES_CORPUS = ["hilos_jugados", "produccion", "guiones"] as const;
+export type OrigenCorpus = (typeof ORIGENES_CORPUS)[number];
+
+export const ETIQUETA_ORIGEN_CORPUS: Record<OrigenCorpus, { etiqueta: string; que: string }> = {
+  hilos_jugados: { etiqueta: "Conversación variada", que: "El fixture de 15 conversaciones: una situación distinta por hilo." },
+  produccion: { etiqueta: "Canal real", que: "Lo que entró por el canal real (por ahora, sobre todo pruebas sueltas)." },
+  guiones: { etiqueta: "Los cuatro guiones", que: "Cuatro situaciones contestadas por cuatro decisores cada una: muchos mensajes, pocas situaciones." },
+};
+
+/** Un mensaje del hilo alrededor del candidato. Sin turnos ni alternancia
+ *  obligatoria: los guiones traen mensajes de la cadencia y del agente
+ *  seguidos, y forzarlos a pares perdía mensajes por el camino. */
+export type MensajeDelHilo = {
+  quien: "paciente" | "agente" | "clinica";
+  texto: string;
+  /** El mensaje que se etiqueta: la pantalla lo ancla y lo resalta. */
   esElCandidato: boolean;
 };
 
@@ -183,16 +199,20 @@ export type CandidatoAgenda = {
   clave: string;
   mensajeId: string;
   fuente: FuenteCandidato;
-  telefono: string;
+  telefono: string | null;
   hilo: string;
   persona: string | null;
-  origen: string;
+  origen: OrigenCorpus;
+  /** Quién escribió, cuando el material los distingue (los cuatro guiones). */
+  decisor: string | null;
+  /** Un aviso sobre ESTE candidato, cuando hace falta para leerlo bien. */
+  aviso: string | null;
   texto: string;
   senal: SenalAgenda;
   /** Lo que dijo la persona en ESE turno: sin esto la pregunta no se puede
    *  contestar (es lo que a la regla 5 del juez le faltaba). */
   dichoPorLaPersona: string;
-  turnos: TurnoDelHilo[];
+  mensajes: MensajeDelHilo[];
   en: string;
   etiqueta: EtiquetaAgenda | null;
   /** La segunda pregunta, aparte: ¿se arroga el poder de reservar? */
@@ -212,4 +232,8 @@ export type ResumenCorpus = {
   /** Cuántos llevan contestada la SEGUNDA pregunta (la de reservar). */
   seArroga: number;
   hilos: number;
+  /** Por material, para poder etiquetar primero lo variado y dejar los cuatro
+   *  guiones para el final (petición de Simon, 14-09): empezar por cuatro
+   *  situaciones repetidas y llegar al resto cansado sesga la vara. */
+  porOrigen: Record<OrigenCorpus, { candidatos: number; etiquetados: number; hilos: number }>;
 };
