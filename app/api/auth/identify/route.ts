@@ -31,6 +31,18 @@ export const dynamic = "force-dynamic";
 
 const GENERIC_ERROR = "Email o PIN incorrectos.";
 
+/** EL MENSAJE DEL BLOQUEO (14-09-2026). Antes decía «Demasiados intentos» a
+ *  secas, y quien lo lee después de teclear su PIN de siempre entiende «me lo
+ *  estoy equivocando»: se queda mirando la pantalla sin saber que el PIN puede
+ *  estar bien y que lo único que hay que hacer es esperar. Con una coordinadora
+ *  en mitad de su jornada eso es una llamada a la clínica y media mañana
+ *  perdida. El texto dice las tres cosas que necesita saber: que está
+ *  bloqueado, POR QUÉ, y que su PIN no tiene por qué estar mal. */
+const mensajeBloqueo = (segundos: number) => {
+  const mins = Math.max(1, Math.ceil(segundos / 60));
+  return `PIN bloqueado ${mins} min por seguridad, tras varios intentos fallidos seguidos. No significa que tu PIN esté mal: espera y vuelve a probar el mismo.`;
+};
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
@@ -45,10 +57,10 @@ export async function POST(req: Request) {
     const limitKeys = [userKey(email), ipKey(ip)];
     const gate = await checkLimitKv(limitKeys);
     if (!gate.allowed) {
-      const mins = Math.max(1, Math.ceil(gate.retryAfterSeconds / 60));
       return NextResponse.json(
         {
-          error: `Demasiados intentos. Vuelve a intentarlo en ${mins} min.`,
+          error: mensajeBloqueo(gate.retryAfterSeconds),
+          bloqueado: true,
           retryAfterSeconds: gate.retryAfterSeconds,
         },
         { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },

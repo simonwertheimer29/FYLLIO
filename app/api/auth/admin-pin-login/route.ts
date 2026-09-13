@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     const gate = await checkLimitKv(limitKeys);
     if (!gate.allowed) {
       return NextResponse.json(
-        { error: "Demasiados intentos, espera 15 minutos" },
+        // Mismo criterio que el login por email (14-09): el bloqueo se dice
+        // como bloqueo, no como «te lo estás equivocando».
+        { error: "PIN bloqueado 15 min por seguridad, tras varios intentos fallidos seguidos. No significa que tu PIN esté mal: espera y vuelve a probar el mismo.", bloqueado: true },
         {
           status: 429,
           headers: { "Retry-After": String(gate.retryAfterSeconds) },

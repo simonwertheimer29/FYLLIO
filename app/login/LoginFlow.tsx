@@ -67,6 +67,10 @@ export function LoginFlow() {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Un bloqueo por intentos NO es un error del usuario: se pinta como aviso
+  // (ámbar), no como fallo (rosa). El color es la mitad del mensaje — en rojo,
+  // «PIN bloqueado» se sigue leyendo como «te lo estás equivocando».
+  const [bloqueado, setBloqueado] = useState(false);
   const [clinicaCtx, setClinicaCtx] = useState<{
     identToken: string;
     nombre: string;
@@ -115,6 +119,7 @@ export function LoginFlow() {
       if (!res.ok) {
         pinRef.current = "";
         setPin("");
+        setBloqueado(res.status === 429 || data?.bloqueado === true);
         setError(data?.error ?? "No se pudo iniciar sesión. Inténtalo de nuevo.");
         return;
       }
@@ -161,6 +166,7 @@ export function LoginFlow() {
           setError("La identificación ha caducado. Vuelve a introducir tu PIN.");
           return;
         }
+        setBloqueado(res.status === 429 || data?.bloqueado === true);
         setError(data?.error ?? "No se pudo entrar en la clínica. Inténtalo de nuevo.");
         return;
       }
@@ -345,7 +351,7 @@ export function LoginFlow() {
           )}
 
           {error && (
-            <p role="alert" className="mt-3 text-xs font-medium text-[var(--color-danger)]">
+            <p role="alert" className={`mt-3 text-xs font-medium ${bloqueado ? "text-[var(--color-warning)]" : "text-[var(--color-danger)]"}`}>
               {error}
             </p>
           )}
@@ -399,7 +405,7 @@ export function LoginFlow() {
             ))}
           </div>
           {error && (
-            <p role="alert" className="mt-3 text-xs font-medium text-[var(--color-danger)]">
+            <p role="alert" className={`mt-3 text-xs font-medium ${bloqueado ? "text-[var(--color-warning)]" : "text-[var(--color-danger)]"}`}>
               {error}
             </p>
           )}

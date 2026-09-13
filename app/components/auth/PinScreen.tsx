@@ -5,7 +5,7 @@
 // y paste de una cadena de 4 o 6 dígitos.
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ShieldCheck } from "../icons";
 import { NumericKeypad } from "./NumericKeypad";
 
@@ -21,6 +21,20 @@ type Props = {
   autoSubmit?: boolean;
 };
 
+/** Lo que espera el autoenvío tras la última casilla (14-09-2026).
+ *
+ *  Antes salía en el mismo instante (`queueMicrotask`), y eso convierte una
+ *  ERRATA en un intento gastado: no da tiempo a ver el sexto dígito, ni a
+ *  borrarlo. Cinco erratas seguidas —que con seis casillas y prisa es media
+ *  jornada normal— son quince minutos fuera. El caso que lo destapó fue Simon
+ *  bloqueado con el PIN correcto; con una coordinadora en mitad de su jornada
+ *  el coste es peor, porque ni sabe por qué ni a quién preguntar.
+ *
+ *  600 ms es el hueco para ver la última casilla y borrar antes de que salga;
+ *  por debajo de ~400 ms no da tiempo a reaccionar, y por encima de un segundo
+ *  el autoenvío se siente roto. Cualquier borrado lo cancela. */
+const RETARDO_AUTOENVIO_MS = 600;
+
 export function PinScreen({
   digits,
   title,
@@ -32,14 +46,39 @@ export function PinScreen({
   autoSubmit = true,
 }: Props) {
   const [pin, setPin] = useState("");
+  const envioPendiente = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelarAutoenvio = useCallback(() => {
+    if (envioPendiente.current) {
+      clearTimeout(envioPendiente.current);
+      envioPendiente.current = null;
+    }
+  }, []);
 
   const submit = useCallback(
     async (value: string) => {
+      cancelarAutoenvio();
       if (value.length !== digits || loading) return;
       await onSubmit(value);
     },
-    [digits, loading, onSubmit]
+    [digits, loading, onSubmit, cancelarAutoenvio]
   );
+
+  /** Programa el autoenvío y deja una ventana para corregir. Un borrado, otro
+   *  dígito o un envío a mano lo cancelan. */
+  const programarAutoenvio = useCallback(
+    (valor: string) => {
+      cancelarAutoenvio();
+      envioPendiente.current = setTimeout(() => {
+        envioPendiente.current = null;
+        void submit(valor);
+      }, RETARDO_AUTOENVIO_MS);
+    },
+    [cancelarAutoenvio, submit],
+  );
+
+  // Si la pantalla se va con un envío programado, no se dispara.
+  useEffect(() => cancelarAutoenvio, [cancelarAutoenvio]);
 
   const addDigit = useCallback(
     (d: string) => {
@@ -48,19 +87,22 @@ export function PinScreen({
         if (prev.length >= digits) return prev;
         const next = prev + d;
         if (next.length === digits && autoSubmit) {
-          // Dispara fuera del setter para evitar doble render.
-          queueMicrotask(() => submit(next));
+          // Fuera del setter (evita doble render) y con retardo (evita que una
+          // errata se convierta en un intento gastado).
+          queueMicrotask(() => programarAutoenvio(next));
         }
         return next;
       });
     },
-    [digits, loading, autoSubmit, submit]
+    [digits, loading, autoSubmit, programarAutoenvio]
   );
 
   const backspace = useCallback(() => {
     if (loading) return;
+    // Borrar SIEMPRE cancela el autoenvío: es la corrección de la errata.
+    cancelarAutoenvio();
     setPin((prev) => prev.slice(0, -1));
-  }, [loading]);
+  }, [loading, cancelarAutoenvio]);
 
   // Limpia las casillas cuando llega un error nuevo, para que el usuario reteclee.
   useEffect(() => {
@@ -96,11 +138,11 @@ export function PinScreen({
       if (onlyDigits.length !== digits) return;
       e.preventDefault();
       setPin(onlyDigits);
-      if (autoSubmit) queueMicrotask(() => submit(onlyDigits));
+      if (autoSubmit) queueMicrotask(() => programarAutoenvio(onlyDigits));
     }
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [digits, autoSubmit, submit]);
+  }, [digits, autoSubmit, programarAutoenvio]);
 
   return (
     <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center p-4">
