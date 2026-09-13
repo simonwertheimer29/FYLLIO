@@ -742,6 +742,15 @@ const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string> = {
   2: "Ves la agenda en solo lectura: puedes ofrecer los huecos que te consten, tal como te consten. Reservar sigue siendo cosa del equipo: tú recoges cuál le viene bien.",
 };
 
+// EL ORDEN DENTRO DEL PAPEL (13-09, pedido de Simon tras leer C vs D): en la
+// primera versión, «cuando lo tengas, dilo y pasa el caso» iba pegado al
+// propósito, y eso empuja a RECOGER antes de CONTESTAR — que es exactamente lo
+// que hacía a D peor conversador que C («Hola Lucía, perfecto. Y ¿qué días y
+// horas te van mejor?» de primer mensaje). La corrección no es más texto: es
+// que el papel diga el ORDEN, porque un papel sin orden lo elige el modelo.
+// Primero se contesta lo preguntado; recoger va después y solo si encaja en la
+// misma respuesta. Es UNA cláusula, y se mide con los mismos cuatro guiones.
+
 /** TU ALCANCE Y TU OBJETIVO, en líneas para el prompt. `objetivo` es el
  *  propósito del caso abierto en una frase (de `ObjetivoAgente.proposito`),
  *  SIN sus campos: la lista de campos es el contrato de la ENTREGA —lo que
@@ -756,7 +765,7 @@ export function renderAlcance(
   lineas.push(`- ${PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]}`);
   lineas.push(
     objetivo
-      ? `- Con esta persona, ahora: ${objetivo.proposito} Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar. Cuando lo tengas, dilo y pasa el caso.`
+      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; solo después, y solo si encaja en esa misma respuesta, pides UNA cosa de lo que te falte — si no encaja, este turno no pides nada. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar. Cuando lo tengas, dilo y pasa el caso.`
       : "- Con esta persona no hay nada pendiente que recoger: contesta a lo que trae y ya. No busques un dato que pedirle.",
   );
   if (c.alcance.urgencias?.atiende === false && c.alcance.urgencias.textoNoAtiende) {

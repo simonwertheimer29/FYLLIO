@@ -189,7 +189,18 @@ const PROMPT_DE: Record<VarianteSombra, string> = {
 };
 
 export function versionSombra(variante: VarianteSombra = "produccion"): string {
-  return hashVersion(PROMPT_DE[variante]);
+  // LA VERSIÓN TIENE QUE CUBRIR TODO EL DISEÑO DEL DECISOR, no solo su system.
+  // La variante ALCANCE lleva su tercera pieza en la ENTRADA (`renderAlcance`):
+  // si la versión hasheara solo el system, cambiar esa plantilla —que es lo que
+  // se está midiendo— dejaría dos agentes DISTINTOS con la misma etiqueta, y
+  // ningún hilo del histórico de /sombra se podría explicar (§25: se verifica
+  // lo que se usa). Se hashea la plantilla renderizada en seco: con el objetivo
+  // vacío, porque el propósito real es del caso, no del diseño.
+  const disenoEnLaEntrada =
+    variante === "alcance"
+      ? "\n" + renderAlcance(CONOCIMIENTO_VACIO, { etapa: "", proposito: "" }).join("\n")
+      : "";
+  return hashVersion(PROMPT_DE[variante] + disenoEnLaEntrada);
 }
 
 // ─── La entrada LIBRE ──────────────────────────────────────────────────────

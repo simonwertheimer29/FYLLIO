@@ -591,6 +591,15 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   ok("y NINGUNA clave de campo asoma (si no, es el formulario otra vez)",
     !/nombre_completo|tratamiento_o_molestia|confirma_pago|via_pago|fecha_pago|motivo_no_cita|disponibilidad_primera_cita|que_necesita|es_paciente/.test(nivel1));
   ok("y se le dice que juzgue él qué falta", /lo juzgas t[úu]/i.test(nivel1) && /no hay una lista que rellenar/i.test(nivel1));
+  // EL ORDEN DENTRO DEL PAPEL (13-09): un papel sin orden lo elige el modelo, y
+  // el que elegía era recoger primero. Se afirma la propiedad —contestar antes
+  // que recoger— y que «pasa el caso» NO sea lo último pegado al propósito.
+  ok("el papel declara el ORDEN: primero contestar, después recoger",
+    /primero contestas lo que te han preguntado/i.test(nivel1) && /solo despu[ée]s/i.test(nivel1));
+  ok("y se permite no recoger nada este turno (sin eso, «después» se lee como «siempre»)",
+    /si no encaja, este turno no pides nada/i.test(nivel1));
+  ok("el orden va ANTES de «pasa el caso» (que era lo pegado al propósito)",
+    nivel1.indexOf("primero contestas") < nivel1.indexOf("pasa el caso"));
 
   const sinObjetivo = renderAlcance(CONOCIMIENTO_VACIO, null).join("\n");
   ok("sin caso abierto NO se inventa nada que recoger", /no hay nada pendiente que recoger/i.test(sinObjetivo) && !sinObjetivo.includes(OBJ.proposito));
@@ -614,6 +623,15 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   // la idea del alcance sino «más texto».
   const soloEsasDos = SYSTEM_PROMPT_SOMBRA_ALCANCE.split("\n").filter((l) => !SYSTEM_PROMPT_SOMBRA_LIBRE.includes(l));
   ok("y la ÚNICA línea nueva es ese paso (lo demás es idéntico al libre)", soloEsasDos.length === 1, `${soloEsasDos.length} líneas nuevas`);
+  // §25 — la versión tiene que cubrir TODO el diseño del decisor. La tercera
+  // pieza del alcance viaja en la ENTRADA: si la versión fuera solo el system,
+  // cambiar esa plantilla dejaría dos agentes distintos con la misma etiqueta.
+  const { versionSombra } = await import("../app/lib/agente/sombra");
+  const { hashVersion } = await import("../app/lib/agente/version");
+  ok("la versión del alcance NO es solo su system: incluye la plantilla del alcance",
+    versionSombra("alcance") !== hashVersion(SYSTEM_PROMPT_SOMBRA_ALCANCE));
+  ok("y la del libre sí es su system (no tiene pieza en la entrada)",
+    versionSombra("libre") === hashVersion(SYSTEM_PROMPT_SOMBRA_LIBRE));
 }
 
 if (fallos > 0) {
