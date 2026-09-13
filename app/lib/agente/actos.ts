@@ -243,14 +243,32 @@ export const ETIQUETA_DECISOR: Record<Decisor, string> = {
   libre: "Modelo libre",
 };
 
+/** QUÉ HIZO EL CONTROL con un mensaje (13-09). Vive aquí —módulo puro— porque
+ *  es la forma del dato que se guarda en el fixture y se lee en pantalla;
+ *  quien lo produce es `control-decisor.ts`, que importa este tipo. */
+export type ControlDeUnMensaje = {
+  estado: "pasa" | "podado" | "reescrito" | "descartado" | "juez_no_respondio";
+  /** Categoría del veredicto (`agenda`, `economica`…). null = no aplica. */
+  motivo: string | null;
+  /** La frase que infringía. */
+  frase: string | null;
+  reescrito: boolean;
+};
+
 export type MensajeTres = {
   /** Turno (0 = lo que la clínica escribió antes del primer mensaje). */
   n: number;
   quien: "paciente" | "agente" | "cadencia";
   texto: string;
   acto?: Acto | "ilegible" | null;
-  /** Frase que cazaría un veto determinista (o el descarte del juez en el código). */
+  /** Lo que pasó con el control, en una línea (antes del 13-09: la frase que
+   *  CAZARÍA un veto determinista, cuando en B y C el control no corría). */
   veto?: string | null;
+  /** 13-09 — lo que el DECISOR escribió, cuando el control lo cambió. `texto`
+   *  es siempre lo que SALIÓ (a lo que reacciona el paciente); sin esto, un
+   *  mensaje podado se lee en pantalla como si lo hubiera escrito el modelo. */
+  borrador?: string | null;
+  control?: ControlDeUnMensaje | null;
   /** ESTE mensaje pasa el caso a una persona («el equipo te contacta» y punto). */
   deriva?: boolean;
   motivo?: string | null;
@@ -286,6 +304,12 @@ export type ResumenTres = {
   repeticiones: number;
   /** Primer turno con malestar (null = ninguno). */
   molestiaEn: number | null;
+  /** EL CONTROL (13-09): cuántos mensajes tocó, por veredicto. AUSENTE = hilo
+   *  jugado cuando B y C todavía salían sin control — no es 0 (§4). El código
+   *  (A) los trae desde siempre por su propia vía; aquí se cuentan igual para
+   *  los tres, que es lo que permite comparar «cuánto le corrige el control a
+   *  cada decisor». */
+  control?: { podados: number; reescritos: number; descartados: number };
   fin: FinTres;
   detalleFin: string | null;
   costeUsd: number;
@@ -432,3 +456,22 @@ export type HiloSombra = {
   desacuerdos: number;
   ultimo: string;
 };
+
+// ─── el control, en una frase (13-09) ──────────────────────────────────────
+// Desde el 13-09 el control (veto → juez → poda → una reescritura → descarte)
+// corre sobre los TRES decisores, no solo sobre el código. Cuánto corrige a
+// cada uno es una cifra de la comparación, no un detalle de implementación:
+// un decisor que conversa mejor pero al que el control le tumba la mitad de
+// los mensajes no es mejor. Lo jugado ANTES de esa fecha no vale 0 (§4).
+
+export function fraseControl(r: ResumenTres): string {
+  const c = r.control;
+  if (!c) return "Revisión de seguridad: sin medir — hilo jugado antes de que corriera sobre este decisor";
+  const total = c.podados + c.reescritos + c.descartados;
+  if (total === 0) return "Revisión de seguridad: no tocó ningún mensaje";
+  const partes: string[] = [];
+  if (c.podados > 0) partes.push(`${c.podados} podado${c.podados === 1 ? "" : "s"}`);
+  if (c.reescritos > 0) partes.push(`${c.reescritos} reescrito${c.reescritos === 1 ? "" : "s"}`);
+  if (c.descartados > 0) partes.push(`${c.descartados} descartado${c.descartados === 1 ? "" : "s"}`);
+  return `Revisión de seguridad: ${partes.join(" · ")}`;
+}

@@ -12,6 +12,10 @@
 //     (`ev.casoCompleto` en jugar-tres) y llegue al visor lo demuestra el
 //     siguiente pase de `npm run hilos:tres`, que imprime la frase por hilo y
 //     el agregado por decisor — coste de modelo, cubierto ahí (§25).
+//   · controlarMensajeDelDecisor: que el mensaje de B y C NO salga sin pasar
+//     por el control (la regresión del 13-09), que el reemplazo de un descarte
+//     no recoja datos y que al segundo seguido el caso pase a una persona.
+//     Sin modelo: la frase de prueba caza el veto DETERMINISTA.
 // Salidas: 0 · 1 hay fallos.
 
 import {
@@ -19,6 +23,7 @@ import {
   actoDelCodigo,
   agregarTardanza,
   canonizarActo,
+  fraseControl,
   fraseTardanza,
   parsearSombra,
   tardanzaDe,
@@ -27,6 +32,7 @@ import {
   type HiloTres,
   type ResumenTres,
 } from "../app/lib/agente/actos";
+import { controlarMensajeDelDecisor } from "../app/lib/agente/control-decisor";
 
 let fallos = 0;
 const ok = (n: string, c: boolean, extra = "") => {
@@ -135,6 +141,50 @@ console.log("\n4 · entrega tardía: el turno en que se pudo vs el turno en que 
   ok("los que nunca entregaron van aparte (+4), no diluidos en la media", a.turnosDeMasNunca === 4);
   ok("«sin medir» y «sin cubrir» se cuentan y no se suman a nada", a.noMedidos === 1 && a.sinContrato === 1 && a.incoherentes === 0);
   ok("un agregado sin hilos no inventa denominador", agregarTardanza([]).medidos === 0 && agregarTardanza([]).turnosDeMas === 0);
+}
+
+// ─── el control sobre el mensaje de un decisor (13-09) ─────────────────────
+// La regresión que esto vigila: que los mensajes de B y C vuelvan a salir sin
+// pasar por el control, como hasta el 13-09. Sin modelo: se prueba con una
+// frase que caza el VETO DETERMINISTA (no hay llamada al juez) y con la
+// reescritura apagada.
+{
+  const RESERVA = "Te la reservo para el martes a las 16:00.";
+  const uno = await controlarMensajeDelDecisor({
+    mensaje: RESERVA,
+    nombre: "Lucía",
+    datosQueConstan: "",
+    reescribir: false,
+  });
+  ok("el mensaje de un decisor con una frase vetada NO sale tal cual", uno.control != null && uno.texto !== RESERVA, uno.control?.estado ?? "pasó");
+  ok("guarda lo que el decisor escribió, para poder juzgar el texto correcto", uno.borrador === RESERVA);
+  ok("el reemplazo NO recoge datos (no hereda una pregunta que el decisor no supo hacer)", !uno.texto.includes("?"));
+  ok("un descarte cuenta como seguido y todavía no pasa el caso", uno.descartesSeguidos === 1 && !uno.pasaAPersona);
+
+  const dos = await controlarMensajeDelDecisor({
+    mensaje: RESERVA,
+    nombre: "Lucía",
+    datosQueConstan: "",
+    reescribir: false,
+    descartesSeguidosAntes: uno.descartesSeguidos,
+  });
+  ok("al SEGUNDO descarte seguido el caso pasa a una persona (233)", dos.descartesSeguidos === 2 && dos.pasaAPersona);
+  ok("y el texto que sale lo dice", /persona del equipo/i.test(dos.texto));
+
+  const vacio = await controlarMensajeDelDecisor({ mensaje: "", nombre: "Lucía", datosQueConstan: "", descartesSeguidosAntes: 2 });
+  ok("sin borrador no hay control, ni coste, ni racha", vacio.control === null && vacio.usage === undefined && vacio.descartesSeguidos === 0);
+}
+
+// ─── el control, en una frase ──────────────────────────────────────────────
+{
+  const r = (control?: ResumenTres["control"]): ResumenTres => ({
+    turnos: 3, derivoEn: null, motivo: null, causa: null, porHecho: false,
+    datos: [], aplazados: [], repeticiones: 0, molestiaEn: null, control,
+    fin: "perdido", detalleFin: null, costeUsd: 0,
+  });
+  ok("un hilo jugado antes de la métrica dice «sin medir», no 0 (§4)", fraseControl(r()).includes("sin medir"));
+  ok("un hilo sin correcciones lo dice", fraseControl(r({ podados: 0, reescritos: 0, descartados: 0 })).includes("no tocó"));
+  ok("y con correcciones las enumera", fraseControl(r({ podados: 2, reescritos: 0, descartados: 1 })) === "Revisión de seguridad: 2 podados · 1 descartado");
 }
 
 console.log(fallos ? `\n✗ ${fallos} fallo(s)` : "\n✓ qa:actos en verde");

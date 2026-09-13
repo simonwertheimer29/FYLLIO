@@ -21,6 +21,12 @@
 
 const TIMEOUT_MS = 10_000;
 
+/** El modelo del juez. Exportado (13-09) para poder TARIFAR lo que gasta el
+ *  control: quien suma el coste no puede adivinar con qué modelo se juzgó
+ *  (`costeUsdDeTurno` devuelve null ante un modelo desconocido, y una pasada
+ *  que no tarifa su propio juez anuncia menos de lo que gasta). */
+export const MODELO_JUEZ = "claude-haiku-4-5-20251001";
+
 import { etiquetaDelModelo } from "./etiquetas";
 
 // 12-09 (MEJORAS 232) — `dato_inventado` no amplía lo que infringe: SEPARA lo
@@ -151,7 +157,7 @@ export async function juzgarBorrador(args: {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
+        model: MODELO_JUEZ,
         max_tokens: 200,
         // Detección en greedy — mismo motivo que el evaluador (2026-08-17).
         temperature: 0,

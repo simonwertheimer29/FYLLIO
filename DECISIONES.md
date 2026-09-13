@@ -5046,3 +5046,26 @@ guardó el 10-09, antes de que existiera `ubicacion`, y `esConocimientoVacio` le
 Y peor: **el script salía con código 0** tras fallar los cuatro guiones, anunciando «coste medido
 $0.00» — un fallo total con cara de pase vacío (§9). Ahora cuenta los hilos no jugados y sale 1.
 
+
+## 2026-09-13 · El control corre en los tres decisores: hasta hoy medíamos un agente que no existe
+En el banco de `hilos:tres`, los mensajes de B (contexto) y C (libre) salían TAL CUAL y los vetos
+deterministas se pasaban «solo para enseñar si cazarían»: ni juez, ni poda, ni reescritura, ni la
+regla de los dos descartes. Cada cifra medida sobre B y C describía un agente que en producción no
+existe — y la conclusión de esta misma mañana («el decisor con contexto prometió una cita que nadie
+reservó y **ninguna guarda lo paró**») era a medias «ninguna guarda **corrió**». Ahora los tres pasan
+por la misma secuencia (veto → juez → poda → una reescritura → descarte) sobre los mismos datos que
+constan, en `control-decisor.ts`.
+**La única diferencia deliberada, porque si no la comparación se ensucia:** el reemplazo de un
+descarte es la plantilla NEUTRA, que no recoge datos. Producción usa la que SÍ recoge porque tiene
+los campos delante; dárselos aquí a un decisor al que NO se los damos sería el código recogiendo y
+la cifra apuntada al modelo.
+**Consecuencia que hay que decir antes de que alguien lea las tablas viejas:** las pasadas del 12 y
+el 13-09 sobre B y C ya no son comparables con las que vengan. Hay que rejugarlas.
+**Tres piezas que el cambio obligó a poner en su sitio (§25):** `renderDatosQueConstan` sale de
+dentro de `evaluarTurno` y se exporta sin cambiar un byte —dos renders distintos serían un juez
+juzgando contra otro mundo—; `MODELO_JUEZ` se exporta para poder TARIFAR lo que gasta el control
+(una pasada que no tarifa su propio juez anuncia menos de lo que gasta, §9); y el visor enseña ahora
+**lo que salió y lo que el decisor había escrito**, porque juzgar un mensaje podado como si lo
+hubiera escrito el agente es juzgar el texto equivocado. Coste estimado de B y C: $0,025 → $0,030
+por turno. `qa:actos` vigila la regresión sin gastar modelo (la frase de prueba caza el veto
+determinista).

@@ -27,6 +27,7 @@ import {
   DEFINICION_ACTO,
   ETIQUETA_DECISOR,
   ETIQUETA_FIN,
+  fraseControl,
   fraseTardanza,
   PREFERIDOS_TRES,
   tardanzaDe,
@@ -203,6 +204,13 @@ function Resumen({ hilo }: { hilo: HiloTres }) {
         {r.molestiaEn != null ? ` · molestia en el mensaje ${r.molestiaEn}` : ""}
       </p>
       <Tarde hilo={hilo} />
+      {/* CUÁNTO LE CORRIGIÓ LA REVISIÓN DE SEGURIDAD a este decisor (13-09).
+          Un decisor que conversa mejor pero al que la revisión le tumba la
+          mitad de los mensajes no es mejor: es la cifra que faltaba al lado
+          de la entrega tardía. */}
+      <p className={`text-xs ${(r.control?.descartados ?? 0) > 0 ? "text-[var(--color-warning)]" : "text-[var(--color-muted)]"}`}>
+        {fraseControl(r)}
+      </p>
       {r.motivo && <p className="text-xs text-[var(--color-muted)]">Motivo: {r.motivo}</p>}
       {r.detalleFin && <p className="text-xs text-[var(--color-muted)]">{r.detalleFin}</p>}
       <p className="text-xs text-[var(--color-muted)]">
@@ -323,6 +331,16 @@ function Burbuja({ m }: { m: MensajeTres }) {
           <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" aria-hidden />
           <span>{m.veto}</span>
         </p>
+      )}
+      {/* LO QUE ESCRIBIÓ EL AGENTE, cuando la revisión lo cambió (13-09). De
+          arriba cuelga lo que SALIÓ —a lo que reaccionó el paciente—; sin
+          esto, un mensaje podado o sustituido por una plantilla se lee como
+          si lo hubiera escrito el agente, y se juzga el texto equivocado. */}
+      {m.borrador && (
+        <div className="mt-1.5 rounded border-l-2 border-[var(--color-border)] pl-2">
+          <div className="text-[10px] uppercase tracking-wide text-[var(--color-muted)]">Antes de la revisión</div>
+          <p className="whitespace-pre-wrap text-xs text-[var(--color-muted)]">{m.borrador}</p>
+        </div>
       )}
     </div>
   );

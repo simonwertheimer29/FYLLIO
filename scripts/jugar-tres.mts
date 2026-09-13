@@ -21,8 +21,19 @@
 // (acto «atender» o «cerrar» = pasa a una persona y para). Las entregas
 // obligatorias por hechos no se tocan: con urgencia, queja o mensaje no
 // legible el hilo pasa a una persona en ese turno lo diga el decisor o no
-// (se anota «por hecho»). Los mensajes de B y C no pasan por el juez: se les
-// pasan los vetos deterministas solo para ENSEÑAR si los cazarían.
+// (se anota «por hecho»).
+//
+// 13-09 — EL CONTROL CORRE EN LOS TRES. Hasta hoy los mensajes de B y C
+// salían tal cual y los vetos deterministas se pasaban «solo para enseñar si
+// cazarían»: cada número medido describía un agente que en producción no
+// existe, y la conclusión del 13-09 («ninguna guarda lo paró») era a medias
+// «ninguna guarda corrió». Ahora B y C pasan por `controlarMensajeDelDecisor`
+// — la MISMA secuencia que producción (veto → juez → poda → una reescritura →
+// descarte) sobre los MISMOS datos que constan (`renderDatosQueConstan`)—.
+// Una sola diferencia, deliberada: el reemplazo de un descarte es la
+// plantilla NEUTRA, que no recoge datos. Producción usa la que SÍ recoge
+// porque tiene los campos delante; dárselos aquí a un decisor al que no se
+// los damos sería el código recogiendo y la cifra apuntada al modelo.
 //
 // La entrada de cada turno la construye el MISMO constructor que el banco de
 // pruebas (`construirEntradaDePrueba`, vigilado por qa:banco-vs-runner) sobre
@@ -35,7 +46,10 @@
 //   npm run hilos:tres [-- --solo a,b] [--turnos N] [--decisores codigo,contexto,libre]
 //
 // Coste (medido en hilos:jugar y sombra): paciente ≈ $0,013/turno · evaluador
-// con juez ≈ $0,009 · sombra ≈ $0,003. A ≈ $0,022/turno; B y C ≈ $0,025.
+// con juez ≈ $0,009 · sombra ≈ $0,003. A ≈ $0,022/turno; B y C ≈ $0,030 desde
+// el 13-09 (su mensaje paga ahora su propio juez, y una reescritura cuando la
+// frase que infringe era la respuesta). Es una ESTIMACIÓN para el `--estimar`:
+// el coste real lo imprime el pase, y si se separa de esto hay que corregirlo.
 // Salidas: 0 · 1 sin fixture o mal uso · 2 entorno.
 
 import * as dotenv from "dotenv";
@@ -46,24 +60,25 @@ process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { sql } from "kysely";
-import { evaluarTurno, SYSTEM_PROMPT_EVALUADOR, type EntradaEvaluador, type EvaluacionTurno } from "../app/lib/agente/evaluador";
+import { evaluarTurno, renderDatosQueConstan, SYSTEM_PROMPT_EVALUADOR, type EntradaEvaluador, type EvaluacionTurno } from "../app/lib/agente/evaluador";
 import { CONOCIMIENTO_VACIO, parseConocimiento, type ConocimientoClinica } from "../app/lib/agente/conocimiento";
 import { runWithClienteDb } from "../app/lib/db/context";
 import { construirEntradaDePrueba, relojDelBanco, type EscenarioPrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
 import { avanzarSesion, SESION_NUEVA, type EstadoSesionPrueba } from "../app/lib/agente/sesion-prueba";
 import { guardarHiloTres, pedirSombra, versionSombra } from "../app/lib/agente/sombra";
-import { vetoDeterminista } from "../app/lib/agente/juez-borrador";
+import { controlarMensajeDelDecisor } from "../app/lib/agente/control-decisor";
+import { MODELO_JUEZ } from "../app/lib/agente/juez-borrador";
 import { renderConocimiento } from "../app/lib/agente/conocimiento";
 import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { hashVersion } from "../app/lib/agente/version";
 import { RUTA_FIXTURE, type FixtureHilos, type HiloJugado } from "../app/lib/agente/hilos-jugados";
-import { agregarTardanza, DECISORES, ETIQUETA_DECISOR, fraseTardanza, tardanzaDe, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
+import { agregarTardanza, DECISORES, ETIQUETA_DECISOR, fraseControl, fraseTardanza, tardanzaDe, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
 import { runWithCliente } from "../app/lib/cliente-contexto";
 import { hoyISO } from "../app/lib/time";
 import { pacienteDice, esFin, MODELO_PACIENTE, type Espejo } from "./hilos-jugados-paciente.mts";
 
 export const RUTA_FIXTURE_TRES = "evals/hilos-tres/fixture.json";
-const COSTE_TURNO: Record<Decisor, number> = { codigo: 0.022, contexto: 0.025, libre: 0.025 };
+const COSTE_TURNO: Record<Decisor, number> = { codigo: 0.022, contexto: 0.03, libre: 0.03 };
 
 // ─── argumentos ────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -184,6 +199,9 @@ type Estado = {
   aplazados: Set<string>;
   repeticiones: number;
   molestiaEn: number | null;
+  /** Descartes SEGUIDOS del control (233): al segundo, el caso pasa a una persona. */
+  descartesSeguidos: number;
+  control: { podados: number; reescritos: number; descartados: number };
   fin: FinTres;
   detalleFin: string | null;
 };
@@ -252,6 +270,8 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     aplazados: new Set(),
     repeticiones: 0,
     molestiaEn: null,
+    descartesSeguidos: 0,
+    control: { podados: 0, reescritos: 0, descartados: 0 },
     fin: "perdido",
     detalleFin: "se agotaron los turnos",
   };
@@ -326,6 +346,8 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     let texto: string;
     let acto: MensajeTres["acto"] = ev.acto ?? null;
     let veto: string | null = null;
+    let borrador: string | null = null;
+    let control: MensajeTres["control"] = null;
     let deriva: boolean;
     let motivo: string | null = null;
     let causa: string | null = null;
@@ -337,6 +359,21 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
       motivo = deriva ? `${ev.causa ?? "caso completo"}${ev.motivoDerivacion ? ` · ${ev.motivoDerivacion}` : ""}` : null;
       porHecho = deriva && (ev.causa === "urgencia" || ev.causa === "peticion_queja" || ev.causa === "no_legible");
       veto = ev.borradorDescartado ? `borrador descartado (${ev.borradorDescartado.motivo})` : null;
+      // El control de A viene por su propia vía (evaluarTurno ya lo corrió):
+      // se traduce a la MISMA forma que B y C para que los contadores cuenten
+      // lo mismo en los tres. Su borrador original no vuelve del evaluador,
+      // así que aquí es null: lo que hay es el veredicto, no el texto previo.
+      const reescritoA = ev.etiquetasDescartadas.some((t) => t.startsWith("juez:reescrito:"));
+      if (ev.borradorDescartado) {
+        control = { estado: ev.borradorDescartado.motivo === "juez_no_respondio" ? "juez_no_respondio" : "descartado", motivo: ev.borradorDescartado.motivo, frase: ev.borradorDescartado.frase, reescrito: ev.borradorDescartado.reescrito ?? false };
+        st.control.descartados++;
+      } else if (ev.borradorPodado) {
+        control = { estado: "podado", motivo: ev.borradorPodado.motivo, frase: ev.borradorPodado.frase, reescrito: reescritoA };
+        st.control.podados++;
+      } else if (reescritoA) {
+        control = { estado: "reescrito", motivo: null, frase: null, reescrito: true };
+        st.control.reescritos++;
+      }
     } else {
       let s = ev.sinJuicio ? null : await pedirSombra(entrada, { variante: decisor === "contexto" ? "produccion" : "libre" });
       if (!s && !ev.sinJuicio) {
@@ -357,20 +394,69 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
         st.usd += costeUsdDeTurno(s.usage, s.modelo) ?? 0;
         texto = s.mensaje;
         acto = s.acto;
-        veto = vetoDeterminista(texto, publicado)?.frase ?? null;
       }
       const porActo = acto === "atender" || acto === "cerrar";
+
+      // EL CONTROL, la misma secuencia que producción (13-09). Sobre los
+      // MISMOS datos que constan que ve el juez del código, y con el MISMO
+      // modelo que escribió el mensaje para la reescritura.
+      let pasaAPersona = false;
+      if (texto.trim() !== "") {
+        const perdonados: string[] = [];
+        const m = await controlarMensajeDelDecisor({
+          mensaje: texto,
+          nombre: st.datos["cita.nombre_completo"] ?? st.datos["identificar.nombre"] ?? (base.esPacienteConocido ? base.nombre : ""),
+          datosQueConstan: renderDatosQueConstan(entrada),
+          ultimoMensaje: entrante,
+          dichoPorLaPersona: st.hilo.filter((t) => t.direccion === "Entrante").map((t) => t.contenido).concat(entrante).join(" · ").slice(-1500),
+          // Este turno ENTREGA si el decisor lo pasa a una persona, si lo
+          // fuerza un hecho o si queda algo anotado que alguien va a ver:
+          // sin esto, la regla de la promesa juzga contra otro turno.
+          turnoEntrega: porActo || hecho != null || ev.aplazamientos.length > 0 || ev.casoCompleto === true,
+          citaConsta: entrada.diasHastaProximaCita != null,
+          idioma: ev.idioma ?? "es",
+          modeloId: s?.modelo,
+          descartesSeguidosAntes: st.descartesSeguidos,
+          perdonados,
+        });
+        // Tarifado al modelo del JUEZ, que es quien pone casi todos los
+        // tokens del control (la reescritura, cuando ocurre, va con el mismo
+        // haiku que escribió el mensaje).
+        st.usd += costeUsdDeTurno(m.usage, MODELO_JUEZ) ?? 0;
+        if (m.control) {
+          borrador = m.borrador;
+          control = m.control;
+          texto = m.texto;
+          veto = m.nota;
+          if (m.control.estado === "podado") st.control.podados++;
+          else if (m.control.estado === "reescrito") st.control.reescritos++;
+          else st.control.descartados++;
+        }
+        st.descartesSeguidos = m.descartesSeguidos;
+        pasaAPersona = m.pasaAPersona;
+        for (const p of perdonados) console.log(`      (juez perdonó un falso positivo: ${p})`);
+      } else {
+        // Sin borrador no hay descarte: la racha se corta, como en producción.
+        st.descartesSeguidos = 0;
+      }
+
       porHecho = hecho != null && !porActo;
-      deriva = porActo || hecho != null;
-      causa = deriva ? (hecho ?? (acto === "cerrar" ? "caso_completo" : "peticion_queja")) : null;
+      // MEJORAS 233 — dos descartes seguidos son un callejón: el caso pasa a
+      // una persona aunque el decisor no lo hubiera decidido. Va el último en
+      // precedencia, como en producción: si el turno ya entregaba por queja o
+      // urgencia, esa causa dice más.
+      deriva = porActo || hecho != null || pasaAPersona;
+      causa = deriva ? (hecho ?? (acto === "cerrar" ? "caso_completo" : porActo ? "peticion_queja" : "sin_respuesta_valida")) : null;
       motivo = deriva
         ? porHecho
           ? `por hecho: ${ETIQUETA_HECHO[hecho!] ?? hecho}`
-          : `${acto}${s?.porQue ? ` · ${s.porQue}` : s?.conviene ? ` · ${s.conviene}` : ""}`
+          : !porActo && pasaAPersona
+            ? "dos descartes seguidos del control"
+            : `${acto}${s?.porQue ? ` · ${s.porQue}` : s?.conviene ? ` · ${s.conviene}` : ""}`
         : null;
     }
 
-    st.mensajes.push({ n, quien: "agente", texto, acto, veto, deriva, motivo });
+    st.mensajes.push({ n, quien: "agente", texto, acto, veto, borrador, control, deriva, motivo });
     st.hilo.push({ direccion: "Entrante", contenido: entrante });
     if (texto) {
       st.hilo.push({ direccion: "Saliente", contenido: texto });
@@ -412,6 +498,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     aplazados: [...st.aplazados],
     repeticiones: st.repeticiones,
     molestiaEn: st.molestiaEn,
+    control: st.control,
     fin: st.fin,
     detalleFin: st.detalleFin,
     costeUsd: Math.round(st.usd * 10_000) / 10_000,
@@ -419,6 +506,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
   console.log(
     `  ▸ ${decisor}: ${resumen.fin}${resumen.derivoEn ? ` en ${resumen.derivoEn} mensaje${resumen.derivoEn === 1 ? "" : "s"} (${resumen.motivo})` : ""} · repitió ${resumen.repeticiones} · molestia ${resumen.molestiaEn ?? "no"} · datos ${resumen.datos.length} · $${resumen.costeUsd.toFixed(3)}`,
   );
+  console.log(`    ${fraseControl(resumen)}`);
   console.log(`    ${fraseTardanza(tardanzaDe(resumen))}`);
   const version = decisor === "codigo" ? hashVersion(SYSTEM_PROMPT_EVALUADOR) : versionSombra(decisor === "contexto" ? "produccion" : "libre");
   return { guionId: g.id, titulo: g.titulo, categoria: g.categoria, decisor, version, jugadoEl: new Date().toISOString(), mensajes: st.mensajes, resumen, costeUsd: resumen.costeUsd, conocimientoDe };

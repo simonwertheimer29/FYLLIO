@@ -601,6 +601,36 @@ export function lineasDeHechos(e: EntradaEvaluador): string[] {
   return lineas;
 }
 
+/** LOS DATOS QUE CONSTAN, en el render que ve el JUEZ: presupuestos vivos,
+ *  pago pendiente, la cita programada y lo publicado. Es lo único que un
+ *  borrador puede afirmar.
+ *
+ *  Fase D grupo 2: lo PUBLICADO entra con el MISMO render que ve el evaluador
+ *  (una fuente). Sin esto, el juez mataría un borrador que afirma un precio
+ *  publicado — correcto para el evaluador, infractor para un juez que no lo
+ *  ve (el riesgo medido en qa:juez). Y la CITA programada CONSTA (23-08): sin
+ *  esa línea, el juez marcaba «te esperamos mañana» como hueco inventado
+ *  (los 3 FP restantes del corpus compartían esta causa).
+ *
+ *  Exportado el 13-09 SIN cambiar un byte de su salida, como `lineasDeHechos`
+ *  el 11-09: el banco pasa los mensajes de los decisores B y C por el MISMO
+ *  control que producción, y para eso necesita los MISMOS datos que constan.
+ *  Dos renders distintos = un juez que juzga contra otro mundo (§25). */
+export function renderDatosQueConstan(e: EntradaEvaluador): string {
+  return [
+    ...e.presupuestosVivos.map(
+      (p) => `Presupuesto emitido: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
+    ),
+    e.pendienteCobro > 0 ? `Pago pendiente: ${eur(e.pendienteCobro)}` : null,
+    e.diasHastaProximaCita != null
+      ? `Cita ya programada: ${e.diasHastaProximaCita === 0 ? "HOY" : e.diasHastaProximaCita === 1 ? "MAÑANA" : `dentro de ${e.diasHastaProximaCita} días`}`
+      : null,
+    ...renderConocimiento(e.conocimiento),
+  ]
+    .filter((x): x is string => x !== null)
+    .join("\n");
+}
+
 export function renderEntrada(e: EntradaEvaluador): {
   texto: string;
   truncado: boolean;
@@ -1218,25 +1248,7 @@ export async function evaluarTurno(
   // Todo borrador del modelo pasa por el juez ANTES de salir. Si infringe
   // (clínica o económica) o el juez no responde → FAIL-CLOSED: plantilla
   // neutra + traza. La regla vive en código, no en la obediencia del prompt.
-  // Fase D grupo 2: lo PUBLICADO entra en «datos que constan» con el MISMO
-  // render que ve el evaluador (una fuente). Sin esto, el juez mataría un
-  // borrador que afirma un precio publicado — correcto para el evaluador,
-  // infractor para un juez que no lo ve (el riesgo medido en qa:juez).
-  const datosQueConstan = [
-    ...e.presupuestosVivos.map(
-      (p) => `Presupuesto emitido: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
-    ),
-    e.pendienteCobro > 0 ? `Pago pendiente: ${eur(e.pendienteCobro)}` : null,
-    // 23-08: la CITA programada CONSTA — sin esta línea, el juez marcaba
-    // «te esperamos mañana» como hueco inventado (los 3 FP restantes del
-    // corpus compartían esta causa: el juez no veía la cita).
-    e.diasHastaProximaCita != null
-      ? `Cita ya programada: ${e.diasHastaProximaCita === 0 ? "HOY" : e.diasHastaProximaCita === 1 ? "MAÑANA" : `dentro de ${e.diasHastaProximaCita} días`}`
-      : null,
-    ...renderConocimiento(e.conocimiento),
-  ]
-    .filter((x): x is string => x !== null)
-    .join("\n");
+  const datosQueConstan = renderDatosQueConstan(e);
 
   // El nombre para la plantilla: el que la PERSONA ha dicho (extraído por
   // el juicio) manda sobre el del contexto — «Gracias, Contacto» a quien
