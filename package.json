@@ -61,6 +61,7 @@
     "qa:conocimiento": "tsx scripts/qa-conocimiento.mts",
     "qa:banco": "tsx scripts/qa-banco-pruebas.mts",
     "qa:agenda": "tsx scripts/qa-agenda.mts",
+    "qa:agenda-enrutador": "tsx scripts/qa-agenda-enrutador.mts",
     "qa:agenda-externa": "tsx scripts/qa-agenda-externa.mts",
     "qa:coste": "tsx scripts/qa-coste.mts",
     "qa:inicio": "tsx scripts/qa-inicio.mts",

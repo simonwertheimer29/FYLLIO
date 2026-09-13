@@ -10,13 +10,14 @@
 //
 // Solo importa del módulo PURO (actos.ts): sombra.ts arrastraría pg al navegador.
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill } from "../../components/ui/StatePill";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
-import { AlertTriangle, RefreshCw, Sparkles, ICON_STROKE } from "../../components/icons";
+import { AlertTriangle, Calendar, RefreshCw, Sparkles, ICON_STROKE } from "../../components/icons";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import {
   DEFINICION_ACTO,
@@ -167,6 +168,15 @@ export function SombraView() {
               {datos.activa ? "Sombra activa en este cliente" : "Sombra apagada en este cliente"}
             </StatePill>
           )}
+          {/* La otra mesa de trabajo: etiquetar el corpus de agenda (14-09). No
+              enseña ningún veredicto — se etiqueta a ciegas. */}
+          <Link
+            href="/sombra/agenda"
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-sm text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+          >
+            <Calendar size={14} strokeWidth={ICON_STROKE} aria-hidden />
+            Etiquetar agenda
+          </Link>
           <button
             type="button"
             onClick={() => void cargar()}

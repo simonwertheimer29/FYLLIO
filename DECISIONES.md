@@ -5369,3 +5369,30 @@ mensajes, no la métrica — para eso vale; como vara, no. Y lo que sí revirti�
 que lo hace defendible ahora es que la evidencia para contestar la pregunta ya existe
 (`dichoPorLaPersona`, la cita) y que ahora se puede medir. En agosto no había ninguna de las dos.
 
+## 2026-09-14 · El enrutador y la pantalla de etiquetar: la vara antes que el cambio
+Construidas las piezas 1 y 3 del rediseño por falsabilidad (las 2 y 4 siguen pendientes, y **el
+veto de agenda sigue vivo tal cual**: quitarlo antes de tener con qué medirlo es repetir el bucle
+que este rediseño deshace).
+**El enrutador** (`agenda-enrutador.ts`, puro): dos señales SEPARADAS —`cuando` (día, fecha u hora,
+en castellano, catalán e inglés) y `reserva` (el poder de reservar)— y una sola salida, «entra en el
+corpus o no». No decide nada, así que puede ser todo lo laxo que haga falta: un falso positivo cuesta
+un clic en «ninguno», un falso negativo es un caso que no mira nadie. `qa:agenda-enrutador` fija
+justamente eso: que el mensaje legítimo y el ilegítimo del MISMO par entren los dos. Si alguien vuelve
+a meter criterio en la regex, ese test falla — que es lo que pasó cinco veces seguidas.
+La primera persona suelta («anoto tu preferencia») se queda fuera de `reserva` a propósito: sin
+participio no hay cita afirmada, y si lleva día entra igual por la otra señal.
+**La pantalla** (`/sombra/agenda`, mismo candado que la sombra): el mensaje candidato con su hilo
+alrededor, tres botones **afirma · repite · ninguno** con teclado (1·2·3, R, J/K), nota, y la SEGUNDA
+pregunta —«¿se arroga el poder de reservar?»— aparte y opcional. Reanudable por construcción: la
+lista de candidatos se recalcula en cada carga pasando el enrutador por `agente_sombra`, y lo único
+que se persiste (053, `agenda_corpus`) es el juicio, con el texto congelado.
+**A CIEGAS, comprobado, no prometido**: las columnas `juicio_*` existen en la fila pero la API de
+etiquetado no las selecciona, y `dev-captura-agenda-etiquetado.mjs` falla si la palabra «juicio»
+aparece en la respuesta. El candado se prueba igual que el de /sombra (coordinación, admin de otro
+cliente y sin sesión → 404/401).
+**Primera medida del corpus: 66 candidatos en 20 conversaciones** (14 de lo que se envió, 52 de lo
+que el modelo habría escrito), todos con señal. Es pequeño porque la sombra de DEMO lo es: crece al
+rejugar hilos. Lo que falta para cerrar el rediseño: llevar la hora a la entrada del evaluador y
+retirar `FIRMAS_DISPONIBILIDAD`/`FIRMAS_CITA_CONFIRMADA` y los tres perdones (pieza 2), el juicio
+especializado que se guarda mientras Simon etiqueta, la vista de desacuerdos y el acuerdo consigo
+mismo (pieza 4).

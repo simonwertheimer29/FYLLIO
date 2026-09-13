@@ -353,6 +353,35 @@ export interface Tabla_agente_sombra_guiones {
   en: Date | null;
 }
 
+/** 053 — el corpus de agenda etiquetado a mano (rediseño por falsabilidad,
+ *  14-09). Solo el juicio: la lista de candidatos se recalcula pasando el
+ *  enrutador por `agente_sombra`, y aquí se congela el texto de lo que se
+ *  etiquetó. Las columnas `juicio_*` son del juicio especializado en sombra y
+ *  la pantalla de etiquetar NO las lee: se etiqueta a ciegas. */
+export interface Tabla_agenda_corpus {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  /** `mensaje_id|fuente`: la identidad del candidato entre recálculos. */
+  clave: string;
+  mensaje_id: string;
+  fuente: "codigo" | "modelo_produccion" | "modelo_libre";
+  telefono: string | null;
+  texto: string;
+  etiqueta: "afirma" | "repite" | "ninguno" | null;
+  /** La segunda pregunta, aparte: ¿se arroga el poder de reservar? */
+  se_arroga: boolean | null;
+  nota: string | null;
+  por: string | null;
+  en: Date | null;
+  juicio: "afirma" | "repite" | "ninguno" | null;
+  juicio_se_arroga: boolean | null;
+  juicio_por_que: string | null;
+  juicio_version: string | null;
+  juicio_modelo: string | null;
+  juicio_en: Date | null;
+  created_at: Generated<Date>;
+}
+
 /** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o
  *  red = null, día, métrica); `definicion_v` versiona la definición. */
 export interface Tabla_metricas_diarias {
@@ -643,4 +672,5 @@ export interface DB
   agente_sombra: Tabla_agente_sombra;
   agente_sombra_hilos: Tabla_agente_sombra_hilos;
   agente_sombra_guiones: Tabla_agente_sombra_guiones;
+  agenda_corpus: Tabla_agenda_corpus;
 }
