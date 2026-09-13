@@ -5313,3 +5313,52 @@ el resto sigue contando, y ahí vivirán los huecos del nivel 2.
 que su número (1/4) no es un veredicto sobre la guarda. Queda repetirla con las correcciones dentro.
 `qa:conocimiento` sube a 160 checks, con el caso de Dani y los cuatro de ventana-contra-fecha dentro.
 
+## 2026-09-14 · Se acabaron las reglas de texto para la agenda: la pregunta pasa a ser un test de falsabilidad
+Lectura de Simon tras cinco vueltas ajustando patrones —ventana contra fecha, singular contra plural,
+con interrogación o sin ella—: **cada vuelta abría un caso nuevo, y eso es un bucle**. La distinción
+real no está en las palabras sino en **quién afirma qué**: repetir la preferencia que trajo la
+persona («anoto tu preferencia de lunes a jueves», «te lo apunto para el martes 15; si no hay hueco,
+se buscará otro martes») no promete nada aunque lleve una fecha concreta; afirmar un hueco («tenemos
+hueco el lunes 14, martes 15», «te tenemos anotada para el jueves de 18:00 a 19:00») sí. Eso lo
+distingue el contexto, no un patrón. **Revertidos `787b3f9` y `ba12bf2` en código** (`a06ac07`) para
+que el rediseño no herede sus excepciones; el diario, el gasto y los logs se quedan.
+**Y el diagnóstico que lo explica: el prompt del juez tiene la MISMA enfermedad que mis regexes.** Su
+regla 5 son ~1.200 palabras con **nueve excepciones «NO infringe»** colgando de una pregunta guía
+declarada: **«¿QUIÉN reserva?»** — una pregunta SINTÁCTICA, sobre el sujeto del verbo. Por eso tumba
+«para que te reserve el equipo»: está contestando lo que le preguntamos. Y **la regla 5 no menciona
+ni una vez `dichoPorLaPersona`**, que el juez SÍ recibe y que la regla 3 sí usa: su único test de
+legitimidad es «que esté en los DATOS QUE CONSTAN», así que las palabras de ella son invisibles para
+la regla de agenda. El código llevaba meses compensando eso a mano (el perdón
+`remite_con_los_dias_que_pidio`). Además fusiona dos daños distintos —alguien se planta un día que
+nadie guardó / el agente se arroga el poder de reservar— en una regla y una categoría, así que la
+traza no puede decir cuál falló.
+**EL TEST QUE SUSTITUYE A LA REGLA (aprobado, es el hallazgo de la sesión):**
+> **¿Qué pasa si ese día resulta no estar libre? ¿El mensaje se vuelve falso, o sigue en pie?**
+Anotar una preferencia sigue siendo verdad pase lo que pase; afirmar un hueco no. Acierta los seis
+ejemplos de Simon sin una sola regla de texto, y los falsos positivos casi desaparecen solos. El
+segundo daño («¿se arroga el agente el poder de reservar?») se pregunta **aparte**, no fundido.
+**Las cuatro decisiones del rediseño, aprobadas:**
+1. **Los patrones dejan de vetar y pasan a ENRUTAR**: el detector determinista de fecha/hora ya no
+   es una guarda, es el muestreador que dispara el juicio especializado (y que marca qué mensajes
+   entran en el corpus). Una regex que no decide nada puede ser todo lo laxa que haga falta.
+2. **En código se queda solo lo verificable contra un hecho real**: una fecha u hora que CONTRADICE
+   una cita que sí existe. Hoy no se puede hacer entera —la entrada del evaluador trae
+   `diasHastaProximaCita` y **no trae la hora**—: llevar la hora a la entrada es la única pieza de
+   código nueva. Se van `FIRMAS_DISPONIBILIDAD`, `FIRMAS_CITA_CONFIRMADA` y los tres perdones.
+   `FIRMAS_RESERVA` («te la reservo») se queda **hasta** que una medición enseñe que el juez sola la
+   caza. El mismo criterio ya clasifica bien el resto: precio y servicio se quedan porque hay cifras
+   y catálogo contra los que contrastar; agenda no tenía contra qué, y por eso el bucle.
+3. **Pantalla de etiquetado, no un documento** (pedido de Simon): los mensajes candidatos con su hilo
+   alrededor, tres botones —**afirma · repite · ninguno**— y una nota. Donde ya vive la sombra y con
+   el mismo candado de admin; **se puede dejar a medias y continuar otro día**. Los 62 casos de
+   `qa:juez` son paráfrasis de bugs conocidos: sobreajuste. El corpus real es la vara.
+4. **Acuerdo consigo mismo**: el mismo mensaje juzgado dos veces, contando desacuerdos. Dice si la
+   pregunta está bien planteada **sin necesitar el criterio de Simon** y falla ruidosamente.
+**Y una corrección propia que hay que dejar escrita:** los 4 guiones **no miden esto y nunca lo
+midieron**. Con paciente sintético estocástico y n=4, el 3/4 → 1/4 de ayer está dentro del ruido; me
+apoyé en esa cifra más de lo que aguanta. Sirvió para ENCONTRAR el fallo de Dani leyendo los
+mensajes, no la métrica — para eso vale; como vara, no. Y lo que sí revirtió la doctrina del 23-08
+(«si es regla dura, va en código, porque los prompts son obediencia»): se deshace a propósito, y lo
+que lo hace defendible ahora es que la evidencia para contestar la pregunta ya existe
+(`dichoPorLaPersona`, la cita) y que ahora se puede medir. En agosto no había ninguna de las dos.
+
