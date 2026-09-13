@@ -84,6 +84,14 @@ export type PayloadEvaluacion = {
   entrada?: string;
   /** Aditivo (2026-09-06, MEJORAS 171) — señales del hilo contadas por código. */
   senales?: EvaluacionTurno["senales"];
+  /** Aditivo (2026-09-13, MEJORAS 243) — ENTREGA TARDÍA sobre conversaciones
+   *  reales: si en ESTE turno el objetivo ya estaba cubierto, y cuál era. Se
+   *  persiste el veredicto del momento, no los campos, porque recalcularlo
+   *  después aplicaría las definiciones de objetivo de HOY a una conversación
+   *  de hace un mes (§16). Sin backfill: los turnos anteriores no lo tienen y
+   *  la métrica dirá «desde el día X» — un 0 ahí sería inventado. */
+  casoCompleto?: boolean;
+  objetivoActivo?: string | null;
 };
 
 export type TurnoAPersistir = {
@@ -254,6 +262,8 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     version: ev.version,
     entrada: ev.entradaRenderizada,
     senales: ev.senales ?? undefined,
+    casoCompleto: ev.casoCompleto,
+    objetivoActivo: ev.objetivoActivo ?? null,
   };
   cuenta(
     await registrarEventoIdempotente({

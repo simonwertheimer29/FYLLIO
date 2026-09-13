@@ -120,6 +120,10 @@ await runWithCliente("DEMO", async () => {
   ok("payload: juicios íntegros", payload?.tema === "presupuesto" && payload?.malestar === true && payload?.hiloTruncado === true);
   ok("payload: campos recogidos y borrador descartado viajan", payload?.camposRecogidos?.presupuesto?.decision === "se lo piensa" && payload?.borradorDescartado?.motivo === "clinica");
   ok("payload: la respuesta (borrador) viaja — la necesita la fase C", payload?.respuesta?.includes("asesor"));
+  // MEJORAS 243: sin esta pareja, la entrega tardía no se puede medir sobre
+  // conversaciones reales. `=== false` y no `!payload.casoCompleto`: lo que se
+  // comprueba es que la CLAVE está, porque ausente significa «no medido».
+  ok("payload: el veredicto de caso completo y su objetivo viajan (entrega tardía)", payload?.casoCompleto === false && payload?.objetivoActivo === "presupuesto");
   const der = rows.find((r) => r.evento === "derivado");
   ok("derivado guarda el HECHO (causa + malestar), no la cola", der?.causa_derivacion === "peticion_queja" && der?.malestar === true);
 

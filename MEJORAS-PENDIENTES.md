@@ -3140,7 +3140,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   caro: el paciente contestó y nadie lo recogió); (c) reutilizar `tardanzaDe` de `actos.ts`, que ya
   es puro. El histórico anterior se queda «sin medir», como en el banco. · **Impacto:** MEDIO-ALTO en
   pérdida evitada — un caso listo que sigue en el hilo es un caso que la clínica todavía no tiene. ·
-  **Esfuerzo:** 30 min (a) + 3-4 h (b y c). · **Fecha:** 2026-09-13 · 🔵 propuesta, sin aprobar.
+  **Esfuerzo:** 30 min (a) + 3-4 h (b y c). · **Fecha:** 2026-09-13 · 🟢 **(a) HECHA el 13-09 por
+  orden de Simon** (`casoCompleto` y `objetivoActivo` en `PayloadEvaluacion`, roundtrip contra la
+  base real en `qa:turno`): sin el campo, el día que el modelo libre decida en producción no se
+  podría medir si entrega tarde — que es el riesgo más probable de ese cambio. · 🔵 (b) y (c)
+  pendientes: la métrica diaria y su sitio en Inicio › Tu equipo, con «desde el día X».
 
 ## 242. QA · el censo de lo que los QA declaran que NO prueban, que es donde vive el próximo caso 5
   **Zona:** cabeceras de `scripts/qa-*.mts`. · **Por qué existe esta entrada:** la regla operativa
