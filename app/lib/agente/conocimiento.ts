@@ -710,3 +710,59 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
   while (lineas.length > 0 && lineas[lineas.length - 1] === "") lineas.pop();
   return lineas;
 }
+
+// ─── EL ALCANCE: qué papel tiene el agente en ESTA clínica (13-09) ─────────
+//
+// La pieza que faltaba, dictada por Simon: al modelo se le dan tres cosas —la
+// conversación, los datos en los que puede apoyarse, y SU ALCANCE Y SU
+// OBJETIVO— y de ahí deduce solo. No es una lista de prohibiciones ni una
+// etiqueta de permiso por dato (eso es lo que ya nos ha costado tres
+// regresiones: mañana aparece un dato nuevo, nadie lo etiqueta, y vuelve el
+// problema). Es decirle QUÉ PAPEL TIENE, y que el límite se deduzca:
+//
+//   «no puedes ofrecer horas; tu trabajo es recoger lo que el coordinador
+//    necesita para cerrar» → ningún horario inventado, porque sabe que no es
+//    su trabajo, no porque esté prohibido decirlo.
+//
+// Sale de la config que YA existe, y de dos sitios que ya la derivan: el
+// NIVEL DE AGENDA (`agendaNivel`, el eje de capacidad: qué te deja hacer la
+// clínica) y el PROPÓSITO del objetivo abierto (`objetivos.ts`, el eje de
+// caso: a qué sirves en este turno — un lead nuevo y un cobro tienen
+// objetivos distintos con el mismo nivel de agenda). Nada que configurar de
+// nuevo: lo que faltaba era dárselo al modelo. `capacidadesDe` deriva lo
+// mismo para la PANTALLA de la clínica desde el 22-08; aquí se deriva para el
+// prompt, con el registro que le toca a cada lector (a la clínica se le vende
+// el hueco: «se elimina conectando tu agenda»; al modelo eso es ruido).
+
+/** El papel, por nivel de agenda. Hoy solo existe el 1 (`parseConocimiento`
+ *  rechaza cualquier otro hasta que haya conexión de agenda): el 2 se deja
+ *  escrito para que conectarla sea cambiar un número, no reescribir esto. */
+const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string> = {
+  1: "No ves la agenda: los huecos, los días y las horas libres los sabe el equipo, y reservar es cosa suya. Con las citas, tu trabajo es recoger lo que la persona prefiere y lo que haga falta para poder cerrársela, y pasarlo para que el equipo la reserve con el caso ya hecho. El horario publicado es cuándo ABRE la clínica, no tu disponibilidad.",
+  2: "Ves la agenda en solo lectura: puedes ofrecer los huecos que te consten, tal como te consten. Reservar sigue siendo cosa del equipo: tú recoges cuál le viene bien.",
+};
+
+/** TU ALCANCE Y TU OBJETIVO, en líneas para el prompt. `objetivo` es el
+ *  propósito del caso abierto en una frase (de `ObjetivoAgente.proposito`),
+ *  SIN sus campos: la lista de campos es el contrato de la ENTREGA —lo que
+ *  el sistema extrae del hilo para saber si el caso quedó cerrable— y no una
+ *  consigna de qué preguntar. Dársela al modelo es lo que convierte una
+ *  conversación en un formulario. */
+export function renderAlcance(
+  c: ConocimientoClinica,
+  objetivo: { etapa: string; proposito: string } | null,
+): string[] {
+  const lineas = ["TU ALCANCE Y TU OBJETIVO (hasta dónde llega tu papel aquí):"];
+  lineas.push(`- ${PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]}`);
+  lineas.push(
+    objetivo
+      ? `- Con esta persona, ahora: ${objetivo.proposito} Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar. Cuando lo tengas, dilo y pasa el caso.`
+      : "- Con esta persona no hay nada pendiente que recoger: contesta a lo que trae y ya. No busques un dato que pedirle.",
+  );
+  if (c.alcance.urgencias?.atiende === false && c.alcance.urgencias.textoNoAtiende) {
+    lineas.push(
+      `- Esta clínica NO atiende urgencias. Si la persona trae una, tu papel es reproducir EXACTAMENTE este texto de la clínica y nada más: «${c.alcance.urgencias.textoNoAtiende}»`,
+    );
+  }
+  return lineas;
+}

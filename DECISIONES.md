@@ -5069,3 +5069,33 @@ juzgando contra otro mundo—; `MODELO_JUEZ` se exporta para poder TARIFAR lo qu
 hubiera escrito el agente es juzgar el texto equivocado. Coste estimado de B y C: $0,025 → $0,030
 por turno. `qa:actos` vigila la regresión sin gastar modelo (la frase de prueba caza el veto
 determinista).
+
+## 2026-09-13 · El alcance declarado: al modelo se le dice qué papel tiene, no qué tiene prohibido
+Tercera pieza dictada por Simon, después de tres regresiones por enumerar casos: al modelo se le
+dan la CONVERSACIÓN, los DATOS en los que puede apoyarse y —lo que faltaba— SU ALCANCE Y SU
+OBJETIVO, y de ahí deduce el límite solo. «No puedes ofrecer horas; tu trabajo es recoger lo que el
+coordinador necesita para cerrar» evita el horario inventado mejor que una prohibición, porque el
+modelo sabe que no es su trabajo, no que esté prohibido decirlo.
+**De dónde sale, y esto es lo que hace que no haya que configurar nada nuevo:** el alcance son DOS
+ejes que ya existían. El de CAPACIDAD (`agendaNivel`, qué te deja hacer la clínica) y el de CASO
+(el `proposito` de cada objetivo, a qué sirves en este turno — un lead nuevo y un cobro tienen
+objetivos distintos con el mismo nivel de agenda). Lo único que faltaba era DÁRSELO al modelo:
+`capacidadesDe` deriva lo mismo desde el 22-08 para la PANTALLA de la clínica, y el prompt nunca
+leyó esa frase. `renderAlcance` lo deriva para el prompt, con el registro que le toca a cada lector.
+**Nivel 1 y solo el 1** (no hay agendas conectadas y `parseConocimiento` rechaza cualquier otro):
+la frase del 2 queda escrita para que conectar una agenda sea cambiar un número, no reescribir esto.
+**El decisor D (`alcance`)** es la variante libre MÁS esa frase y MENOS la prohibición de agenda,
+que el papel ya cubre. Si llevara las dos no se estaría probando la idea de Simon: se estaría
+probando «más texto». `qa:conocimiento` fija que la ÚNICA línea distinta entre los dos prompts es
+esa, que ninguna clave de campo asoma en el alcance (sería el formulario con otro nombre), y que el
+prompt libre no cambió ni un byte (mismo hash, `0ee4c247a70f`).
+**Dos cosas dichas antes de leer la comparación.** (1) El objetivo se lo presta el evaluador, que
+corre igualmente cada turno: es QUÉ CASO hay abierto —estado del sistema—, no la lista de campos con
+otro nombre, pero es una asimetría con el libre. En producción, decidir el caso y redactar tendrían
+que pasar en la misma llamada: ese es el experimento de la fusión, no este. (2) La variante NO se
+pide en vivo (`VARIANTES_EN_VIVO`): triplicaría el coste de la sombra de cada mensaje real sin que
+nadie lo haya pedido.
+**Y en el visor, separado a propósito** (pedido de Simon): «cuánto le corrige la revisión» va en su
+propia tarjeta, no como matiz de la entrega tardía — si un decisor cubre el contrato pero su texto
+necesita el doble de correcciones, eso es un dato. El denominador son los mensajes del agente, no
+los hilos.

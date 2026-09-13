@@ -50,11 +50,11 @@ import { esLegible } from "../mensajeria/tipos-mensaje";
 import { hashVersion } from "./version";
 import { costeUsdDeTurno, type UsageTurno } from "./coste";
 import { vetoAgendaDeterminista, vetoServicioDeterminista } from "./juez-borrador";
-import { renderConocimiento } from "./conocimiento";
+import { CONOCIMIENTO_VACIO, renderAlcance, renderConocimiento } from "./conocimiento";
 import {
   ACTOS,
   DEFINICION_ACTO,
-  VARIANTES_SOMBRA,
+  VARIANTES_EN_VIVO,
   parsearSombra,
   type Acto,
   type DecisionCodigoResumen,
@@ -128,12 +128,24 @@ NO añadas texto fuera del JSON.`;
 
 /** Variante 'libre': sin objetivos ni campos; el orden de Simon; información
  *  y límites, no instrucciones de qué pedir. */
+/** El paso 4 y la regla de agenda viven con NOMBRE porque la variante
+ *  «alcance» los cambia: el alcance dice como PAPEL («tu trabajo es recoger,
+ *  el equipo reserva») lo que aquí se dice como veto, y tener los dos sería
+ *  probar «más texto» en vez de probar la idea. Con el literal suelto, un
+ *  retoque de esta frase dejaría la sustitución sin casar EN SILENCIO y D se
+ *  quedaría siendo C con una frase de más. */
+const PASO_4_LIBRE = "4. RECUERDA las reglas que no puedes saltarte (abajo).";
+const PASO_4_ALCANCE =
+  "4. MIRA HASTA DÓNDE LLEGA TU PAPEL: tu alcance y tu objetivo con esta persona vienen dados abajo. Eso es lo que te toca a ti y dónde acaba; lo que quede fuera no es que esté prohibido, es que no es tu trabajo y lo hace el equipo. Y recuerda las reglas que no puedes saltarte (también abajo).";
+const REGLA_AGENDA_LIBRE =
+  "- Ni huecos ni días libres de la agenda (no la ves) ni «te la reservo» (reservar lo hace el equipo). El horario publicado es apertura, no disponibilidad tuya.\n";
+
 export const SYSTEM_PROMPT_SOMBRA_LIBRE = `Eres el agente de una clínica dental española y trabajas por WhatsApp. Nadie te dice qué perseguir en este mensaje: decides tú qué le conviene a esta persona ahora. Trabaja en este orden y no te saltes ningún paso:
 
 1. LEE la conversación entera, hasta el último mensaje de la persona.
 2. ENTIENDE la situación: cómo está (con prisa, con miedo, desconfiada, molesta, triste, dudando, tranquila, decidida…), qué necesita DE VERDAD ahora y qué está en juego para ella y para la clínica. No repitas el mensaje: interprétalo.
 3. MIRA a qué tienes acceso: lo que la clínica tiene publicado, los datos que constan de esta persona (ficha, presupuestos, pagos, citas) y lo que ya se le ha dicho en la conversación. Lo que no está ahí, no lo sabes.
-4. RECUERDA las reglas que no puedes saltarte (abajo).
+${PASO_4_LIBRE}
 5. Solo entonces escribe el mensaje: 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre, en el idioma en que escribe la persona. Haz lo que le conviene a ella: si le conviene una respuesta, responde; si le conviene que la vea una persona o un doctor, dilo y para; si le conviene calma, cálmala; si de verdad te falta un dato para poder ayudarla, pídelo — porque le conviene a ella, no porque haya un formulario que rellenar. Una pregunta como mucho.
 
 LAS REGLAS QUE NO TE SALTAS:
@@ -141,8 +153,7 @@ LAS REGLAS QUE NO TE SALTAS:
 - NO INVENTAR: solo afirmas lo que está en lo que tienes a mano. Si no tienes un dato, dilo y di quién se lo confirma; no lo rellenes con «lo habitual».
 - NO COMPROMETER DINERO: nada de precios, descuentos, plazos, fraccionamientos, coberturas ni condiciones que no consten. Leer una política publicada sí; adaptarla a esta persona, no — eso lo decide la clínica.
 - NO DAR CRITERIO CLÍNICO: nada sobre dolor, riesgo, seguridad, duración o resultado de un tratamiento («no duele», «es seguro», «no suele dar problemas»). Calmar es normalizar la duda y remitir al doctor, no afirmar un hecho clínico.
-- Ni huecos ni días libres de la agenda (no la ves) ni «te la reservo» (reservar lo hace el equipo). El horario publicado es apertura, no disponibilidad tuya.
-- Un servicio o técnica que no esté publicado ni sea de toda clínica dental (revisiones, limpiezas, valoraciones, empastes, endodoncias, ortodoncia, implantes, blanqueamiento, extracciones, coronas, carillas, prótesis, radiografías, urgencias) no se confirma: la clínica se lo confirma.
+${REGLA_AGENDA_LIBRE}- Un servicio o técnica que no esté publicado ni sea de toda clínica dental (revisiones, limpiezas, valoraciones, empastes, endodoncias, ortodoncia, implantes, blanqueamiento, extracciones, coronas, carillas, prótesis, radiografías, urgencias) no se confirma: la clínica se lo confirma.
 - Un pago pendiente o un presupuesto que la persona no ha sacado solo se menciona en genérico, sin cifra ni tratamiento — y nunca a alguien que no sea la titular.
 - No prometas acciones de la clínica («te llamamos», «lo coordino») salvo que este mensaje pase el caso a una persona o deje algo anotado para que alguien lo vea.
 - Una urgencia, una queja o una petición de hablar con alguien SIEMPRE llegan a una persona de la clínica: eso lo garantiza el sistema. Tú lo dices y paras, sin pedir datos ni mencionar pagos.
@@ -159,7 +170,23 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con estas claves. Los <ángulos> son
 }
 NO añadas texto fuera del JSON.`;
 
-const PROMPT_DE: Record<VarianteSombra, string> = { produccion: SYSTEM_PROMPT_SOMBRA, libre: SYSTEM_PROMPT_SOMBRA_LIBRE };
+
+/** Variante 'alcance' (13-09, dictado de Simon): la LIBRE más la tercera cosa
+ *  —su alcance y su objetivo, derivados de la config (`renderAlcance`)— y
+ *  MENOS la prohibición de agenda, que ese alcance ya cubre dicha como papel
+ *  («tu trabajo es recoger, el equipo reserva») en vez de como veto. Si se
+ *  dejaran las dos, no se estaría probando la idea de Simon: se estaría
+ *  probando «más texto». Todo lo demás es idéntico a la libre, byte a byte,
+ *  para que la diferencia medida sea esa y no otra. */
+export const SYSTEM_PROMPT_SOMBRA_ALCANCE = SYSTEM_PROMPT_SOMBRA_LIBRE
+  .replace(PASO_4_LIBRE, PASO_4_ALCANCE)
+  .replace(REGLA_AGENDA_LIBRE, "");
+
+const PROMPT_DE: Record<VarianteSombra, string> = {
+  produccion: SYSTEM_PROMPT_SOMBRA,
+  libre: SYSTEM_PROMPT_SOMBRA_LIBRE,
+  alcance: SYSTEM_PROMPT_SOMBRA_ALCANCE,
+};
 
 export function versionSombra(variante: VarianteSombra = "produccion"): string {
   return hashVersion(PROMPT_DE[variante]);
@@ -208,6 +235,28 @@ export function renderEntradaLibre(e: EntradaEvaluador): { texto: string; trunca
   return { texto: lineas.join("\n"), truncado };
 }
 
+/** La entrada de la variante ALCANCE: la LIBRE, y al final —después de los
+ *  datos, que es el orden de Simon: conversación → datos → hasta dónde
+ *  llegas— su alcance y su objetivo. SIN los campos del objetivo: la lista
+ *  de campos es el contrato de la ENTREGA (lo que el sistema extrae del hilo
+ *  para saber si el caso quedó cerrable), no una consigna de qué preguntar.
+ *
+ *  De dónde sale `objetivo`: en el banco lo presta el evaluador, que corre
+ *  igualmente cada turno y ya ha decidido cuál es el caso abierto. No es la
+ *  lista de campos con otro nombre —es QUÉ CASO tiene delante, que es estado
+ *  del sistema—, pero sí es una asimetría con la variante libre y hay que
+ *  decirlo al leer la comparación. En producción, un agente que decidiera así
+ *  necesitaría decidir el caso y redactar en la MISMA llamada: ese es el
+ *  experimento de la fusión, no este. */
+export function renderEntradaAlcance(
+  e: EntradaEvaluador,
+  objetivo: { etapa: string; proposito: string } | null,
+): { texto: string; truncado: boolean } {
+  const base = renderEntradaLibre(e);
+  const alcance = renderAlcance(e.conocimiento ?? CONOCIMIENTO_VACIO, objetivo);
+  return { texto: `${base.texto}\n\n${alcance.join("\n")}`, truncado: base.truncado };
+}
+
 // ─── La llamada al modelo ──────────────────────────────────────────────────
 
 export type RespuestaSombra = SombraModelo & {
@@ -223,14 +272,24 @@ export type RespuestaSombra = SombraModelo & {
  *  (se loguea con el motivo; el caller lo cuenta como «sin sombra»). */
 export async function pedirSombra(
   e: EntradaEvaluador,
-  opts?: { modelo?: ModeloEvaluador; variante?: VarianteSombra },
+  opts?: {
+    modelo?: ModeloEvaluador;
+    variante?: VarianteSombra;
+    /** Solo variante 'alcance': el caso abierto, en una frase. */
+    objetivo?: { etapa: string; proposito: string } | null;
+  },
 ): Promise<RespuestaSombra | null> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) return null;
   const variante = opts?.variante ?? "produccion";
   const modelo = MODELOS[opts?.modelo ?? "haiku"];
   const mapa = construirMapaAnonimizacion(e.clinica ? [e.clinica] : []);
-  const { texto } = variante === "libre" ? renderEntradaLibre(e) : renderEntrada(e);
+  const { texto } =
+    variante === "libre"
+      ? renderEntradaLibre(e)
+      : variante === "alcance"
+        ? renderEntradaAlcance(e, opts?.objetivo ?? null)
+        : renderEntrada(e);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 20_000);
@@ -396,7 +455,7 @@ export async function sombraDelTurno(a: {
   turno?: number | null;
   hiloEtiqueta?: string | null;
   modelo?: ModeloEvaluador;
-  /** Por defecto las dos; el script del fixture puede pedir solo una. */
+  /** Por defecto las dos EN VIVO; el script del fixture puede pedir otras. */
   variantes?: readonly VarianteSombra[];
 }): Promise<ResultadoSombra> {
   let cliente: Cliente;
@@ -421,7 +480,10 @@ export async function sombraDelTurno(a: {
     hiloEtiqueta: a.hiloEtiqueta,
   };
   try {
-    const variantes = a.variantes ?? VARIANTES_SOMBRA;
+    // En vivo solo las DOS de siempre: la variante «alcance» nació para el
+    // banco y pedirla por cada mensaje real triplicaría el coste de la sombra
+    // sin que nadie lo haya pedido.
+    const variantes = a.variantes ?? VARIANTES_EN_VIVO;
     let produccion: Awaited<ReturnType<typeof calcularYGuardarSombra>> = null;
     let libre: Awaited<ReturnType<typeof calcularYGuardarSombra>> = null;
     for (const variante of variantes) {

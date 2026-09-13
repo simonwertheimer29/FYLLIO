@@ -15,6 +15,12 @@
 //                  y campos incluidos) decide el acto y redacta.
 //   C · libre    — el modelo sin objetivos ni campos (renderEntradaLibre)
 //                  decide y redacta.
+//   D · alcance  — (13-09, dictado de Simon) la entrada de C MÁS su alcance y
+//                  su objetivo en una frase (`renderAlcance`, derivada del
+//                  nivel de agenda y del propósito del caso abierto), y su
+//                  prompt MENOS la prohibición de agenda, que ese alcance ya
+//                  cubre dicha como papel. Sigue sin ver la lista de campos.
+//                  El nombre del comando sigue diciendo «tres» por historia.
 // En B y C el evaluador corre igualmente cada turno: aporta los HECHOS
 // (urgencia, queja, lo anotado, lo recogido) y hace avanzar la sesión como
 // producción; pero el mensaje y la decisión de pasar el caso son del decisor
@@ -72,13 +78,19 @@ import { renderConocimiento } from "../app/lib/agente/conocimiento";
 import { costeUsdDeTurno } from "../app/lib/agente/coste";
 import { hashVersion } from "../app/lib/agente/version";
 import { RUTA_FIXTURE, type FixtureHilos, type HiloJugado } from "../app/lib/agente/hilos-jugados";
-import { agregarTardanza, DECISORES, ETIQUETA_DECISOR, fraseControl, fraseTardanza, tardanzaDe, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
+import { agregarTardanza, DECISORES, type VarianteSombra, ETIQUETA_DECISOR, fraseControl, fraseTardanza, tardanzaDe, type Decisor, type FinTres, type HiloTres, type MensajeTres, type ResumenTres } from "../app/lib/agente/actos";
 import { runWithCliente } from "../app/lib/cliente-contexto";
 import { hoyISO } from "../app/lib/time";
 import { pacienteDice, esFin, MODELO_PACIENTE, type Espejo } from "./hilos-jugados-paciente.mts";
 
 export const RUTA_FIXTURE_TRES = "evals/hilos-tres/fixture.json";
-const COSTE_TURNO: Record<Decisor, number> = { codigo: 0.022, contexto: 0.03, libre: 0.03 };
+const COSTE_TURNO: Record<Decisor, number> = { codigo: 0.022, contexto: 0.03, libre: 0.03, alcance: 0.03 };
+/** Qué prompt de la sombra lleva cada decisor. El código no lleva ninguno. */
+const VARIANTE_DE: Record<Exclude<Decisor, "codigo">, VarianteSombra> = {
+  contexto: "produccion",
+  libre: "libre",
+  alcance: "alcance",
+};
 
 // ─── argumentos ────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -375,10 +387,20 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
         st.control.reescritos++;
       }
     } else {
-      let s = ev.sinJuicio ? null : await pedirSombra(entrada, { variante: decisor === "contexto" ? "produccion" : "libre" });
+      // El OBJETIVO que se le presta al decisor «alcance»: el caso abierto que
+      // el evaluador ya decidió este turno, en una frase y SIN sus campos. Es
+      // estado del sistema (qué caso hay delante), no la lista de campos con
+      // otro nombre — pero es una asimetría con el libre y se dice al leer la
+      // comparación.
+      const defObjetivo = ev.objetivoActivo ? entrada.objetivosAbiertos.find((o) => o.etapa === ev.objetivoActivo) : null;
+      const opts = {
+        variante: VARIANTE_DE[decisor],
+        objetivo: defObjetivo ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito } : null,
+      };
+      let s = ev.sinJuicio ? null : await pedirSombra(entrada, opts);
       if (!s && !ev.sinJuicio) {
         await new Promise((r) => setTimeout(r, 2000));
-        s = await pedirSombra(entrada, { variante: decisor === "contexto" ? "produccion" : "libre" });
+        s = await pedirSombra(entrada, opts);
       }
       if (!s) {
         if (hecho === "no_legible") {
@@ -508,7 +530,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
   );
   console.log(`    ${fraseControl(resumen)}`);
   console.log(`    ${fraseTardanza(tardanzaDe(resumen))}`);
-  const version = decisor === "codigo" ? hashVersion(SYSTEM_PROMPT_EVALUADOR) : versionSombra(decisor === "contexto" ? "produccion" : "libre");
+  const version = decisor === "codigo" ? hashVersion(SYSTEM_PROMPT_EVALUADOR) : versionSombra(VARIANTE_DE[decisor]);
   return { guionId: g.id, titulo: g.titulo, categoria: g.categoria, decisor, version, jugadoEl: new Date().toISOString(), mensajes: st.mensajes, resumen, costeUsd: resumen.costeUsd, conocimientoDe };
 }
 
@@ -521,7 +543,7 @@ const hoy = hoyISO();
 let usdTotal = 0;
 // Solo lo jugado EN ESTE PASE: el fixture arrastra hilos de pases anteriores
 // (sin la métrica) y mezclarlos daría un denominador que no es de nadie.
-const jugados: Record<Decisor, HiloTres[]> = { codigo: [], contexto: [], libre: [] };
+const jugados = Object.fromEntries(DECISORES.map((d) => [d, [] as HiloTres[]])) as Record<Decisor, HiloTres[]>;
 // §9: «no pude jugar» y «jugué» no pueden salir con el mismo código. El 13-09
 // los cuatro guiones petaron en el modo por defecto y el pase terminó con
 // «coste medido $0.00» y salida 0 — un fallo total con cara de pase vacío.

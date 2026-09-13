@@ -573,6 +573,49 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
     avanzarSesion(s2, { ...base, fallback: true }, turno).descartesSeguidos === 2);
 }
 
+
+// ─── EL ALCANCE: qué papel tiene el agente (13-09) ─────────────────────────
+{
+  const { renderAlcance, CONOCIMIENTO_VACIO } = await import("../app/lib/agente/conocimiento");
+  const OBJ = { etapa: "cita", proposito: "Recoger lo necesario para poder cerrarle una cita sin volver a preguntar." };
+
+  const nivel1 = renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n");
+  ok("nivel 1: el papel dice que la agenda la lleva el equipo, no que esté prohibido hablar de ella",
+    nivel1.includes("los sabe el equipo") && nivel1.includes("reservar es cosa suya"));
+  ok("nivel 1: el horario publicado se declara como APERTURA, no como disponibilidad",
+    /horario publicado es cu[áa]ndo ABRE/i.test(nivel1));
+  ok("el objetivo entra como PROPÓSITO en una frase", nivel1.includes(OBJ.proposito));
+  // La prueba de que esto no es un formulario con otro nombre: ninguna CLAVE
+  // de campo puede asomar por aquí. (Se buscan las claves, no las palabras:
+  // «disponibilidad» es además español normal y sale en el papel del nivel 1.)
+  ok("y NINGUNA clave de campo asoma (si no, es el formulario otra vez)",
+    !/nombre_completo|tratamiento_o_molestia|confirma_pago|via_pago|fecha_pago|motivo_no_cita|disponibilidad_primera_cita|que_necesita|es_paciente/.test(nivel1));
+  ok("y se le dice que juzgue él qué falta", /lo juzgas t[úu]/i.test(nivel1) && /no hay una lista que rellenar/i.test(nivel1));
+
+  const sinObjetivo = renderAlcance(CONOCIMIENTO_VACIO, null).join("\n");
+  ok("sin caso abierto NO se inventa nada que recoger", /no hay nada pendiente que recoger/i.test(sinObjetivo) && !sinObjetivo.includes(OBJ.proposito));
+
+  const sinUrgencias = renderAlcance(
+    { ...CONOCIMIENTO_VACIO, alcance: { ...CONOCIMIENTO_VACIO.alcance, urgencias: { atiende: false, textoNoAtiende: "Aquí no atendemos urgencias; llama al 112." } } },
+    OBJ,
+  ).join("\n");
+  ok("una clínica que no atiende urgencias manda su texto LITERAL", sinUrgencias.includes("Aquí no atendemos urgencias; llama al 112."));
+  ok("y una que sí las atiende no dice nada de eso", !renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n").includes("NO atiende urgencias"));
+}
+
+// ─── El prompt del decisor «alcance» = el libre menos la veda de agenda ────
+{
+  const { SYSTEM_PROMPT_SOMBRA_LIBRE, SYSTEM_PROMPT_SOMBRA_ALCANCE } = await import("../app/lib/agente/sombra");
+  ok("el prompt del alcance NO lleva la prohibición de agenda (la cubre el papel)",
+    SYSTEM_PROMPT_SOMBRA_LIBRE.includes("Ni huecos ni días libres") && !SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("Ni huecos ni días libres"));
+  ok("y sí lleva el paso que le manda mirar hasta dónde llega su papel",
+    SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("HASTA DÓNDE LLEGA TU PAPEL"));
+  // Lo demás IDÉNTICO: si la diferencia fuera más ancha, lo medido no sería
+  // la idea del alcance sino «más texto».
+  const soloEsasDos = SYSTEM_PROMPT_SOMBRA_ALCANCE.split("\n").filter((l) => !SYSTEM_PROMPT_SOMBRA_LIBRE.includes(l));
+  ok("y la ÚNICA línea nueva es ese paso (lo demás es idéntico al libre)", soloEsasDos.length === 1, `${soloEsasDos.length} líneas nuevas`);
+}
+
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);
   process.exit(1);

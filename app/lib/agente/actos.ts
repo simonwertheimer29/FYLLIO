@@ -111,14 +111,23 @@ export type SombraModelo = {
   mensaje: string;
 };
 
-/** Las dos variantes de la sombra (048): con la MISMA entrada que producción
- *  (objetivos y campos incluidos) o LIBRE (hilo + publicado + datos de la
- *  persona, sin objetivos ni campos — información y límites, no instrucciones). */
-export const VARIANTES_SOMBRA = ["produccion", "libre"] as const;
+/** Las variantes de la sombra: con la MISMA entrada que producción (objetivos
+ *  y campos incluidos, 048); LIBRE (hilo + publicado + datos de la persona,
+ *  sin objetivos ni campos — información y límites, no instrucciones); y
+ *  ALCANCE (13-09), que es la libre MÁS una frase de qué papel tiene y a qué
+ *  sirve en este caso, y MENOS las prohibiciones de agenda que esa frase ya
+ *  cubre. Si hiciera falta el mismo texto en las dos, no se estaría probando
+ *  la idea: se estaría probando «más texto». */
+export const VARIANTES_SOMBRA = ["produccion", "libre", "alcance"] as const;
+/** Las que se piden EN VIVO por cada turno real (/sombra). La tercera nació
+ *  para el banco y no se cobra en producción: añadirla aquí sería triplicar
+ *  el coste de la sombra de cada mensaje sin que nadie lo haya pedido. */
+export const VARIANTES_EN_VIVO = ["produccion", "libre"] as const;
 export type VarianteSombra = (typeof VARIANTES_SOMBRA)[number];
 export const ETIQUETA_VARIANTE: Record<VarianteSombra, string> = {
   produccion: "Modelo con contexto de producción",
   libre: "Modelo libre",
+  alcance: "Modelo con su alcance declarado",
 };
 
 /** El JSON de la sombra. null = sin JSON o sin lo mínimo (situación y
@@ -235,12 +244,13 @@ export type TurnoSombra = {
 // ─── Tres conversaciones por guion (049, 12-09) ────────────────────────────
 
 /** Quién conduce el hilo de principio a fin. */
-export const DECISORES = ["codigo", "contexto", "libre"] as const;
+export const DECISORES = ["codigo", "contexto", "libre", "alcance"] as const;
 export type Decisor = (typeof DECISORES)[number];
 export const ETIQUETA_DECISOR: Record<Decisor, string> = {
   codigo: "El código (hoy)",
   contexto: "Modelo con contexto",
   libre: "Modelo libre",
+  alcance: "Modelo con su alcance",
 };
 
 /** QUÉ HIZO EL CONTROL con un mensaje (13-09). Vive aquí —módulo puro— porque
@@ -431,7 +441,7 @@ export function agregarTardanza(hilos: (HiloTres | undefined)[]): TardanzaAgrega
   return a;
 }
 
-export const PREFERIDOS_TRES = ["codigo", "contexto", "libre", "ninguno"] as const;
+export const PREFERIDOS_TRES = [...DECISORES, "ninguno"] as const;
 export type PreferidoTres = (typeof PREFERIDOS_TRES)[number];
 
 export type GuionTres = {
@@ -463,6 +473,42 @@ export type HiloSombra = {
 // cada uno es una cifra de la comparación, no un detalle de implementación:
 // un decisor que conversa mejor pero al que el control le tumba la mitad de
 // los mensajes no es mejor. Lo jugado ANTES de esa fecha no vale 0 (§4).
+
+/** El mismo número sobre TODOS los hilos de un decisor. La pregunta que
+ *  contesta —y que Simon pidió que no se leyera al lado de la entrega tardía
+ *  sino aparte—: si un decisor cubre el contrato pero su TEXTO necesita más
+ *  correcciones que el de otro, eso es un dato, no un detalle. El denominador
+ *  son los mensajes del agente, no los hilos: un hilo de seis mensajes con
+ *  dos podas no es peor que uno de dos con una.
+ *  Los hilos jugados antes del 13-09 no tienen la cifra y NO valen 0 (§4). */
+export function agregarControl(hilos: ReadonlyArray<HiloTres | undefined>): {
+  hilos: number;
+  medidos: number;
+  noMedidos: number;
+  mensajes: number;
+  tocados: number;
+  podados: number;
+  reescritos: number;
+  descartados: number;
+} {
+  const out = { hilos: 0, medidos: 0, noMedidos: 0, mensajes: 0, tocados: 0, podados: 0, reescritos: 0, descartados: 0 };
+  for (const h of hilos) {
+    if (!h) continue;
+    out.hilos++;
+    const c = h.resumen.control;
+    if (!c) {
+      out.noMedidos++;
+      continue;
+    }
+    out.medidos++;
+    out.mensajes += h.mensajes.filter((m) => m.quien === "agente" && m.texto.trim() !== "").length;
+    out.podados += c.podados;
+    out.reescritos += c.reescritos;
+    out.descartados += c.descartados;
+  }
+  out.tocados = out.podados + out.reescritos + out.descartados;
+  return out;
+}
 
 export function fraseControl(r: ResumenTres): string {
   const c = r.control;

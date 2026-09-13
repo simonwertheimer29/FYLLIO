@@ -1,10 +1,11 @@
 "use client";
 // app/(authed)/sombra/ConversacionesTres.tsx
 //
-// TRES CONVERSACIONES POR GUION (049, 12-09-2026). Instrumentación de
-// desarrollo, bajo el mismo candado que /sombra. Para cada guion, tres
-// conversaciones enteras en paralelo — el código, el modelo con contexto y
-// el modelo libre — cada una conducida por su decisor de principio a fin,
+// UNA CONVERSACIÓN POR DECISOR Y GUION (049, 12-09-2026). Instrumentación de
+// desarrollo, bajo el mismo candado que /sombra. Para cada guion, una
+// conversación entera por decisor en paralelo — el código, el modelo con
+// contexto, el modelo libre y (13-09) el modelo con su alcance declarado —,
+// cada una conducida por su decisor de principio a fin,
 // con el paciente simulado reaccionando a ESE decisor. Encima de cada hilo,
 // el resumen: en cuántos mensajes pasó el caso a una persona, con qué
 // motivo, con qué datos, y cómo terminó el paciente. Dentro, el momento
@@ -22,6 +23,7 @@ import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { AlertTriangle, Flag, Hourglass, RefreshCw, ICON_STROKE } from "../../components/icons";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import {
+  agregarControl,
   agregarTardanza,
   DECISORES,
   DEFINICION_ACTO,
@@ -100,7 +102,7 @@ export function ConversacionesTres() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-muted)]">
         <span>
-          {guiones.length} guiones · {guiones.filter((g) => g.preferido != null).length} con veredicto. Cada guion: tres conversaciones enteras, una por decisor, con el mismo primer mensaje.
+          {guiones.length} guiones · {guiones.filter((g) => g.preferido != null).length} con veredicto. Cada guion: una conversación entera por decisor, con el mismo primer mensaje.
         </span>
         <button
           type="button"
@@ -120,6 +122,7 @@ export function ConversacionesTres() {
       )}
 
       {datos && guiones.length > 0 && <ComparadorTardanza guiones={guiones} />}
+      {datos && guiones.length > 0 && <ComparadorControl guiones={guiones} />}
 
       {datos && guiones.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -150,7 +153,7 @@ export function ConversacionesTres() {
                   <h2 className="font-[family-name:var(--font-geist-sans)] text-base font-semibold text-[var(--color-foreground)]">{guion.titulo}</h2>
                   <span className="text-xs text-[var(--color-muted)]">{guion.categoria}</span>
                 </div>
-                <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   {DECISORES.map((d) => (
                     <Columna key={d} decisor={d} hilo={guion.hilos[d]} />
                   ))}
@@ -240,6 +243,45 @@ function Tarde({ hilo }: { hilo: HiloTres }) {
   );
 }
 
+/** CUÁNTO LE CORRIGE LA REVISIÓN a cada decisor, sobre todos los guiones
+ *  (13-09, pedido de Simon). Va APARTE de la entrega tardía a propósito: son
+ *  dos preguntas distintas y juntarlas invita a leer una como matiz de la
+ *  otra. Si un decisor cubre el contrato pero su texto necesita el doble de
+ *  correcciones, eso es un dato. */
+function ComparadorControl({ guiones }: { guiones: GuionTres[] }) {
+  const filas = DECISORES.map((d) => ({ decisor: d, a: agregarControl(guiones.map((g) => g.hilos[d])) })).filter((f) => f.a.hilos > 0);
+  if (filas.length === 0 || filas.every((f) => f.a.medidos === 0)) return null;
+  return (
+    <Card padding="md" className="space-y-3">
+      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+        <AlertTriangle size={13} strokeWidth={ICON_STROKE} />
+        Revisión de seguridad · mensajes que hubo que corregir
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {filas.map(({ decisor, a }) => (
+          <div key={decisor} className="space-y-1">
+            <div className="text-xs font-medium text-[var(--color-foreground)]">{ETIQUETA_DECISOR[decisor]}</div>
+            <div className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold tabular-nums text-[var(--color-foreground)]">
+              {a.medidos === 0 ? "sin medir" : `${a.tocados} de ${a.mensajes}`}
+            </div>
+            {a.medidos > 0 && (
+              <p className="text-xs text-[var(--color-muted)]">
+                {a.podados} podados · {a.reescritos} reescritos ·{" "}
+                <span className={a.descartados > 0 ? "text-[var(--color-warning)]" : undefined}>{a.descartados} descartados</span>
+              </p>
+            )}
+            {a.noMedidos > 0 && (
+              <p className="text-xs text-[var(--color-muted)]">
+                {a.noMedidos} de {a.hilos} {a.noMedidos === 1 ? "hilo se jugó" : "hilos se jugaron"} antes de esta cifra: no cuentan
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 /** El mismo número sobre TODOS los guiones jugados, decisor a decisor: es la
  *  comparación que no se ve mirando un hilo — quién sigue preguntando cuando
  *  el caso ya estaba listo. */
@@ -258,7 +300,7 @@ function ComparadorTardanza({ guiones }: { guiones: GuionTres[] }) {
           Sin medir: estos hilos se jugaron antes de la métrica. Se llena en la próxima jugada («npm run hilos:tres»).
         </p>
       ) : (
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {filas.map(({ decisor, a }) => (
             <div key={decisor} className="space-y-1">
               <div
