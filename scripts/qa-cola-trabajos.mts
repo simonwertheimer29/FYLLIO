@@ -5,6 +5,12 @@
 //      otra clave, con el cuerpo cambiado o caducado, 401;
 //   2. la idempotencia: un turno ya evaluado se salta (no gasta modelo);
 //   3. el callback de fallo: deja una incidencia visible y toca la campana.
+//   4. el ALFABETO de la clave de idempotencia (13-09-2026). Este QA prueba el
+//      receptor sin llamar a QStash, y ese hueco costó caro: la clave era
+//      `tipo:cliente:mensaje_id` y QStash rechaza los dos puntos con un 400, así
+//      que NINGUNA publicación funcionó nunca desde que se montó la cola. No se
+//      vio porque el turno cae al after() y el agente contesta igual. Aquí se
+//      comprueba el carácter prohibido sin llamar a nadie.
 // Salida 2 = no pude comprobar; 1 = comprobé y está mal.
 
 import "dotenv/config";
@@ -14,7 +20,7 @@ import { createHash, createHmac, randomUUID } from "node:crypto";
 import { sql } from "kysely";
 import { runWithCliente } from "../app/lib/airtable";
 import { runWithClienteDb } from "../app/lib/db/context";
-import { baseUrlPublica, RUTA_TRABAJO, RUTA_FALLO, parseTrabajo, type TrabajoCola } from "../app/lib/cola/qstash";
+import { baseUrlPublica, claveTrabajo, RUTA_TRABAJO, RUTA_FALLO, parseTrabajo, type TrabajoCola } from "../app/lib/cola/qstash";
 import { turnoYaEvaluado } from "../app/lib/agente/evaluar-entrante";
 import { registrarEventoIdempotente } from "../app/lib/automatizacion/pg";
 import { POST as postTrabajo } from "../app/api/cola/trabajo/route";
@@ -69,6 +75,21 @@ async function main() {
   const subTrabajo = base ? `${base}${RUTA_TRABAJO}` : undefined;
   const subFallo = base ? `${base}${RUTA_FALLO}` : undefined;
   console.log(`URL pública: ${base ?? "(ninguna: la firma no comprueba la URL)"}`);
+
+  // 4 · La clave de idempotencia con un wamid real de Meta (el del primer
+  //     mensaje de verdad, 13-09). Los dos puntos son el ÚNICO carácter que
+  //     QStash prohíbe, y el que tuvo la cola parada desde el día uno.
+  const claveReal = claveTrabajo({
+    tipo: "evaluar_entrante",
+    cliente: "DEMO",
+    entrada: {
+      telefono: "+34600000995",
+      mensajeId: "wamid.HBgLMzQ2NjcxODgwOTcVAgASGBQzQUMzNzYxRkMwOEREQ0QzNUNCNgA=",
+      contenido: "hola",
+    },
+  });
+  check(!claveReal.includes(":"), `la clave de idempotencia no lleva «:», que QStash rechaza con 400 (${claveReal})`);
+  check(claveReal.includes("wamid."), "la clave conserva el mensaje_id, que es lo que la hace única por turno");
 
   await runWithCliente("DEMO", async () => {
     await runWithClienteDb("DEMO", async (trx) => {

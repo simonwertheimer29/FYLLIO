@@ -4860,3 +4860,37 @@ publicando el dato. `qa:juez` gana la comprobación de CATEGORÍA, no solo de si
 día por el caso de Nuria y nadie revisó `qa:juez`, que medía lo mismo por el otro camino. Lección:
 **cuando cambia una regla dura, la vara que la medía cambia en el MISMO commit.**
 
+
+## 2026-09-13 — primera conversación real por WhatsApp, y la cola nunca había publicado un solo trabajo
+
+**El círculo entero funcionó** (Simon, desde su móvil): el mensaje entró por el webhook, se persistió,
+el agente redactó el borrador, una persona lo envió desde el producto y llegó a WhatsApp. Primer
+mensaje real del agente, clínica Demo Centro. Con él salió UNA incidencia, y era gorda por lo
+callada: `cola/publicar_fallo`, 400 de QStash.
+
+**La causa no era la que parecía.** Ni credenciales (un 400 no es un 401) ni `COLA_URL_BASE`, que
+estaba bien formada con su esquema. QStash **prohíbe los dos puntos en el `deduplicationId`**, y la
+clave era `tipo:cliente:mensaje_id` desde el día que se montó la cola (6-09). Probado carácter por
+carácter contra su API: `:` da 400 («DeduplicationId cannot contain ':'») y punto, igual, guion,
+guion bajo, barra y más se aceptan, el wamid crudo incluido. Conclusión incómoda: **ninguna
+publicación funcionó nunca**; los 100 % de los turnos han corrido siempre en el `after()` del
+webhook. `ESTADO.md` decía «la cola está viva» porque lo que se verificó fue la configuración y el
+receptor, no una publicación.
+
+**Por qué sobrevivió una semana:** el fallo no parece roto. El turno cae al camino de siempre, el
+agente contesta igual y lo único que falta es lo que la cola existía para dar — el reintento. Es la
+forma exacta de `WABA_ENABLED`: un 200 que se lo traga todo. El QA de la cola además lo declara en su
+cabecera, «sin llamar a QStash»: probaba el receptor y la firma, nunca el publicador. La red nueva
+vive ahí (`qa:cola-trabajos`, comprobación 4) y mira el alfabeto de la clave sin llamar a nadie.
+
+**Fix:** separador «-» y sustitución de cualquier «:» que venga dentro del `mensaje_id` — la clave es
+válida **por construcción**, no por que hoy los wamid no lleven ese carácter. Verificado publicando
+con la clave nueva y los mismos parámetros que pasa `encolar()`.
+
+**Y el hallazgo de segundo orden, que es el que costó la tarde:** la incidencia guardó el motivo como
+`{"…":"…"}`. El redactor sustituye todo lo entrecomillado, y el cuerpo de error de una API es JSON,
+donde está todo entrecomillado. El diagnóstico venía escrito en una frase por QStash y se perdió;
+hubo que reproducirlo contra la API real para leerlo. No se toca el redactor en este commit porque es
+un control de privacidad: propuesta en MEJORAS 241, con `LOG_DRAIN_URL` (162) como el arreglo de
+fondo. **Lección: un redactor que deja la incidencia sin una sola palabra no está protegiendo, está
+degradando — y encima parece que funciona (§9).**

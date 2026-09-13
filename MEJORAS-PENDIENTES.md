@@ -3094,6 +3094,29 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 241. Incidencias · el redactor se come el motivo de los errores de API y deja la incidencia muda
+  **Zona:** `app/lib/incidencias.ts:90` (`redactar`, usado por `resumirError`). · **Qué pasa:** el
+  primer fallo real de la cola guardó esto como motivo: `{"…":"…"}`. La regla que sustituye todo lo
+  entrecomillado (`"[^"\n]*"` → `"…"`) está pensada para cuando Postgres cita el valor que no encaja o
+  Meta devuelve un teléfono — pero **el cuerpo de error de una API es JSON, y en JSON está todo
+  entrecomillado**, así que no queda ni una palabra. El motivo de verdad era
+  `DeduplicationId cannot contain ':'`, es decir el diagnóstico entero en una frase, y la incidencia
+  solo pudo decir «hubo un 400». El texto crudo sí se imprime en el log (`incidencias.ts:170`, hasta
+  600 caracteres), pero en Vercel vive un día y nadie lo estaba mirando: un fallo sistemático que
+  tenía la cola muerta desde el 6-09 hizo falta reproducirlo contra la API real para leerlo. ·
+  **Principio:** §9 — los fallos nunca son silenciosos, «renderiza el error, no lo concatenes» y
+  distinguir «no pude comprobar» de «comprobé y está mal». · **Propuesta, y NO es relajar la
+  redacción** (es un control de privacidad y está ahí por razones buenas): (a) conservar las CLAVES
+  del JSON y redactar solo los valores, de modo que al menos se lea `{"error":"…"}` y se sepa que el
+  remoto mandó un motivo; (b) que quien registra pueda declarar que el error viene de una fuente que
+  no puede llevar datos de paciente (`errorLiteral: true`) — resuelve este caso pero es un pie de
+  banco si alguien lo pone donde no debe; (c) lo que de verdad cierra el agujero es
+  **`LOG_DRAIN_URL` (MEJORAS 162)**, ya declarada en el contrato de entorno: el motivo crudo YA se
+  loguea, lo que falta es que sobreviva más de un día. · **Recomendación:** (c) + (a); (b) solo si
+  Simon quiere el motivo dentro del producto y acepta el riesgo. · **Impacto:** ALTO en diagnóstico —
+  no pierde datos, pero convierte cada fallo de integración en una investigación. · **Esfuerzo:** (a)
+  30 min · (c) ya pendiente. · **Fecha:** 2026-09-13 · 🔵
+
 ## 240. Legal · la política de privacidad publicada es PROVISIONAL y no puede sobrevivir al primer cliente
   **Zona:** `app/(public)/privacidad/page.tsx` (URL `/privacidad`, publicada el 13-09-2026). · **Qué
   pasa:** existe por una razón acotada — Meta exige una URL pública de política de privacidad para

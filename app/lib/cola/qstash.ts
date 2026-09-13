@@ -62,8 +62,32 @@ export function estadoCola(): EstadoCola {
   return { activa: true, base };
 }
 
+/** Lo único que QStash NO acepta en un `deduplicationId`: los dos puntos.
+ *  Comprobado contra su API el 13-09-2026, carácter por carácter — `:` da 400
+ *  («DeduplicationId cannot contain ':'») y punto, igual, guion, guion bajo,
+ *  barra y más se aceptan, el wamid crudo de Meta incluido. */
+const PROHIBIDO_EN_CLAVE = /:/g;
+
+/** Clave de idempotencia del trabajo.
+ *
+ *  Separa con «-», NO con «:», y sustituye además cualquier dos puntos que
+ *  venga dentro del mensaje_id: la clave tiene que ser válida **por
+ *  construcción**, no por que hoy los wamid no lleven ese carácter.
+ *
+ *  Por qué tanto cuidado con un separador: hasta el 13-09-2026 era
+ *  `tipo:cliente:mensaje_id`, así que QStash rechazaba con 400 **todas** las
+ *  publicaciones, sin excepción, desde el día que se montó la cola (6-09). No
+ *  se notó porque el fallo no parece roto: el turno cae al `after()` del
+ *  webhook, el agente contesta igual, y lo único que se pierde es el reintento
+ *  — justo lo que la cola existía para dar. El QA de la cola no podía cazarlo
+ *  porque prueba el receptor «sin llamar a QStash»; la comprobación del
+ *  alfabeto de la clave se añadió ahí (`qa:cola-trabajos`).
+ *
+ *  Colisiones: dos mensaje_id que solo se diferencien en un «:» darían la misma
+ *  clave. No ocurre con los wamid de Meta y, si ocurriera, lo cubre la segunda
+ *  capa de idempotencia (`turnoYaEvaluado` en el receptor). */
 export function claveTrabajo(t: Pick<TrabajoCola, "tipo" | "cliente" | "entrada">): string {
-  return `${t.tipo}:${t.cliente}:${t.entrada.mensajeId}`;
+  return `${t.tipo}-${t.cliente}-${t.entrada.mensajeId}`.replace(PROHIBIDO_EN_CLAVE, "-");
 }
 
 /** Lo que llega por HTTP es de fuera aunque venga firmado: se valida la forma. */
