@@ -426,6 +426,7 @@ opacos, bodies no literales) lo lista con `--todo` — «no comprobable» no es 
 - [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
 - [ ] Si enlazo o resuelvo a una **persona**, ¿viaja su **id** en el payload? ¿Hay algún match por nombre que elija solo? (§20)
 - [ ] Si un Client Component importa algo como VALOR, ¿el módulo es **puro**? ¿Ha pasado `npm run build`, no solo `tsc`? (§22)
+- [ ] Si el esquema JSON produce juicios **y** un texto para una persona, ¿va el texto **antes** de los campos extractivos, y está dicho ahí por qué? (§28)
 - [ ] ¿Alguna guarda de este cambio **enumera casos** (abreviaturas, palabras, formatos)? ¿Hay detrás una comprobación del **resultado**, y el QA afirma la **invariante** en vez de la rama? (§27)
 - [ ] Si cambié una **regla dura**, ¿he tocado sus casos en la vara, en **este mismo commit** y en **todas** las varas que la miden? Si apareció un FP nuevo, ¿he descartado que el caso esté **caducado** antes de tocar el prompt? (§26)
 - [ ] Lo que estoy midiendo o protegiendo, ¿es **lo que el usuario ve**? ¿He seguido el camino desde la pantalla hasta el texto? ¿Hay un segundo generador para el mismo hueco? (§21)
@@ -602,6 +603,30 @@ acertado la lista. Reglas:
 > cazó una pasada sobre conversaciones reales, no un test: ningún caso determinista de los escritos
 > ese día tenía una abreviatura dentro de la frase vetada. El primer arreglo fue la lista de
 > abreviaturas; el que cierra el agujero es el segundo, que mira el texto que sale.
+
+### 28. En un JSON del modelo, el ORDEN de las claves es diseño, no formato
+Un modelo genera de izquierda a derecha: cada clave se escribe **condicionada a todo lo anterior**.
+Así que el orden del esquema decide qué tiene delante el modelo cuando escribe cada cosa, y en un
+esquema que mezcla ANÁLISIS y TEXTO PARA UNA PERSONA eso no es una convención de estilo:
+- **Un formulario ANTES del mensaje convierte el mensaje en la continuación del formulario.** Si el
+  modelo acaba de enumerar los campos que faltan, lo siguiente que escriba tenderá a ir a por ellos
+  — aunque el prompt no se lo pida, y aunque la persona esté enfadada o preguntando otra cosa.
+- **El mismo formulario DESPUÉS es una relectura**, y no puede contaminar nada: el mensaje ya está
+  escrito y el modelo solo anota lo que consta.
+- El orden que aguanta para un turno conversacional es **situación → acto → mensaje → campos**: se
+  entiende, se decide, se escribe, y solo entonces se rellena el parte.
+Regla operativa: **todo esquema JSON que produzca a la vez juicios y un texto para una persona lleva
+el texto ANTES de los juicios extractivos, y lleva escrito en su línea por qué.** Reordenarlo es un
+cambio de comportamiento, no un cambio cosmético, y quien lo haga dentro de seis meses no lo sabrá
+si no está dicho ahí mismo.
+> **Nos lo enseñó:** el diseño de la fase 2 (13-09-2026). Al discutir si el modelo libre podía
+> extraer los campos en su MISMA llamada, la pregunta era si eso le contaminaría la redacción; la
+> respuesta fue que depende del orden, y al ir a escribirlo se vio que **el evaluador de hoy tiene
+> justo el orden malo**: `camposRecogidos` y los trece juicios van antes, y `"respuesta"` es la
+> última clave del esquema. Es decir, el borrador que enviamos a pacientes se genera con el
+> formulario entero delante — y su propia instrucción dice «si falta un campo del objetivo, pregunta
+> UNO». Parte de por qué el modelo libre conversa mejor que el evaluador puede ser estructural y no
+> de talento. Nadie lo había mirado porque el orden de un JSON parece formato.
 
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo

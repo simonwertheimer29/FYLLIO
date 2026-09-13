@@ -388,6 +388,27 @@ export function truncarHilo(
 // pagó su calibración. La distinción queja ≠ insatisfacción va con las frases
 // exactas dictadas el 2026-08-14 — es donde el modelo se equivocará.
 
+/**
+ * EL ORDEN DE LAS CLAVES DEL ESQUEMA ES DISEÑO, NO FORMATO (§28, 13-09-2026).
+ *
+ * Un modelo genera de izquierda a derecha: cada clave se escribe con TODO lo
+ * anterior ya delante. En este esquema `"respuesta"` va la ÚLTIMA, o sea que
+ * el borrador que se envía a un paciente se redacta con el formulario entero
+ * —`camposRecogidos` incluido— ya escrito, y su propia instrucción dice «si
+ * falta un campo del objetivo, pregunta UNO». Ese orden empuja a perseguir el
+ * objetivo en vez de contestar a la persona, y es razonable sospechar que
+ * parte de por qué el modelo libre conversa mejor que esto es ESTRUCTURAL y no
+ * de talento del modelo. Pendiente de medir y corregir con la fase 2; el orden
+ * que aguanta es situación → acto → mensaje → campos.
+ *
+ * Mientras tanto: mover `"respuesta"` de sitio CAMBIA EL COMPORTAMIENTO del
+ * agente y obliga a repasar `qa:evals-evaluador` (§26). No es un retoque.
+ *
+ * Y este aviso vive AQUÍ, en un comentario, no dentro del literal: un párrafo
+ * de meta-comentario metido en el prompt se lo lee el modelo, cambia lo que
+ * hace y deja la vara midiendo otra cosa. (Se metió dentro por error el
+ * 13-09 y se sacó en el mismo rato.)
+ */
 export const SYSTEM_PROMPT_EVALUADOR = `Eres el agente de una clínica dental española y trabajas por WhatsApp. Lees la CONVERSACIÓN entera con una persona y el CONTEXTO de su caso, y devuelves un JSON con tus JUICIOS sobre el último mensaje. Las decisiones (derivar a una persona, a qué cola, si el caso está completo) NO las tomas tú: las toma el sistema contando sobre tus juicios. Tú juzgas el texto.
 
 Tu forma de trabajar: contestas lo que la persona pregunta, recoges los campos que la clínica necesita (máximo UNA pregunta de recogida por mensaje — una conversación, no un formulario), y ANOTAS lo que no puedas resolver para que lo vea un asesor. Nada te bloquea: anotas y sigues.
