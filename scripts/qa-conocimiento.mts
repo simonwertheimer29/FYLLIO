@@ -595,11 +595,16 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   // el que elegía era recoger primero. Se afirma la propiedad —contestar antes
   // que recoger— y que «pasa el caso» NO sea lo último pegado al propósito.
   ok("el papel declara el ORDEN: primero contestar, después recoger",
-    /primero contestas lo que te han preguntado/i.test(nivel1) && /solo despu[ée]s/i.test(nivel1));
+    /primero contestas lo que te han preguntado/i.test(nivel1) && /recoger va despu[ée]s/i.test(nivel1));
   ok("y se permite no recoger nada este turno (sin eso, «después» se lee como «siempre»)",
     /si no encaja, este turno no pides nada/i.test(nivel1));
-  ok("el orden va ANTES de «pasa el caso» (que era lo pegado al propósito)",
-    nivel1.indexOf("primero contestas") < nivel1.indexOf("pasa el caso"));
+  ok("el orden va ANTES del cierre (que era lo pegado al propósito)",
+    nivel1.indexOf("primero contestas") < nivel1.indexOf("pasas el caso"));
+  // 13-09 noche — el CIERRE, y la licencia acotada por el final y no por el goteo.
+  ok("el papel manda CERRAR en el mismo mensaje en cuanto tiene lo que hace falta",
+    /EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje/.test(nivel1) && /no lo alargues un turno m[áa]s/i.test(nivel1));
+  ok("y ya NO limita a una cosa por mensaje (era lo que creaba el gota a gota)",
+    !/pides UNA cosa/i.test(nivel1));
 
   const sinObjetivo = renderAlcance(CONOCIMIENTO_VACIO, null).join("\n");
   ok("sin caso abierto NO se inventa nada que recoger", /no hay nada pendiente que recoger/i.test(sinObjetivo) && !sinObjetivo.includes(OBJ.proposito));
@@ -621,8 +626,16 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
     SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("HASTA DÓNDE LLEGA TU PAPEL"));
   // Lo demás IDÉNTICO: si la diferencia fuera más ancha, lo medido no sería
   // la idea del alcance sino «más texto».
+  // 13-09 noche: DOS líneas, y la segunda es deliberada — el paso 5 cambia solo
+  // en su cadencia («una pregunta como mucho» → las que encajen). El límite de
+  // una por mensaje era lo que creaba el gota a gota, así que quitarlo de la
+  // cláusula del alcance y dejarlo en el paso 5 mediría obediencia, no la idea.
+  // El LIBRE no se toca: es el control, y sin él la comparación pierde su suelo.
   const soloEsasDos = SYSTEM_PROMPT_SOMBRA_ALCANCE.split("\n").filter((l) => !SYSTEM_PROMPT_SOMBRA_LIBRE.includes(l));
-  ok("y la ÚNICA línea nueva es ese paso (lo demás es idéntico al libre)", soloEsasDos.length === 1, `${soloEsasDos.length} líneas nuevas`);
+  ok("y las ÚNICAS líneas distintas son el paso 4 y la cadencia del paso 5", soloEsasDos.length === 2, `${soloEsasDos.length} líneas nuevas`);
+  ok("el libre conserva su tope de una pregunta (es el control)", SYSTEM_PROMPT_SOMBRA_LIBRE.includes("Una pregunta como mucho."));
+  ok("y el alcance deja el número al juicio del modelo", !SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("Una pregunta como mucho.")
+    && /encajan juntas y no parece un interrogatorio/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
   // §25 — la versión tiene que cubrir TODO el diseño del decisor. La tercera
   // pieza del alcance viaja en la ENTRADA: si la versión fuera solo el system,
   // cambiar esa plantilla dejaría dos agentes distintos con la misma etiqueta.

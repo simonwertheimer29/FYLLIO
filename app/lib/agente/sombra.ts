@@ -137,6 +137,18 @@ NO añadas texto fuera del JSON.`;
 const PASO_4_LIBRE = "4. RECUERDA las reglas que no puedes saltarte (abajo).";
 const PASO_4_ALCANCE =
   "4. MIRA HASTA DÓNDE LLEGA TU PAPEL: tu alcance y tu objetivo con esta persona vienen dados abajo. Eso es lo que te toca a ti y dónde acaba; lo que quede fuera no es que esté prohibido, es que no es tu trabajo y lo hace el equipo. Y recuerda las reglas que no puedes saltarte (también abajo).";
+/** La CADENCIA, que en el libre es un tope fijo y en el alcance la juzga el
+ *  modelo (13-09 noche, dictado de Simon tras medir la cláusula del orden):
+ *  «una pregunta como mucho» es justo lo que crea el gota a gota —dos mensajes
+ *  de más por entrega— y preguntar el nombre y la disponibilidad JUNTOS es
+ *  natural y resuelve el caso en la mitad de turnos. El criterio no es cuántas
+ *  sino que encajen y no parezca un interrogatorio. Se cambia SOLO en el
+ *  alcance: el libre es el control y no se toca, o la comparación pierde su
+ *  suelo. Si el alcance gana, esto sube al prompt compartido y se rehace la
+ *  línea base de C. */
+const CADENCIA_LIBRE = "Una pregunta como mucho.";
+const CADENCIA_ALCANCE =
+  "Las preguntas que hagan falta si encajan juntas y no parece un interrogatorio — cuántas caben lo juzgas tú, como todo lo demás.";
 const REGLA_AGENDA_LIBRE =
   "- Ni huecos ni días libres de la agenda (no la ves) ni «te la reservo» (reservar lo hace el equipo). El horario publicado es apertura, no disponibilidad tuya.\n";
 
@@ -180,6 +192,7 @@ NO añadas texto fuera del JSON.`;
  *  para que la diferencia medida sea esa y no otra. */
 export const SYSTEM_PROMPT_SOMBRA_ALCANCE = SYSTEM_PROMPT_SOMBRA_LIBRE
   .replace(PASO_4_LIBRE, PASO_4_ALCANCE)
+  .replace(CADENCIA_LIBRE, CADENCIA_ALCANCE)
   .replace(REGLA_AGENDA_LIBRE, "");
 
 const PROMPT_DE: Record<VarianteSombra, string> = {

@@ -750,6 +750,19 @@ const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string> = {
 // que el papel diga el ORDEN, porque un papel sin orden lo elige el modelo.
 // Primero se contesta lo preguntado; recoger va después y solo si encaja en la
 // misma respuesta. Es UNA cláusula, y se mide con los mismos cuatro guiones.
+//
+// SEGUNDA VUELTA (13-09 noche, tras medirla). El orden funcionó —contesta
+// antes— pero la cláusula llevaba dentro «pides UNA cosa», y eso resultó ser el
+// problema de verdad: legitima una cadencia de gota a gota (2 mensajes de más
+// por entrega) y, cuando ya no le falta nada, el modelo SE INVENTA qué pedir —
+// tres correcciones por pedirle el teléfono a quien escribe POR WhatsApp. O
+// sea: el daño no venía del orden sino de la LICENCIA PARA RECOGER. Así que
+// (a) el límite de una cosa por mensaje se va —preguntar el nombre y la
+// disponibilidad juntos es natural y resuelve en la mitad de turnos; el
+// criterio no es cuántas sino que encajen y no parezca un interrogatorio, y eso
+// lo juzga el modelo como todo lo demás— y (b) entra el CIERRE: en cuanto tiene
+// lo que hace falta, cierra en ESE mensaje. La licencia se acota por el final,
+// no por el goteo.
 
 /** TU ALCANCE Y TU OBJETIVO, en líneas para el prompt. `objetivo` es el
  *  propósito del caso abierto en una frase (de `ObjetivoAgente.proposito`),
@@ -765,7 +778,7 @@ export function renderAlcance(
   lineas.push(`- ${PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]}`);
   lineas.push(
     objetivo
-      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; solo después, y solo si encaja en esa misma respuesta, pides UNA cosa de lo que te falte — si no encaja, este turno no pides nada. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar. Cuando lo tengas, dilo y pasa el caso.`
+      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar.`
       : "- Con esta persona no hay nada pendiente que recoger: contesta a lo que trae y ya. No busques un dato que pedirle.",
   );
   if (c.alcance.urgencias?.atiende === false && c.alcance.urgencias.textoNoAtiende) {
