@@ -605,6 +605,12 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
     /EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje/.test(nivel1) && /no lo alargues un turno m[áa]s/i.test(nivel1));
   ok("y ya NO limita a una cosa por mensaje (era lo que creaba el gota a gota)",
     !/pides UNA cosa/i.test(nivel1));
+  // 13-09 noche (Carlos): cerrar tiene DOS motivos. El segundo es la regla de
+  // insistencia dicha como papel — sin enumerar «precio», «horarios» ni nada.
+  ok("cerrar tiene un SEGUNDO motivo: «ya no puedo avanzar yo»",
+    /ya no puedo avanzar yo/i.test(nivel1) && /vuelve sobre algo que ya le contestaste/i.test(nivel1));
+  ok("y dice qué hacer con ello: pasarlo a quien sí pueda y cerrar ahí, sin repetirse",
+    /p[áa]saselo a quien s[íi] pueda y cierra ah[íi]/i.test(nivel1) && /tercera vez/i.test(nivel1));
 
   const sinObjetivo = renderAlcance(CONOCIMIENTO_VACIO, null).join("\n");
   ok("sin caso abierto NO se inventa nada que recoger", /no hay nada pendiente que recoger/i.test(sinObjetivo) && !sinObjetivo.includes(OBJ.proposito));

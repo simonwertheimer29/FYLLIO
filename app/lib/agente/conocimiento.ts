@@ -763,6 +763,17 @@ const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string> = {
 // lo juzga el modelo como todo lo demás— y (b) entra el CIERRE: en cuanto tiene
 // lo que hace falta, cierra en ESE mensaje. La licencia se acota por el final,
 // no por el goteo.
+//
+// TERCERA PIEZA (13-09 noche, dictado de Simon leyendo a Carlos): cerrar tiene
+// DOS motivos, no uno. «Ya tengo lo que hace falta» no cubre al que no quiere
+// cita y vuelve a preguntar lo mismo — Carlos pregunta tres veces el precio
+// exacto de un implante, que nadie le puede dar sin valoración, y el decisor le
+// seguía el juego. El segundo motivo es **«ya no puedo avanzar yo»**: si vuelve
+// sobre algo ya contestado y no hay nada nuevo que darle, no es que falte
+// recoger — es que el turno del agente se acabó, y eso es entrega igual que
+// declinar. Dicho así no enumera casos: el código ya deriva por INSISTENCIA
+// (`vuelveSobreAplazado` sobre el umbral) y esto es la misma regla dicha como
+// papel, para un decisor que no la tiene.
 
 /** TU ALCANCE Y TU OBJETIVO, en líneas para el prompt. `objetivo` es el
  *  propósito del caso abierto en una frase (de `ObjetivoAgente.proposito`),
@@ -778,7 +789,7 @@ export function renderAlcance(
   lineas.push(`- ${PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]}`);
   lineas.push(
     objetivo
-      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar.`
+      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Y cerrar no es solo «ya tengo lo que hace falta»: también es «ya no puedo avanzar yo» — si vuelve sobre algo que ya le contestaste y no tienes nada nuevo que darle, dilo con franqueza, pásaselo a quien sí pueda y cierra ahí; repetir la misma respuesta una tercera vez no le sirve a nadie. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar.`
       : "- Con esta persona no hay nada pendiente que recoger: contesta a lo que trae y ya. No busques un dato que pedirle.",
   );
   if (c.alcance.urgencias?.atiende === false && c.alcance.urgencias.textoNoAtiende) {
