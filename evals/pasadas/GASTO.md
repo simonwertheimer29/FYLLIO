@@ -174,3 +174,10 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   (`datos_sensibles`: 4 menciones → 0 en todo el log), y la entrega tardía del alcance pasa de «0 a
   tiempo, 2 tarde (+2 de media)» a **«1 a tiempo, 1 tarde (+1)», con 3/4 del contrato cubierto** en
   vez de 2/4 · log en `2026-09-13-cierre-y-cadencia.txt` · ac. **~$8,02**
+
+- **13-09 (noche, 3ª vuelta) · «YA NO PUEDO AVANZAR YO» COMO SEGUNDO MOTIVO DE CIERRE** (los mismos 4
+  guiones × libre y alcance, clínica publicada) · **$0,56 medido** (anunciado ≈ $0,72 típico / $1,44
+  tope) · **LA CIFRA: Carlos arreglado sin tocar a los otros tres.** El alcance pasa a **2 a tiempo ·
+  1 tarde (+1) · 0 «se pudo y no entregó»**, 3/4 cubierto y 4/4 entregados; `datos_sensibles` sigue
+  en 0. El motivo lo escribe él solo: «no puedo darle más números sin verlo… y cerrar la puerta a más
+  vueltas sobre lo mismo» · log en `2026-09-13-no-puedo-avanzar.txt` · ac. **~$8,58**

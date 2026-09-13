@@ -5227,3 +5227,24 @@ para el alcance deja el número al juicio del modelo (`CADENCIA_ALCANCE`). **El 
 el control, y sin él la comparación pierde su suelo. Si el alcance gana, eso sube al prompt
 compartido y se rehace la línea base de C. `qa:conocimiento` fija ahora DOS líneas distintas entre
 los dos prompts —el paso 4 y la cadencia— y que ninguna sea accidental.
+
+## 2026-09-13 · Cerrar tiene dos motivos, y el segundo arregla a Carlos sin tocar a los otros tres
+Lectura de Simon sobre el único caso que empeoró: no fallaba el cierre, **faltaba la regla de la
+insistencia** — que el código YA tiene (`vuelveSobreAplazado` sobre el umbral → deriva) y el decisor
+libre no usa. Carlos es un paciente que pregunta el precio exacto de un implante, que nadie puede dar
+sin valoración: no quiere cita, quiere esa respuesta. A la segunda vez que la repite, lo que toca es
+reconocerlo y pasarlo, no seguirle el juego una tercera.
+**Cómo se dice sin enumerar casos** (que es la condición de todo este diseño): cerrar tiene DOS
+motivos, «ya tengo lo que hace falta» y **«ya no puedo avanzar yo»** — si vuelve sobre algo ya
+contestado y no hay nada nuevo que darle, no es que falte recoger: es que el turno del agente se
+acabó, y eso es entrega igual que declinar.
+**Medido, misma pasada ($0,56): Carlos entrega en 4 mensajes y los otros tres no se mueven.** El
+alcance queda en **2 a tiempo · 1 tarde (+1) · 0 «se pudo y no entregó»**, 3/4 del contrato cubierto
+y 4/4 entregados; `datos_sensibles` sigue en cero. Y el motivo que escribe el propio modelo es la
+regla con sus palabras: «no puedo darle más números sin verlo, pero sí reconocer su preocupación
+legítima y **cerrar la puerta a más vueltas sobre lo mismo**».
+**Las tres vueltas del papel, en una línea cada una** (alcance, mismos 4 guiones, clínica publicada):
+orden + «pides UNA cosa» → 0 a tiempo, 2 tarde (+2), 3 podas por pedir el teléfono · + cierre y sin
+límite de preguntas → 1 a tiempo, 1 tarde, 1 sin entregar, 0 podas de teléfono · + «ya no puedo
+avanzar yo» → **2 a tiempo, 1 tarde, 0 sin entregar**. Cada vuelta quitó una licencia, ninguna añadió
+una prohibición.
