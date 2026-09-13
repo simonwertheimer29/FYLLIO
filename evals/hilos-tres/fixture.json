@@ -1,6 +1,6 @@
 {
  "v": 1,
- "jugadoEl": "2026-09-13T13:14:54.730Z",
+ "jugadoEl": "2026-09-13T16:38:37.482Z",
  "modeloPaciente": "claude-sonnet-5",
  "hilos": [
   {
@@ -188,7 +188,7 @@
      "categoria": "Aplazamiento por dato que no consta",
      "decisor": "libre",
      "version": "0ee4c247a70f",
-     "jugadoEl": "2026-09-13T13:14:39.388Z",
+     "jugadoEl": "2026-09-13T16:36:46.388Z",
      "mensajes": [
       {
        "n": 1,
@@ -199,81 +199,181 @@
       {
        "n": 1,
        "quien": "agente",
-       "texto": "Hola Nuria, es completamente normal tener miedo a una extracción. La sedación consciente es una opción que el doctor valora en cada caso. Te recomiendo que lo hables directamente con él cuando vengas: te explicará qué podemos ofrecerte y cómo haremos que te sientas lo más cómoda posible. ¿Cuándo te gustaría venir?",
+       "texto": "Hola Nuria, es completamente normal tener dudas antes de una extracción. La Dra. Ana Gil y el equipo están acostumbrados a trabajar con pacientes que tienen miedo, y en la consulta valoran contigo qué opciones son las mejores para tu caso. Te recomendamos que pidas una cita para que te explique en persona cómo podemos hacer que te sientas segura. ¿Te viene bien llamar para concertar?",
        "acto": "acompanar",
-       "veto": "el doctor valora en cada caso",
+       "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 2,
        "quien": "paciente",
-       "texto": "Vale, genial, me quedo más tranquila. Otra cosa, ¿hay parking cerca de la clínica? Es que si voy con algo de nervios prefiero no depender de transporte público.",
+       "texto": "Vale, pero antes de nada quería saber si eso de la sedación consciente es algo que hacéis en la clínica, para ir más tranquila. ¿Me lo podéis confirmar?",
        "noLegible": false
       },
       {
        "n": 2,
        "quien": "agente",
-       "texto": "Sí, Nuria, tenemos parking en la clínica. Ahora que te sientes más tranquila, ¿qué día te vendría bien venir para que el doctor valore la extracción y hablemos de las opciones de sedación?",
-       "acto": "recoger",
-       "veto": "tenemos parking en la clínica",
-       "deriva": false,
-       "motivo": null
-      },
-      {
-       "n": 3,
-       "quien": "paciente",
-       "texto": "Perfecto, eso me viene genial. Por cierto, ¿abrís los sábados? Así miro qué día me viene mejor.",
-       "noLegible": false
-      },
-      {
-       "n": 3,
-       "quien": "agente",
-       "texto": "Nuria, no tengo a mano nuestro horario de sábados: te lo confirma el equipo cuando te llame para fijar la cita. Lo que sí puedo decirte es que tienes disponibilidad entre semana si te viene bien. ¿Hay algún día de la próxima semana que te vaya mejor, o prefieres esperar a que te confirmen los sábados?",
-       "acto": "recoger",
-       "veto": null,
-       "deriva": false,
-       "motivo": null
-      },
-      {
-       "n": 4,
-       "quien": "paciente",
-       "texto": "Vale, prefiero esperar a que me confirméis lo del sábado, así organizo mejor. Muchas gracias por la ayuda!",
-       "noLegible": false
-      },
-      {
-       "n": 4,
-       "quien": "agente",
-       "texto": "Perfecto, Nuria. El equipo te llamará para confirmar la disponibilidad de sábado y fijar tu cita con el doctor. Gracias a ti.",
-       "acto": "cerrar",
-       "veto": null,
+       "texto": "Nuria, es una pregunta muy justa. Te paso con el equipo para que te lo confirmen con seguridad.",
+       "acto": "atender",
+       "veto": "podado (clinica): se fue «La sedación consciente es un servicio que valora y confirma la Dra. Ana Gil en consulta según tu caso, pero no está entre nuestros tratamientos publicados.»",
+       "borrador": "Nuria, es una pregunta muy justa. La sedación consciente es un servicio que valora y confirma la Dra. Ana Gil en consulta según tu caso, pero no está entre nuestros tratamientos publicados. Te paso con el equipo para que te lo confirmen con seguridad.",
+       "control": {
+        "estado": "podado",
+        "motivo": "clinica",
+        "frase": "La sedación consciente es un servicio que valora y confirma la Dra. Ana Gil en consulta según tu caso, pero no está entre nuestros tratamientos publicados.",
+        "reescrito": false
+       },
        "deriva": true,
-       "motivo": "cerrar · Cerrar esta conversación y pasar el caso al equipo para que contacte a Nuria, confirme disponibilidad de sábados y fije la cita con el doctor que valorará la extracción y las opciones de sedación."
+       "motivo": "atender · Confirmar si la sedación consciente es un servicio que ofrece la clínica, porque le conviene a ella ir tranquila y a la clínica no perder esta paciente por falta de transparencia sobre lo que hace."
+      }
+     ],
+     "resumen": {
+      "turnos": 2,
+      "derivoEn": 2,
+      "motivo": "atender · Confirmar si la sedación consciente es un servicio que ofrece la clínica, porque le conviene a ella ir tranquila y a la clínica no perder esta paciente por falta de transparencia sobre lo que hace.",
+      "causa": "peticion_queja",
+      "porHecho": false,
+      "pudoEn": null,
+      "datos": [
+       "cita.tratamiento_o_molestia: extracción"
+      ],
+      "aplazados": [
+       "duda_clinica"
+      ],
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "control": {
+       "podados": 1,
+       "reescritos": 0,
+       "descartados": 0
+      },
+      "fin": "derivado",
+      "detalleFin": null,
+      "costeUsd": 0.0383
+     },
+     "costeUsd": 0.0383,
+     "conocimientoDe": "db"
+    },
+    "alcance": {
+     "guionId": "aplazamiento_dato",
+     "titulo": "Nuria pregunta por parking y sedación",
+     "categoria": "Aplazamiento por dato que no consta",
+     "decisor": "alcance",
+     "version": "6414a590c81b",
+     "jugadoEl": "2026-09-13T16:37:31.179Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Hola Nuria, es muy normal tener dudas antes de una extracción. El doctor Ana Gil valora cada caso en consulta y te explica todas las opciones para que te sientas segura. ¿Qué día de la semana te vendría mejor para venir?",
+       "acto": "recoger",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Vale, me quedo más tranquila si me lo explica bien ella. Y otra cosa, hay parking cerca de la clínica? Es que si voy en coche no sé dónde dejarlo",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Perfecto, Nuria. Sobre el parking: tenemos un parking público en Felipe II a 3 minutos andando de la clínica. Ahora bien, ¿qué día de la semana te vendría mejor para la cita con la Dra. Ana Gil?",
+       "acto": "recoger",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Genial, gracias! Pues entre semana mejor... por cierto, abrís los sábados?",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Sí, abrimos sábados de 10:00 a 14:00, pero entre semana nos viene bien también. Te confirma un hueco del equipo en los próximos días, ¿te parece?",
+       "acto": "recoger",
+       "veto": "reescrito (agenda): la frase que infringía ERA la respuesta — «¿Qué día de la próxima semana te vendría mejor: lunes 14, martes 15, miércoles 16, jueves 17 o viernes 18?»",
+       "borrador": "Sí, abrimos sábados de 10:00 a 14:00, pero como prefieres entre semana, perfecto. ¿Qué día de la próxima semana te vendría mejor: lunes 14, martes 15, miércoles 16, jueves 17 o viernes 18?",
+       "control": {
+        "estado": "reescrito",
+        "motivo": "agenda",
+        "frase": "¿Qué día de la próxima semana te vendría mejor: lunes 14, martes 15, miércoles 16, jueves 17 o viernes 18?",
+        "reescrito": true
+       },
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 4,
+       "quien": "paciente",
+       "texto": "Vale perfecto, muchas gracias! Quedo atenta",
+       "noLegible": false
+      },
+      {
+       "n": 4,
+       "quien": "agente",
+       "texto": "Perfecto, Nuria. Te confirmarán el día y la hora en los próximos días.",
+       "acto": "cerrar",
+       "veto": "podado (agenda): se fue «Le paso tu caso al equipo ahora mismo para que te reserve una cita entre semana con la Dra. Ana Gil.»",
+       "borrador": "Perfecto, Nuria. Le paso tu caso al equipo ahora mismo para que te reserve una cita entre semana con la Dra. Ana Gil. Te confirmarán el día y la hora en los próximos días.",
+       "control": {
+        "estado": "podado",
+        "motivo": "agenda",
+        "frase": "Le paso tu caso al equipo ahora mismo para que te reserve una cita entre semana con la Dra. Ana Gil.",
+        "reescrito": false
+       },
+       "deriva": true,
+       "motivo": "cerrar · Cerrar ahora mismo pasando el caso al equipo para que le reserve la cita, porque tiene todo lo que necesita: día preferido (entre semana), doctor (Dra. Ana Gil), motivo (extracción con valoración de sedación) y está disponible."
       }
      ],
      "resumen": {
       "turnos": 4,
       "derivoEn": 4,
-      "motivo": "cerrar · Cerrar esta conversación y pasar el caso al equipo para que contacte a Nuria, confirme disponibilidad de sábados y fije la cita con el doctor que valorará la extracción y las opciones de sedación.",
+      "motivo": "cerrar · Cerrar ahora mismo pasando el caso al equipo para que le reserve la cita, porque tiene todo lo que necesita: día preferido (entre semana), doctor (Dra. Ana Gil), motivo (extracción con valoración de sedación) y está disponible.",
       "causa": "caso_completo",
       "porHecho": false,
-      "pudoEn": 4,
+      "pudoEn": 3,
       "datos": [
        "cita.tratamiento_o_molestia: extracción dental",
+       "cita.preferencia_doctor: Dra. Ana Gil",
+       "cita.nombre_completo: Nuria",
        "cita.urgencia: sin prisa",
-       "cita.disponibilidad: próxima semana, preferentemente sábado (pendiente de confirmar horario de sábados)"
+       "cita.disponibilidad: entre semana"
       ],
       "aplazados": [
        "duda_clinica"
       ],
       "repeticiones": 0,
       "molestiaEn": null,
+      "control": {
+       "podados": 1,
+       "reescritos": 1,
+       "descartados": 0
+      },
       "fin": "derivado",
       "detalleFin": null,
-      "costeUsd": 0.0587
+      "costeUsd": 0.0822
      },
-     "costeUsd": 0.0587,
-     "conocimientoDe": "fixture"
+     "costeUsd": 0.0822,
+     "conocimientoDe": "db"
     }
    }
   },
@@ -467,7 +567,7 @@
      "categoria": "Caso completo que se entrega",
      "decisor": "libre",
      "version": "0ee4c247a70f",
-     "jugadoEl": "2026-09-13T13:13:04.015Z",
+     "jugadoEl": "2026-09-13T16:33:27.299Z",
      "mensajes": [
       {
        "n": 1,
@@ -478,53 +578,221 @@
       {
        "n": 1,
        "quien": "agente",
-       "texto": "Hola Dani, perfecto, podemos ayudarte con la primera valoración de ortodoncia invisible. Para buscar la mejor cita para ti, ¿cuál es tu nombre completo y qué días de la semana te van mejor?",
-       "acto": "recoger",
+       "texto": "Hola Dani, perfecto. La primera visita y valoración es sin coste, incluye estudio de ortodoncia completo. Puedes reservar aquí: https://clinica-demo-centro.ejemplo/reserva — abrimos de lunes a jueves de 9:00 a 20:00 y viernes de 9:00 a 15:00. Estamos en Gran Vía 38, 3º, Madrid.",
+       "acto": "contestar",
        "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 2,
        "quien": "paciente",
-       "texto": "Daniel Arribas Soto. Me viene bien cualquier día menos los viernes, y prefiero por las tardes si puede ser.",
+       "texto": "Genial, muchas gracias! Prefiero por las tardes si puede ser, y viernes no me viene bien cualquier otro día está bien.",
        "noLegible": false
       },
       {
        "n": 2,
        "quien": "agente",
-       "texto": "Perfecto, Daniel. Tenemos tu solicitud: primera valoración de ortodoncia invisible, tardes de lunes a jueves. El equipo te contactará en breve con las citas disponibles. Gracias.",
-       "acto": "cerrar",
+       "texto": "Perfecto, Dani. Si tienes cualquier duda con la plataforma, me avisas.",
+       "acto": "contestar",
+       "veto": "podado (agenda): se fue «Entra en el enlace de reserva y filtra por tardes de lunes a jueves: verás todos los huecos disponibles y reservas directamente.»",
+       "borrador": "Perfecto, Dani. Entra en el enlace de reserva y filtra por tardes de lunes a jueves: verás todos los huecos disponibles y reservas directamente. Si tienes cualquier duda con la plataforma, me avisas.",
+       "control": {
+        "estado": "podado",
+        "motivo": "agenda",
+        "frase": "Entra en el enlace de reserva y filtra por tardes de lunes a jueves: verás todos los huecos disponibles y reservas directamente.",
+        "reescrito": false
+       },
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Vale, muchas gracias! Ah, tengo seguro Sanitas por si es relevante para la cita",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Perfecto, Dani. Sobre Sanitas y coberturas, es mejor que lo confirmes directamente con el equipo cuando reserves o cuando llegues a la cita — ellos te dirán exactamente cómo funciona con tu póliza. ¿Alguna otra duda antes de reservar?",
+       "acto": "reconocer",
        "veto": null,
-       "deriva": true,
-       "motivo": "cerrar · Cerrar esta recogida de datos y pasar el caso al equipo para que busque y ofrezca citas reales, porque Daniel ya ha dado todo lo que necesita la clínica para contactarle con opciones concretas."
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 4,
+       "quien": "paciente",
+       "texto": "Vale perfecto, no ninguna más. Muchas gracias, reservo ahora mismo!",
+       "noLegible": false
+      },
+      {
+       "n": 4,
+       "quien": "agente",
+       "texto": "Perfecto, Dani. ¡Nos vemos pronto!",
+       "acto": "parar",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
       }
      ],
      "resumen": {
-      "turnos": 2,
-      "derivoEn": 2,
-      "motivo": "cerrar · Cerrar esta recogida de datos y pasar el caso al equipo para que busque y ofrezca citas reales, porque Daniel ya ha dado todo lo que necesita la clínica para contactarle con opciones concretas.",
-      "causa": "caso_completo",
+      "turnos": 4,
+      "derivoEn": null,
+      "motivo": null,
+      "causa": null,
       "porHecho": false,
-      "pudoEn": 2,
+      "pudoEn": null,
       "datos": [
        "cita.tratamiento_o_molestia: ortodoncia invisible",
-       "cita.urgencia: sin prisa",
        "identificar.es_paciente: no",
-       "identificar.que_necesita: primera valoración de ortodoncia invisible",
-       "cita.nombre_completo: Daniel Arribas Soto",
-       "cita.disponibilidad: cualquier día menos viernes, preferentemente por las tardes",
-       "identificar.nombre: Daniel Arribas Soto"
+       "identificar.que_necesita: ortodoncia invisible",
+       "cita.urgencia: sin prisa",
+       "cita.disponibilidad: tardes, lunes a jueves (viernes no)"
       ],
-      "aplazados": [],
+      "aplazados": [
+       "cobertura_seguro"
+      ],
       "repeticiones": 0,
       "molestiaEn": null,
+      "control": {
+       "podados": 1,
+       "reescritos": 0,
+       "descartados": 0
+      },
+      "fin": "resuelto",
+      "detalleFin": "el paciente dio por resuelto lo suyo",
+      "costeUsd": 0.0779
+     },
+     "costeUsd": 0.0779,
+     "conocimientoDe": "db"
+    },
+    "alcance": {
+     "guionId": "caso_completo",
+     "titulo": "Dani quiere primera visita de ortodoncia y da todos los datos",
+     "categoria": "Caso completo que se entrega",
+     "decisor": "alcance",
+     "version": "6414a590c81b",
+     "jugadoEl": "2026-09-13T16:34:15.723Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas tardes! Quería pedir una primera cita para ortodoncia invisible, no soy paciente de la clínica todavía",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Hola Dani, perfecto. La primera visita con estudio de ortodoncia no tiene coste. Abrimos de lunes a jueves de 9:00 a 20:00 y viernes de 9:00 a 15:00. ¿Qué día y hora te vendría mejor?",
+       "acto": "recoger",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Genial, pues por las tardes mejor si puede ser, y cualquier día menos los viernes me viene bien",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Perfecto, Dani. Abrimos de lunes a jueves hasta las 20:00 y los viernes solo hasta las 15:00. Para reservarte, puedes hacerlo directamente aquí: https://clinica-demo-centro.example/reserva",
+       "acto": "recoger",
+       "veto": "reescrito (agenda): la frase que infringía ERA la respuesta — «Para reservarte por las tardes entre lunes y jueves, ¿qué día te vendría mejor la próxima semana? Por ejemplo, ¿el lunes 14, martes 15, miércoles 16 o jueves 17?»",
+       "borrador": "Perfecto, Dani. Para reservarte por las tardes entre lunes y jueves, ¿qué día te vendría mejor la próxima semana? Por ejemplo, ¿el lunes 14, martes 15, miércoles 16 o jueves 17?",
+       "control": {
+        "estado": "reescrito",
+        "motivo": "agenda",
+        "frase": "Para reservarte por las tardes entre lunes y jueves, ¿qué día te vendría mejor la próxima semana? Por ejemplo, ¿el lunes 14, martes 15, miércoles 16 o jueves 17?",
+        "reescrito": true
+       },
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Vale, muchas gracias! Ahora mismo entro y lo reservo. Por cierto, tengo seguro Sanitas, no sé si eso hay que indicarlo también en la reserva o mejor os lo digo aquí",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Perfecto, Dani. Por cierto, ¿cuál es tu nombre completo para que el equipo te tenga localizada?",
+       "acto": "recoger",
+       "veto": "podado (dato_inventado): se fue «Puedes indicar el seguro directamente en la reserva online, o si no aparece ese campo, nos lo dices cuando vengas a la primera visita y lo anotamos.»",
+       "borrador": "Perfecto, Dani. Puedes indicar el seguro directamente en la reserva online, o si no aparece ese campo, nos lo dices cuando vengas a la primera visita y lo anotamos. Por cierto, ¿cuál es tu nombre completo para que el equipo te tenga localizada?",
+       "control": {
+        "estado": "podado",
+        "motivo": "dato_inventado",
+        "frase": "Puedes indicar el seguro directamente en la reserva online, o si no aparece ese campo, nos lo dices cuando vengas a la primera visita y lo anotamos.",
+        "reescrito": false
+       },
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 4,
+       "quien": "paciente",
+       "texto": "Daniel Arribas, ese es mi nombre completo",
+       "noLegible": false
+      },
+      {
+       "n": 4,
+       "quien": "agente",
+       "texto": "Daniel, perfecto. Sobre el seguro Sanitas: indícalo en la reserva si la plataforma te lo pide, y si no aparece, nos lo comunicas aquí o cuando vengas a la primera visita — el equipo lo anotará en tu ficha. Ya tenemos todo lo que necesitamos: te pasamos al equipo para que confirmen tu cita en horario de tarde.",
+       "acto": "cerrar",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": true,
+       "motivo": "cerrar · Responder sobre el seguro de forma clara para que pueda completar su reserva sin dudas, y luego pasar el caso al equipo con toda la información que tienen: nombre completo, preferencia horaria, seguro y que va a reservar online."
+      }
+     ],
+     "resumen": {
+      "turnos": 4,
+      "derivoEn": 4,
+      "motivo": "cerrar · Responder sobre el seguro de forma clara para que pueda completar su reserva sin dudas, y luego pasar el caso al equipo con toda la información que tienen: nombre completo, preferencia horaria, seguro y que va a reservar online.",
+      "causa": "caso_completo",
+      "porHecho": false,
+      "pudoEn": 4,
+      "datos": [
+       "cita.tratamiento_o_molestia: ortodoncia invisible",
+       "identificar.es_paciente: no",
+       "identificar.que_necesita: primera cita para ortodoncia invisible",
+       "cita.urgencia: sin prisa",
+       "cita.disponibilidad: tardes, lunes a jueves",
+       "identificar.nombre: Daniel Arribas",
+       "cita.nombre_completo: Daniel Arribas"
+      ],
+      "aplazados": [
+       "cobertura_seguro"
+      ],
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "control": {
+       "podados": 1,
+       "reescritos": 1,
+       "descartados": 0
+      },
       "fin": "derivado",
       "detalleFin": null,
-      "costeUsd": 0.019
+      "costeUsd": 0.084
      },
-     "costeUsd": 0.019,
-     "conocimientoDe": "fixture"
+     "costeUsd": 0.084,
+     "conocimientoDe": "db"
     }
    }
   },
@@ -742,7 +1010,7 @@
      "categoria": "Insistencia hasta derivar",
      "decisor": "libre",
      "version": "0ee4c247a70f",
-     "jugadoEl": "2026-09-13T13:13:57.470Z",
+     "jugadoEl": "2026-09-13T16:35:26.922Z",
      "mensajes": [
       {
        "n": 1,
@@ -753,97 +1021,235 @@
       {
        "n": 1,
        "quien": "agente",
-       "texto": "Hola Carlos, me alegra verte de nuevo. Para darte un presupuesto de implante necesitamos que el doctor te valore primero: cada caso es diferente. ¿Te viene bien que te citemos esta semana para que te haga una valoración sin compromiso?",
-       "acto": "recoger",
+       "texto": "Hola Carlos, el implante unitario (implante + corona) parte desde 1.100 €, pero el precio final depende del estado del hueso y se cierra en la valoración. La primera visita es sin coste: ahí el doctor te dirá exactamente qué necesitas y cuánto cuesta en tu caso. ¿Te gustaría venir a valoración?",
+       "acto": "contestar",
        "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 2,
        "quien": "paciente",
-       "texto": "Ya, pero antes de la cita quiero hacerme una idea. El más básico, sin nada raro, ¿cuánto ronda?",
+       "texto": "Vale pero antes de pedir cita quiero hacerme una idea, el más básico ¿cuánto es exactamente?",
        "noLegible": false
       },
       {
        "n": 2,
        "quien": "agente",
-       "texto": "Carlos, entiendo que quieras tener una idea antes. El problema es que el precio depende de varios factores que solo el doctor ve en la boca: la cantidad de hueso, si necesitas injerto, el tipo de implante... Por eso no podemos darte una cifra sin valorarte. La buena noticia es que la valoración es sin compromiso y te dará exactamente lo que necesitas saber. ¿Te citamos?",
-       "acto": "reconocer",
+       "texto": "Carlos, lo entiendo: quieres saber antes de venir. El problema es que el implante no tiene un precio fijo — depende del estado de tu hueso, y eso solo se ve en la boca. Por eso la valoración es sin coste: el doctor te hace las pruebas, ve exactamente qué necesitas y te dice el precio final en tu caso. Así no hay sorpresas. ¿Te parece bien venir a que te lo valore?",
+       "acto": "acompanar",
        "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 3,
        "quien": "paciente",
-       "texto": "Vale pero un número aproximado, aunque sea una horquilla, digo yo que tendréis un precio de salida para el implante más simple.",
+       "texto": "Ya pero un número aproximado me tenéis que poder dar, no me digáis que no. ¿Más o menos de mil euros?",
        "noLegible": false
       },
       {
        "n": 3,
        "quien": "agente",
-       "texto": "Carlos, entiendo que quieras saber en qué rango te mueves antes de venir. La realidad es que no tenemos un precio de salida publicado porque cada implante es diferente, y la clínica no quiere darte una cifra que luego no se ajuste a tu caso. Lo que sí te garantizo es que en la valoración el doctor te dará un presupuesto claro y sin sorpresas. ¿Te citamos para que lo veas con números reales?",
+       "texto": "Carlos, te lo digo claro: el rango que publicamos es desde 1.100 €, y eso es lo más concreto que puedo darte sin verte. No es que no queramos decirte — es que el precio exacto cambia de una persona a otra según el hueso, y eso no se sabe hasta que el doctor te hace las pruebas. La valoración es sin coste precisamente para eso: para que sepas el número real en tu caso antes de decidir. ¿Prefieres venir a que te lo cierre el doctor?",
        "acto": "reconocer",
-       "veto": "tenemos un precio de salida publicado",
+       "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 4,
        "quien": "paciente",
-       "texto": "Pero vamos a ver, ¿más o menos de mil euros? Solo dime si estoy en ese rango o no.",
+       "texto": "Vale, 1.100 euros para arriba entonces. ¿Y eso incluye la corona o aparte?",
        "noLegible": false
       },
       {
        "n": 4,
        "quien": "agente",
-       "texto": "Carlos, veo que lo necesitas claro y tienes razón en insistir. La clínica no publica rango de precios porque cada caso varía mucho, y no quiere comprometerse con una cifra que luego no sea la tuya. Lo que sí te puedo decir es que el doctor te dará un presupuesto exacto en la valoración. ¿Te citamos para que lo veas con números reales?",
-       "acto": "reconocer",
+       "texto": "Sí, Carlos, la corona va incluida en ese precio desde 1.100 €. Es el implante completo: el tornillo más la corona. ¿Te gustaría venir a valoración sin coste para que el doctor te cierre el precio exacto en tu caso?",
+       "acto": "contestar",
        "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 5,
        "quien": "paciente",
-       "texto": "Nada, no hay manera. Pues nada, ya llamaré o miraré en otro sitio.",
+       "texto": "Vale, ya me hago una idea. Déjame pensarlo y os digo.",
        "noLegible": false
       },
       {
        "n": 5,
        "quien": "agente",
-       "texto": "Carlos, tienes razón: tres veces es demasiado. No te voy a dar una cifra que no sea la tuya, pero lo que sí te propongo es que el doctor te vea el lunes o martes y te dé un presupuesto exacto en 15 minutos. ¿Te va bien?",
-       "acto": "reconocer",
+       "texto": "Perfecto, Carlos. Cuando lo tengas claro, nos avisas y te hacemos la valoración sin coste. Estamos en Chamartín, abrimos de lunes a viernes de 9 a 21 horas.",
+       "acto": "parar",
        "veto": null,
-       "deriva": true,
-       "motivo": "por hecho: queja o petición de persona"
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 6,
+       "quien": "paciente",
+       "texto": "Vale, gracias. FIN",
+       "noLegible": false
+      },
+      {
+       "n": 6,
+       "quien": "agente",
+       "texto": "",
+       "deriva": false,
+       "motivo": "el decisor no respondió"
       }
      ],
      "resumen": {
-      "turnos": 5,
-      "derivoEn": 5,
-      "motivo": "por hecho: queja o petición de persona",
-      "causa": "peticion_queja",
-      "porHecho": true,
+      "turnos": 6,
+      "derivoEn": null,
+      "motivo": null,
+      "causa": null,
+      "porHecho": false,
       "pudoEn": null,
       "datos": [
        "cita.nombre_completo: Carlos",
-       "cita.tratamiento_o_molestia: implante dental",
-       "cita.urgencia: sin prisa",
-       "cita.motivo_no_cita: quiere el precio antes de venir; no quiere cita sin saber la cifra"
+       "cita.tratamiento_o_molestia: Implante dental",
+       "cita.motivo_no_cita: Quiere pensarlo antes de decidir"
       ],
       "aplazados": [
        "precio_descuento"
       ],
-      "repeticiones": 4,
-      "molestiaEn": 5,
-      "fin": "derivado",
-      "detalleFin": null,
-      "costeUsd": 0.0695
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "control": {
+       "podados": 0,
+       "reescritos": 0,
+       "descartados": 0
+      },
+      "fin": "perdido",
+      "detalleFin": "el decisor no respondió",
+      "costeUsd": 0.1106
      },
-     "costeUsd": 0.0695,
-     "conocimientoDe": "fixture"
+     "costeUsd": 0.1106,
+     "conocimientoDe": "db"
+    },
+    "alcance": {
+     "guionId": "insistencia_precio",
+     "titulo": "Carlos quiere el precio exacto de un implante y no acepta «depende»",
+     "categoria": "Insistencia hasta derivar",
+     "decisor": "alcance",
+     "version": "6414a590c81b",
+     "jugadoEl": "2026-09-13T16:36:22.744Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el precio de un implante dental, ¿cuánto cuesta?",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Hola Carlos, el implante unitario (implante + corona) parte desde 1.100 €, aunque el precio final depende del estado del hueso y se cierra en la valoración sin coste. ¿Te gustaría venir a que uno de nuestros doctores te valore y te dé un presupuesto exacto?",
+       "acto": "recoger",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Vale pero el más básico, sin nada raro, ¿son 1100 fijo o puede subir mucho más?",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Carlos, lo entiendo: 1.100 € es el punto de partida, pero tienes razón en que puede variar. El precio final depende de cómo esté el hueso y si necesitas injerto u otros pasos previos — eso solo lo ve el doctor en la valoración. Lo que sí te puedo decir es que la valoración es sin coste, así que vienes, te lo explica todo con exactitud y tienes el presupuesto cerrado antes de decidir nada. ¿Te gustaría que el equipo te busque una cita?",
+       "acto": "acompanar",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Ya pero un número aproximado, si no hace falta injerto ni nada raro, ¿se queda en los 1100 o normalmente sube?",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Carlos, entiendo que quieras saber en qué rango te mueves antes de venir. La verdad es que no puedo darte un número aproximado sin verte: el precio depende de factores que solo el doctor ve en la boca. Lo que sí es cierto es que la valoración es sin coste y te da el presupuesto exacto antes de decidir. ¿Prefieres venir para tener esa cifra cerrada?",
+       "acto": "reconocer",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 4,
+       "quien": "paciente",
+       "texto": "Nada, ya me dirán entonces. Gracias.",
+       "noLegible": false
+      },
+      {
+       "n": 4,
+       "quien": "agente",
+       "texto": "Perfecto, Carlos. Nos ponemos en contacto contigo para cerrar el presupuesto exacto en la valoración. Abrimos de lunes a viernes de 9:00 a 21:00.",
+       "acto": "recoger",
+       "veto": "reescrito (agenda): la frase que infringía ERA la respuesta — «Te llamamos para buscar una cita con uno de nuestros doctores y te cierra el presupuesto exacto. ¿Qué días te van mejor la próxima semana?»",
+       "borrador": "Perfecto, Carlos. Te llamamos para buscar una cita con uno de nuestros doctores y te cierra el presupuesto exacto. ¿Qué días te van mejor la próxima semana?",
+       "control": {
+        "estado": "reescrito",
+        "motivo": "agenda",
+        "frase": "Te llamamos para buscar una cita con uno de nuestros doctores y te cierra el presupuesto exacto. ¿Qué días te van mejor la próxima semana?",
+        "reescrito": true
+       },
+       "deriva": false,
+       "motivo": null
+      }
+     ],
+     "resumen": {
+      "turnos": 4,
+      "derivoEn": null,
+      "motivo": null,
+      "causa": null,
+      "porHecho": false,
+      "pudoEn": null,
+      "datos": [
+       "cita.nombre_completo: Carlos",
+       "cita.tratamiento_o_molestia: Implante dental",
+       "cita.motivo_no_cita: Quiere conocer el precio exacto antes de venir"
+      ],
+      "aplazados": [
+       "precio_descuento"
+      ],
+      "repeticiones": 1,
+      "molestiaEn": null,
+      "control": {
+       "podados": 0,
+       "reescritos": 1,
+       "descartados": 0
+      },
+      "fin": "resuelto",
+      "detalleFin": "el paciente dio por resuelto lo suyo",
+      "costeUsd": 0.0924
+     },
+     "costeUsd": 0.0924,
+     "conocimientoDe": "db"
     }
    }
   },
@@ -1044,7 +1450,7 @@
      "categoria": "Teléfono compartido",
      "decisor": "libre",
      "version": "0ee4c247a70f",
-     "jugadoEl": "2026-09-13T13:14:54.556Z",
+     "jugadoEl": "2026-09-13T16:38:05.401Z",
      "mensajes": [
       {
        "n": 1,
@@ -1055,49 +1461,172 @@
       {
        "n": 1,
        "quien": "agente",
-       "texto": "Hola Lucía, claro que sí. Para poder darte cita, necesito tu teléfono de contacto y qué tipo de revisión o tratamiento buscas. ¿Cuál es tu número?",
+       "texto": "Hola Lucía, bienvenida. Claro que sí, podemos agendar una cita para ti. ¿Vienes por primera vez a la clínica o necesitas una revisión, o hay algo que te molesta ahora?",
        "acto": "recoger",
-       "veto": "necesito tu teléfono",
+       "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": false,
        "motivo": null
       },
       {
        "n": 2,
        "quien": "paciente",
-       "texto": "Vale, mi número es 622 145 903. Es solo una revisión general, hace bastantes años que no piso un dentista jaja",
+       "texto": "Es para una revisión, hace años que no voy al dentista la verdad jaja. No me duele nada ni nada urgente",
        "noLegible": false
       },
       {
        "n": 2,
        "quien": "agente",
-       "texto": "Perfecto, Lucía. Tengo tu número y que buscas una revisión general. Dejo esto anotado para que el equipo te contacte mañana y te ofrezca las primeras citas disponibles.",
+       "texto": "Perfecto, Lucía. Para agendar tu revisión necesito saber qué días y horas te van mejor. Abrimos de lunes a viernes de 10:00 a 20:00, así que dime cuándo te vendría bien y lo anotamos.",
+       "acto": "recoger",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "A ver... entre semana curro hasta las 17h más o menos, así que a partir de las 18h me viene mejor. ¿Tenéis algo por ejemplo un jueves?",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "Perfecto, Lucía. Anotamos que prefieres un jueves a partir de las 18h. El equipo te contactará en breve para confirmar la cita y todos los detalles. ¡Gracias!",
        "acto": "cerrar",
        "veto": null,
+       "borrador": null,
+       "control": null,
        "deriva": true,
-       "motivo": "cerrar · Cerrar esta gestión pasándola al equipo de agenda para que confirmen disponibilidad y citen a Lucía, porque ella ya ha dado todo lo que necesita."
+       "motivo": "cerrar · Decirle que anotamos su preferencia y que el equipo la contacta para confirmar disponibilidad, porque no tienes acceso a la agenda y ella necesita una cita real, no una promesa."
       }
      ],
      "resumen": {
-      "turnos": 2,
-      "derivoEn": 2,
-      "motivo": "cerrar · Cerrar esta gestión pasándola al equipo de agenda para que confirmen disponibilidad y citen a Lucía, porque ella ya ha dado todo lo que necesita.",
+      "turnos": 3,
+      "derivoEn": 3,
+      "motivo": "cerrar · Decirle que anotamos su preferencia y que el equipo la contacta para confirmar disponibilidad, porque no tienes acceso a la agenda y ella necesita una cita real, no una promesa.",
       "causa": "caso_completo",
       "porHecho": false,
       "pudoEn": null,
       "datos": [
-       "cita.nombre_completo: Lucía",
-       "cita.tratamiento_o_molestia: revisión general",
-       "cita.urgencia: sin prisa"
+       "cita.tratamiento_o_molestia: revisión",
+       "cita.urgencia: sin prisa",
+       "cita.disponibilidad: entre semana a partir de las 18:00"
       ],
       "aplazados": [],
       "repeticiones": 0,
       "molestiaEn": null,
+      "control": {
+       "podados": 0,
+       "reescritos": 0,
+       "descartados": 0
+      },
       "fin": "derivado",
       "detalleFin": null,
-      "costeUsd": 0.0229
+      "costeUsd": 0.0544
      },
-     "costeUsd": 0.0229,
-     "conocimientoDe": "fixture"
+     "costeUsd": 0.0544,
+     "conocimientoDe": "db"
+    },
+    "alcance": {
+     "guionId": "telefono_compartido",
+     "titulo": "Escribe la hija de Carmen desde el móvil de su madre",
+     "categoria": "Teléfono compartido",
+     "decisor": "alcance",
+     "version": "6414a590c81b",
+     "jugadoEl": "2026-09-13T16:38:37.016Z",
+     "mensajes": [
+      {
+       "n": 1,
+       "quien": "paciente",
+       "texto": "Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de mi madre. Quería pedir una cita pero para mí, no para ella",
+       "noLegible": false
+      },
+      {
+       "n": 1,
+       "quien": "agente",
+       "texto": "Hola Lucía, perfecto. Y ¿qué días y horas te van mejor?",
+       "acto": "recoger",
+       "veto": "podado (agenda): se fue «Para poder reservarte cita, me gustaría saber: ¿es tu primera visita con nosotros o vienes por algo concreto?»",
+       "borrador": "Hola Lucía, perfecto. Para poder reservarte cita, me gustaría saber: ¿es tu primera visita con nosotros o vienes por algo concreto? Y ¿qué días y horas te van mejor?",
+       "control": {
+        "estado": "podado",
+        "motivo": "agenda",
+        "frase": "Para poder reservarte cita, me gustaría saber: ¿es tu primera visita con nosotros o vienes por algo concreto?",
+        "reescrito": false
+       },
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 2,
+       "quien": "paciente",
+       "texto": "Por la tarde me viene mejor, a partir de las 17h más o menos. Cualquier día entre semana me vale",
+       "noLegible": false
+      },
+      {
+       "n": 2,
+       "quien": "agente",
+       "texto": "Perfecto, Lucía. Solo una cosa: ¿es tu primera visita con nosotros o vienes por algo concreto? Así pasamos todo listo al equipo para reservarte.",
+       "acto": "recoger",
+       "veto": null,
+       "borrador": null,
+       "control": null,
+       "deriva": false,
+       "motivo": null
+      },
+      {
+       "n": 3,
+       "quien": "paciente",
+       "texto": "Es para una revisión, hace bastantes años que no voy al dentista. Nunca he estado en vuestra clínica, sería la primera vez",
+       "noLegible": false
+      },
+      {
+       "n": 3,
+       "quien": "agente",
+       "texto": "El equipo te confirma la cita exacta en las próximas horas. Abrimos de lunes a viernes de 10:00 a 20:00, estamos en C/ Marcelo Usera 45 (Metro Usera, L6).",
+       "acto": "cerrar",
+       "veto": "podado (agenda): se fue «Perfecto, Lucía. Tenemos todo lo que necesitamos: te reservamos una revisión en horario de tarde entre semana.»",
+       "borrador": "Perfecto, Lucía. Tenemos todo lo que necesitamos: te reservamos una revisión en horario de tarde entre semana. El equipo te confirma la cita exacta en las próximas horas. Abrimos de lunes a viernes de 10:00 a 20:00, estamos en C/ Marcelo Usera 45 (Metro Usera, L6).",
+       "control": {
+        "estado": "podado",
+        "motivo": "agenda",
+        "frase": "Perfecto, Lucía. Tenemos todo lo que necesitamos: te reservamos una revisión en horario de tarde entre semana.",
+        "reescrito": false
+       },
+       "deriva": true,
+       "motivo": "cerrar · Cerrar ahora mismo pasando el caso al equipo, porque ya tenemos los datos esenciales (nombre, motivo, preferencias horarias) y alargar la conversación solo retrasa su cita."
+      }
+     ],
+     "resumen": {
+      "turnos": 3,
+      "derivoEn": 3,
+      "motivo": "cerrar · Cerrar ahora mismo pasando el caso al equipo, porque ya tenemos los datos esenciales (nombre, motivo, preferencias horarias) y alargar la conversación solo retrasa su cita.",
+      "causa": "caso_completo",
+      "porHecho": false,
+      "pudoEn": null,
+      "datos": [
+       "cita.urgencia: sin prisa",
+       "cita.disponibilidad: entre semana a partir de las 17:00",
+       "cita.tratamiento_o_molestia: revisión"
+      ],
+      "aplazados": [],
+      "repeticiones": 0,
+      "molestiaEn": null,
+      "control": {
+       "podados": 2,
+       "reescritos": 0,
+       "descartados": 0
+      },
+      "fin": "derivado",
+      "detalleFin": null,
+      "costeUsd": 0.0488
+     },
+     "costeUsd": 0.0488,
+     "conocimientoDe": "db"
     }
    }
   }

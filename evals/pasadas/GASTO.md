@@ -136,3 +136,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   único que cambia es el mundo · log en `2026-09-13-libre-clinica-vacia.txt` · ac. **~$5,81**
   ($2,42 de los $3 del tope propio)
 
+
+- **13-09 · C (libre) vs D (alcance declarado), clínica publicada, control puesto en los dos** —
+  los mismos 4 guiones del 13-09 con el decisor nuevo, para responder si declararle su papel le
+  devuelve las ganas de derivar · **$0,59 medido** (anunciado ≈ $0,72 típico / $1,44 tope) + una
+  pasada previa que murió a los dos minutos por un corte de red (juez abortado y `ETIMEDOUT` de
+  Postgres, $0,00) · **LA CIFRA: libre 0/4 con el objetivo cubierto y 2/4 entregados; alcance 2/4
+  cubierto y 3/4 entregados.** Y la de al lado, que es la que no se ve sola: la revisión corrigió
+  **2 de 14** mensajes del libre y **7 de 15** del alcance · log en
+  `2026-09-13-alcance-vs-libre.txt` · ac. **~$6,40**

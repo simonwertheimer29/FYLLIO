@@ -1,0 +1,144 @@
+
+> fyllio-mvp@0.1.0 hilos:tres
+> tsx scripts/jugar-tres.mts --conocimiento db --solo aplazamiento_dato,caso_completo,insistencia_precio,telefono_compartido --decisores libre,alcance
+
+[dotenv@17.2.3] injecting env (39) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Tres conversaciones por guion · 4 guiones · decisores: libre, alcance · paciente claude-sonnet-5 · coste TOPE $1.44 (todos los hilos hasta maxTurnos) · típico ≈ $0.72 (3 turnos por hilo)
+
+════════════════════════════════════════════════════════════════════════
+▶ caso_completo · Dani quiere primera visita de ortodoncia y da todos los datos
+
+  ── libre · conocimiento (db): 19 líneas publicadas
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 libre [contestar]: «Hola Dani, perfecto. La primera visita y valoración es sin coste, incluye estudio de ortod»
+[evaluador] frase podada (agenda): «Perfecto, tardes de lunes a jueves te va bien.»
+  t2 paciente: «Genial, muchas gracias! Prefiero por las tardes si puede ser, y vierne»
+  t2 libre [contestar]: «Perfecto, Dani. Si tienes cualquier duda con la plataforma, me avisas.»  ⚠ podado (agenda): se fue «Entra en el enlace de reserva y filtra por tardes de lunes a jueves: verás todos los huecos disponibles y reservas directamente.»
+  t3 paciente: «Vale, muchas gracias! Ah, tengo seguro Sanitas por si es relevante par»
+  t3 libre [reconocer]: «Perfecto, Dani. Sobre Sanitas y coberturas, es mejor que lo confirmes directamente con el »
+  t4 paciente: «Vale perfecto, no ninguna más. Muchas gracias, reservo ahora mismo!»
+  t4 libre [parar]: «Perfecto, Dani. ¡Nos vemos pronto!»
+  t5 ■ paciente: FIN
+  ▸ libre: resuelto · repitió 0 · molestia no · datos 5 · $0.078
+    Revisión de seguridad: 1 podado
+    Nunca llegó a tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 19 líneas publicadas
+  t1 paciente: «Hola buenas tardes! Quería pedir una primera cita para ortodoncia invi»
+  t1 alcance [recoger]: «Hola Dani, perfecto. La primera visita con estudio de ortodoncia no tiene coste. Abrimos d»
+  t2 paciente: «Genial, pues por las tardes mejor si puede ser, y cualquier día menos »
+  t2 alcance [recoger]: «Perfecto, Dani. Abrimos de lunes a jueves hasta las 20:00 y los viernes solo hasta las 15:»  ⚠ reescrito (agenda): la frase que infringía ERA la respuesta — «Para reservarte por las tardes entre lunes y jueves, ¿qué día te vendría mejor la próxima semana? Por ejemplo, ¿el lunes 14, martes 15, miércoles 16 o jueves 17?»
+[evaluador] frase podada (dato_inventado): «Sí, en la reserva online puedes indicar tu seguro Sanitas, o si lo prefieres nos lo comunicas cuando vengas a la primera visita.»
+  t3 paciente: «Vale, muchas gracias! Ahora mismo entro y lo reservo. Por cierto, teng»
+  t3 alcance [recoger]: «Perfecto, Dani. Por cierto, ¿cuál es tu nombre completo para que el equipo te tenga locali»  ⚠ podado (dato_inventado): se fue «Puedes indicar el seguro directamente en la reserva online, o si no aparece ese campo, nos lo dices cuando vengas a la primera visita y lo anotamos.»
+[evaluador] frase podada (dato_inventado): «Sobre tu seguro Sanitas, un asesor te lo confirma enseguida — puedes indicarlo en la reserva o aquí, y el equipo se encargará de coordinarlo.»
+[juez-borrador] INFRINGE perdonado (remite_con_los_dias_que_pidio): «te pasamos al equipo para que confirmen tu cita en horario de tarde»
+      (juez perdonó un falso positivo: remite_con_los_dias_que_pidio)
+  t4 paciente: «Daniel Arribas, ese es mi nombre completo»
+  t4 alcance [cerrar · PASA A UNA PERSONA]: «Daniel, perfecto. Sobre el seguro Sanitas: indícalo en la reserva si la plataforma te lo p»
+  ▸ alcance: derivado en 4 mensajes (cerrar · Responder sobre el seguro de forma clara para que pueda completar su reserva sin dudas, y luego pasar el caso al equipo con toda la información que tienen: nombre completo, preferencia horaria, seguro y que va a reservar online.) · repitió 1 · molestia no · datos 7 · $0.084
+    Revisión de seguridad: 1 podado · 1 reescrito
+    Entregó en cuanto lo tuvo todo (mensaje 4)
+
+════════════════════════════════════════════════════════════════════════
+▶ insistencia_precio · Carlos quiere el precio exacto de un implante y no acepta «depende»
+
+  ── libre · conocimiento (db): 17 líneas publicadas
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 libre [contestar]: «Hola Carlos, el implante unitario (implante + corona) parte desde 1.100 €, pero el precio »
+  t2 paciente: «Vale pero antes de pedir cita quiero hacerme una idea, el más básico ¿»
+  t2 libre [acompanar]: «Carlos, lo entiendo: quieres saber antes de venir. El problema es que el implante no tiene»
+  t3 paciente: «Ya pero un número aproximado me tenéis que poder dar, no me digáis que»
+  t3 libre [reconocer]: «Carlos, te lo digo claro: el rango que publicamos es desde 1.100 €, y eso es lo más concre»
+  t4 paciente: «Vale, 1.100 euros para arriba entonces. ¿Y eso incluye la corona o apa»
+  t4 libre [contestar]: «Sí, Carlos, la corona va incluida en ese precio desde 1.100 €. Es el implante completo: el»
+  t5 paciente: «Vale, ya me hago una idea. Déjame pensarlo y os digo.»
+  t5 libre [parar]: «Perfecto, Carlos. Cuando lo tengas claro, nos avisas y te hacemos la valoración sin coste.»
+[sombra:libre] sin JSON legible en la respuesta: ```json
+{
+  "situacion": "Carlos ya tiene clara la información que necesitaba (rango de precio, qué incluye). Ha dicho explícitamente que lo piense y avise después — está en modo reflexión, no en modo
+[sombra:libre] sin JSON legible en la respuesta: ```json
+{
+  "situacion": "Carlos ya tiene clara la información que necesitaba (rango de precio, qué incluye). Ha dicho explícitamente que lo piense y avise después — está en modo reflexión, no en modo
+  ▸ libre: perdido · repitió 1 · molestia no · datos 3 · $0.111
+    Revisión de seguridad: no tocó ningún mensaje
+    Nunca llegó a tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 17 líneas publicadas
+  t1 paciente: «Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el preci»
+  t1 alcance [recoger]: «Hola Carlos, el implante unitario (implante + corona) parte desde 1.100 €, aunque el preci»
+  t2 paciente: «Vale pero el más básico, sin nada raro, ¿son 1100 fijo o puede subir m»
+  t2 alcance [acompanar]: «Carlos, lo entiendo: 1.100 € es el punto de partida, pero tienes razón en que puede variar»
+[evaluador] borrador reescrito (agenda, era_la_respuesta): «Un asesor te contacta para cerrar el día que mejor te venga.»
+  t3 paciente: «Ya pero un número aproximado, si no hace falta injerto ni nada raro, ¿»
+  t3 alcance [reconocer]: «Carlos, entiendo que quieras saber en qué rango te mueves antes de venir. La verdad es que»
+  t4 paciente: «Nada, ya me dirán entonces. Gracias.»
+  t4 alcance [recoger]: «Perfecto, Carlos. Nos ponemos en contacto contigo para cerrar el presupuesto exacto en la »  ⚠ reescrito (agenda): la frase que infringía ERA la respuesta — «Te llamamos para buscar una cita con uno de nuestros doctores y te cierra el presupuesto exacto. ¿Qué días te van mejor la próxima semana?»
+  t5 ■ paciente: FIN
+  ▸ alcance: resuelto · repitió 1 · molestia no · datos 3 · $0.092
+    Revisión de seguridad: 1 reescrito
+    Nunca llegó a tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+▶ aplazamiento_dato · Nuria pregunta por parking y sedación
+
+  ── libre · conocimiento (db): 20 líneas publicadas
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 libre [acompanar]: «Hola Nuria, es completamente normal tener dudas antes de una extracción. La Dra. Ana Gil y»
+[evaluador] borrador descartado (clinica, poda: era_la_respuesta, reescrito: true, seguidos: 1): «tenemos para que te sientas»
+  t2 paciente: «Vale, pero antes de nada quería saber si eso de la sedación consciente»
+  t2 libre [atender · PASA A UNA PERSONA]: «Nuria, es una pregunta muy justa. Te paso con el equipo para que te lo confirmen con segur»  ⚠ podado (clinica): se fue «La sedación consciente es un servicio que valora y confirma la Dra. Ana Gil en consulta según tu caso, pero no está entre nuestros tratamientos publicados.»
+  ▸ libre: derivado en 2 mensajes (atender · Confirmar si la sedación consciente es un servicio que ofrece la clínica, porque le conviene a ella ir tranquila y a la clínica no perder esta paciente por falta de transparencia sobre lo que hace.) · repitió 1 · molestia no · datos 1 · $0.038
+    Revisión de seguridad: 1 podado
+    Entregó sin tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 20 líneas publicadas
+  t1 paciente: «Hola buenas! Tengo que hacerme una extracción y la verdad es que me da»
+  t1 alcance [recoger]: «Hola Nuria, es muy normal tener dudas antes de una extracción. El doctor Ana Gil valora ca»
+  t2 paciente: «Vale, me quedo más tranquila si me lo explica bien ella. Y otra cosa, »
+  t2 alcance [recoger]: «Perfecto, Nuria. Sobre el parking: tenemos un parking público en Felipe II a 3 minutos and»
+  t3 paciente: «Genial, gracias! Pues entre semana mejor... por cierto, abrís los sába»
+  t3 alcance [recoger]: «Sí, abrimos sábados de 10:00 a 14:00, pero entre semana nos viene bien también. Te confirm»  ⚠ reescrito (agenda): la frase que infringía ERA la respuesta — «¿Qué día de la próxima semana te vendría mejor: lunes 14, martes 15, miércoles 16, jueves 17 o viernes 18?»
+  t4 paciente: «Vale perfecto, muchas gracias! Quedo atenta»
+  t4 alcance [cerrar · PASA A UNA PERSONA]: «Perfecto, Nuria. Te confirmarán el día y la hora en los próximos días.»  ⚠ podado (agenda): se fue «Le paso tu caso al equipo ahora mismo para que te reserve una cita entre semana con la Dra. Ana Gil.»
+  ▸ alcance: derivado en 4 mensajes (cerrar · Cerrar ahora mismo pasando el caso al equipo para que le reserve la cita, porque tiene todo lo que necesita: día preferido (entre semana), doctor (Dra. Ana Gil), motivo (extracción con valoración de sedación) y está disponible.) · repitió 0 · molestia no · datos 5 · $0.082
+    Revisión de seguridad: 1 podado · 1 reescrito
+    Lo tuvo todo en el 3 y entregó en el 4 — 1 mensaje de más
+
+════════════════════════════════════════════════════════════════════════
+▶ telefono_compartido · Escribe la hija de Carmen desde el móvil de su madre
+
+  ── libre · conocimiento (db): 18 líneas publicadas
+  t1 paciente: «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de»
+  t1 libre [recoger]: «Hola Lucía, bienvenida. Claro que sí, podemos agendar una cita para ti. ¿Vienes por primer»
+  t2 paciente: «Es para una revisión, hace años que no voy al dentista la verdad jaja.»
+  t2 libre [recoger]: «Perfecto, Lucía. Para agendar tu revisión necesito saber qué días y horas te van mejor. Ab»
+[evaluador] borrador descartado (agenda, poda: era_la_respuesta, reescrito: true, seguidos: 1): «a partir de las 18:00 podemos atenderte»
+  t3 paciente: «A ver... entre semana curro hasta las 17h más o menos, así que a parti»
+  t3 libre [cerrar · PASA A UNA PERSONA]: «Perfecto, Lucía. Anotamos que prefieres un jueves a partir de las 18h. El equipo te contac»
+  ▸ libre: derivado en 3 mensajes (cerrar · Decirle que anotamos su preferencia y que el equipo la contacta para confirmar disponibilidad, porque no tienes acceso a la agenda y ella necesita una cita real, no una promesa.) · repitió 0 · molestia no · datos 3 · $0.054
+    Revisión de seguridad: no tocó ningún mensaje
+    Entregó sin tener todo lo que pide el objetivo
+
+  ── alcance · conocimiento (db): 18 líneas publicadas
+  t1 paciente: «Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de»
+  t1 alcance [recoger]: «Hola Lucía, perfecto. Y ¿qué días y horas te van mejor?»  ⚠ podado (agenda): se fue «Para poder reservarte cita, me gustaría saber: ¿es tu primera visita con nosotros o vienes por algo concreto?»
+[evaluador] frase podada (agenda): «Perfecto, Lucía. Tenemos disponibilidad entre semana a partir de las 17:00.»
+  t2 paciente: «Por la tarde me viene mejor, a partir de las 17h más o menos. Cualquie»
+  t2 alcance [recoger]: «Perfecto, Lucía. Solo una cosa: ¿es tu primera visita con nosotros o vienes por algo concr»
+[evaluador] frase podada (agenda): «Perfecto, Lucía. Para cerrar tu cita de revisión solo me falta tu nombre completo.»
+  t3 paciente: «Es para una revisión, hace bastantes años que no voy al dentista. Nunc»
+  t3 alcance [cerrar · PASA A UNA PERSONA]: «El equipo te confirma la cita exacta en las próximas horas. Abrimos de lunes a viernes de »  ⚠ podado (agenda): se fue «Perfecto, Lucía. Tenemos todo lo que necesitamos: te reservamos una revisión en horario de tarde entre semana.»
+  ▸ alcance: derivado en 3 mensajes (cerrar · Cerrar ahora mismo pasando el caso al equipo, porque ya tenemos los datos esenciales (nombre, motivo, preferencias horarias) y alargar la conversación solo retrasa su cita.) · repitió 0 · molestia no · datos 3 · $0.049
+    Revisión de seguridad: 2 podados
+    Entregó sin tener todo lo que pide el objetivo
+
+════════════════════════════════════════════════════════════════════════
+ENTREGA TARDÍA — mensajes que el paciente siguió contestando con el caso ya listo:
+  Modelo libre: 0/4 con el objetivo cubierto · a tiempo 0 · tarde 0 (+0) · se pudo y no entregó 0 · sin cubrirlo 4
+  Modelo con su alcance: 2/4 con el objetivo cubierto · a tiempo 1 · tarde 1 (+1 (1.0 de media)) · se pudo y no entregó 0 · sin cubrirlo 2
+════════════════════════════════════════════════════════════════════════
+4 guiones × 2 decisores · coste medido $0.59 · fixture evals/hilos-tres/fixture.json · léelo en /sombra › Conversaciones
+Apunta el coste en evals/pasadas/GASTO.md.
+SALIDA=0

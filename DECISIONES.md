@@ -5099,3 +5099,27 @@ nadie lo haya pedido.
 propia tarjeta, no como matiz de la entrega tardía — si un decisor cubre el contrato pero su texto
 necesita el doble de correcciones, eso es un dato. El denominador son los mensajes del agente, no
 los hilos.
+
+## 2026-09-13 · Declararle el papel le devuelve las ganas de derivar: 0/4 → 2/4 con el objetivo cubierto
+Los mismos 4 guiones, la misma clínica publicada, el mismo modelo y el control puesto en los dos
+decisores. **Libre: 0/4 con el objetivo cubierto, 2/4 entregados** —clavado a la medida de esta
+mañana, o sea que el control encima no cambió su resultado—. **Alcance: 2/4 cubierto, 3/4
+entregados**, uno a tiempo y otro con 1 mensaje de más. $0,59 medidos de $1,44 de tope.
+La diferencia se lee en los motivos que escribe él solo: «pasar el caso al equipo con toda la
+información que tienen: nombre completo, preferencia horaria, seguro y que va a reservar online».
+Eso no salía cuando la agenda era una prohibición en vez de un papel.
+**La cifra que Simon pidió aparte, y que sale en contra:** la revisión corrigió **2 de 14** mensajes
+del libre y **7 de 15** del alcance. Pero el desglose cambia la conclusión: **6 de las 7 son de
+categoría «agenda», y al menos 3 son la palabra «reservar» describiendo lo que hace EL EQUIPO** —
+«le paso tu caso al equipo para que te reserve una cita», «para poder reservarte cita, ¿es tu
+primera visita?». Es decir: el alcance hizo que el modelo DIGA su papel, y las firmas de `agenda`
+castigan el vocabulario de ese papel porque casan con el verbo, no con el hecho. Las dos que sí eran
+peligrosas de verdad —enumerar «lunes 14, martes 15, miércoles 16, jueves 17» como si fueran huecos—
+las caza igual una comprobación de PROPIEDAD (un día/hora que no está en {citas de esta persona} ∪
+{huecos que constan}), que además dejaría pasar las tres del papel. Es el argumento del punto (c)
+del diagnóstico, ahora medido y no supuesto.
+**Y un fallo del instrumento que se cobró la primera pasada:** un corte de red (el juez abortado +
+`ETIMEDOUT` de Postgres) mató el proceso entero, y el hilo que murió salió como «perdido · nunca
+llegó a tener todo lo que pide el objetivo» — un fallo técnico con cara exactamente de la métrica
+que estamos midiendo (§4). Se relanzó sin tocar el instrumento (cambiarlo entre la pasada fallida y
+la repetición sería medir con otra vara) y se arregla ahora, no antes.
