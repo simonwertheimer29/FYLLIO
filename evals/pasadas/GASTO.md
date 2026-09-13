@@ -167,3 +167,10 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   2 de 11 del libre — pero **han cambiado de familia**: tres son `datos_sensibles` porque el alcance
   se puso a pedir el teléfono a gente que escribe POR WhatsApp · log en
   `2026-09-13-orden-en-el-papel.txt` · ac. **~$7,40**
+
+- **13-09 (noche, 2ª vuelta) · EL CIERRE + FUERA EL LÍMITE DE UNA PREGUNTA** (los mismos 4 guiones ×
+  libre y alcance, clínica publicada) · **$0,62 medido** (anunciado ≈ $0,72 típico / $1,44 tope) ·
+  **LA CIFRA: las correcciones por pedir el teléfono a quien escribe por WhatsApp pasan de 3 a CERO**
+  (`datos_sensibles`: 4 menciones → 0 en todo el log), y la entrega tardía del alcance pasa de «0 a
+  tiempo, 2 tarde (+2 de media)» a **«1 a tiempo, 1 tarde (+1)», con 3/4 del contrato cubierto** en
+  vez de 2/4 · log en `2026-09-13-cierre-y-cadencia.txt` · ac. **~$8,02**

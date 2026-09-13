@@ -5203,3 +5203,27 @@ La cláusula no toca esa asimetría, lo que confirma que no venía del orden.
 es correcto y se ve—, pero la mitad de «pides UNA cosa» hay que revisarla: lo que falta en el papel
 no es cadencia sino el CIERRE («si ya tienes lo que hace falta, cierra en ESE mensaje, no un turno
 más»). Va con n=4 y con un paciente sintético estocástico: es una señal, no una ley.
+
+## 2026-09-13 · Era la licencia para recoger, no el orden: el cierre borra las tres correcciones del teléfono
+Segunda vuelta sobre la misma cláusula, con los dos cambios que dictó Simon al leer la medida:
+**(a) fuera el límite de una cosa por mensaje** —«¿cuál es tu nombre completo y qué días te vienen
+mejor?» es natural y resuelve en la mitad de turnos; el criterio no es cuántas sino que encajen y no
+parezca un interrogatorio, y eso lo juzga el modelo como todo lo demás— y **(b) el CIERRE**: en
+cuanto tiene lo que hace falta, cierra en ESE mensaje y pasa el caso, sin alargarlo un turno.
+**La cifra que contesta la pregunta: `datos_sensibles` pasa de 3 podas a CERO.** Las tres eran la
+misma —pedirle el teléfono a alguien que escribe POR WhatsApp— y desaparecen sin que nadie haya
+escrito una regla sobre teléfonos. Confirma la lectura de Simon: el modelo buscaba algo que pedir
+porque la cláusula le daba licencia para pedir cada turno; acotada por el final, deja de buscar.
+**Y la tardanza baja a la mitad:** el alcance pasa de «0 a tiempo · 2 tarde (+2 de media)» a **«1 a
+tiempo · 1 tarde (+1)»**, con **3/4 del contrato cubierto** (antes 2/4) y un mensaje menos en total.
+Con Lucía entregó **en cuanto lo tuvo todo** (mensaje 3); con Dani, un mensaje después.
+**Lo que empeoró, y hay que decirlo:** con Carlos (el que insiste con el precio) el alcance ya no
+entrega —«lo tuvo todo en el 5 y no entregó nunca», con el paciente repitiendo 3 veces—. En la
+pasada anterior entregaba en el 4. Un caso de cuatro, con paciente sintético estocástico: es la
+misma señal débil de siempre, pero apunta a que el cierre no cubre al que NO pide cita (ahí quien
+entrega en producción es el código, por la regla de declinar de esta misma tarde).
+**Dónde vive el cambio:** la cláusula en `renderAlcance`, y la cadencia en el paso 5 del prompt, que
+para el alcance deja el número al juicio del modelo (`CADENCIA_ALCANCE`). **El libre NO se toca**: es
+el control, y sin él la comparación pierde su suelo. Si el alcance gana, eso sube al prompt
+compartido y se rehace la línea base de C. `qa:conocimiento` fija ahora DOS líneas distintas entre
+los dos prompts —el paso 4 y la cadencia— y que ninguna sea accidental.
