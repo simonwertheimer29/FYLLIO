@@ -3121,6 +3121,27 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 243. Analíticas · la entrega tardía solo existe en el banco: nadie la mide sobre conversaciones reales
+  **Zona:** `lib/metricas/diarias.ts` · Inicio › Tu equipo. · **Principio incumplido:** misión
+  (perder menos) — la lente sobre la zona al montar la métrica en `hilos:tres` (13-09). · **Qué es:**
+  desde hoy sabemos, guion a guion, cuántos mensajes sigue contestando un paciente **con el caso ya
+  listo para pasar a una persona** (`pudoEn` vs `derivoEn`). Sobre conversaciones REALES no se mide:
+  la serie tiene `derivaciones_caso_completo` (cuántas entregas llegaron completas) y
+  `respuesta_humana_*` (lo que tarda la persona DESPUÉS), pero nada dice cuántos turnos de agente se
+  gastaron entre «ya lo tengo todo» y la entrega. Es el mismo dato que en el banco decide la fase 2 y
+  en producción es tiempo del paciente. · **Lo que hoy impide medirlo, verificado:** `casoCompleto`
+  **no se persiste** — `PayloadEvaluacion` (`persistir-turno.ts:26`) guarda `camposRecogidos` pero ni
+  `casoCompleto` ni `camposFaltantes`. Recalcularlo a posteriori sería aplicar las definiciones de
+  objetivo de HOY a una conversación de hace un mes, que es la trampa del §16. · **Mejora
+  propuesta:** (a) añadir `casoCompleto` (y `objetivoActivo`) al payload como campo **aditivo** —el
+  tipo ya declara «solo añadir, nunca renombrar»—, coste cero y sin llamar al modelo; (b) desde el
+  primer día con ese campo, una métrica diaria: turnos entre el primer `casoCompleto` del episodio y
+  el `derivado`, con n, y **aparte** los episodios que lo tuvieron todo y nunca entregaron (el caso
+  caro: el paciente contestó y nadie lo recogió); (c) reutilizar `tardanzaDe` de `actos.ts`, que ya
+  es puro. El histórico anterior se queda «sin medir», como en el banco. · **Impacto:** MEDIO-ALTO en
+  pérdida evitada — un caso listo que sigue en el hilo es un caso que la clínica todavía no tiene. ·
+  **Esfuerzo:** 30 min (a) + 3-4 h (b y c). · **Fecha:** 2026-09-13 · 🔵 propuesta, sin aprobar.
+
 ## 242. QA · el censo de lo que los QA declaran que NO prueban, que es donde vive el próximo caso 5
   **Zona:** cabeceras de `scripts/qa-*.mts`. · **Por qué existe esta entrada:** la regla operativa
   nueva (§25 del skill, por orden de Simon el 13-09) dice que «sin llamar a X» en un QA nace como
