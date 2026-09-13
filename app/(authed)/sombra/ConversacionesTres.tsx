@@ -222,9 +222,17 @@ function Resumen({ hilo }: { hilo: HiloTres }) {
       </p>
       {/* CON QUÉ MUNDO se jugó. Sin esto, un hilo jugado con la clínica vacía
           se compara en silencio contra uno jugado con ella publicada, que es
-          justo la variable que más cambia lo que dice el modelo (12-09). */}
+          justo la variable que más cambia lo que dice el modelo (12-09).
+          13-09: el dato no se persistía y esta línea decía «Clínica vacía»
+          SIEMPRE — sobre hilos jugados con la clínica publicada. Tres estados,
+          y el tercero se dice: sin dato no se adivina. */}
       <p className="text-[11px] text-[var(--color-muted)]">
-        {hilo.conocimientoDe === "db" ? "Clínica publicada" : "Clínica vacía"} · ${r.costeUsd.toFixed(3)} · versión {hilo.version}
+        {hilo.conocimientoDe === "db"
+          ? "Clínica publicada"
+          : hilo.conocimientoDe === "fixture"
+            ? "Clínica vacía"
+            : "No consta con qué clínica se jugó"}{" "}
+        · ${r.costeUsd.toFixed(3)} · versión {hilo.version}
       </p>
     </Card>
   );

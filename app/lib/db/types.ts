@@ -331,12 +331,15 @@ export interface Tabla_agente_sombra_hilos {
   guion_id: string;
   titulo: string;
   categoria: string | null;
-  decisor: "codigo" | "contexto" | "libre";
+  decisor: "codigo" | "contexto" | "libre" | "alcance";
   version: string;
   jugado_el: Date;
   mensajes: ColumnType<unknown, string, string>;
   resumen: ColumnType<unknown, string, string>;
   coste_usd: number | null;
+  /** Con qué mundo se jugó. NULL = jugado antes de que se persistiera (no
+   *  consta), que NO es lo mismo que «clínica vacía». */
+  conocimiento_de: "fixture" | "db" | null;
   created_at: Generated<Date>;
 }
 

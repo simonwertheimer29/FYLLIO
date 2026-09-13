@@ -736,12 +736,13 @@ export async function anotarVeredictoSombra(a: {
 export async function guardarHiloTres(h: HiloTres): Promise<void> {
   const cliente = requireCliente("guardarHiloTres");
   await runWithClienteDb(cliente, (trx) =>
-    sql`insert into agente_sombra_hilos (cliente, guion_id, titulo, categoria, decisor, version, jugado_el, mensajes, resumen, coste_usd)
+    sql`insert into agente_sombra_hilos (cliente, guion_id, titulo, categoria, decisor, version, jugado_el, mensajes, resumen, coste_usd, conocimiento_de)
         values (${cliente}, ${h.guionId}, ${h.titulo}, ${h.categoria}, ${h.decisor}, ${h.version}, ${h.jugadoEl}::timestamptz,
-                ${JSON.stringify(h.mensajes)}::jsonb, ${JSON.stringify(h.resumen)}::jsonb, ${h.costeUsd})
+                ${JSON.stringify(h.mensajes)}::jsonb, ${JSON.stringify(h.resumen)}::jsonb, ${h.costeUsd}, ${h.conocimientoDe ?? null})
         on conflict (cliente, guion_id, decisor) do update set
           titulo = excluded.titulo, categoria = excluded.categoria, version = excluded.version, jugado_el = excluded.jugado_el,
-          mensajes = excluded.mensajes, resumen = excluded.resumen, coste_usd = excluded.coste_usd, created_at = now()`.execute(trx),
+          mensajes = excluded.mensajes, resumen = excluded.resumen, coste_usd = excluded.coste_usd,
+          conocimiento_de = excluded.conocimiento_de, created_at = now()`.execute(trx),
   );
 }
 
@@ -756,6 +757,7 @@ type FilaHiloTres = {
   mensajes: unknown;
   resumen: unknown;
   coste_usd: string | number | null;
+  conocimiento_de: "fixture" | "db" | null;
 };
 type FilaGuionTres = { guion_id: string; preferido: PreferidoTres | null; nota: string | null; en: Date | string | null };
 
@@ -763,7 +765,7 @@ type FilaGuionTres = { guion_id: string; preferido: PreferidoTres | null; nota: 
 export async function listarHilosTres(): Promise<GuionTres[]> {
   const cliente = requireCliente("listarHilosTres");
   return runWithClienteDb(cliente, async (trx) => {
-    const h = await sql<FilaHiloTres>`select id, guion_id, titulo, categoria, decisor, version, jugado_el, mensajes, resumen, coste_usd
+    const h = await sql<FilaHiloTres>`select id, guion_id, titulo, categoria, decisor, version, jugado_el, mensajes, resumen, coste_usd, conocimiento_de
         from agente_sombra_hilos order by jugado_el desc`.execute(trx);
     const g = await sql<FilaGuionTres>`select guion_id, preferido, nota, en from agente_sombra_guiones`.execute(trx);
     const veredictos = new Map(g.rows.map((r) => [r.guion_id, r]));
@@ -796,6 +798,7 @@ export async function listarHilosTres(): Promise<GuionTres[]> {
           turnos: 0, derivoEn: null, motivo: null, causa: null, porHecho: false, datos: [], aplazados: [], repeticiones: 0, molestiaEn: null, fin: "perdido", detalleFin: "sin resumen", costeUsd: 0,
         },
         costeUsd: Number(f.coste_usd ?? 0),
+        conocimientoDe: f.conocimiento_de ?? null,
       };
     }
     return [...porGuion.values()];

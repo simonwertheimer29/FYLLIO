@@ -337,9 +337,12 @@ export type HiloTres = {
   resumen: ResumenTres;
   costeUsd: number;
   /** 12-09: con qué conocimiento de clínica se jugó — el del fixture (las
-   *  clínicas vacías del turno 1) o el publicado en DEMO al jugar. Ausente en
-   *  los hilos anteriores = fixture. */
-  conocimientoDe?: "fixture" | "db";
+   *  clínicas vacías del turno 1) o el publicado en DEMO al jugar.
+   *  null/ausente = NO CONSTA, y eso NO es «fixture»: hasta el 13-09 el dato
+   *  no se persistía y la pantalla afirmaba «clínica vacía» sobre hilos
+   *  jugados con la clínica publicada. Un valor inventado aquí miente sobre
+   *  la variable que más cambia lo que dice el modelo (§4). */
+  conocimientoDe?: "fixture" | "db" | null;
 };
 
 // ─── entrega tardía (13-09) ────────────────────────────────────────────────
