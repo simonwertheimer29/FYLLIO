@@ -426,6 +426,7 @@ opacos, bodies no literales) lo lista con `--todo` — «no comprobable» no es 
 - [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
 - [ ] Si enlazo o resuelvo a una **persona**, ¿viaja su **id** en el payload? ¿Hay algún match por nombre que elija solo? (§20)
 - [ ] Si un Client Component importa algo como VALOR, ¿el módulo es **puro**? ¿Ha pasado `npm run build`, no solo `tsc`? (§22)
+- [ ] Si cambié una **regla dura**, ¿he tocado sus casos en la vara, en **este mismo commit** y en **todas** las varas que la miden? Si apareció un FP nuevo, ¿he descartado que el caso esté **caducado** antes de tocar el prompt? (§26)
 - [ ] Lo que estoy midiendo o protegiendo, ¿es **lo que el usuario ve**? ¿He seguido el camino desde la pantalla hasta el texto? ¿Hay un segundo generador para el mismo hueco? (§21)
 
 ## Cómo crece este skill
@@ -551,6 +552,30 @@ Reglas:
 > cola. Seis días de turnos corriendo sin reintento, con `ESTADO.md` diciendo «la cola está viva»
 > porque lo verificado fue la configuración y el receptor. Coste de la regla que faltaba: una
 > llamada. Coste de no tenerla: seis días, y sin la cola no se puede encender el modo B.
+
+### 26. Cambiar una doctrina obliga a revisar la vara en el MISMO commit
+Una regla dura y los casos que la miden son **una sola cosa**. El día que se cambia la regla —se
+endurece, se relaja, se le añade una excepción— los casos escritos bajo la regla vieja dejan de
+medir el producto y pasan a medir el pasado, **en verde y sin avisar**: el caso sigue pasando, la
+vara sigue diciendo 56/57, y lo que falla es la afirmación «esto está probado». Es el §25 con el
+tiempo como eje en vez del entorno: no es que la prueba mire otro código, es que mira el código de
+anteayer. Reglas:
+- **El commit que cambia una regla dura toca su caso**, o declara por escrito por qué no. Si la
+  regla vive en dos sitios (un veto determinista y un prompt), se revisan LAS DOS varas — el fallo
+  típico es arreglar la del camino que se estaba tocando y no la del otro.
+- **Un caso que cambia de lado se queda, no se borra**, y estrena pareja: el mismo texto en las dos
+  condiciones (con el dato y sin él). Borrarlo pierde la frontera, que es lo único que la vara
+  sabe medir.
+- **Un falso positivo nuevo en una vara que no se ha tocado se investiga ANTES de tocar el prompt**:
+  la primera hipótesis es que el caso caducó, no que el modelo empeoró. Al revés se «arregla» el
+  prompt para satisfacer una regla que ya nadie quiere.
+> **Nos lo enseñó:** el 12-09-2026 se decidió, por el caso de Nuria, que confirmar una cita concreta
+> que NO consta es inventarla; se escribió el veto determinista y su caso en `qa:conocimiento` (E1b)
+> y ahí se paró. `qa:juez` medía la MISMA regla por el otro camino y nadie lo miró: su caso L8 era
+> «Tu cita queda para el martes a las 10:00» con los datos vacíos, marcado como «logística pura, no
+> infringe» desde agosto. Medio día después, la siguiente pasada lo cantó como el único falso
+> positivo (56/57) y el primer impulso fue leerlo como una regresión del prompt del juez — el juez
+> acertaba y la vara medía la doctrina de anteayer.
 
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo

@@ -52,7 +52,11 @@ export const POST = withAuth(async (session, req) => {
         coordinadora: session.nombre ?? "",
         ultimoMensaje: ultimoEntrante,
       });
-      if (r.ok) return NextResponse.json({ borrador: r.borrador });
+      // MEJORAS 237 — el control puede DEVOLVER texto tocado (podado o
+      // reescrito) en vez de tirarlo entero. Viaja el aviso: quien lo envía
+      // tiene que saber que lo que lee no es exactamente lo que escribió el
+      // modelo, y por qué.
+      if (r.ok) return NextResponse.json({ borrador: r.borrador, corregido: r.corregido ?? null });
       if (r.motivo === "sin_evaluacion") {
         return NextResponse.json(
           { error: "El agente no ha evaluado este caso — no hay nada de lo que partir" },

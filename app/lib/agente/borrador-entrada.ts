@@ -18,12 +18,21 @@
 //    que la coincidencia agente-humano.
 
 import { fichaDeCaso, type FichaCaso } from "./ficha-caso";
-import { juzgarBorrador, vetoAgendaDeterminista } from "./juez-borrador";
+import { controlarBorrador } from "./control-borrador";
 
 const TIMEOUT_MS = 15_000;
 
 export type ResultadoEntrada =
-  | { ok: true; borrador: string }
+  | {
+      ok: true;
+      borrador: string;
+      /** MEJORAS 237 — el control tocó el texto antes de enseñarlo: `podado`
+       *  (se fue la frase que infringía) o `reescrito` (esa frase ERA la
+       *  presentación y el modelo la rehízo sin afirmarla). Ausente = el
+       *  borrador salió tal cual. La pantalla lo dice: quien lo envía tiene
+       *  que saber que lo que lee no es exactamente lo que escribió el modelo. */
+      corregido?: { como: "podado" | "reescrito"; categoria: string; frase: string };
+    }
   | { ok: false; motivo: "sin_evaluacion" | "modelo_no_disponible" | "juez_no_disponible" }
   | { ok: false; motivo: "descartado"; categoria: string | null; frase: string | null };
 
@@ -156,37 +165,48 @@ export async function borradorDeEntrada(args: {
   }
   if (!borrador) return { ok: false, motivo: "modelo_no_disponible" };
 
-  // MEJORAS 119 (auditoría 2026-09-05): el veto determinista de agenda
-  // protegía SOLO el borrador del evaluador — y este, que es el que la
-  // persona veía en el composer, no pasaba por él. Mismo veto, mismo sitio:
-  // en código, antes del juez.
-  // 12-09: confirmar una cita concreta que no consta también se veta. La
-  // ficha solo sabe de la cita del LEAD; un paciente con cita real puede
-  // perder aquí un «te esperamos mañana» (borrador descartado, la persona lo
-  // escribe a mano) — fail-closed a propósito: peor es una cita inventada.
-  const fraseVetada = vetoAgendaDeterminista(borrador, { citaConsta: ficha.lead?.fechaCita != null });
-  if (fraseVetada) {
-    return { ok: false, motivo: "descartado", categoria: "agenda", frase: fraseVetada };
-  }
-
-  // Guarda de CÓDIGO antes del juez: un pendiente aplazado devuelto como
-  // pregunta no llega ni a juzgarse (regla dictada, 21-08).
+  // Guarda de CÓDIGO antes del control: un pendiente aplazado devuelto como
+  // pregunta no llega ni a juzgarse (regla dictada, 21-08). Es propia de esta
+  // pieza —el agente no repregunta pendientes porque no los tiene delante—,
+  // así que se queda aquí y no en el control compartido.
   const repregunta = repreguntaPendiente(borrador, ficha.pendientes);
   if (repregunta) {
     return { ok: false, motivo: "descartado", categoria: "repregunta_pendiente", frase: repregunta };
   }
 
-  // El MISMO juez que los borradores del agente. turnoEntrega=true: quien
-  // habla ES la persona — sus promesas son suyas y valen.
-  const veredicto = await juzgarBorrador({
-    borrador,
+  // EL MISMO CONTROL QUE EL AGENTE, NO «EL MISMO JUEZ» (MEJORAS 237, 13-09).
+  // Hasta hoy aquí solo corría el veto de AGENDA: le faltaban las cinco
+  // guardas del 12-09 —precio inventado, plazo, «lo valora la doctora»,
+  // acción imposible y dato que no se pide—, así que el borrador que una
+  // PERSONA iba a mandar estaba menos protegido que el que manda el agente.
+  // Y un INFRINGE tiraba el borrador entero por una frase, mientras el del
+  // agente ya solo perdía esa frase. Es el borrador duplicado otra vez: dos
+  // caminos para el mismo hueco, y el que no se mira va sin las guardas del
+  // otro (§21b). Ahora los dos llaman a `controlarBorrador`.
+  // turnoEntrega=true: quien habla ES la persona — sus promesas son suyas.
+  // 12-09: la ficha solo sabe de la cita del LEAD; un paciente con cita real
+  // puede perder aquí un «te esperamos mañana» — fail-closed a propósito.
+  const control = await controlarBorrador(borrador, {
     datosQueConstan: contexto,
     ultimoMensaje: args.ultimoMensaje ?? undefined,
     turnoEntrega: true,
+    citaConsta: ficha.lead?.fechaCita != null,
   });
-  if (veredicto == null) return { ok: false, motivo: "juez_no_disponible" };
-  if (veredicto.infringe) {
-    return { ok: false, motivo: "descartado", categoria: veredicto.categoria, frase: veredicto.frase };
+  if (control.estado === "juez_no_respondio") return { ok: false, motivo: "juez_no_disponible" };
+  if (control.estado === "descartado") {
+    return { ok: false, motivo: "descartado", categoria: control.motivo, frase: control.frase };
   }
-  return { ok: true, borrador };
+  // Podado o reescrito: la presentación SALE, y la pantalla dice qué se tocó.
+  // Callarlo sería peor que descartarla: quien la envía tiene que saber que
+  // el texto que lee no es exactamente el que escribió el modelo.
+  if (control.estado === "pasa") return { ok: true, borrador: control.texto };
+  return {
+    ok: true,
+    borrador: control.texto,
+    corregido: {
+      como: control.estado,
+      categoria: control.motivo,
+      frase: control.estado === "podado" ? control.frase : (control.frase ?? ""),
+    },
+  };
 }

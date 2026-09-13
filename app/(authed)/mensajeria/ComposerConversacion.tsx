@@ -41,6 +41,9 @@ import type { Conversacion } from "../../lib/mensajeria/conversaciones";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 import type { CasoDeConversacion } from "./useCasoDeConversacion";
 
+/** MEJORAS 237 — lo que el control tocó en la presentación antes de enseñarla. */
+type Corregido = { como: "podado" | "reescrito"; categoria: string; frase: string };
+
 const MOTIVO_DESCARTE: Record<string, string> = {
   clinica: "afirmaba un hecho clínico",
   economica: "prometía condiciones económicas que no constan",
@@ -80,6 +83,10 @@ export function ComposerConversacion({
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [textoDeIA, setTextoDeIA] = useState(false);
+  // MEJORAS 237 — el control tocó la presentación antes de enseñarla. No se
+  // calla: quien la envía tiene que saber que lo que lee no es exactamente lo
+  // que escribió el modelo.
+  const [corregido, setCorregido] = useState<Corregido | null>(null);
   const [generandoIA, setGenerandoIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaComposer[]>([]);
   const [wabaActivo, setWabaActivo] = useState<boolean | null>(null);
@@ -178,12 +185,13 @@ export function ComposerConversacion({
     setGenerandoIA(true);
     setError(null);
     try {
-      const d = await cargarJSON<{ borrador: string }>("/api/agente/entrada", {
+      const d = await cargarJSON<{ borrador: string; corregido: Corregido | null }>("/api/agente/entrada", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ telefono: conversacion.telefono }),
       });
       setTextoDeIA(true);
+      setCorregido(d.corregido ?? null);
       setTexto(d.borrador);
       sugeridoRef.current = d.borrador;
       origenIA.current = "entrada";
@@ -290,6 +298,14 @@ export function ComposerConversacion({
               : "Puedes contestar a lo que acaba de escribir; nada más."}
           </span>
         </div>
+      )}
+      {textoDeIA && corregido && texto === sugeridoRef.current && (
+        <p className="mb-1.5 flex items-start gap-1.5 text-[11.5px] text-[var(--color-muted)]">
+          <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          {corregido.como === "podado"
+            ? `La revisión de seguridad quitó una frase de esta presentación («${corregido.frase}»): ${MOTIVO_DESCARTE[corregido.categoria] ?? corregido.categoria}. El resto es lo que había escrito.`
+            : `La revisión de seguridad tumbó una frase de esta presentación (${MOTIVO_DESCARTE[corregido.categoria] ?? corregido.categoria}) y se rehízo sin ella. Léela antes de enviarla.`}
+        </p>
       )}
       {textoDeIA && borrador?.descartado && texto === sugeridoRef.current && (
         <p className="mb-1.5 flex items-start gap-1.5 text-[11.5px] text-[var(--color-muted)]">
