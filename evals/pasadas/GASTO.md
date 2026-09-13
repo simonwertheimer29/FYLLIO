@@ -122,4 +122,11 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   MISMOS 12 mensajes del 12-09 **$0,038 ×2** (la 1ª encontró el bug del troceo por «Dra.»; la 2ª, con el arreglo) ·
   **LA CIFRA: de 6/12 tumbados a 0/12 muertos** · log en `2026-09-13-control-sobre-conversaciones.txt` ·
   ac. **~$4,96** ($1,57 de los $3 del tope propio)
+- 2026-09-13 · **LA MÉTRICA DE ENTREGA TARDÍA: rejugar los 4 guiones para llenarla** (encargo de Simon,
+  «0,86 típico es barato para la cifra que decide la fase 2») · **$0,64 medido** (anunciado ≈ $0,86
+  típico / $1,73 tope): `hilos:tres` con los tres decisores y `--conocimiento db` · **LA CIFRA: el
+  modelo libre NO entrega tarde — no entrega nunca con el caso listo (0/4 con el objetivo cubierto)**;
+  el de contexto cubre 3/4 y entrega 1 mensaje tarde en dos de ellos; el código, 2/2 a tiempo y 2
+  entregados por un hecho sin cubrir · log en `2026-09-13-entrega-tardia.txt` · ac. **~$5,60**
+  ($2,21 de los $3 del tope propio)
 

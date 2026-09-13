@@ -4996,3 +4996,23 @@ el mismo turno en que se cubre el objetivo (`evaluador.ts:1446`), así que su ci
 construcción — es la referencia, no una virtud. Y se llena en el próximo `npm run hilos:tres`: los
 15 × 3 hilos ya jugados no guardaron el turno en que se pudo y salen «sin medir» hasta entonces.
 
+## 2026-09-13 · La primera medida: el modelo libre no entrega tarde — no entrega NUNCA con el caso listo
+Rejugados los 4 guiones con los tres decisores y la clínica configurada ($0,64 medidos de $0,86
+anunciados, log `evals/pasadas/2026-09-13-entrega-tardia.txt`). **La cifra: libre 0/4 con el objetivo
+cubierto.** Esperábamos medirle mensajes de más y resulta que no llega a tenerlo todo en ninguno de
+los cuatro: dos los «entrega» sin los datos, uno lo deja en «resuelto» y otro en «perdido» — dos
+casos que no llegaron a nadie. El de contexto cubre 3/4 y entrega **1 mensaje tarde en dos de ellos**
+(+2 en total). El código, 2/2 a tiempo, y los otros dos entregados por un hecho (queja, insistencia)
+sin cubrir el objetivo. **Lo que esto cambia:** la pregunta de la fase 2 ya no es «¿el libre conversa
+mejor?» sino «¿el libre sabe qué tiene que recoger?», y hoy la respuesta es que no — lo cual es
+exactamente lo que el experimento de la fusión (mensaje + campos en una sola llamada) va a probar.
+**El matiz honesto:** `casoCompleto` lo calcula el evaluador con los campos del objetivo, y el libre
+no sabe que esos campos existen; no es que conteste mal, es que juega sin el contrato. Por eso la
+cifra buena de su columna no es «+N» sino «4 de 4 no llegaron a tenerlo todo».
+**Y un fallo mío que cazó la propia pasada, que es el motivo de que esto se mire en pantalla y no en
+el terminal (§21):** con el libre a 0 cubiertos, el comparador ponía **«sin medir»** en su titular —
+o sea, la confusión que la métrica existe para evitar, invertida y en el sitio más visible. «Sin
+medir» ahora solo sale si de verdad no hay medida; con el objetivo nunca cubierto sale «—» y la línea
+en ámbar. Con datos de verdad se ve en diez segundos lo que con «sin medir» en todas las columnas era
+invisible: una pantalla vacía no prueba una pantalla.
+

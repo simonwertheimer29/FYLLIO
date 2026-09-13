@@ -254,12 +254,20 @@ function ComparadorTardanza({ guiones }: { guiones: GuionTres[] }) {
               >
                 {ETIQUETA_DECISOR[decisor]}
               </div>
+              {/* «Sin medir» SOLO si de verdad no hay medida: con el objetivo
+                  nunca cubierto sí se midió, y decir «sin medir» ahí sería la
+                  confusión que esta métrica existe para evitar. */}
               <div className="font-[family-name:var(--font-geist-sans)] text-xl font-semibold tabular-nums text-[var(--color-foreground)]">
-                {a.medidos === 0 ? "sin medir" : `+${a.turnosDeMas}`}
+                {a.medidos > 0 ? `+${a.turnosDeMas}` : a.noMedidos === a.hilos ? "sin medir" : "—"}
               </div>
               {a.medidos > 0 && (
                 <p className="text-xs text-[var(--color-muted)]">
                   {a.tarde} de {a.medidos} entregaron tarde · {a.aTiempo} en cuanto lo tuvieron todo
+                </p>
+              )}
+              {a.sinContrato > 0 && (
+                <p className="text-xs text-[var(--color-warning)]">
+                  {a.sinContrato} de {a.hilos} no {a.sinContrato === 1 ? "llegó" : "llegaron"} a tener todo lo que pide el objetivo
                 </p>
               )}
               {a.nunca > 0 && (
@@ -268,7 +276,6 @@ function ComparadorTardanza({ guiones }: { guiones: GuionTres[] }) {
                 </p>
               )}
               <p className="text-[11px] text-[var(--color-muted)]">
-                {a.sinContrato > 0 ? `${a.sinContrato} sin llegar a tenerlo todo · ` : ""}
                 {a.noMedidos > 0 ? `${a.noMedidos} sin medir · ` : ""}
                 {a.hilos} {a.hilos === 1 ? "hilo" : "hilos"}
                 {a.incoherentes > 0 ? ` · ${a.incoherentes} con la medida incoherente` : ""}
