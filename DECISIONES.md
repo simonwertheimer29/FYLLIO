@@ -5419,3 +5419,25 @@ pantalla (conversación variada · canal real · los cuatro guiones, con su cont
 van al final del orden por defecto** — gastar el criterio de Simon en lo repetido y llegar cansado a
 lo variado sesga la vara. En los guiones se etiqueta el BORRADOR cuando el control lo cambió (8
 casos): lo que se juzga es lo que escribió el agente, no lo que salió de la poda.
+
+## 2026-09-14 · La palabra «cita» a secas sale del enrutador; las ventanas vagas se quedan
+Simon etiqueta los 42 de conversación variada: **28 «ninguno», 5 «afirma», 9 «repite»**, y avisa de
+que el filtro está demasiado abierto — «la vara se llena de casos que no enseñan nada y el acuerdo
+con el juez saldrá inflado, porque acertar los ninguno es trivial». Auditado patrón a patrón sobre
+sus 42:
+· **7 entraron SOLO por la palabra «cita» pelada** («¿la cita es para ti?, ¿eres paciente nueva?»)
+  y **ninguno** de los 14 «afirma»/«repite» había entrado por ahí. Coste de quitarla: cero casos
+  reales. FUERA (el sustantivo deja de ser señal; «cita confirmada» y «tienes cita» se quedan,
+  porque afirmar que la cita existe SÍ es falsable). Corpus 104 → **91**.
+· **17 de los 28 «ninguno» entraron por el CUÁNDO**, y 9 por una ventana vaga («esta semana», «la
+  próxima semana»). **Ahí NO se toca**: de los 10 que ya etiquetó entrando solo por una ventana, 1
+  es un «repite» de verdad, y una ventana puede ser falsable («tenemos hueco la semana que viene»).
+  Estrechar el filtro por un 9/10 es volver a meter criterio en la regex, que es el bucle que este
+  rediseño deshizo. **El ruido de los «ninguno» se arregla en la MÉTRICA, no en el muestreador.**
+**Condición para medir el acuerdo (Simon, y queda como requisito):** los «ninguno» se cuentan
+APARTE de los «afirma» y «repite». Un 90 % global puede ser solo que los dos sabemos descartar lo
+obvio; lo que dice algo es el acuerdo dentro de los casos que sí hablan de la agenda.
+Sus 42 etiquetas **no se rehacen**: se guardan por clave, los 14 «afirma»/«repite» siguen todos, y
+las 7 filas de mensajes que ya no son candidatos se quedan en `agenda_corpus` (si el filtro se
+abriera otra vez, vuelven con su etiqueta). Quedan **91 candidatos**: 35 de conversación variada
+(todos etiquetados), 21 del canal real y 35 de los cuatro guiones.

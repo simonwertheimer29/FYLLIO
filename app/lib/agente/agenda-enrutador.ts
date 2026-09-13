@@ -108,8 +108,13 @@ const RESERVA = new RegExp(
     // persona suelta («anoto tu preferencia») se queda fuera A PROPÓSITO: sin
     // participio no hay cita afirmada, y si lleva día entra por la otra señal.
     "\\b(?:te\\s+|os\\s+)?(?:tenemos|tengo|hemos|he|has|est[áa]s|queda|quedas|quedan)\\s+(?:ya\\s+)?(?:\\w+\\s+)?(?:anotad|apuntad|agendad|reservad|guardad|citad|cerrad|confirmad)[oa]s?\\b",
-    // La cita como objeto del mensaje.
-    "\\b(?:tu|su|la)\\s+cita\\b",
+    // La cita AFIRMADA. La palabra «cita» a secas NO es señal (14-09, medido
+    // sobre las 42 primeras etiquetas de Simon): coló 7 mensajes del tipo «¿la
+    // cita es para ti?, ¿eres paciente nueva?», que no dicen nada de la agenda,
+    // y NINGUNO de los que él marcó «afirma» o «repite» había entrado por ahí.
+    // Quitarla es quitar paja, no meter criterio: un sustantivo suelto no es
+    // ni un día ni una reserva. Si la frase afirma que la cita existe («cita
+    // confirmada», «tienes cita»), eso SÍ es falsable y se queda.
     "\\bcita\\s+(?:confirmada|reservada|agendada|apuntada|programada)\\b",
     "\\btienes\\s+cita\\b",
     "\\bte\\s+esperamos\\b",

@@ -79,6 +79,20 @@ console.log("\nC · las dos señales van separadas (dos daños, dos preguntas)")
   ok("inglés: «Monday at 5pm» entra", s.candidato, s.cuando.join(" · "));
 }
 
+console.log("\nC bis · la palabra «cita» a secas no basta (14-09, las 42 de Simon)");
+{
+  const fuera = [
+    "Hola Lucía, perfecto. Solo para asegurarme: ¿la cita es para ti? ¿Y eres paciente nueva?",
+    "Para la cita no necesitas traer nada especial, solo tu documento de identidad.",
+    "Lo que te conviene es una primera cita con nuestro doctor para que valore.",
+  ];
+  for (const m of fuera) ok(`fuera: «${m.slice(0, 46)}…»`, !mencionaAgenda(m), senalDeAgenda(m).reserva.join(" · "));
+  ok("pero la cita AFIRMADA sigue entrando: «cita confirmada», «tienes cita el martes»",
+    mencionaAgenda("Cita confirmada, Lucía.") && mencionaAgenda("Tienes cita el martes."));
+  ok("y con día entra igual: «tenemos tu cita para el sábado 19»",
+    mencionaAgenda("Tenemos tu cita para el sábado 19 de septiembre."));
+}
+
 console.log("\nD · lo que no habla de agenda se queda fuera");
 const FUERA = [
   "Gracias por escribirnos, te leo.",
