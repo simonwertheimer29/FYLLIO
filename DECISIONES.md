@@ -4945,3 +4945,35 @@ de pacientes, y así está redactado.
 **MEJORAS 242 deja de estar suelta.** La llamada real a Google Calendar entra **dentro** del cambio
 que abra el nivel 2 de agenda, no antes y no por su cuenta: de esos fixtures salen los huecos que el
 agente ofrece, así que el nivel 2 no está terminado sin ella. Atada en los dos sentidos, 242 ↔ 116.
+
+
+## 2026-09-13 · El control medido sobre conversaciones: de 6/12 tumbados a 0/12 muertos
+**La cifra.** Sobre LOS MISMOS 12 mensajes del modelo libre del 12-09, el juez tumbaba 6 (50 %); con
+el control nuevo mueren **0**. Interviene en 4 y los doce llegan al paciente. No caza menos: cazar ya
+no significa tirar el mensaje. En la jugada de hoy con contexto completo (13 mensajes, $0,33): 9
+pasan · 2 podados · 2 reescritos · 0 mueren. Vara nueva reutilizable, `control:hilos`, con
+`--desde-log` para medir contra un corpus anterior — rejugar da otros mensajes y otro denominador.
+**Y la medición encontró lo que ningún QA determinista habría visto:** Nuria t1 salió «podado» y el
+texto **seguía afirmando lo vetado** («…Ana Gil valora en consulta según cada caso»). La oración se
+partió por el punto de «Dra.» y solo cayó la primera mitad: un mensaje que parece revisado y sigue
+diciendo lo que no puede. Arreglado por dos vías —abreviaturas en el troceo, y una red que mira el
+RESULTADO (30 caracteres de la frase sobreviviendo = no se poda)—, con la invariante en
+`qa:conocimiento` G6b. Destilado en el **§27** del skill.
+**Dos artefactos de medir sobre el log viejo**, los dos hacia MÁS intervención de la que habría en
+producción: el log solo guarda los mensajes del agente, así que el control corrió sin el entrante ni
+lo dicho por la persona — Carlos t4 se podó donde se habría reescrito y Lucía t3 se podó pese a ser
+el falso positivo ya perdonado (ese perdón exige los días que ella dijo). El 0/12 es conservador.
+
+## 2026-09-13 · MEJORAS 237: un solo control para los dos borradores
+Era peor que lo anotado. Al borrador que se le SUGIERE a la coordinadora no solo le faltaba la poda:
+le faltaban **las cinco guardas del 12-09** (precio inventado, plazo, «lo valora la doctora», acción
+imposible y dato que no se pide) porque solo corría el veto de AGENDA. El texto que iba a mandar una
+PERSONA estaba menos protegido que el del agente, y encima un INFRINGE se lo tiraba entero. El
+arreglo no fue copiar el bucle: `control-borrador.ts` lo tiene una vez y lo llaman los dos. Lo que el
+módulo NO decide es qué se envía cuando no hay manera —eso depende de quién habla—: el agente pone su
+plantilla y cuenta los descartes seguidos (233); la pantalla enseña el motivo y no inventa ninguna
+presentación. Cuando poda o reescribe, el composer lo dice con la frase que se fue.
+**Nota de proceso:** estos cambios se commitearon dentro de `0b8a3e9` por otra sesión de Claude Code
+que corría a la vez sobre el mismo árbol y capturó el índice con un `git add -A`. Nada se perdió; la
+historia queda mal atribuida y no se reescribió con la otra sesión viva.
+

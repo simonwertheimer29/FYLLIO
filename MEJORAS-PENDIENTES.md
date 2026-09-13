@@ -3225,7 +3225,12 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `borrador-entrada` llame a `podarBorrador` con el mismo veredicto y devuelva el texto podado
   marcando qué se quitó, y que solo caiga a `descartado` cuando la poda no puede. · **Impacto:**
   MEDIO (le ahorra reescrituras a mano en la zona donde hoy más se usa el agente). · **Esfuerzo:**
-  1 h. · **Fecha:** 2026-09-12 · 🔵
+  1 h. · **Fecha:** 2026-09-12 · 🟢 **HECHO 13-09** (`34d7783`): y era peor de lo anotado — solo
+  corría el veto de AGENDA, así que le faltaban las CINCO guardas del 12-09 (precio inventado, plazo,
+  «lo valora la doctora», acción imposible, dato que no se pide): el texto que iba a mandar una
+  PERSONA estaba MENOS protegido que el del agente. El arreglo no fue copiar el bucle —
+  `control-borrador.ts` lo tiene una vez y lo llaman los dos—, y el composer avisa con la frase que
+  se fue cuando el control poda o reescribe.
 
 ## 238. Analíticas · «descartes» ya no cuenta la historia sola, y la pantalla no lo dice
   **Zona:** métricas del agente (`descartes_juez` · `podas_juez`). · **Qué pasa:** desde hoy un
@@ -3245,7 +3250,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   respuesta acabe reescrito, y que dos descartes seguidos entreguen el caso. Es el §25 otra vez —
   lo probado no es lo que corre. · **Principio:** orden. · **Propuesta:** un guion en el banco (o un
   `qa:control` con 4 borradores fijos y el modelo vivo, ~$0,05) que recorra los cuatro finales y los
-  afirme. · **Impacto:** MEDIO. · **Esfuerzo:** 2 h + $0,05 por pasada. · **Fecha:** 2026-09-12 · 🔵
+  afirme. · **Impacto:** MEDIO. · **Esfuerzo:** 2 h + $0,05 por pasada. · **Fecha:** 2026-09-12 ·
+  🟢 **HECHO 13-09** (`0b8a3e9`): `npm run control:hilos` pasa los mensajes de conversaciones ya
+  jugadas por el control ENTERO y cuenta los cuatro finales; `--desde-log` mide contra un corpus
+  anterior. Encontró a la primera el bug del troceo por «Dra.» (§27 del skill).
 
 ## 236. Ajustes › WhatsApp · conectar un número exige escribir SQL a mano
 - Conectar el WhatsApp de una clínica necesita hoy un `update` sobre `configuracion_waba` para

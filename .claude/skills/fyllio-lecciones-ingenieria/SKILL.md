@@ -426,6 +426,7 @@ opacos, bodies no literales) lo lista con `--todo` — «no comprobable» no es 
 - [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
 - [ ] Si enlazo o resuelvo a una **persona**, ¿viaja su **id** en el payload? ¿Hay algún match por nombre que elija solo? (§20)
 - [ ] Si un Client Component importa algo como VALOR, ¿el módulo es **puro**? ¿Ha pasado `npm run build`, no solo `tsc`? (§22)
+- [ ] ¿Alguna guarda de este cambio **enumera casos** (abreviaturas, palabras, formatos)? ¿Hay detrás una comprobación del **resultado**, y el QA afirma la **invariante** en vez de la rama? (§27)
 - [ ] Si cambié una **regla dura**, ¿he tocado sus casos en la vara, en **este mismo commit** y en **todas** las varas que la miden? Si apareció un FP nuevo, ¿he descartado que el caso esté **caducado** antes de tocar el prompt? (§26)
 - [ ] Lo que estoy midiendo o protegiendo, ¿es **lo que el usuario ve**? ¿He seguido el camino desde la pantalla hasta el texto? ¿Hay un segundo generador para el mismo hueco? (§21)
 
@@ -576,6 +577,31 @@ anteayer. Reglas:
 > infringe» desde agosto. Medio día después, la siguiente pasada lo cantó como el único falso
 > positivo (56/57) y el primer impulso fue leerlo como una regresión del prompt del juez — el juez
 > acertaba y la vara medía la doctrina de anteayer.
+
+### 27. Una guarda que depende de ENUMERAR casos es frágil por diseño; comprobar el RESULTADO aguanta
+Hay dos formas de proteger algo. Una enumera lo que puede salir mal (las abreviaturas que no terminan
+oración, las palabras prohibidas, los formatos conocidos) y siempre deja uno fuera: la lista se
+escribió con los casos que alguien recordó ese día, y el que falta no da error — **da un resultado
+malo con pinta de bueno**. La otra mira lo que ha salido y afirma la propiedad que se quería
+(«después de quitar la frase, ningún trozo largo de la frase sigue ahí»), y esa no depende de haber
+acertado la lista. Reglas:
+- **Toda guarda enumerativa lleva detrás una comprobación del resultado.** La lista se queda —hace
+  el trabajo bien el 95 % de las veces y es barata—, pero no es lo que sostiene la garantía.
+- **La comprobación se escribe sobre lo que el usuario recibe**, no sobre el paso intermedio: la
+  pregunta no es «¿troceé bien?» sino «¿queda en el mensaje algo de lo que había que quitar?».
+- **En el QA, afirma la INVARIANTE, no la rama.** Una guarda de cinturón y tirantes bien hecha es
+  casi inalcanzable a mano: si no consigues construir el caso que la dispara, eso es buena señal, y
+  lo que se prueba entonces es la propiedad sobre varios casos reales («ningún podado conserva 30
+  caracteres de la frase»), no el `if`.
+- Corolario: **si te descubres añadiendo un caso a una lista porque «se escapó uno», para y
+  pregúntate qué propiedad querías**. Añadir el caso arregla el incidente y deja la clase viva (§19).
+> **Nos lo enseñó:** la poda del juez (13-09-2026). `partirOraciones` cortaba por `[.!?…]`, así que
+> «La sedación consciente es algo que la **Dra.** Ana Gil valora en consulta según cada caso» eran
+> dos oraciones: se quitó la primera y el mensaje salió diciendo «…Ana Gil valora en consulta según
+> cada caso» — **revisado por el juez, podado, y afirmando exactamente lo que estaba prohibido**. Lo
+> cazó una pasada sobre conversaciones reales, no un test: ningún caso determinista de los escritos
+> ese día tenía una abreviatura dentro de la frase vetada. El primer arreglo fue la lista de
+> abreviaturas; el que cierra el agujero es el segundo, que mira el texto que sale.
 
 Cuando se pague un error nuevo: el **qué pasó** se anota en `DECISIONES.md` (2-4 líneas,
 mismo cambio que lo cierra); si además destila una **regla general** que el código nuevo
