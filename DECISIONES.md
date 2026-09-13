@@ -5352,6 +5352,13 @@ segundo daño («¿se arroga el agente el poder de reservar?») se pregunta **ap
    alrededor, tres botones —**afirma · repite · ninguno**— y una nota. Donde ya vive la sombra y con
    el mismo candado de admin; **se puede dejar a medias y continuar otro día**. Los 62 casos de
    `qa:juez` son paráfrasis de bugs conocidos: sobreajuste. El corpus real es la vara.
+   **SE ETIQUETA A CIEGAS, y es una condición de diseño, no una preferencia** (Simon, 14-09): «si veo
+   el veredicto del juez mientras etiqueto, voy a estar de acuerdo con él más de lo que debería sin
+   darme cuenta — la vara existe para ser independiente de lo que estamos midiendo». Pero **sin pasar
+   dos veces por la lista**: el juicio nuevo corre EN SOMBRA y se guarda mientras él etiqueta, y la
+   pantalla simplemente NO se lo enseña. Al terminar la lista la comparación ya está hecha.
+   **Y una vista posterior** con lo suyo y lo del juez al lado, para leer los DESACUERDOS, que es
+   donde está la información — la misma doctrina que la sombra del 11-09: el desacuerdo es el dato.
 4. **Acuerdo consigo mismo**: el mismo mensaje juzgado dos veces, contando desacuerdos. Dice si la
    pregunta está bien planteada **sin necesitar el criterio de Simon** y falla ruidosamente.
 **Y una corrección propia que hay que dejar escrita:** los 4 guiones **no miden esto y nunca lo
