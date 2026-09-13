@@ -342,204 +342,6 @@ function oracionDe(texto: string, pos: number): string {
   return texto.slice(ini, fin);
 }
 
-// ─── LA PROPIEDAD DEL DÍA Y DE LA HORA (13-09) ─────────────────────────────
-//
-// Medido el 13-09 sobre los 4 guiones: de las 7 correcciones al decisor con
-// alcance, 6 eran de categoría «agenda» y al menos 3 castigaban el VOCABULARIO
-// del papel («le paso tu caso al equipo para que te reserve una cita»), no un
-// hecho. Las dos que sí eran peligrosas —enumerar «lunes 14, martes 15,
-// miércoles 16, jueves 17» como si fueran huecos, y «te tenemos anotada para
-// el jueves de 18:00 a 19:00»— tienen en común lo que ninguna firma mira: un
-// DÍA o una HORA que no es de nadie. De ahí la guarda que faltaba, y que es de
-// HECHO y no de verbo:
-//
-//   el agente solo puede NOMBRAR un día o una hora que ya sea de alguien:
-//   suya (la cita de esa persona), de ella (lo dijo en el hilo) o de la
-//   clínica (consta publicado). Lo demás lo acaba de inventar.
-//
-// Deja pasar las tres del papel —no llevan día— y caza las dos de verdad,
-// incluida la que hoy no cazaba nadie («te tenemos anotada para el jueves»:
-// `FIRMAS_CITA_CONFIRMADA` pide la palabra «cita» y ahí no está).
-// Preguntar SIN nombrar día sigue siendo libre —«¿qué días te vienen bien?»—;
-// lo que se veta es plantar una fecha, aunque sea dentro de una pregunta
-// («¿te viene bien el martes?» es un hueco afirmado de perfil).
-
-/** Un día de la semana se escribe de muchas maneras y todas valen lo mismo:
- *  se normalizan al nombre castellano para poder compararlas. */
-const DIA_CANONICO: Record<string, string> = {
-  lunes: "lunes", dilluns: "lunes", monday: "lunes",
-  martes: "martes", dimarts: "martes", tuesday: "martes",
-  miercoles: "miercoles", dimecres: "miercoles", wednesday: "miercoles",
-  jueves: "jueves", dijous: "jueves", thursday: "jueves",
-  viernes: "viernes", divendres: "viernes", friday: "viernes",
-  sabado: "sabado", dissabte: "sabado", saturday: "sabado",
-  domingo: "domingo", diumenge: "domingo", sunday: "domingo",
-  hoy: "hoy", avui: "hoy", today: "hoy",
-  manana: "manana", dema: "manana", tomorrow: "manana",
-  // Las abreviaturas con las que `horarioLegible` escribe el horario
-  // publicado («lun–jue 17:00–20:00»). Sin ellas los días que la clínica SÍ
-  // publica no se reconocen y la guarda los trata como inventados.
-  lun: "lunes", mar: "martes", mie: "miercoles", jue: "jueves",
-  vie: "viernes", sab: "sabado", dom: "domingo",
-};
-
-/** El orden de la semana, para desplegar los RANGOS. */
-const ORDEN_SEMANA = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
-
-/** Lo que une los dos extremos de un rango: «lun–jue», «de lunes a jueves»,
- *  «lunes hasta jueves». Un rango NO es una lista de huecos: es la ventana en
- *  la que se puede hablar, y si la clínica publica «lun–jue», los cuatro días
- *  son suyos. */
-const UNE_UN_RANGO = /^\s*(?:[-–—]|a|al|hasta|fins a|to)\s*$/;
-
-/** Una sola alternancia, compilada una vez: esto corre por cada oración de
- *  cada borrador y de cada poda. */
-const RE_DIAS = new RegExp(`\\b(${Object.keys(DIA_CANONICO).join("|")})(s)?\\b`, "g");
-
-const MES_NUM: Record<string, number> = {
-  enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6, julio: 7,
-  agosto: 8, septiembre: 9, setiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
-};
-
-/** La guarda mira los días que se plantan COMO CITA O COMO HUECO. «Hoy mismo
- *  lo paso al equipo» o «te llaman mañana» son PLAZOS —otra familia, otra
- *  guarda (`vetoPlazoDeterminista`)— y aquí solo harían ruido: sin esta
- *  puerta, cualquier adverbio de prontitud se leería como una cita inventada. */
-const HABLA_DE_AGENDA =
-  /\b(?:cita|citas|hueco|huecos|visita|visitas|valoracion|revision|agenda|agendar|agendamos|agendada|reservar|reservamos|reservada|apuntar|apuntamos|apuntad[oa]|anotad[oa]|esperamos|verte|atenderte|vienes|venir|te (?:viene|va|vendr[ií]a|ir[ií]a|quedar[ií]a) (?:bien|mejor)|te encaja|te cuadra)\b/;
-
-/** El HORARIO DE APERTURA es un dato publicado, no un hueco: «abrimos de
- *  17:00 a 20:00» nombra una hora que no es de nadie y es correcto. Lo que no
- *  vale es convertir ese mismo rango en disponibilidad, y de eso ya se
- *  encargan `FIRMAS_DISPONIBILIDAD` y el juez. */
-const HABLA_DE_APERTURA =
-  /\b(?:abrimos|abre|abren|abierto|abierta|cerramos|cierra|cierran|cerrado|cerrada|horario|horarios|festivo|festivos|obrim|obert|tanquem|open|opening|closed)\b/;
-
-type SenalesCalendario = {
-  dias: Set<string>;
-  horas: Set<string>;
-  /** Los días que salen DENTRO de un rango («de lunes a jueves»). Un rango es
-   *  la ventana en la que se puede hablar, no una lista de huecos: por eso no
-   *  se le exige propiedad. Un día suelto sí — «te esperamos el jueves» apunta
-   *  a una fecha concreta y alguien se planta ahí. */
-  enRango: Set<string>;
-};
-
-/** Los días y las horas que un texto NOMBRA, normalizados para poder cruzarlos
- *  entre textos distintos (el borrador contra lo que ella dijo, lo publicado y
- *  su cita). Puro — lo testea `qa:conocimiento`. */
-export function senalesDeCalendario(texto: string): SenalesCalendario {
-  const t = normalizarTexto(texto);
-  const dias = new Set<string>();
-  const horas = new Set<string>();
-  const enRango = new Set<string>();
-  const encontrados: { dia: string; ini: number; fin: number }[] = [];
-  for (const m of t.matchAll(RE_DIAS)) {
-    const canonico = DIA_CANONICO[m[1] ?? ""];
-    if (canonico == null) continue;
-    // «por la mañana» es una franja del día, no el día de mañana. El plural
-    // («las mañanas») no entra aquí porque el \b pide la palabra exacta.
-    if (canonico === "manana" && /\b(?:la|las)\s+$/.test(t.slice(Math.max(0, m.index - 10), m.index))) continue;
-    dias.add(canonico);
-    // «los sábados», «los martes por la tarde»: el PLURAL es un día de la
-    // semana en general, no una fecha — la misma ventana que un rango. Ella lo
-    // usa para decir cuándo puede («abrís los sábados?») y el agente para
-    // preguntarlo; exigirle propiedad a eso es exigírsela al calendario.
-    if (m[2] != null) enRango.add(canonico);
-    const fin = m.index + (m[1] ?? "").length + (m[2]?.length ?? 0);
-    // «martes 15» no es «un martes»: es UNA fecha. Se guarda aparte para que
-    // la propiedad la exija aunque el día de la semana sea de todos.
-    const conNumero = /^\s+(?:d[ií]a\s+)?(\d{1,2})\b/.exec(t.slice(fin, fin + 12));
-    const n = conNumero ? Number(conNumero[1]) : null;
-    if (n != null && n >= 1 && n <= 31) dias.add(`${canonico} ${n}`);
-    encontrados.push({ dia: canonico, ini: m.index, fin });
-  }
-  // «de lunes a jueves» nombra los cuatro, no dos: si solo se leen los
-  // extremos, el martes de en medio parece inventado.
-  for (let i = 0; i + 1 < encontrados.length; i++) {
-    const a = ORDEN_SEMANA.indexOf(encontrados[i]!.dia);
-    const b = ORDEN_SEMANA.indexOf(encontrados[i + 1]!.dia);
-    if (a < 0 || b < 0 || b <= a) continue;
-    if (!UNE_UN_RANGO.test(t.slice(encontrados[i]!.fin, encontrados[i + 1]!.ini))) continue;
-    for (let k = a; k <= b; k++) {
-      dias.add(ORDEN_SEMANA[k]!);
-      enRango.add(ORDEN_SEMANA[k]!);
-    }
-  }
-  for (const m of t.matchAll(/\b(\d{4})-(\d{2})-(\d{2})\b/g)) dias.add(`${Number(m[3])}/${Number(m[2])}`);
-  for (const m of t.matchAll(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/g)) dias.add(`${Number(m[1])}/${Number(m[2])}`);
-  for (const m of t.matchAll(/\b(\d{1,2}(?:\s*(?:,|o|y|al?|hasta)\s*\d{1,2})*) de ([a-z]+)\b/g)) {
-    const mes = MES_NUM[m[2] ?? ""];
-    if (mes == null) continue;
-    // «19 o 26 de septiembre» nombra DOS fechas y el mes va una sola vez.
-    for (const n of (m[1] ?? "").split(/[^0-9]+/).filter((x) => x !== "")) dias.add(`${Number(n)}/${mes}`);
-  }
-  for (const m of t.matchAll(/\b(\d{1,2})[:.](\d{2})\b/g)) horas.add(`${Number(m[1])}:${m[2]}`);
-  for (const m of t.matchAll(/\ba las (\d{1,2})\b(?![:.]\d)/g)) horas.add(`${Number(m[1])}:00`);
-  return { dias, horas, enRango };
-}
-
-/** Las formas en que se escribe el día de SU cita. Sin esto, `citaConsta` solo
- *  decía que había una cita, no CUÁL: «te esperamos el jueves» con la cita el
- *  martes pasaba igual de largo. `hoy` en ISO, `diasHasta` como los cuenta el
- *  código (§13). */
-export function diasDeLaCita(hoy: string, diasHasta: number | null | undefined): string[] {
-  if (diasHasta == null) return [];
-  const d = new Date(`${hoy}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + diasHasta);
-  const nombre = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"][d.getUTCDay()];
-  return [
-    nombre ?? "",
-    // «el jueves 17» es una fecha, y la suya lo es: sin esta forma, recordarle
-    // su propia cita con el número del día se leería como inventada.
-    nombre != null ? `${nombre} ${d.getUTCDate()}` : "",
-    d.toISOString().slice(0, 10),
-    `${d.getUTCDate()}/${d.getUTCMonth() + 1}`,
-    ...(diasHasta === 0 ? ["hoy"] : diasHasta === 1 ? ["manana"] : []),
-  ].filter((x) => x !== "");
-}
-
-/** La oración que planta un día o una hora que no es de nadie, o null. El
- *  conjunto de lo PROPIO = {lo que ella dijo} ∪ {su cita} ∪ {lo publicado}.
- *  Sus palabras cuentan porque repetir el día que ELLA propuso no es
- *  inventarlo: es lo que hace el perdón `remite_con_los_dias_que_pidio`, aquí
- *  dicho una vez para todos. */
-export function vetoPropiedadDeterminista(
-  borrador: string,
-  opts: { publicado?: string; dichoPorLaPersona?: string; diasPropios?: string[] } = {},
-): string | null {
-  // EL HORARIO DE APERTURA NO DA PROPIEDAD SOBRE LOS DÍAS. Dice cuándo abre la
-  // clínica, no qué día es de esta persona: si contara, bastaría con abrir de
-  // lunes a viernes para que «te esperamos el jueves» fuese verdad. Se le quita
-  // esa línea a lo publicado y el resto sí cuenta — cuando exista el nivel 2,
-  // los huecos que consten vivirán ahí y serán propiedad de pleno derecho.
-  const publicadoSinHorario = (opts.publicado ?? "")
-    .split("\n")
-    .filter((l) => !HABLA_DE_APERTURA.test(normalizarTexto(l)))
-    .join("\n");
-  const propio = senalesDeCalendario(
-    [publicadoSinHorario, opts.dichoPorLaPersona ?? "", (opts.diasPropios ?? []).join(" ")].join(" \n "),
-  );
-  // LA HORA SOLO SE MIRA SI SE SABE CUÁL ES LA SUYA. Hoy la entrada del
-  // evaluador trae los DÍAS que faltan hasta su cita y nunca la hora
-  // (`diasHastaProximaCita`), así que comparar contra un conjunto vacío sería
-  // vetar por ignorancia: «tu cita es el jueves a las 10, como quedamos» es la
-  // frase correcta del recordatorio. En cuanto `diasPropios` traiga la hora,
-  // la comprobación se enciende sola — y lo publicado NO cuenta aquí: el
-  // horario de apertura dice cuándo abre, no a qué hora es su cita.
-  const suyas = senalesDeCalendario((opts.diasPropios ?? []).join(" ")).horas;
-  for (const oracion of partirOraciones(borrador)) {
-    const n = normalizarTexto(oracion);
-    if (!HABLA_DE_AGENDA.test(n) || HABLA_DE_APERTURA.test(n)) continue;
-    const dice = senalesDeCalendario(oracion);
-    if ([...dice.dias].some((d) => !dice.enRango.has(d) && !propio.dias.has(d))) return oracion.trim();
-    // La hora solo se mira si la oración ya nombra un día suyo: una hora
-    // suelta sin día no es una cita, es un plazo, y ese es otro veto.
-    if (suyas.size > 0 && dice.dias.size > 0 && [...dice.horas].some((h) => !suyas.has(h))) return oracion.trim();
-  }
-  return null;
-}
-
 // ─── El veto determinista de SERVICIO NO PUBLICADO (MEJORAS 229, 11-09) ────
 //
 // «Sí, hacemos sedación consciente» a una paciente con pánico, sin que la
@@ -837,25 +639,6 @@ const FALSOS_POSITIVOS_DEL_JUEZ: { nombre: string; categorias: string[]; test: (
     },
   },
   {
-    // «Le paso tu caso al equipo para que te reserve una cita», «para poder
-    // reservarte cita, ¿es tu primera visita?» — 3 de las 7 correcciones al
-    // decisor con alcance el 13-09. El papel dice que la reserva la hace el
-    // EQUIPO, y el juez castiga el verbo «reservar» sin mirar el sujeto: le
-    // quita al agente las palabras con las que describe lo que sí pasa. Se
-    // perdona SOLO si no se compromete en primera persona, no afirma ningún
-    // hueco y no hay ningún día dentro — con una fecha decide la PROPIEDAD,
-    // que es una guarda de hecho, no este perdón.
-    nombre: "reserva_la_hace_el_equipo",
-    categorias: ["agenda"],
-    test: (frase) => {
-      if (!/\b(?:reserv|agend|apunt)\w*/i.test(frase)) return false;
-      if (/\bte (?:la |lo )?(?:reservo|cierro|agendo|agendamos|reservamos|cerramos)\b|\bqueda (?:agendada|reservada|cerrada)\b/i.test(frase)) return false;
-      if (/\b(?:tenemos|tengo|hay|nos quedan|tiene|tienen)\s+(?:hueco|huecos|disponibilidad|libre|libres|sitio)\b/i.test(frase)) return false;
-      if (senalesDeCalendario(frase).dias.size > 0) return false;
-      return /\b(?:el equipo|la cl[ií]nica|ellos|alguien|un compa[ñn]ero|una compa[ñn]era|para (?:que|poder)|te ayudar[áa]n?)\b/i.test(frase);
-    },
-  },
-  {
     // «Anotamos que alguien te llame para hablar de sedación consciente»
     // (MEJORAS 232): REMITIR nombrando el servicio es correcto — sin poder
     // nombrarlo, el aviso no dice de qué va. Solo se perdona si NO hay ningún
@@ -887,31 +670,12 @@ export function falsoPositivoDelJuez(
  *  llaman aquí, y una guarda nueva entra en producción y en las pruebas a la
  *  vez (§25 — una construcción, un sitio). `null` = nada que vetar, y
  *  entonces (y solo entonces) se paga el juez. */
-export type MundoDelVeto = {
-  /** Nivel 2 de agenda: la disponibilidad publicada se puede decir. */
-  huecosConstan?: boolean;
-  /** Hay una cita programada de verdad: confirmarla no es inventarla. */
-  citaConsta?: boolean;
-  /** TODO lo que la persona ha dicho en el hilo. Un día que ella nombró no lo
-   *  inventa el agente al repetirlo (13-09, `vetoPropiedadDeterminista`). */
-  dichoPorLaPersona?: string;
-  /** Los días que SÍ son suyos: `diasDeLaCita(hoy, diasHastaProximaCita)`. */
-  diasPropios?: string[];
-};
-
 export function vetoDeterminista(
   borrador: string,
   publicado: string,
-  opts?: MundoDelVeto,
+  opts?: { huecosConstan?: boolean; citaConsta?: boolean },
 ): { categoria: NonNullable<VeredictoJuez["categoria"]>; frase: string } | null {
-  const agenda =
-    vetoAgendaDeterminista(borrador, opts) ??
-    vetoReservaPluralDeterminista(borrador) ??
-    vetoPropiedadDeterminista(borrador, {
-      publicado,
-      dichoPorLaPersona: opts?.dichoPorLaPersona,
-      diasPropios: opts?.diasPropios,
-    });
+  const agenda = vetoAgendaDeterminista(borrador, opts) ?? vetoReservaPluralDeterminista(borrador);
   if (agenda) return { categoria: "agenda", frase: agenda };
   const precio = vetoPrecioDeterminista(borrador, publicado);
   if (precio) return { categoria: "economica", frase: precio };
@@ -1013,22 +777,9 @@ export type Poda =
       /** Por qué NO se pudo podar. Va al payload del turno: si «no_localizada»
        *  sube, la frase del juez dejó de ser citable y la poda se está
        *  apagando sola sin que nadie lo note (§9). */
-      motivo:
-        | "no_localizada"
-        | "era_todo"
-        | "solo_cortesia"
-        | "era_la_respuesta"
-        | "era_lo_unico_que_pedia"
-        | "sigue_vetado"
-        | "queda_colgando"
-        | "queda_residuo";
+      motivo: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando" | "queda_residuo";
       quitada: string | null;
     };
-
-/** Las razones por las que NO se pudo podar. Se declara una vez y se importa:
- *  copiada en el payload del turno, una razón nueva se quedaba fuera de la
- *  traza sin que nada fallara (§25). */
-export type MotivoPoda = Extract<Poda, { podado: false }>["motivo"];
 
 /** Lo que queda puede APOYARSE en lo que se fue: «Tenemos tu cita para el
  *  sábado 19. Por eso te escribimos» sin la primera es un mensaje roto. Lista
@@ -1036,13 +787,6 @@ export type MotivoPoda = Extract<Poda, { podado: false }>["motivo"];
  *  cierre inocente el 90 % de las veces y meterlo apagaría la poda casi
  *  siempre. Los pronombres pegados al verbo («cambiarla») no se cazan aquí —
  *  límite conocido, y la reescritura es su sitio. */
-/** Lo que hace que un mensaje PIDA algo. No siempre lleva interrogación: «solo
- *  me falta tu nombre completo» pide igual que «¿cómo te llamas?», y medido el
- *  13-09 con Dani era justo esa forma la que se perdía —la poda se llevó dos
- *  turnos seguidos la única frase que recogía, y el caso se entregó a medias. */
-const PIDE_ALGO =
-  /[?¿]|\b(?:necesito|necesitamos|me dices|me das|me pasas|me mandas|me env[ií]as|me confirmas|me indicas|dime|dinos|cu[ée]ntame|env[ií]ame|m[áa]ndame|(?:solo\s+)?(?:me|nos)\s+falta)\b/;
-
 const ARRANQUE_QUE_SE_APOYA =
   /^(?:eso|esa|ese|esto|esos|esas|en ese caso|en esa|por eso|tambien|ademas|lo mismo|igualmente|ahi|entonces|de paso|ese dia|esa hora|ese precio|ese importe)\b/;
 
@@ -1096,7 +840,7 @@ function quitarOracion(
 export function podarBorrador(
   borrador: string,
   frase: string | null,
-  opts: { ultimoEntrante?: string; publicado?: string } & MundoDelVeto = {},
+  opts: { ultimoEntrante?: string; publicado?: string; citaConsta?: boolean } = {},
 ): Poda {
   const primera = quitarOracion(borrador, frase);
   if (primera == null) return { podado: false, motivo: "no_localizada", quitada: null };
@@ -1105,15 +849,7 @@ export function podarBorrador(
   const quitadas = [primera.quitada];
   const siguientes = [...primera.siguientes];
   const publicado = opts.publicado ?? "";
-  // El MISMO mundo que en la primera pasada (§25): con `diasPropios` vacío, la
-  // comprobación de propiedad volvería a vetar el día de su cita y toda poda
-  // acabaría en `sigue_vetado`.
-  const vetoOpts: MundoDelVeto = {
-    citaConsta: opts.citaConsta,
-    huecosConstan: opts.huecosConstan,
-    dichoPorLaPersona: opts.dichoPorLaPersona,
-    diasPropios: opts.diasPropios,
-  };
+  const vetoOpts = { citaConsta: opts.citaConsta };
 
   for (let vuelta = 0; vuelta < 2; vuelta++) {
     const v = vetoDeterminista(texto, publicado, vetoOpts);
@@ -1149,18 +885,6 @@ export function podarBorrador(
   const preguntó = /[?¿]/.test(opts.ultimoEntrante ?? "");
   if (preguntó && !REMITE_A_UNA_PERSONA.test(paraCotejar(texto))) {
     return { podado: false, motivo: "era_la_respuesta", quitada };
-  }
-  // LO ÚNICO QUE PEDÍA (13-09). La otra mitad de lo mismo: arriba se protege la
-  // respuesta a lo que preguntó ELLA; aquí, la petición que hacía AVANZAR el
-  // caso. Un mensaje al que la poda le quita lo único que pedía sale correcto y
-  // estéril —no infringe y no pide nada—, y el turno siguiente vuelve a empezar
-  // de cero: es la tardanza que se está midiendo desde el 12-09, fabricada por
-  // el control. La reescritura sí sabe decir lo mismo sin la infracción Y
-  // conservando la petición; podar, no. Medido el 13-09: la primera versión
-  // miraba solo la interrogación y se le escapó «necesito tu nombre completo»,
-  // que es la forma en la que este modelo pide la mitad de las veces.
-  if (PIDE_ALGO.test(borrador) && !PIDE_ALGO.test(texto)) {
-    return { podado: false, motivo: "era_lo_unico_que_pedia", quitada };
   }
   return { podado: true, texto, quitada };
 }

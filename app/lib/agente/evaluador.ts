@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { diasDeLaCita, juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaPasaAPersona, podarBorrador, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type MotivoPoda, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaPasaAPersona, podarBorrador, vetoDeterminista, SYSTEM_PROMPT_JUEZ, type VeredictoJuez } from "./juez-borrador";
 import { controlarBorrador } from "./control-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
@@ -226,7 +226,7 @@ export type EvaluacionTurno = {
      *  lo trajo aquí es lo que dice si la poda está trabajando o se apagó
      *  sola (`no_localizada` subiendo = la frase del juez dejó de ser
      *  citable y nadie se entera). */
-    poda?: MotivoPoda;
+    poda?: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando" | "queda_residuo";
     /** 12-09 — se intentó reescribir y la reescritura TAMBIÉN infringió. Es
      *  el descarte más caro que existe (dos llamadas al juez y una al
      *  generador): si esto es frecuente, el prompt del generador es el
@@ -1340,9 +1340,6 @@ export async function evaluarTurno(
         dichoPorLaPersona,
         turnoEntrega,
         citaConsta: e.diasHastaProximaCita != null,
-        // 13-09 — CUÁL es su cita, no solo que la hay: la comprobación de
-        // propiedad compara el día que nombra el borrador contra el suyo.
-        diasPropios: diasDeLaCita(e.hoy ?? hoyISO(), e.diasHastaProximaCita),
         idioma: juicio.idioma,
         // El MISMO modelo que escribió el borrador: reescribir es su trabajo.
         modeloId: MODELOS[opts?.modelo ?? "haiku"].id,

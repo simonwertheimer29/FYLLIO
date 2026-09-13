@@ -63,11 +63,6 @@ export type OpcionesControl = {
   turnoEntrega?: boolean;
   /** Hay una cita programada de verdad: «te esperamos mañana» es verdad. */
   citaConsta?: boolean;
-  /** CUÁL es esa cita, en las formas en que se escribe su día
-   *  (`diasDeLaCita`). La comprobación de propiedad (13-09) necesita el día,
-   *  no solo saber que hay uno: sin esto, «te esperamos el jueves» con la cita
-   *  el martes pasa igual. */
-  diasPropios?: string[];
   /** Idioma para la reescritura. */
   idioma?: "es" | "ca" | "en" | "otro";
   /** El modelo que escribió el borrador: reescribir es su trabajo. */
@@ -107,11 +102,7 @@ export async function controlarBorrador(
   let origen: { motivo: MotivoControl; frase: string | null; poda: string } | null = null;
 
   while (true) {
-    const vetado = vetoDeterminista(texto, opts.datosQueConstan, {
-      citaConsta: opts.citaConsta,
-      dichoPorLaPersona: opts.dichoPorLaPersona,
-      diasPropios: opts.diasPropios,
-    });
+    const vetado = vetoDeterminista(texto, opts.datosQueConstan, { citaConsta: opts.citaConsta });
     const veredicto: VeredictoJuez | null = vetado
       ? { infringe: true, categoria: vetado.categoria, frase: vetado.frase }
       : await juzgarBorrador({
@@ -138,8 +129,6 @@ export async function controlarBorrador(
       ultimoEntrante: opts.ultimoMensaje,
       publicado: opts.datosQueConstan,
       citaConsta: opts.citaConsta,
-      dichoPorLaPersona: opts.dichoPorLaPersona,
-      diasPropios: opts.diasPropios,
     });
     if (poda.podado) {
       return { estado: "podado", texto: poda.texto, motivo, frase: poda.quitada, reescrito, usage };

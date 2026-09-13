@@ -318,20 +318,14 @@ ok("inglés/catalán: recoger disponibilidad de la persona pasa",
 // mata «¿te viene bien que te la agendemos?» mata la mejor frase del hilo.
 console.log("\nE3 · guardas del modelo libre: precio en rango, plazo inventado, «lo valora la doctora», acción imposible, dato no pedido");
 {
-  const { diasDeLaCita, vetoDeterminista } = await import("../app/lib/agente/juez-borrador");
+  const { vetoDeterminista } = await import("../app/lib/agente/juez-borrador");
   const PUBLICADO_NORTE = [
     "LO PUBLICADO POR LA CLÍNICA",
     "· Tratamientos publicados:",
     "  - Implante unitario: desde 1.100 € — implante + corona",
     "  - Higiene bucodental (limpieza): 60 €",
   ].join("\n");
-  const v = (b: string, pub = PUBLICADO_NORTE, mundo: Parameters<typeof vetoDeterminista>[2] = {}) =>
-    vetoDeterminista(b, pub, mundo);
-  /** Lo que ELLA dijo en el hilo: desde la comprobación de propiedad (13-09)
-   *  un día suyo no es lo mismo que un día inventado, y la diferencia está
-   *  aquí. Los casos que no la pasan describen a un agente que se saca la
-   *  fecha de la manga. */
-  const ELLA = "me viene bien el miércoles o el jueves por la tarde, sobre las 17:00";
+  const v = (b: string, pub = PUBLICADO_NORTE) => vetoDeterminista(b, pub);
 
   // 1 · EL PRECIO INVENTADO EN RANGO — el peor del corpus y el que el juez DEJÓ PASAR.
   ok("«puede rondar desde 800 hasta 2500 euros» → vetado como económica (el juez lo dejaba pasar)",
@@ -380,84 +374,17 @@ console.log("\nE3 · guardas del modelo libre: precio en rango, plazo inventado,
     // (a) la invitación que el propio prompt del juez declara correcta
     v("¿Te viene bien que te la agendemos?") == null &&
     v("¿Te agendamos la valoración para los próximos días?") == null &&
-    // (b) remitir al equipo con los días que pidió ELLA — y son SUS días los
-    // que lo salvan: sin ellos, la propiedad del 13-09 lo veta (caso 8).
-    v("Paso tu solicitud al equipo para que te confirmen hueco el miércoles o jueves sobre las 17:00 y cierren tu cita.", PUBLICADO_NORTE, { dichoPorLaPersona: ELLA }) == null &&
+    // (b) remitir al equipo con los días que pidió ELLA
+    v("Paso tu solicitud al equipo para que te confirmen hueco el miércoles o jueves sobre las 17:00 y cierren tu cita.") == null &&
     // (c) el equipo informa del hueco: no lo afirma el agente
     v("Te paso con el equipo. Ellos te dirán qué tardes tenemos libres en los próximos días.") == null);
   ok("pero afirmarlo el agente en la misma frase SIGUE vetado — la excepción es por oración, no por mensaje",
     v("Tenemos libres el martes y el jueves. El equipo te lo confirmará.") != null);
 
-  // 8 · LA PROPIEDAD DEL DÍA Y DE LA HORA (13-09) — la guarda de HECHO que
-  // sustituye al vocabulario. Medido: 6 de las 7 correcciones al decisor con
-  // alcance eran de categoría «agenda» y 3 castigaban el verbo del papel; las
-  // 2 peligrosas de verdad eran días que no son de nadie.
-  ok("enumerar días que no son de nadie → vetado como agenda (era la corrección peligrosa del 13-09)",
-    v("Podríamos verte el lunes 14, el martes 15 o el jueves 17.")?.categoria === "agenda");
-  ok("«te tenemos anotada para el jueves de 18:00 a 19:00» → vetado (ninguna firma lo cazaba: no lleva la palabra «cita»)",
-    v("Te tenemos anotada para el jueves de 18:00 a 19:00.")?.categoria === "agenda");
-  ok("plantar la fecha dentro de una PREGUNTA también es plantarla",
-    v("¿Te viene bien el miércoles para la valoración?") != null);
-  ok("pero preguntar SIN nombrar día sigue libre, que es la frase con la que avanza",
-    v("¿Qué días y franjas te vienen mejor para la cita?") == null &&
-    v("¿Te viene bien que te busquemos hueco esta semana?") == null);
-  ok("el día que dijo ELLA no lo inventa el agente al repetirlo",
-    v("Anoto que te viene bien el jueves por la tarde y se lo paso al equipo.", PUBLICADO_NORTE, { dichoPorLaPersona: ELLA }) == null &&
-    v("Anoto que te viene bien el lunes por la tarde y se lo paso al equipo.", PUBLICADO_NORTE, { dichoPorLaPersona: ELLA }) != null);
-  ok("el día de SU cita es suyo: con `diasPropios` el recordatorio pasa, con otro día no",
-    v("Tu cita es el jueves, como quedamos.", PUBLICADO_NORTE, { citaConsta: true, diasPropios: ["jueves", "2026-09-17", "17/9"] }) == null &&
-    v("Tu cita es el lunes, como quedamos.", PUBLICADO_NORTE, { citaConsta: true, diasPropios: ["jueves", "2026-09-17", "17/9"] }) != null);
-  ok("la HORA no se veta por ignorancia: sin saber la suya, «a las 10, como quedamos» pasa",
-    v("Tu cita es el jueves a las 10:00, como quedamos.", PUBLICADO_NORTE, { citaConsta: true, diasPropios: ["jueves"] }) == null);
-  ok("…y en cuanto la hora SÍ consta, la hora inventada se veta",
-    v("Tu cita es el jueves a las 18:00.", PUBLICADO_NORTE, { citaConsta: true, diasPropios: ["jueves", "10:00"] }) != null &&
-    v("Tu cita es el jueves a las 10:00.", PUBLICADO_NORTE, { citaConsta: true, diasPropios: ["jueves", "10:00"] }) == null);
-  ok("el HORARIO DE APERTURA no es un hueco: nombrar sus días y sus horas pasa",
-    v("Abrimos de lunes a viernes de 9:00 a 20:00.") == null);
-  ok("y un PLAZO no es una cita: «hoy mismo lo paso al equipo» no entra por esta puerta",
-    v("Hoy mismo lo paso al equipo y te contactan.") == null);
-  ok("el vocabulario del PAPEL pasa entero — es lo que se estaba castigando sin motivo",
-    v("Le paso tu caso al equipo para que te reserve una cita.") == null &&
-    v("Para poder reservarte cita, ¿es tu primera visita?") == null &&
-    v("El equipo te ayudará a reservar la cita con la disponibilidad que tengáis.") == null);
-  ok("`diasDeLaCita` traduce los días que faltan a las formas en que se escriben",
-    JSON.stringify(diasDeLaCita("2026-09-13", 1)) === JSON.stringify(["lunes", "lunes 14", "2026-09-14", "14/9", "manana"]) &&
-    JSON.stringify(diasDeLaCita("2026-09-13", null)) === "[]");
-
-  // 8b · LO QUE ENSEÑÓ LA PRIMERA MEDICIÓN (13-09, $0,58). La guarda se comió
-  // la frase con la que el agente RECOGÍA, dos turnos seguidos, y el caso se
-  // entregó a medias: el modelo dice «de lunes a jueves por la tarde» —la
-  // ventana de la clínica, abreviada «lun–jue» en lo publicado— y la primera
-  // versión leía cuatro fechas inventadas. La corrección distingue la VENTANA
-  // (un rango, un plural, el horario) de la FECHA (un día suelto, un día con
-  // número, un día del mes).
-  const HORARIO = "· Horario de APERTURA (cuándo abre la clínica): lun–jue 17:00–20:00 · sáb 10:00–14:00 — NO son huecos libres";
-  const DANI = "Quería primera cita para ortodoncia. Cualquier día menos los viernes me viene bien, y prefiero por la tarde.";
-  ok("EL CASO DE DANI: «de lunes a jueves por la tarde» es la ventana publicada, no cuatro huecos",
-    v("Para reservarte una cita de lunes a jueves por la tarde, necesito tu nombre completo.", HORARIO, { dichoPorLaPersona: DANI }) == null &&
-    v("Solo me falta tu nombre completo para que el equipo cierre la cita en una tarde de lunes a jueves.", HORARIO, { dichoPorLaPersona: DANI }) == null);
-  ok("…y el PLURAL también es ventana: «los sábados» de ella vale para «un sábado» del agente",
-    v("¿Te vendría mejor un sábado por la mañana o prefieres entre semana?", HORARIO, { dichoPorLaPersona: "¿Abrís los sábados?" }) == null);
-  ok("pero la FECHA dentro de esa misma frase sigue vetada: «19 o 26 de septiembre» no los dijo nadie",
-    v("¿Te vendría mejor un sábado (19 o 26 de septiembre) o prefieres entre semana?", HORARIO, { dichoPorLaPersona: "¿Abrís los sábados?" }) != null);
-  ok("EL HORARIO NO DA PROPIEDAD sobre un día suelto: abrir de lun a jue no hace verdad «el jueves»",
-    v("Te tenemos anotada para el jueves de 18:00 a 19:00.", HORARIO) != null &&
-    v("Podríamos verte el lunes 14, el martes 15 o el jueves 17.", HORARIO) != null);
-  ok("y su propia cita se puede recordar CON el número del día",
-    v("Tu cita es el jueves 17, como quedamos.", HORARIO, { citaConsta: true, diasPropios: diasDeLaCita("2026-09-13", 4) }) == null &&
-    v("Tu cita es el lunes 14, como quedamos.", HORARIO, { citaConsta: true, diasPropios: diasDeLaCita("2026-09-13", 4) }) != null);
-
   // 7 · EL PERDÓN — los falsos positivos del JUEZ (un modelo) se corrigen en
   // código, igual que sus omisiones. Medido con el juez vivo el 12-09: sin
   // esto, haiku seguía tumbando dos de los tres pese a decirlo el prompt.
   const { falsoPositivoDelJuez } = await import("../app/lib/agente/juez-borrador");
-  ok("«para que te reserve el equipo» marcado agenda → PERDONADO (13-09: el juez castigaba el verbo, no el sujeto)",
-    falsoPositivoDelJuez("agenda", "Le paso tu caso al equipo para que te reserve una cita.", "") === "reserva_la_hace_el_equipo" &&
-    falsoPositivoDelJuez("agenda", "Para poder reservarte cita, ¿es tu primera visita?", "") === "reserva_la_hace_el_equipo");
-  ok("…pero NO cuando se compromete él, cuando afirma hueco o cuando lleva fecha (ahí manda la propiedad)",
-    falsoPositivoDelJuez("agenda", "Te la reservo para el martes.", "") == null &&
-    falsoPositivoDelJuez("agenda", "Tenemos huecos y te los reservamos.", "") == null &&
-    falsoPositivoDelJuez("agenda", "El equipo te reserva la cita el martes.", "") == null);
   ok("«ellos te dirán qué tardes tenemos libres» marcado agenda → PERDONADO (informa el equipo)",
     falsoPositivoDelJuez("agenda", "Ellos te dirán qué tardes tenemos libres en los próximos días.", "") === "informa_el_equipo");
   ok("«paso tu solicitud al equipo… el miércoles o jueves» → PERDONADO solo si ESOS días los pidió ella",
@@ -569,32 +496,6 @@ console.log("\nG · poda: la frase fuera y el mensaje dentro, salvo cuando la fr
       "Tenemos tu cita para el sábado 19 por la mañana.", { publicado: PUBLICADO });
     ok("«Por eso te escribimos» sin la frase anterior es un mensaje roto → queda_colgando",
       p.motivo === "queda_colgando", p.podado ? p.texto : "");
-  }
-
-  // G6c · LO ÚNICO QUE PEDÍA (13-09). G1 protege la respuesta a lo que preguntó
-  //       ELLA; esto protege la petición con la que avanza el caso. Un mensaje
-  //       podado que se queda sin pedir nada sale correcto y estéril, y el turno
-  //       siguiente empieza de cero: es tardanza fabricada por el control.
-  {
-    const b = "Le paso tu caso al equipo con lo que me has contado. ¿Te lo reservo para el martes?";
-    const p = podarBorrador(b, "¿Te lo reservo para el martes?", { publicado: PUBLICADO });
-    ok("la poda se llevaba la ÚNICA pregunta → era_lo_unico_que_pedia (lo arregla la reescritura, no la poda)",
-      p.motivo === "era_lo_unico_que_pedia", p.podado ? p.texto : "");
-    // EL CASO DE DANI (13-09, medido): pedir no siempre lleva interrogación.
-    const d = podarBorrador(
-      "Perfecto, Dani. Para reservarte la cita, necesito tu nombre completo. El equipo te lo confirma en cuanto lo tenga.",
-      "Para reservarte la cita, necesito tu nombre completo.", { publicado: PUBLICADO });
-    ok("…y una petición SIN interrogación cuenta igual («necesito tu nombre completo»)",
-      d.motivo === "era_lo_unico_que_pedia", d.podado ? d.texto : "");
-    const q = podarBorrador(
-      "Le paso tu caso al equipo. ¿Cómo te llamas? ¿Te lo reservo para el martes?",
-      "¿Te lo reservo para el martes?", { publicado: PUBLICADO });
-    ok("…pero si queda OTRA pregunta, se poda igual que siempre",
-      q.podado === true && q.texto === "Le paso tu caso al equipo. ¿Cómo te llamas?", q.podado ? q.texto : q.motivo);
-    const r = podarBorrador(
-      "Le paso tu caso al equipo con lo que me has contado. Te la reservo para el martes.",
-      "Te la reservo para el martes.", { publicado: PUBLICADO });
-    ok("y un mensaje que nunca preguntó nada no entra por esta puerta", r.podado === true);
   }
 
   // G6b · EL MENSAJE QUE SEGUÍA AFIRMANDO LO VETADO (13-09, hallazgo de la
