@@ -17,7 +17,9 @@
 //      turno no se persigue ningún objetivo: ni campos, ni cobro. Se atiende
 //      lo que trae y se entrega.
 //   2. Una cita DECLINADA (motivo_no_cita con valor) cierra el objetivo:
-//      deja de ser elegible y no se le vuelve a pedir día ni franja.
+//      deja de ser elegible y no se le vuelve a pedir día ni franja. CERRAR
+//      NO ES BORRAR (13-09): si no queda nada más que perseguir, el caso se
+//      ENTREGA con su motivo — ver `citaDeclinadaCubre`.
 //   3. «Qué quiere» sale del ESTADO o del TEMA cuando no hay objetivo que
 //      case — nunca del objetivo de relleno.
 
@@ -55,6 +57,42 @@ export function objetivosElegibles(
 ): EtapaObjetivo[] {
   const declinada = citaDeclinada(campos);
   return abiertas.filter((o) => !(o === "cita" && declinada));
+}
+
+/** DECLINAR CIERRA EL OBJETIVO, NO LO BORRA (13-09) — ¿este turno ENTREGA
+ *  porque la cita está declinada?
+ *
+ *  La regla 2 saca la cita declinada de los elegibles para no volver a pedirle
+ *  día ni franja a quien ya ha dicho que no. Hasta hoy eso, cuando no quedaba
+ *  ningún otro objetivo, dejaba el turno SIN objetivo activo — y sin objetivo
+ *  no hay caso completo, no hay entrega, y el hilo se muere con el motivo
+ *  dentro. Es decir: `motivo_no_cita` existe para que una persona lo lea
+ *  (MEJORAS 220) y no llegaba a nadie. Medido el 13-09 en el banco: en 3 de
+ *  los 4 decisores de Carlos (implante desde 1.100 €) el motivo se recogió
+ *  —«quiere pensarlo antes de decidir»— y el hilo terminó con `derivoEn: null`.
+ *
+ *  Un lead que dice «me lo pienso» es un caso TERMINADO CON MOTIVO, no un caso
+ *  sin caso: el contrato de la cita está CUBIERTO —a quien no viene no se le
+ *  piden día ni franja—, así que se entrega. La ficha ya sabía decirlo
+ *  («No quiere cita — …», `queQuiereDe`); lo que faltaba era entregarlo.
+ *
+ *  Las tres condiciones, y cada una tapa un falso positivo:
+ *   · `estado == null` — con urgencia, queja o petición manda la regla 1: este
+ *     turno no se persigue NADA, y el caso se entrega igual por su causa, que
+ *     dice más («se queja» pesa más que «no quiere cita»).
+ *   · la cita está ABIERTA y declinada con motivo — sin objetivo abierto no
+ *     hay contrato que cubrir.
+ *   · no queda NINGÚN otro objetivo elegible — si lo hay, ese sigue recogiendo
+ *     y entregará al cubrirse, con el motivo dentro. Entregar antes cortaría
+ *     una conversación viva (el presupuesto a medias de quien no quiere cita). */
+export function citaDeclinadaCubre(args: {
+  abiertas: readonly EtapaObjetivo[];
+  campos: CamposPorEtapa | undefined;
+  estado: EstadoPersona;
+}): boolean {
+  if (args.estado != null) return false;
+  if (!args.abiertas.includes("cita") || !citaDeclinada(args.campos)) return false;
+  return objetivosElegibles(args.abiertas, args.campos).length === 0;
 }
 
 /** El objetivo que se persigue ESTE turno. null = solo contestar.

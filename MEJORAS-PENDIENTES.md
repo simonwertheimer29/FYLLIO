@@ -3121,6 +3121,31 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   pasar» — ofrecer un servicio que no existe no estaba en ninguna regla. Hueco que queda: «ortodoncia
   invisible de MARCA» pasa el veto porque contiene «ortodoncia» (habitual); lo cubre solo el prompt.
 
+## 245. Agente · lo que LEE quien declina cuando el juez tumba el borrador: una promesa de contacto que nadie pidió
+  **Zona:** `lib/agente/evaluador.ts` (`plantillaOpts.entrega`). · **Principio incumplido:** facilidad
+  y confianza (§2) — la lente al cerrar «declinar = entrega» (13-09). · **Qué es:** desde hoy un caso
+  con la cita declinada ENTREGA (causa `caso_completo`). La entrega es INTERNA: el caso pasa a una
+  persona y el paciente no tiene por qué enterarse. Pero si en ese mismo turno el juez descarta el
+  borrador, el reemplazo es `plantillaNeutraConRecogida(..., {entrega: true})`, que anuncia «el equipo
+  te escribe» **a quien acaba de decir «me lo pienso y ya os digo»**. Una promesa de contacto que
+  nadie pidió, justo en el turno en que la persona ha dicho que no. · **Mejora propuesta:** una
+  plantilla de cierre por motivo («queda anotado; aquí estamos cuando quieras») para ese caso, o
+  pasar `entrega: false` cuando lo que cubre el objetivo es la declinación. · **Impacto:** BAJO-MEDIO
+  en facilidad — solo ocurre cuando el juez descarta, pero es de los que se leen en el móvil del
+  paciente. · **Esfuerzo:** 30 min. · **Fecha:** 2026-09-13
+
+## 244. Agente · tras declinar, si `identificar` sigue abierto el agente le sigue pidiendo el nombre
+  **Zona:** `lib/agente/estado-persona.ts` (`citaDeclinadaCubre`) + evaluador. · **Principio
+  incumplido:** facilidad (§2) — la lente al cerrar «declinar = entrega» (13-09). · **Qué es:** la
+  regla nueva entrega cuando, con la cita declinada, **no queda ningún otro objetivo elegible**. Con
+  `identificar` abierto y a medias (un desconocido que declina antes de decir cómo se llama), el
+  objetivo activo pasa a `identificar` y el agente le pregunta el nombre a quien acaba de decir que
+  no quiere cita. Es defendible —sin nombre el caso no le sirve a nadie— pero hoy no es una decisión:
+  es la consecuencia del orden de precedencia. · **Mejora propuesta:** decidir explícitamente entre
+  (a) declinar cierra también `identificar` y se entrega con lo que haya, o (b) se permite UNA
+  pregunta de nombre y se entrega en el turno siguiente pase lo que pase. Medible con los mismos
+  guiones. · **Impacto:** BAJO. · **Esfuerzo:** 1 h + una pasada. · **Fecha:** 2026-09-13
+
 ## 243. Analíticas · la entrega tardía solo existe en el banco: nadie la mide sobre conversaciones reales
   **Zona:** `lib/metricas/diarias.ts` · Inicio › Tu equipo. · **Principio incumplido:** misión
   (perder menos) — la lente sobre la zona al montar la métrica en `hilos:tres` (13-09). · **Qué es:**

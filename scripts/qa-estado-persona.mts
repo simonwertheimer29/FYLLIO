@@ -3,7 +3,9 @@
 // modelo y sin base (= npm run qa:estado-persona).
 //
 // Cubre los cuatro hallazgos de Simon del 11-09 en los hilos simulados:
-//   · Nuria: una cita DECLINADA cierra el objetivo (no se vuelve a pedir día).
+//   · Nuria: una cita DECLINADA cierra el objetivo (no se vuelve a pedir día)
+//     — y cerrar no es borrar: si no queda nada más, se ENTREGA con su motivo
+//     (13-09, bloque 2b).
 //   · Pablo: «qué quiere» sale del estado/tema, no del objetivo de relleno.
 //   · Rosa: con queja no hay recordatorio de cobro — y si el modelo lo cuela,
 //     se quita la frase sin tocar el resto.
@@ -17,6 +19,7 @@ import {
   queQuiereDe,
   sinRecuerdoDeCobro,
   citaDeclinada,
+  citaDeclinadaCubre,
 } from "../app/lib/agente/estado-persona";
 import { FRASE_RECUERDO_COBRO } from "../app/lib/agente/entrada-desde-contexto";
 
@@ -46,11 +49,38 @@ console.log("\n2 · objetivoActivoDe: el estado manda; la cita declinada no es e
   ok("cita DECLINADA → deja de ser elegible", JSON.stringify(objetivosElegibles(abiertas, declinada)) === JSON.stringify(["identificar"]));
   ok("cita declinada + tema cita → cae al siguiente elegible, no a cita",
     objetivoActivoDe({ tema: "cita", abiertas, campos: declinada, estado: null }) === "identificar");
-  ok("cita declinada y nada más abierto → null (solo contestar)",
+  // 13-09: sigue siendo null —esta función dice qué se PERSIGUE— pero ya no
+  // significa «solo contestar»: ese turno ENTREGA (bloque 2b).
+  ok("cita declinada y nada más abierto → null (no se persigue nada; la entrega la decide citaDeclinadaCubre)",
     objetivoActivoDe({ tema: "otro", abiertas: ["cita"], campos: declinada, estado: null }) === null);
   ok("motivo_no_cita = no_aplica NO es declinar", !citaDeclinada({ cita: { motivo_no_cita: "no_aplica" } }));
   ok("motivo_no_cita = null NO es declinar", !citaDeclinada({ cita: { motivo_no_cita: null } }));
   ok("motivo_no_cita vacío NO es declinar", !citaDeclinada({ cita: { motivo_no_cita: "  " } }));
+}
+
+console.log("\n2b · citaDeclinadaCubre: declinar CIERRA el objetivo, no lo borra — el caso se entrega con su motivo");
+{
+  const declinada = { cita: { motivo_no_cita: "quiere pensarlo antes de decidir" } };
+  const cubre = (a: Parameters<typeof citaDeclinadaCubre>[0]) => citaDeclinadaCubre(a);
+  ok("declinada y nada más que perseguir → CUBRE (esto es lo que no pasaba: el hilo moría con el motivo dentro)",
+    cubre({ abiertas: ["cita"], campos: declinada, estado: null }) === true);
+  ok("con QUEJA no cubre: manda la regla 1 y el caso se entrega por su causa, que dice más",
+    cubre({ abiertas: ["cita"], campos: declinada, estado: "queja" }) === false);
+  ok("con URGENCIA no cubre (misma razón)",
+    cubre({ abiertas: ["cita"], campos: declinada, estado: "urgencia" }) === false);
+  ok("con PETICIÓN de persona no cubre (misma razón)",
+    cubre({ abiertas: ["cita"], campos: declinada, estado: "peticion" }) === false);
+  ok("queda OTRO objetivo elegible → no cubre: ese sigue recogiendo y entregará al cubrirse, con el motivo dentro",
+    cubre({ abiertas: ["cita", "identificar"], campos: declinada, estado: null }) === false);
+  ok("presupuesto abierto → tampoco corta la conversación viva",
+    cubre({ abiertas: ["cita", "presupuesto"], campos: declinada, estado: null }) === false);
+  ok("sin declinar no cubre (una cita a medias se sigue recogiendo)",
+    cubre({ abiertas: ["cita"], campos: { cita: { disponibilidad: "tardes" } }, estado: null }) === false);
+  ok("motivo_no_cita = no_aplica no cubre (es la rama que NO aplica, no un motivo)",
+    cubre({ abiertas: ["cita"], campos: { cita: { motivo_no_cita: "no_aplica" } }, estado: null }) === false);
+  ok("la cita ya NO está abierta → no hay contrato que cubrir",
+    cubre({ abiertas: ["identificar"], campos: declinada, estado: null }) === false);
+  ok("sin campos no cubre", cubre({ abiertas: ["cita"], campos: undefined, estado: null }) === false);
 }
 
 console.log("\n3 · queQuiereDe: el titular en lenguaje de coordinadora");

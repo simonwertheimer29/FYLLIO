@@ -27,7 +27,7 @@ import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaP
 import { controlarBorrador } from "./control-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
-import { estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
+import { citaDeclinadaCubre, estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
 import { FRASE_RECUERDO_COBRO } from "./entrada-desde-contexto";
 import {
   CLAVES_APLAZADO,
@@ -1086,6 +1086,20 @@ export async function evaluarTurno(
       objetivoActivo = siguiente.etapa;
       camposFaltantes = faltantesDe(siguiente.etapa);
     }
+  }
+
+  // DECLINAR CIERRA EL OBJETIVO, NO LO BORRA (13-09, estado-persona.ts). Si la
+  // cita está declinada CON motivo y no queda nada más que perseguir, el
+  // objetivo vuelve a ser `cita` SIN campos que pedir: el contrato está
+  // cubierto por el motivo, no por la disponibilidad de quien no va a venir.
+  // A partir de aquí todo sale solo por la fórmula de abajo — caso completo →
+  // entrega (causa `caso_completo`, objetivo `cita`), y el semáforo ya sabe
+  // cerrarlo por los hechos de esa pareja (cita creada, cambio de estado del
+  // lead, o el objetivo dejó de estar abierto). Sin esto el hilo moría con el
+  // motivo dentro, que es el dato por el que existe el campo (MEJORAS 220).
+  if (citaDeclinadaCubre({ abiertas, campos: juicio.camposRecogidos, estado })) {
+    objetivoActivo = "cita";
+    camposFaltantes = [];
   }
 
   const defActivo = e.objetivosAbiertos.find((o) => o.etapa === objetivoActivo);

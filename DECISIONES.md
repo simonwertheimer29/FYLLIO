@@ -5123,3 +5123,34 @@ del diagnóstico, ahora medido y no supuesto.
 llegó a tener todo lo que pide el objetivo» — un fallo técnico con cara exactamente de la métrica
 que estamos midiendo (§4). Se relanzó sin tocar el instrumento (cambiarlo entre la pasada fallida y
 la repetición sería medir con otra vara) y se arregla ahora, no antes.
+
+## 2026-09-13 · Declinar CIERRA el objetivo, no lo borra: el motivo por el que se fue ahora llega a alguien
+Desde el 11-09 una cita declinada (`motivo_no_cita` con valor) dejaba de ser elegible para no volver
+a pedirle día ni franja a quien ya había dicho que no. Efecto lateral no visto: cuando no quedaba
+**ningún otro objetivo**, el turno se quedaba sin objetivo activo, y sin objetivo activo no hay caso
+completo, no hay entrega y el hilo **se muere con el motivo dentro** — es decir, `motivo_no_cita`
+existe justo para que una persona lo lea (MEJORAS 220) y no llegaba a nadie.
+**Medido, no supuesto:** en la pasada del 13-09, en 3 de los 4 decisores de Carlos (implante desde
+1.100 €) el motivo se recogió —«quiere pensarlo antes de decidir»— y el hilo acabó con
+`derivoEn: null`. Un lead que dice «me lo pienso» es un caso TERMINADO CON MOTIVO, no un caso sin
+caso: el contrato de la cita está cubierto —a quien no viene no se le piden día ni franja— así que
+`citaDeclinadaCubre` (`estado-persona.ts`, donde vive la regla) devuelve el objetivo `cita` sin
+campos que pedir y la fórmula de siempre hace el resto: caso completo → entrega, causa
+`caso_completo`, objetivo `cita`. El semáforo ya sabe cerrar esa pareja (cita creada, cambio de
+estado del lead, o el objetivo dejó de estar abierto) y la ficha ya sabía decirlo desde el 11-09
+(«No quiere cita — …»): lo único que faltaba era entregarlo.
+**Tres condiciones, cada una tapando un falso positivo:** con urgencia/queja/petición no cubre —manda
+la regla 1 y el caso se entrega por su causa, que dice más—; la cita tiene que estar ABIERTA; y no
+puede quedar otro objetivo elegible, porque ese sigue recogiendo y entregará al cubrirse con el
+motivo dentro (entregar antes cortaría un presupuesto vivo).
+**El repro, con el código viejo y el nuevo sobre el MISMO juicio** (temperature 0, así que el juicio
+es idéntico byte a byte): viejo `decision: sigue` · nuevo `decision: deriva, causa caso_completo,
+objetivo cita`. **Y el mensaje que lee el paciente es el mismo en los dos** («Perfecto, Carlos.
+Cuando lo tengas claro, aquí estamos») — esto cambia quién recibe el caso, no lo que se dice: una
+línea de lógica, no una línea de prompt. Coste del repro: $0,02 (dos llamadas).
+**La vara, revisada en el mismo commit (§26):** ningún caso de `qa:evals-evaluador` cambia de lado.
+El mapeo de letras ya absorbe esto —`letraDe` no cuenta como «R» una entrega por `caso_completo`, así
+que S sigue siendo S— y ninguno de los fixtures C1 con la cita abierta declina. `qa:estado-persona`
+estrena el bloque 2b con las diez condiciones de la regla, sin modelo. Lo que la lente vio de paso y
+NO se ejecuta: MEJORAS 244 (tras declinar, `identificar` sigue pidiendo el nombre) y 245 (si el juez
+descarta el borrador, la plantilla de entrega promete un contacto que nadie pidió).
