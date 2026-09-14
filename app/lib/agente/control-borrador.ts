@@ -47,7 +47,7 @@
 // el motivo y no inventa ninguna presentación. Esa decisión es del caller
 // porque depende de quién habla, no del control.
 
-import { juzgarBorrador, podarBorrador, vetoDeterminista, type ReglaVeto, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, podarBorrador, quitarVocativoInventado, vetoDeterminista, type ReglaVeto, type VeredictoJuez } from "./juez-borrador";
 import { reescribirBorrador } from "./reescribir-borrador";
 
 export type MotivoControl = NonNullable<VeredictoJuez["categoria"]> | "sin_categoria";
@@ -93,6 +93,11 @@ export type OpcionesControl = {
   ultimoMensaje?: string;
   /** TODOS sus entrantes (regla 3 multi-turno). */
   dichoPorLaPersona?: string;
+  /** El nombre con el que se le habla (el que consta y, si no hay ficha, la
+   *  pista del perfil de WhatsApp). Lo usan los dos vetos del 14-09: el del
+   *  doctor, para no vetar un trozo que también es SUYO, y el del vocativo,
+   *  para saber si el nombre del saludo es el de alguien. */
+  nombrePersona?: string | null;
   /** ¿Este turno entrega el caso? (regla 4, hoy retirada del prompt). */
   turnoEntrega?: boolean;
   /** Hay una cita programada de verdad: «te esperamos mañana» es verdad. */
@@ -131,12 +136,19 @@ export async function controlarBorrador(
   let usage: VeredictoJuez["usage"];
   let reescrito = false;
   let vuelta = 0;
+  /** La corrección del vocativo se hace UNA vez: si tras quitarlo sigue
+   *  saltando, es que hay otro y eso ya no es una palabra suelta. */
+  let reparadoVocativo = false;
   // El veredicto que disparó la reescritura: es lo que la traza tiene que
   // contar, no el silencio de la segunda vuelta.
   let origen: { motivo: MotivoControl; frase: string | null; fuente: FuenteControl; poda: string } | null = null;
 
   while (true) {
-    const vetado = vetoDeterminista(texto, opts.datosQueConstan, { citaConsta: opts.citaConsta });
+    const vetado = vetoDeterminista(texto, opts.datosQueConstan, {
+      citaConsta: opts.citaConsta,
+      dichoPorLaPersona: opts.dichoPorLaPersona,
+      nombrePersona: opts.nombrePersona,
+    });
     const fuente: FuenteControl = vetado ? `veto:${vetado.regla}` : "juez";
     const veredicto: VeredictoJuez | null = vetado
       ? { infringe: true, categoria: vetado.categoria, frase: vetado.frase }
@@ -154,6 +166,31 @@ export async function controlarBorrador(
       return reescrito && origen
         ? { estado: "reescrito", texto, motivo: origen.motivo, frase: origen.frase, fuente: origen.fuente, enVezDePodar: origen.poda, usage }
         : { estado: "pasa", texto, usage };
+    }
+
+    // 0 · CORREGIR SIN MODELO lo que se puede corregir sin modelo (14-09): el
+    //     nombre inventado del saludo. Va ANTES de la reescritura y no gasta
+    //     `vuelta` — no es un juicio, es quitar una palabra que el código sabe
+    //     que sobra. Sin esto el caso medido acababa en DESCARTE (la poda se
+    //     niega a cortar la oración porque dentro va la respuesta), y el
+    //     paciente recibía una plantilla por una palabra.
+    if (vetado?.regla === "vocativo" && !reparadoVocativo) {
+      const limpio = quitarVocativoInventado(texto, {
+        dichoPorLaPersona: opts.dichoPorLaPersona,
+        nombrePersona: opts.nombrePersona,
+      });
+      reparadoVocativo = true;
+      if (limpio && limpio !== texto) {
+        reescrito = true;
+        origen ??= {
+          motivo: "dato_inventado",
+          frase: vetado.frase,
+          fuente: "veto:vocativo",
+          poda: "corrección determinista: se quitó del saludo un nombre que no es el suyo",
+        };
+        texto = limpio;
+        continue;
+      }
     }
 
     // La categoría ilegible NO se disfraza de «clinica»: se archiva como

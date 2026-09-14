@@ -309,3 +309,13 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   infractores ni de los 37 limpios; el único FP sigue siendo L12 («tienes un pago pendiente»), el
   mismo de ayer y de otra familia. La ampliación sale gratis en precisión — y aun así no basta,
   porque lo que se coló en la pasada («el Dr. Iván») el juez ni lo mira · ac. **~$14,44**
+
+- **14-09 · Los dos vetos nuevos, sobre los MISMOS mensajes** (`control:hilos --fixture
+  fixture-ficha`, tres corridas: la primera, la de la corrección del vocativo y la de comprobar el
+  motivo de la reescritura) · **$0,063 + $0,067 + $0,018 = $0,15 medido** (anunciado ~$0,11) ·
+  **LA CIFRA: los 3 volcados del doctor y el nombre inventado, cazados los 4 — y MUERTOS 0/14.**
+  Primera corrida: cazaba los 4 pero el vocativo acababa en DESCARTE (plantilla por una palabra), así
+  que la corrección determinista sustituyó al veto seco y los muertos bajaron 1 → 0. Tercera: al
+  motivo de la reescritura le faltaba «o el nombre de su doctor» — sin eso la corrección volvía a
+  nombrarlo y el mensaje acababa podado. **Barrido de precisión aparte, coste $0: 263 mensajes de
+  todos los fixtures y decisores, 4 señalados, los 4 de verdad** · ac. **~$14,59**

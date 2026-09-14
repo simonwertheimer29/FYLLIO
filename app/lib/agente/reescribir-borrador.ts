@@ -30,7 +30,11 @@ const TIMEOUT_MS = 10_000;
 const QUE_INFRINGE: Record<string, string> = {
   clinica: "afirma un hecho clínico (dolor, resultado, duración, riesgo, o que la clínica ofrece un servicio) que la clínica no ha publicado",
   economica: "promete o insinúa un precio, un descuento, una cuota o una condición de pago que no consta",
-  datos_sensibles: "vuelca un tratamiento o un importe del caso que la persona no ha preguntado",
+  // 14-09: «o el nombre de su doctor» no es un añadido de estilo. Medido: con
+  // el motivo sin esa mitad, la reescritura de un mensaje vetado por nombrar al
+  // doctor volvía a nombrarlo, y el mensaje acababa podado — perdiendo la
+  // respuesta que sí era correcta.
+  datos_sensibles: "vuelca un tratamiento, un importe o el NOMBRE DE SU DOCTOR, del caso, que la persona no ha preguntado — la versión corregida no puede nombrarlo de ninguna forma, ni con apellido ni sin él",
   promesa: "promete un plazo, una duración o una acción que nadie ha comprometido",
   agenda: "afirma huecos de la agenda, o confirma o compromete una cita que no consta",
   dato_inventado: "da por cierto un dato de la clínica que no consta (horario, dirección, cómo llegar, parking, seguros)",

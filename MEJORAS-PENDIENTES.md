@@ -3685,6 +3685,14 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   para lo que está. · **Principio:** §9 (lo que el guardián cambia se cuenta) y la regla de Simon
   «lo que consta es para no preguntar, no para decir». · **Impacto:** ALTO (dato de salud que sale).
   · **Esfuerzo:** 1 h + una jugada. · **Fecha:** 2026-09-14
+  · 🟢 **HECHA Y MEDIDA el 14-09** (`veto:doctor`). Va por TROZOS —nombre de pila y apellidos por
+  separado— porque la diferencia entre lo cazado y lo colado era una palabra. Corre al final de
+  `vetoDeterminista`, así que la segunda vuelta del bucle lo mira DESPUÉS de la reescritura, que es
+  donde hacía falta. Exime lo que es suyo (su propio nombre y lo que ella haya escrito), y la DEMO
+  tiene la colisión real que lo justifica: la paciente Lucía Ferrer y la doctora Lucía Ferrer.
+  **Medido sobre los mismos 14 mensajes, sin rejugar: caza los 3 que salieron.** Y al motivo de la
+  reescritura le faltaba media frase — sin «o el nombre de su doctor», la corrección volvía a
+  nombrarlo y el mensaje acababa podado.
 
 ## 242. Agente · el agente llamó «María» a Nuria, y salió enviado
 - **Medido el 14-09 en `fixture-ficha`, hilo de Nuria, t2:** el mensaje que salió empieza *«Hola
@@ -3698,6 +3706,18 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   consta ni uno que la persona haya dicho en el hilo, se reescribe). · **Principio:** §20 (un nombre
   que no está en el dato es un nombre inventado). · **Impacto:** MEDIO-ALTO (rompe la confianza en
   una línea). · **Esfuerzo:** 1 h. · **Fecha:** 2026-09-14
+  · 🟢 **HECHA Y MEDIDA el 14-09, y el diseño CAMBIÓ con la medida.** Como veto a secas el caso real
+  acababa en DESCARTE —la poda se niega a cortar esa oración porque dentro va la respuesta a lo que
+  preguntó—, o sea plantilla por una palabra. Ahora el control **corrige sin modelo**: quita el
+  nombre y deja el saludo («Hola, respecto al parking…»). **No sustituye por el que consta**: en un
+  teléfono compartido la titular de la ficha no es quien escribe, y «Hola Carmen» a su hija es el
+  mismo error con otro nombre. Quitar no dice nada falso. Sobre los mismos 14 mensajes: **muertos
+  1/14 → 0/14**.
+  · **Y se retiró media regla por un falso positivo MEDIDO:** el vocativo de CIERRE («…, Carlos.»)
+  tiene el mismo patrón que un topónimo, y al barrer los fixtures ya pagados cazó «la calle Antonio
+  López, Usera». Un FP aquí dispara un veto sobre un mensaje correcto, así que queda solo el saludo,
+  que es donde el patrón no es ambiguo. **Barrido de precisión: 263 mensajes de todos los fixtures y
+  todos los decisores, 4 señalados, los 4 de verdad.**
 
 ## 243. Agente · la serie cuenta dos familias de daño y la ficha daña en una tercera
 - **`npm run serie` dio A = 0/13 en la pasada de la ficha, y eso es verdad y engaña.** Las columnas A
@@ -3712,3 +3732,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   están en el fixture y no cuestan un dólar. · **Principio:** §«A y B jamás se funden» llevado a su
   consecuencia: si hay tres daños, hay tres cuentas. · **Impacto:** MEDIO (instrumento, no producto).
   · **Esfuerzo:** 1 h, coste $0. · **Fecha:** 2026-09-14
+  · 🟢 **HECHA el 14-09, y NO por la vía barata.** Contar intervenciones del control habría dado
+  **cero justo en la pasada que motivó esto**, porque lo que se coló no lo cazó nadie. Se cuenta lo
+  que SALIÓ, pasando los mismos vetos deterministas de producción sobre el texto enviado: coste $0 y
+  sin modelo. Dos columnas, no una —**C vuelca** (nombra a su doctor sin que ella lo sacara) y **C
+  inventa** (la llama por un nombre que no es el suyo)—, y ninguna se funde con A y B. La serie
+  entera queda en 0/0 salvo la pasada de la ficha: **3/14 y 1/14**, que es exactamente lo que A=0
+  escondía.

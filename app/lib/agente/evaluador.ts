@@ -1388,6 +1388,9 @@ export async function evaluarTurno(
         datosQueConstan,
         ultimoMensaje: ultimoEntrante,
         dichoPorLaPersona,
+        // Los dos nombres válidos para dirigirse a ella: el que consta y la
+        // pista del perfil, que el prompt autoriza para un desconocido.
+        nombrePersona: [e.nombre, e.nombrePerfil].filter(Boolean).join(" "),
         turnoEntrega,
         citaConsta: e.diasHastaProximaCita != null,
         idioma: juicio.idioma,

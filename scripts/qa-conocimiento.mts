@@ -428,6 +428,53 @@ console.log("\nE3 · guardas del modelo libre: precio en rango, plazo inventado,
   ok("pero afirmarlo el agente en la misma frase SIGUE vetado — la excepción es por oración, no por mensaje",
     v("Tenemos libres el martes y el jueves. El equipo te lo confirmará.") != null);
 
+  // 8 · EL DOCTOR DE LA FICHA (14-09) — por TROZOS, no por el nombre entero:
+  //     lo que se coló en la pasada medida fue «el Dr. Iván» y lo que el juez
+  //     cazó fue «Dr. Sergio Camacho». La diferencia era el apellido.
+  const CONSTA_DOCTOR = `${PUBLICADO_NORTE}\nDoctor que la atiende: Dr. Iván Castaño`;
+  const vd = (b: string, dicho = "", nombre: string | null = "Nuria Gil") =>
+    vetoDeterminista(b, CONSTA_DOCTOR, { dichoPorLaPersona: dicho, nombrePersona: nombre });
+  ok("LOS TRES QUE SALIERON ENVIADOS a Nuria quedan vetados, apellido o no",
+    vd("Lo de la sedación te lo confirma el Dr. Iván cuando os veáis.")?.categoria === "datos_sensibles" &&
+      vd("¿Qué días te vienen mejor, y a qué hora prefieres con el Dr. Iván?")?.regla === "doctor" &&
+      vd("De todas formas, el Dr. Iván Castaño y su equipo te ayudarán.")?.regla === "doctor");
+  ok("y el apellido solo también: un veto que depende de lo completo que sea el nombre no es un veto",
+    vd("Castaño te lo explicará en la consulta.")?.regla === "doctor");
+  ok("si ELLA lo nombró, contestarle NO infringe (la regla 3 lo dice y el prompt también)",
+    vd("Sí, el Dr. Iván te atiende ese día.", "¿me lo hace el doctor Iván?") == null);
+  ok("sin doctor en los datos que constan, la regla no existe (§4: no se veta a ciegas)",
+    vetoDeterminista("Te lo confirma el Dr. Iván.", PUBLICADO_NORTE, { nombrePersona: "Nuria Gil" }) == null);
+  ok("y NO veta un trozo que es SUYO — la DEMO tiene paciente Lucía Ferrer y doctora Lucía Ferrer",
+    vetoDeterminista("Hola Lucía, ya está todo anotado.", `${PUBLICADO_NORTE}\nDoctor que la atiende: Dra. Lucía Ferrer`,
+      { nombrePersona: "Lucía Ferrer" }) == null);
+
+  // 9 · EL VOCATIVO INVENTADO (14-09) — «Hola María» a Nuria, enviado.
+  const vv = (b: string, dicho = "", nombre: string | null = "Nuria Gil") =>
+    vetoDeterminista(b, PUBLICADO_NORTE, { dichoPorLaPersona: dicho, nombrePersona: nombre });
+  ok("EL CASO MEDIDO: «Hola María» a Nuria queda vetado como dato inventado",
+    vv("Hola María, respecto al parking te lo confirma alguien del equipo.")?.categoria === "dato_inventado" &&
+      vv("Hola María, respecto al parking te lo confirma alguien del equipo.")?.regla === "vocativo");
+  ok("el vocativo de CIERRE se retiró (FP medido: «…en la calle Antonio López, Usera.»)",
+    vv("La clínica está en la calle Antonio López, Usera.") == null &&
+      vv("Ya está todo anotado, Marta.") == null);
+  ok("su propio nombre pasa, y el que ELLA dijo en el hilo también",
+    vv("Hola Nuria, te lo confirmamos enseguida.") == null &&
+      vv("Hola Lucía, ya lo tengo.", "Soy Lucía, hija de Carmen Ruiz", "Carmen Ruiz") == null);
+  ok("y un nombre PROPIO que no es vocativo NO se veta (sin esto se mata un mensaje correcto)",
+    vv("Perfecto, Sanitas cubre la revisión sin problema.") == null &&
+      vv("Gracias por escribir. Te lo confirmamos enseguida.") == null);
+  ok("sin ningún nombre conocido la regla se queda quieta (§4)",
+    vv("Hola María, te lo confirmamos.", "", null) == null);
+  // Y LA CORRECCIÓN, sin modelo: quitar la palabra en vez de matar el mensaje.
+  const { quitarVocativoInventado } = await import("../app/lib/agente/juez-borrador");
+  ok("el nombre inventado se QUITA y el saludo se queda (el mensaje no se pierde)",
+    quitarVocativoInventado("Hola María, respecto al parking te lo confirma el equipo.", { nombrePersona: "Nuria Gil" }) ===
+      "Hola, respecto al parking te lo confirma el equipo.");
+  ok("y NO se sustituye por el que consta — en un teléfono compartido eso es el mismo error con otro nombre",
+    !(quitarVocativoInventado("Hola María, ya está.", { nombrePersona: "Nuria Gil" }) ?? "").includes("Nuria"));
+  ok("si no había nada que corregir, devuelve null (no toca el texto por tocarlo)",
+    quitarVocativoInventado("Hola Nuria, ya está.", { nombrePersona: "Nuria Gil" }) == null);
+
   // 7 · EL PERDÓN — los falsos positivos del JUEZ (un modelo) se corrigen en
   // código, igual que sus omisiones. Medido con el juez vivo el 12-09: sin
   // esto, haiku seguía tumbando dos de los tres pese a decirlo el prompt.

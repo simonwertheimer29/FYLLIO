@@ -697,6 +697,122 @@ export function falsoPositivoDelJuez(
   return null;
 }
 
+// 9 · EL DOCTOR DE LA FICHA — 14-09, medido sobre `fixture-ficha`: el nombre
+// del doctor salió ENVIADO tres veces en un hilo donde la persona no lo había
+// nombrado, y UNA de las tres la escribió la reescritura del guardián. La regla
+// en el papel (prompt del evaluador + regla 3 del juez) no lo para.
+//
+// Y EL JUEZ SOLO CAZA EL NOMBRE COMPLETO: descartó «un presupuesto en la
+// consulta con el Dr. Sergio Camacho» y dejó pasar «con el Dr. Iván» tres
+// veces. La diferencia entre lo cazado y lo colado era UNA PALABRA — el
+// apellido—, y para el juez «el Dr. Iván» se lee casi como una fórmula de
+// cortesía. **Un veto que depende de cómo de completo sea el nombre no es un
+// veto** (Simon, 14-09): por eso este va por TROZOS —nombre de pila y apellidos
+// por separado— y no por la cadena entera.
+//
+// Es determinista porque el dato lo ponemos NOSOTROS: el doctor sale de la
+// ficha del paciente y lo escribe el código en los DATOS QUE CONSTAN, así que
+// sabemos exactamente qué cadena buscar. No hay criterio que aplicar.
+//
+// SE EXIME LO QUE ES SUYO: un trozo que esté en su propio nombre o que ella
+// haya escrito en el hilo no se veta. Preguntar por su doctor y que se lo
+// contesten es correcto —lo dice el prompt y lo dice la regla 3—, y la DEMO
+// tiene un caso real de colisión (la paciente Lucía Ferrer y la doctora Lucía
+// Ferrer): sin esta exención, saludarla por su nombre sería una infracción.
+const RE_DOCTOR_CONSTA = /^Doctor que la atiende:\s*(.+)$/m;
+const TRATAMIENTOS_DE_CORTESIA = /\b(?:dr|dra|doctor|doctora|don|do[ñn]a|sr|sra|srta)\b\.?/g;
+
+/** Los TROZOS de un nombre, normalizados y sin el tratamiento de cortesía.
+ *  Tres letras o más: «Dr. Iván Castaño» → ["ivan", "castano"]. */
+function trozosDeNombre(nombre: string): string[] {
+  return normalizarTexto(nombre)
+    .replace(TRATAMIENTOS_DE_CORTESIA, " ")
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+}
+
+/** Las oraciones del borrador, tal cual están escritas (para que la poda pueda
+ *  localizar la que se señala). */
+function oracionesDe(texto: string): string[] {
+  return texto.split(/(?<=[.!?])\s+/).filter((o) => o.trim().length > 0);
+}
+
+export function vetoDoctorDeterminista(
+  borrador: string,
+  publicado: string,
+  opts?: { dichoPorLaPersona?: string; nombrePersona?: string | null },
+): string | null {
+  const consta = publicado.match(RE_DOCTOR_CONSTA);
+  if (!consta) return null;
+  const suyos = new Set([
+    ...trozosDeNombre(opts?.nombrePersona ?? ""),
+    ...trozosDeNombre(opts?.dichoPorLaPersona ?? ""),
+  ]);
+  const buscados = trozosDeNombre(consta[1] ?? "").filter((t) => !suyos.has(t));
+  if (buscados.length === 0) return null;
+  for (const oracion of oracionesDe(borrador)) {
+    const n = normalizarTexto(oracion);
+    if (buscados.some((t) => new RegExp(`\\b${t}\\b`).test(n))) return oracion.trim();
+  }
+  return null;
+}
+
+// 10 · EL VOCATIVO INVENTADO — 14-09, medido: el agente llamó «María» a Nuria
+// y salió enviado. No lo miraba NINGUNA guarda: no es agenda, ni clínica, ni un
+// dato del caso volcado, y el juez no tiene regla para ello. Al paciente le
+// dice algo peor que soltar el doctor: que el sistema no sabe con quién habla.
+//
+// Determinista por la misma razón que el 9: el nombre lo pone el CÓDIGO en el
+// contexto. Vale como vocativo el que consta (incluida la pista del perfil de
+// WhatsApp, que el prompt autoriza para dirigirse a ella) y cualquiera que ella
+// haya escrito en el hilo — «soy Lucía» hace de Lucía un nombre suyo.
+//
+// SOLO se mira lo que es sintácticamente un vocativo: nombre propio aislado por
+// puntuación («Hola María,» · «Perfecto, Lucía.»). Sin ese requisito, «Perfecto,
+// Sanitas cubre la revisión» se leería como un vocativo inventado, que es un
+// falso positivo que mata un mensaje correcto.
+const SALUDOS_VOCATIVO = "Hola|Buenas|Buenos d[íi]as|Buenas tardes|Buenas noches|Gracias|Perfecto|Genial|Entendido|Claro|Estupendo|De acuerdo|Encantad[oa]";
+const NOMBRE_PROPIO = "[A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,}";
+const VOCATIVOS: RegExp[] = [
+  // «Hola María, …» / «Perfecto, Lucía.» — saludo, el nombre, y puntuación.
+  // El saludo va capturado aparte porque la CORRECCIÓN lo conserva y solo se
+  // lleva el nombre (ver `quitarVocativoInventado`).
+  new RegExp(`(?:^|[.!?]\\s+)((?:${SALUDOS_VOCATIVO}))[\\s,]+(${NOMBRE_PROPIO})\\s*(?=[,.!?])`, "g"),
+];
+// EL VOCATIVO DE CIERRE («…, Carlos.») SE PROBÓ Y SE RETIRÓ, 14-09. Su patrón
+// —coma, nombre propio, final de oración— es también el de un topónimo o un
+// apellido en una dirección, y al pasarlo por los fixtures ya pagados cazó
+// «la clínica está en la calle Antonio López, Usera.» como un nombre inventado.
+// Un falso positivo aquí no es ruido: dispara un veto y reescribe un mensaje
+// correcto. Se queda solo el saludo, que es donde se midió el fallo real
+// («Hola María» a Nuria) y donde el patrón no es ambiguo.
+/** Palabras que aparecen capitalizadas donde va un vocativo y NO son nombres
+ *  de persona. Cortas y explícitas: una lista larga aquí sería criterio. */
+const NO_SON_NOMBRES = new Set(["clinica", "equipo", "doctor", "doctora", "gracias", "saludos", "whatsapp", "muchas"]);
+
+export function vetoVocativoDeterminista(
+  borrador: string,
+  opts?: { dichoPorLaPersona?: string; nombrePersona?: string | null },
+): string | null {
+  const suyos = new Set([
+    ...trozosDeNombre(opts?.nombrePersona ?? ""),
+    ...trozosDeNombre(opts?.dichoPorLaPersona ?? ""),
+  ]);
+  // Sin NINGÚN nombre conocido no se veta: sin con qué comparar, esto no
+  // distingue un nombre inventado de uno correcto (§4 — no se juzga a ciegas).
+  if (suyos.size === 0) return null;
+  for (const re of VOCATIVOS) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(borrador)) !== null) {
+      const candidato = normalizarTexto(m[2] ?? "");
+      if (!candidato || NO_SON_NOMBRES.has(candidato) || suyos.has(candidato)) continue;
+      return m[0].trim();
+    }
+  }
+  return null;
+}
+
 /** TODAS las guardas deterministas en el orden en que se aplican, con su
  *  categoría. Un solo sitio: el evaluador, el runner de guiones y la vara
  *  llaman aquí, y una guarda nueva entra en producción y en las pruebas a la
@@ -706,12 +822,12 @@ export function falsoPositivoDelJuez(
  *  categoría es compartida —`agenda` la ponen dos vetos distintos y también el
  *  juez—, así que sin esto «retirar el veto» y «retirar el juez» se leen igual
  *  en los números y se acaba quitando la pieza que sí trabaja. */
-export type ReglaVeto = "agenda" | "reserva_plural" | "precio" | "servicio" | "valora" | "plazo" | "accion" | "pide_dato";
+export type ReglaVeto = "agenda" | "reserva_plural" | "precio" | "servicio" | "valora" | "plazo" | "accion" | "pide_dato" | "doctor" | "vocativo";
 
 export function vetoDeterminista(
   borrador: string,
   publicado: string,
-  opts?: { huecosConstan?: boolean; citaConsta?: boolean },
+  opts?: { huecosConstan?: boolean; citaConsta?: boolean; dichoPorLaPersona?: string; nombrePersona?: string | null },
 ): { categoria: NonNullable<VeredictoJuez["categoria"]>; frase: string; regla: ReglaVeto } | null {
   const agenda = vetoAgendaDeterminista(borrador, opts);
   if (agenda) return { categoria: "agenda", frase: agenda, regla: "agenda" };
@@ -729,7 +845,56 @@ export function vetoDeterminista(
   if (accion) return { categoria: "promesa", frase: accion, regla: "accion" };
   const dato = vetoPideDatoDeterminista(borrador);
   if (dato) return { categoria: "datos_sensibles", frase: dato, regla: "pide_dato" };
+  // Los dos últimos son del 14-09 y van AL FINAL a propósito: si el borrador
+  // infringe además por agenda o por servicio, se corrige aquello primero y
+  // estos se miran en la SEGUNDA vuelta — que es donde hacen falta, porque el
+  // caso medido lo fabricó la REESCRITURA (el control reescribió por servicio y
+  // metió «con el Dr. Iván» él solo). El bucle de `controlarBorrador` vuelve a
+  // pasar por aquí después de reescribir, así que «correr después» no pide una
+  // pieza nueva: pide que la regla exista.
+  const doctor = vetoDoctorDeterminista(borrador, publicado, opts);
+  if (doctor) return { categoria: "datos_sensibles", frase: doctor, regla: "doctor" };
+  const vocativo = vetoVocativoDeterminista(borrador, opts);
+  if (vocativo) return { categoria: "dato_inventado", frase: vocativo, regla: "vocativo" };
   return null;
+}
+
+/** LA CORRECCIÓN DEL VOCATIVO, sin modelo (14-09). Medido: tratar el nombre
+ *  inventado como una infracción más lo llevaba al DESCARTE — la poda se niega
+ *  a cortar la oración porque dentro va la respuesta a lo que preguntó—, y el
+ *  paciente recibía una plantilla por una palabra. Matar un mensaje correcto
+ *  cuesta la conversación (criterio del 23-08), y aquí no hace falta: el saludo
+ *  sin nombre («Hola, respecto al parking…») es correcto y no afirma nada.
+ *
+ *  SE QUITA, NO SE SUSTITUYE. Poner el nombre que consta sería arriesgar lo
+ *  contrario del fallo: en un teléfono compartido, la titular de la ficha no es
+ *  quien escribe, y «Hola Carmen» a su hija es el mismo error con otro nombre.
+ *  Quitar no dice nada falso.
+ *
+ *  null = no había nada que corregir. */
+export function quitarVocativoInventado(
+  borrador: string,
+  opts?: { dichoPorLaPersona?: string; nombrePersona?: string | null },
+): string | null {
+  if (vetoVocativoDeterminista(borrador, opts) == null) return null;
+  const suyos = new Set([
+    ...trozosDeNombre(opts?.nombrePersona ?? ""),
+    ...trozosDeNombre(opts?.dichoPorLaPersona ?? ""),
+  ]);
+  let tocado = false;
+  let texto = borrador;
+  for (const re of VOCATIVOS) {
+    re.lastIndex = 0;
+    texto = texto.replace(re, (entero, saludo: string, nombre: string) => {
+      const candidato = normalizarTexto(nombre);
+      if (!candidato || NO_SON_NOMBRES.has(candidato) || suyos.has(candidato)) return entero;
+      tocado = true;
+      // Se conserva todo lo de delante del saludo (el inicio de oración) y el
+      // saludo; se va el nombre y el espacio que lo separaba.
+      return entero.slice(0, entero.lastIndexOf(saludo) + saludo.length);
+    });
+  }
+  return tocado ? texto : null;
 }
 
 // ─── LA PODA: quitar la frase, no el mensaje (12-09) ───────────────────────

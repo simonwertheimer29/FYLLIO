@@ -5963,3 +5963,31 @@ lee en el log del control, mensaje a mensaje.
 DESPUÉS de la reescritura, o retirar el doctor y quedarse con el tratamiento; (2) MEJORAS 242 — el
 agente llamó «María» a Nuria y salió enviado, sin que ninguna guarda lo mire; (3) MEJORAS 243 — la
 serie necesita una tercera cuenta o se queda ciega a esta familia.
+
+## 2026-09-14 · Dos vetos que no dependen del criterio, y una serie que ya no puede decir que todo va bien
+**LA REGLA DEL APELLIDO, apuntada porque es el principio y no la anécdota:** el juez cazó «Dr. Sergio
+Camacho» y dejó pasar «el Dr. Iván» tres veces. **La diferencia entre lo cazado y lo colado era una
+palabra** — y un veto que depende de cómo de completo sea el nombre no es un veto (Simon). Por eso
+`veto:doctor` va por TROZOS, nombre de pila y apellidos por separado, y no por la cadena entera.
+**HECHO (241):** veto determinista del doctor de la ficha. Es determinista porque el dato lo ponemos
+nosotros: sale de la ficha y lo escribe el código en los DATOS QUE CONSTAN. Exime lo que es suyo —su
+propio nombre y lo que ella haya escrito en el hilo—, y la DEMO tiene la colisión real que lo obliga:
+la paciente Lucía Ferrer y la doctora Lucía Ferrer. Corre **al final** de `vetoDeterminista`, así que
+el bucle del control lo mira en la SEGUNDA vuelta, después de la reescritura — que es donde hacía
+falta, porque el caso medido lo fabricó la reescritura.
+**HECHO (242), y el diseño cambió al medirlo.** Como veto a secas, «Hola María» acababa en DESCARTE:
+la poda se niega a cortar esa oración porque dentro va la respuesta a lo que preguntó, y el paciente
+recibía una plantilla por una palabra. Ahora el control **corrige sin modelo**: quita el nombre y
+deja el saludo. **No lo sustituye por el que consta** — en un teléfono compartido la titular de la
+ficha no es quien escribe, y «Hola Carmen» a su hija es el mismo error con otro nombre; quitar no
+dice nada falso. Y se retiró media regla por un FP medido: el vocativo de cierre («…, Carlos.») tiene
+el patrón de un topónimo y cazaba «la calle Antonio López, Usera».
+**LA MEDIDA, sobre los mismos 14 mensajes y sin rejugar ($0,15):** los 3 volcados del doctor y el
+nombre inventado, **cazados los 4**; el control interviene en 5/14 y **mata 0/14** (antes 1). Barrido
+de precisión aparte, coste $0: **263 mensajes de todos los fixtures y decisores, 4 señalados, los 4
+de verdad** — cero falsos positivos.
+**HECHO (243): la tercera cuenta, y no por la vía barata.** Contar intervenciones del control habría
+dado **cero justo en la pasada que motivó esto**, porque lo que se coló no lo cazó nadie. Se cuenta
+lo que SALIÓ, pasando los mismos vetos deterministas sobre el texto enviado: coste $0. Dos columnas
+—**C vuelca** y **C inventa**—, que no se funden con A ni con B. La serie entera queda en 0/0 salvo
+la pasada de la ficha: **3/14 y 1/14**, que es exactamente lo que el A=0 escondía.

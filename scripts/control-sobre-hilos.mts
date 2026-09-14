@@ -31,6 +31,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { sql } from "kysely";
 import { runWithClienteDb } from "../app/lib/db/context";
 import { runWithCliente } from "../app/lib/cliente-contexto";
+import { GUIONES } from "./hilos-jugados-guiones.mts";
 import { parseConocimiento, renderConocimiento, type ConocimientoClinica } from "../app/lib/agente/conocimiento";
 import { controlarBorrador } from "../app/lib/agente/control-borrador";
 import { RUTA_FIXTURE, type FixtureHilos } from "../app/lib/agente/hilos-jugados";
@@ -124,7 +125,18 @@ for (const h of fix.hilos) {
   if (solo && !solo.includes(h.guion.id)) continue;
   const d = h.decisores[decisor];
   if (!d) continue;
-  const publicado = await publicadoDe(clinicaDe.get(h.guion.id) ?? null);
+  // LA FICHA del guion (14-09) en los datos que constan, como en producción:
+  // sin estas dos líneas el veto del doctor no tendría nada que buscar y este
+  // replay mediría un control con una guarda menos que la de verdad.
+  const mundo = GUIONES.find((g) => g.id === h.guion.id)?.mundo.paciente;
+  const nombrePersona = [mundo?.nombre, GUIONES.find((g) => g.id === h.guion.id)?.nombrePerfil].filter(Boolean).join(" ") || null;
+  const publicado = [
+    await publicadoDe(clinicaDe.get(h.guion.id) ?? null),
+    mundo?.doctor ? `Doctor que la atiende: ${mundo.doctor}` : null,
+    mundo?.tratamiento ? `Tratamiento en curso: ${mundo.tratamiento}` : null,
+  ]
+    .filter((x): x is string => x != null && x !== "")
+    .join("\n");
   console.log(`\n══ ${h.guion.id} · ${h.guion.titulo}`);
   for (const m of d.mensajes) {
     if (m.quien !== "agente" || !m.texto?.trim()) continue;
@@ -135,6 +147,7 @@ for (const h of fix.hilos) {
       datosQueConstan: publicado,
       ultimoMensaje: previo,
       dichoPorLaPersona: d.mensajes.filter((x) => x.quien !== "agente" && x.n <= m.n).map((x) => x.texto).join(" · ").slice(-1500),
+      nombrePersona,
       turnoEntrega: true,
     });
     usdIn += r.usage?.inputTokens ?? 0;

@@ -189,6 +189,10 @@ export async function borradorDeEntrada(args: {
   const control = await controlarBorrador(borrador, {
     datosQueConstan: contexto,
     ultimoMensaje: args.ultimoMensaje ?? undefined,
+    // Para el veto de vocativo (14-09): aquí solo consta el nombre de la ficha
+    // —este camino no lleva el hilo entero—, así que la guarda caza un nombre
+    // inventado en el saludo y nada más. Sin nombre, la regla se queda quieta.
+    nombrePersona: ficha.nombre,
     turnoEntrega: true,
     citaConsta: ficha.lead?.fechaCita != null,
   });

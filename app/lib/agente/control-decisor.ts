@@ -92,6 +92,7 @@ export async function controlarMensajeDelDecisor(a: {
       datosQueConstan: a.datosQueConstan,
       ultimoMensaje: a.ultimoMensaje,
       dichoPorLaPersona: a.dichoPorLaPersona,
+      nombrePersona: a.nombre,
       turnoEntrega: a.turnoEntrega,
       citaConsta: a.citaConsta,
       idioma,
