@@ -580,51 +580,57 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   const OBJ = { etapa: "cita", proposito: "Recoger lo necesario para poder cerrarle una cita sin volver a preguntar." };
 
   const nivel1 = renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n");
-  ok("nivel 1: el papel dice que la agenda la lleva el equipo, no que esté prohibido hablar de ella",
-    /la disponibilidad la tiene el equipo/i.test(nivel1) && /pas[áa]rselo al equipo para que la reserven/i.test(nivel1));
-  ok("nivel 1: el horario publicado se declara como APERTURA, no como disponibilidad",
-    /horario publicado es cu[áa]ndo ABRE/i.test(nivel1));
-  // MEJORAS 237 (14-09) — LAS TRES REGLAS DEL REDACTOR. Se afirma cada una por
-  // su propiedad, no por su literal entero: lo que no puede desaparecer sin que
-  // esto se ponga rojo es la SITUACIÓN que describen.
-  // 237/1 · versión de Simon (14-09): lo explícito va DELANTE — lo que no
-  // puede hacer, y que ni siquiera sabe qué huecos hay.
-  ok("237/1 · el papel dice de entrada que NO reserva, NO agenda y NO sabe qué huecos hay",
+  // ─── EL MAPA (14-09, dictado de Simon) ───────────────────────────────────
+  // Las reglas estaban repartidas y se contradecían; ahora van en UN bloque, en
+  // orden. Esta vara comprueba las dos mitades del cambio: que cada punto del
+  // mapa está, y que NINGUNA de las frases retiradas sobrevive suelta por ahí
+  // — un bloque nuevo MÁS las viejas es peor que no haberlo movido.
+  ok("1 · QUÉ ERES: de entrada, que NO reserva, NO agenda y NO sabe qué huecos hay",
     /no reservas ni agendas nada y no sabes qu[ée] huecos hay/i.test(nivel1));
-  // Y lo que se quitó a propósito de su borrador: un PLAZO. «Lo antes posible»
-  // es lo único de esa frase que se puede incumplir.
-  ok("237/1 · y NO promete ningún plazo (eso sí se incumple si la coordinadora tarda)",
+  ok("1 · y NO promete ningún plazo (eso sí se incumple si la coordinadora tarda)",
     !/lo antes posible|en breve|enseguida|hoy mismo/i.test(nivel1));
-  ok("237/2 · el día lo pone la persona, y se le devuelve tal cual: ni más concreto, ni más amplio",
-    /el d[íi]a y la hora los pone la persona/i.test(nivel1) && /ni m[áa]s concretos, ni m[áa]s amplios/i.test(nivel1));
-  ok("237/2 · con los DOS incisos: si no lo ha dicho, PREGUNTAR (sin esto la regla lo vuelve mudo)",
-    /si no los ha dicho, preg[úu]ntaselos/i.test(nivel1));
-  // 237/3 · LA PRUEBA YA NO ESTÁ AQUÍ: se fue al paso 6 del procedimiento
-  // (14-09). Se afirma que NO está duplicada — con la regla en los dos sitios
-  // no se sabría cuál hizo efecto— y el paso 6 se prueba abajo, con el prompt.
-  ok("237/3 · la prueba antes de enviar ya NO está en el papel (es un paso, no una regla)",
-    !/no hubiera hueco donde ella ped[íi]a/i.test(nivel1));
+  ok("2 · el objetivo entra como PROPÓSITO en una frase, y con el orden de responder primero",
+    nivel1.includes(OBJ.proposito) && /primero contestas lo que te han preguntado/i.test(nivel1));
+  // La prueba de que esto no es un formulario con otro nombre: ninguna CLAVE
+  // de campo puede asomar. (Se buscan las claves, no las palabras.)
+  ok("3 · y NINGUNA clave de campo asoma (si no, es el formulario otra vez)",
+    !/nombre_completo|tratamiento_o_molestia|confirma_pago|via_pago|fecha_pago|motivo_no_cita|disponibilidad_primera_cita|que_necesita|es_paciente/.test(nivel1));
+  ok("3 · CÓMO SE PIDE: agrupar vale si hay congruencia, y la lista con «y además» NO",
+    /de la forma m[áa]s natural posible/i.test(nivel1) && /congruencia entre ellas/i.test(nivel1) && /y adem[áa]s/i.test(nivel1));
+  ok("4 · CUÁNDO CIERRAS: en ese mismo mensaje, en cuanto tiene lo que hace falta",
+    /cierras en ESE MISMO mensaje/i.test(nivel1) && /no lo alargues un turno m[áa]s/i.test(nivel1));
+  ok("4 · y el SEGUNDO motivo de cerrar: «ya no puedo avanzar yo» (sin él vuelven los hilos que mueren sin entregar)",
+    /ya no puedo avanzar yo/i.test(nivel1) && /p[áa]saselo a quien s[íi] pueda y cierra ah[íi]/i.test(nivel1));
+  ok("5 · EL LISTÓN: el equipo tiene que poder llamar y cerrar sin volver a preguntar nada",
+    /sin volver a preguntarle nada/i.test(nivel1));
+  ok("5 · con la salida que impide que el listón sea una puerta: pásalo diciendo qué falta",
+    /p[áa]salo igual diciendo qu[ée] falta/i.test(nivel1));
+  // EL PUNTO 6 RESTAURA lo que se le quitó a esta variante el 13-09 (la
+  // prohibición de agenda, que se fio al papel sin comprobar que lo cubriera).
+  // Y lleva la frase VERDADERA que sí puede decir: sin ella, un agente que ha
+  // recogido una preferencia no tiene forma honesta de acusar recibo y se
+  // inventa «te apunto» — que es el daño medido el 14-09 (0 → 5 afirma).
+  ok("6 · LA AGENDA: no da disponibilidades, no la ve, no reserva, y el horario publicado es APERTURA",
+    /no das disponibilidades/i.test(nivel1) && /horario publicado es cu[áa]ndo ABRE/i.test(nivel1));
+  ok("6 · el día lo pone ella, y lo ÚNICO afirmable es que sus preferencias están apuntadas",
+    /el d[íi]a y la hora los pone ella/i.test(nivel1) &&
+      /[úu]NICO que puedes afirmarle/i.test(nivel1) && /preferencias apuntadas/i.test(nivel1) && /mejor alternativa/i.test(nivel1));
   // Y lo que NO puede entrar: un ejemplo de cómo decirlo. MEJORAS 236 — un
   // ejemplo en un prompt es una regla, y saldría literal en cien conversaciones.
-  ok("237 · y NINGUNA frase-modelo que copiar (un ejemplo en un prompt es una regla)",
+  ok("y NINGUNA frase-modelo que copiar (un ejemplo en un prompt es una regla)",
     !/por ejemplo|p\. ej\.|«apunto tu preferencia/i.test(nivel1));
-  // El recorte deliberado: la regla 1 es más estrecha que el papel del 13-09, y
-  // sustituirla del todo habría metido una segunda corrección de tapadillo.
-  ok("237 · no se ha perdido recoger lo que hace falta para poder CERRAR la cita",
-    /lo que haga falta para poder cerrarle la cita/i.test(nivel1));
-  ok("el objetivo entra como PROPÓSITO en una frase", nivel1.includes(OBJ.proposito));
-  // La prueba de que esto no es un formulario con otro nombre: ninguna CLAVE
-  // de campo puede asomar por aquí. (Se buscan las claves, no las palabras:
-  // «disponibilidad» es además español normal y sale en el papel del nivel 1.)
-  ok("y NINGUNA clave de campo asoma (si no, es el formulario otra vez)",
-    !/nombre_completo|tratamiento_o_molestia|confirma_pago|via_pago|fecha_pago|motivo_no_cita|disponibilidad_primera_cita|que_necesita|es_paciente/.test(nivel1));
-  // 14-09 — LA DOCTRINA CAMBIÓ, y el test con ella. Hasta hoy se le escondía QUÉ
-  // tenía que conseguir («no hay una lista que rellenar») porque la lista lo
-  // volvía un formulario. Medido: con el permiso de agrupar preguntas ya dado y
-  // sin saber qué le faltaba, preguntaba 0,55 cosas por mensaje y NUNCA dos.
-  // Corrección de Simon: la lista dice QUÉ; el criterio pone CÓMO.
-  ok("la lista dice QUÉ y el criterio pone CÓMO (la doctrina de Simon, 14-09)",
-    /lo que tienes que llegar a saber/i.test(nivel1) && /c[ÓO]MO se pide lo juzgas t[úu]/i.test(nivel1));
+  ok("la prueba antes de enviar NO está aquí (es un paso del procedimiento, no una regla)",
+    !/no hubiera hueco donde ella ped[íi]a/i.test(nivel1));
+
+  // LAS RETIRADAS. Cada una vivía en otro sitio y decía lo mismo o lo contrario.
+  ok("RETIRADA · el acelerador ya no está DOS veces ni el inciso del goteo («solo si encaja»)",
+    !/solo si encaja/i.test(nivel1) && nivel1.split("cierras en ESE MISMO mensaje").length === 2);
+  ok("RETIRADA · la regla 2 vieja («devuélveselos tal y como ella los dijo») ya no vive aparte",
+    !/ni m[áa]s concretos, ni m[áa]s amplios/i.test(nivel1));
+  ok("RETIRADA · los dos punteros de la lista («no las palabras con las que preguntarlo») se fundieron",
+    !/no las palabras con las que preguntarlo/i.test(nivel1) && !/lo juzgas t[úu], como todo lo dem[áa]s/i.test(nivel1));
+  ok("RETIRADA · y ya NO limita a una cosa por mensaje (era lo que creaba el gota a gota)",
+    !/pides UNA cosa/i.test(nivel1) && !/una pregunta como mucho/i.test(nivel1));
 
   // EL ESTADO DEL CONTRATO: lo que consta va primero (para NO preguntarlo) y lo
   // que falta va en prosa, nunca en viñetas — un modelo imita la forma de su
@@ -638,33 +644,11 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
     ok("lo que YA se sabe se dice para no preguntarlo, y va antes que lo que falta",
       conContrato.indexOf("YA SABES") > 0 && conContrato.indexOf("YA SABES") < conContrato.indexOf("TE FALTA"));
     ok("lo que falta entra en PROSA, sin viñetas ni signos de pregunta que copiar",
-      /TE FALTA[^\n]*qué días y franjas le vienen bien/.test(conContrato) && !/\n\s+- (dolor|qué días)/.test(conContrato) && !/¿/.test(conContrato.split("TE FALTA")[1] ?? ""));
-    ok("y se le dice que la lista es lo que hay que SABER, no cómo preguntarlo",
-      /no las palabras con las que preguntarlo/i.test(conContrato));
+      /TE FALTA[^\n]*qué días y franjas le vienen bien/.test(conContrato) && !/\n\s+- (dolor|qué días)/.test(conContrato) && !/¿/.test(conContrato));
     const sinContrato = renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n");
     ok("sin contrato (hilo antiguo o sin objetivo) no se inventa ninguna de las dos líneas (§4)",
       !/YA SABES|TE FALTA/.test(sinContrato));
   }
-  // EL ORDEN DENTRO DEL PAPEL (13-09): un papel sin orden lo elige el modelo, y
-  // el que elegía era recoger primero. Se afirma la propiedad —contestar antes
-  // que recoger— y que «pasa el caso» NO sea lo último pegado al propósito.
-  ok("el papel declara el ORDEN: primero contestar, después recoger",
-    /primero contestas lo que te han preguntado/i.test(nivel1) && /recoger va despu[ée]s/i.test(nivel1));
-  ok("y se permite no recoger nada este turno (sin eso, «después» se lee como «siempre»)",
-    /si no encaja, este turno no pides nada/i.test(nivel1));
-  ok("el orden va ANTES del cierre (que era lo pegado al propósito)",
-    nivel1.indexOf("primero contestas") < nivel1.indexOf("pasas el caso"));
-  // 13-09 noche — el CIERRE, y la licencia acotada por el final y no por el goteo.
-  ok("el papel manda CERRAR en el mismo mensaje en cuanto tiene lo que hace falta",
-    /EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje/.test(nivel1) && /no lo alargues un turno m[áa]s/i.test(nivel1));
-  ok("y ya NO limita a una cosa por mensaje (era lo que creaba el gota a gota)",
-    !/pides UNA cosa/i.test(nivel1));
-  // 13-09 noche (Carlos): cerrar tiene DOS motivos. El segundo es la regla de
-  // insistencia dicha como papel — sin enumerar «precio», «horarios» ni nada.
-  ok("cerrar tiene un SEGUNDO motivo: «ya no puedo avanzar yo»",
-    /ya no puedo avanzar yo/i.test(nivel1) && /vuelve sobre algo que ya le contestaste/i.test(nivel1));
-  ok("y dice qué hacer con ello: pasarlo a quien sí pueda y cerrar ahí, sin repetirse",
-    /p[áa]saselo a quien s[íi] pueda y cierra ah[íi]/i.test(nivel1) && /tercera vez/i.test(nivel1));
 
   const sinObjetivo = renderAlcance(CONOCIMIENTO_VACIO, null).join("\n");
   ok("sin caso abierto NO se inventa nada que recoger", /no hay nada pendiente que recoger/i.test(sinObjetivo) && !sinObjetivo.includes(OBJ.proposito));
@@ -709,8 +693,14 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
     /no lo borres/i.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
   ok("el LIBRE sigue sin paso 6: es el control", !/ANTES DE DARLO POR BUENO/.test(SYSTEM_PROMPT_SOMBRA_LIBRE));
   ok("el libre conserva su tope de una pregunta (es el control)", SYSTEM_PROMPT_SOMBRA_LIBRE.includes("Una pregunta como mucho."));
-  ok("y el alcance deja el número al juicio del modelo", !SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("Una pregunta como mucho.")
-    && /encajan juntas y no parece un interrogatorio/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
+  // 14-09 — la cadencia del alcance ya no es una REGLA aquí: es un puntero al
+  // mapa, donde vive como «CÓMO SE PIDE». La vara comprueba las dos mitades:
+  // que el tope del libre no está, y que aquí no ha quedado una segunda copia
+  // de la regla (un bloque nuevo MÁS la vieja suelta es peor que no moverla).
+  ok("y el alcance no tiene tope ni una segunda copia de la regla: apunta al mapa",
+    !SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("Una pregunta como mucho.") &&
+      !/encajan juntas y no parece un interrogatorio/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE) &&
+      /en tu mapa \(abajo\)/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
   // §25 — la versión tiene que cubrir TODO el diseño del decisor. La tercera
   // pieza del alcance viaja en la ENTRADA: si la versión fuera solo el system,
   // cambiar esa plantilla dejaría dos agentes distintos con la misma etiqueta.

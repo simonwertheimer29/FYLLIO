@@ -658,3 +658,31 @@ que el juez cambie. Se reporta el par (aciertos/total), nunca el porcentaje solo
 > con eso se pagaron $0,28 en dos versiones «mejores»: una regla de «ventana» dio 24/35 con descarte
 > 49/56, y «mira el objeto, no el verbo» dio 27/35 con descarte 35/56 — las dos, un bloque a costa
 > del otro. Y la primera no midió nada porque llevaba dos cambios dentro.
+
+### 30. Retirar una guarda porque «otra pieza ya lo cubre» obliga a medirlo en la MISMA entrega
+
+El 13-09 se le quitó a una variante del agente la prohibición de agenda («ni huecos ni días
+libres… ni "te la reservo"») confiando en que el papel del alcance la cubriría dicha como
+descripción en vez de como veto. **Nadie comprobó que la cubriera.** El hueco quedó abierto
+días y lo destapó un cambio que no tenía nada que ver —darle al agente la lista de qué
+conseguir—: el daño enviado al paciente pasó de 0 a 9 en una pasada, y el mecanismo era que
+el agente convertía la disponibilidad que la persona dijo en un hueco propio, sin ninguna
+regla que se lo impidiera.
+
+Y no se vio antes por la razón más peligrosa: **el guardián tapaba el daño antes de que
+llegara a medirse.** Mientras una pieza de después corrige el fallo, la ausencia de la guarda
+de antes es invisible en la cifra de salida.
+
+**La regla.** Si se retira una guarda porque otra pieza la cubre:
+
+1. Se mide **en la misma entrega** que la retirada, no «más adelante» — con la vara que
+   habría cazado lo que la guarda cazaba.
+2. Se mide sobre **lo que escribe el agente** (el borrador), no solo sobre lo que sale: una
+   pieza posterior puede estar tapando el hueco y la cifra de salida no lo delata.
+3. Si no se puede medir en esa entrega, **la guarda no se retira**. Dos copias de una regla
+   cuestan tokens; un hueco cuesta una conversación con un paciente.
+
+Corolario, y es el mismo mandamiento visto del revés: cuando una doctrina se MUEVE de sitio
+—de un prompt a otro, de veto a papel, de regla a paso— la vara tiene que afirmar las dos
+mitades: **que está donde debe, y que NO sobrevive donde estaba.** Un bloque nuevo más las
+frases viejas sueltas es peor que no haberlo movido: se contradicen y el modelo elige.

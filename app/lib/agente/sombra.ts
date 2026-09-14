@@ -148,8 +148,13 @@ const PASO_4_ALCANCE =
  *  suelo. Si el alcance gana, esto sube al prompt compartido y se rehace la
  *  línea base de C. */
 const CADENCIA_LIBRE = "Una pregunta como mucho.";
-const CADENCIA_ALCANCE =
-  "Las preguntas que hagan falta si encajan juntas y no parece un interrogatorio — cuántas caben lo juzgas tú, como todo lo demás.";
+// 14-09 — YA NO ES UNA REGLA AQUÍ, es un puntero. Su contenido («las preguntas
+// que hagan falta si encajan juntas y no parece un interrogatorio») es el punto
+// «CÓMO SE PIDE» del mapa, en `renderAlcance`. Estaba escrita desde el 13-09 y
+// medida como inerte: con el permiso de agrupar dado y sin saber QUÉ le faltaba,
+// el agente preguntaba 0,55 cosas por mensaje y nunca dos. Tenerla en los dos
+// sitios sería el reparto que el mapa viene a deshacer.
+const CADENCIA_ALCANCE = "Cuántas preguntas caben y cómo se piden, en tu mapa (abajo).";
 /** EL PASO 6: LA PRUEBA ANTES DE ENVIAR (14-09, tras medir MEJORAS 237).
  *
  *  Era la tercera regla del PAPEL y no se ejecutaba. No porque estuviera mal

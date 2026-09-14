@@ -788,12 +788,16 @@ const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string[]> = {
     // mordió, «inventar días» pasó de 3 a 1— y la línea del horario de
     // apertura sigue igual, que es doctrina de MEJORAS 236 y su texto no la
     // cubre.
-    "No reservas ni agendas nada y no sabes qué huecos hay: la disponibilidad la tiene el equipo. Lo tuyo es recoger cuándo le viene bien y lo que haga falta para poder cerrarle la cita, y pasárselo al equipo para que la reserven.",
-    "El horario publicado es cuándo ABRE la clínica, no tu disponibilidad.",
-    // Regla 2 — de quién es el día. Los dos incisos («si no los ha dicho» / «si
-    // ya los ha dicho») son los que dejan que el agente AVANCE: sin el primero,
-    // la regla se lee como «no hables del día» y lo vuelve mudo.
-    "El día y la hora los pone la persona. Si no los ha dicho, pregúntaselos. Si ya los ha dicho, devuélveselos tal y como ella los dijo: ni más concretos, ni más amplios.",
+    // QUÉ ERES. Es la primera mitad de la regla de Simon del 14-09, que es la
+    // única frase del papel con una mejora MEDIDA (daño del redactor 8 → 1). Su
+    // cola —«lo tuyo es recoger … y pasárselo al equipo para que la reserven»—
+    // ya no vive aquí: se fue al punto 3 del mapa (el listón), que dice lo
+    // mismo con un criterio de resultado en vez de una descripción.
+    "No reservas ni agendas nada y no sabes qué huecos hay: la disponibilidad la tiene el equipo.",
+    // LA REGLA 2 YA NO ESTÁ AQUÍ (14-09, segunda vez del día): se absorbió en
+    // el punto 4 del mapa, que dice lo mismo y además da la frase verdadera que
+    // SÍ puede decir. Tenerla en los dos sitios es el reparto que este cambio
+    // viene a deshacer: la doctrina de quién pone el día vive en UN sitio.
     // La regla 3 VIVÍA AQUÍ y se fue al PASO 6 del procedimiento (14-09, tras
     // medir la 237). No porque estuviera mal escrita —aplicada a «paso al
     // equipo para que te reserve la cita» da mentira a la primera— sino porque
@@ -864,35 +868,51 @@ export function renderAlcance(
   for (const regla of PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]) lineas.push(`- ${regla}`);
   lineas.push(
     objetivo
-      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Y cerrar no es solo «ya tengo lo que hace falta»: también es «ya no puedo avanzar yo» — si vuelve sobre algo que ya le contestaste y no tienes nada nuevo que darle, dilo con franqueza, pásaselo a quien sí pueda y cierra ahí; repetir la misma respuesta una tercera vez no le sirve a nadie. Lo que tienes que llegar a saber te lo digo abajo; CÓMO se pide lo juzgas tú.`
+      ? `- Con esta persona, ahora: ${objetivo.proposito} Primero contestas lo que te han preguntado; lo demás va después.`
       : "- Con esta persona no hay nada pendiente que recoger: contesta a lo que trae y ya. No busques un dato que pedirle.",
   );
-  // EL ESTADO DEL CONTRATO (14-09, corrección de Simon). Hasta hoy el agente no
-  // sabía QUÉ tenía que conseguir —la lista de campos se le escondía porque
-  // convertía la conversación en un formulario— y la consecuencia medida fue
-  // que preguntaba UNA cosa por mensaje, a ciegas, aunque el prompt ya le
-  // permitía agrupar («Las preguntas que hagan falta si encajan juntas…», que
-  // llevaba tres pasadas sin usarse: 0,55 preguntas por mensaje y CERO mensajes
-  // con dos, sobre 42).
+  // ─── EL MAPA (14-09, dictado de Simon) ──────────────────────────────────
   //
-  // Va en PROSA y no en viñetas, y es deliberado: un modelo imita la forma de
-  // su entrada, y una lista entra como lista y sale como lista —«dame tus
-  // horarios. Y dime además si es urgencia»—, que es exactamente el
-  // interrogatorio que esto viene a evitar. La lista dice QUÉ; el criterio de
-  // CÓMO ya está arriba y no se repite aquí.
+  // POR QUÉ UN BLOQUE Y NO CUATRO REGLAS SUELTAS. Las reglas estaban
+  // repartidas —unas en el papel, otras en el procedimiento numerado, otras en
+  // la línea del objetivo— y se contradecían entre sí: «cierra ya» en un sitio,
+  // «una pregunta como mucho» en otro, y desde esta mañana la lista de qué
+  // conseguir en un tercero. Con tres órdenes que tiran distinto, el modelo
+  // elige una, y eligió mal: la pasada de hoy arregló la recogida (contrato
+  // 2/4 → 4/4) y rompió lo enviado (0 → 5 afirma, 0 → 4 se arroga).
   //
-  // Y LO QUE YA CONSTA VA PRIMERO, porque su función es que NO se pregunte: un
-  // paciente fichado al que se le pide el nombre es el fallo que el código ya
-  // sabía evitar (para contar el caso completo) y que el prompt no sabía.
+  // No hay doctrina nueva aquí: son las MISMAS reglas, en orden, y cada una
+  // retirada del sitio donde estaba (ver arriba, y `CADENCIA_ALCANCE` en
+  // sombra.ts). El orden es el de Simon y es un mapa: qué eres · qué tienes que
+  // conseguir · cómo se pide · cuándo cierras · qué pasa después.
+  //
+  // El punto 4 NO es una regla nueva aunque lo parezca: RESTAURA la prohibición
+  // de agenda que se le quitó a esta variante el 13-09 confiando en que el
+  // papel la cubriría. Nadie comprobó que la cubriera —y el guardián tapaba el
+  // daño antes de que llegara a medirse—, así que el hueco lleva días abierto y
+  // lo ha destapado un cambio que no tenía nada que ver. Y la dice mejor que la
+  // versión retirada, porque además de prohibir da la frase verdadera que SÍ
+  // puede decir: sin eso, el agente que ha recogido una preferencia no tiene
+  // ninguna forma honesta de acusar recibo, y se inventa «te apunto».
   if (objetivo?.sabido?.length) {
     lineas.push(`- LO QUE YA SABES de ella, y por tanto NO le preguntas: ${objetivo.sabido.join("; ")}.`);
   }
   if (objetivo?.falta?.length) {
+    lineas.push(`- LO QUE TE FALTA para poder pasarle el caso al equipo: ${objetivo.falta.join("; ")}.`);
+  }
+  if (objetivo) {
     lineas.push(
-      `- LO QUE TE FALTA para poder pasarle el caso al equipo: ${objetivo.falta.join("; ")}.` +
-        " Eso es lo que tienes que LLEGAR A SABER, no las palabras con las que preguntarlo: con lo que acaba de decirte, decides tú qué cabe en este mensaje y cómo se lo pides.",
+      "- CÓMO SE PIDE: tu objetivo es conseguir lo que falta de la forma más natural posible." +
+        " Agrupar preguntas está bien, pero solo si tienen congruencia entre ellas: nunca una lista encadenada con «y además».",
+      "- CUÁNDO CIERRAS: en cuanto tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso; no lo alargues un turno más." +
+        " Y cerrar no es solo «ya lo tengo todo»: también es «ya no puedo avanzar yo» — si vuelve sobre algo que ya le contestaste y no tienes nada nuevo que darle, dilo con franqueza, pásaselo a quien sí pueda y cierra ahí.",
+      "- QUÉ PASA DESPUÉS: cuando lo pases, el equipo tiene que poder llamarla y cerrarle la cita sin volver a preguntarle nada." +
+        " Si algo no te lo puede dar ella, o no viene a cuento pedírselo, pásalo igual diciendo qué falta.",
+      "- Y LA AGENDA: tú no das disponibilidades. No la ves, no reservas y el horario publicado es cuándo ABRE la clínica, no tu disponibilidad." +
+        " El día y la hora los pone ella. Lo ÚNICO que puedes afirmarle es que tienes sus preferencias apuntadas y que el equipo buscará la mejor alternativa para ella.",
     );
   }
+
   if (c.alcance.urgencias?.atiende === false && c.alcance.urgencias.textoNoAtiende) {
     lineas.push(
       `- Esta clínica NO atiende urgencias. Si la persona trae una, tu papel es reproducir EXACTAMENTE este texto de la clínica y nada más: «${c.alcance.urgencias.textoNoAtiende}»`,

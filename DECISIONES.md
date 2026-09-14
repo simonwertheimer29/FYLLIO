@@ -5819,3 +5819,32 @@ subconjunto de los 4 comparables —241 solo tiene esos cuatro— filtrado a man
 (`lead_precio/alcance`, evaluador en fallback en el turno 1), lo dejó fuera del fixture y sacó el pase
 con salida 1; y el campo `fuente` da su primer dato: de 3 intervenciones, **2 el juez y 1
 `veto:valora`**.
+
+## 2026-09-14 · El mapa: las mismas reglas, en orden, y ninguna suelta por ahí
+**Encargo de Simon tras ver que la lista arregla la recogida y rompe lo enviado: el problema de fondo
+es que las reglas estaban repartidas —unas en el papel, otras en el procedimiento numerado, otras en
+la línea del objetivo— y se contradecían.** «Cierra ya» en un sitio, «una pregunta como mucho» en
+otro, la lista de qué conseguir en un tercero. Con tres órdenes que tiran distinto, el modelo elige, y
+eligió mal. Ahora hay UN bloque, en su orden: **qué eres · qué tienes que conseguir · cómo se pide ·
+cuándo cierras · qué pasa después · y la agenda.**
+**No hay doctrina nueva: son las mismas reglas retiradas de donde estaban.** Se fueron, en el mismo
+cambio: el acelerador («en cuanto tengas lo que hace falta, cierras…», que ahora vive en el punto de
+cerrar), el inciso del goteo («recoger solo si encaja — si no encaja, este turno no pides nada», que
+contradecía al punto de agrupar), la regla 2 entera («devuélveselos tal y como ella los dijo», que el
+punto de agenda subsume y dice mejor), la línea del horario, `CADENCIA_ALCANCE` (que pasa a ser un
+puntero al mapa) y los dos punteros que yo había escrito por la mañana. Se queda «primero contestas lo
+que te han preguntado» —es sobre responder, no sobre pedir— y el paso 6, que es una prueba antes de
+enviar y no una regla.
+**EL PUNTO DE LA AGENDA NO ES UNA REGLA NUEVA: RESTAURA la que se le quitó a esta variante el 13-09**
+—«ni huecos ni días libres… ni "te la reservo"»— confiando en que el papel la cubriría. Comprobado
+sobre el prompt renderizado: el `alcance` **no tenía ninguna prohibición de agenda**. Eso explica por
+qué el daño se disparó justo al darle una lista. Y la versión nueva es mejor que la retirada porque
+además de prohibir **da la frase verdadera que sí puede decir** («tengo tus preferencias apuntadas y
+el equipo buscará la mejor alternativa»): sin eso, un agente que acaba de recoger una preferencia no
+tiene forma honesta de acusar recibo, y se inventa «te apunto».
+**La vara afirma las DOS mitades** (`qa:conocimiento`): que cada punto del mapa está, y que ninguna de
+las seis frases retiradas sobrevive suelta. Un bloque nuevo MÁS las viejas es peor que no moverlo.
+**LA LECCIÓN, dictada por Simon y escrita como mandamiento 30:** cuando se retira una guarda porque
+otra pieza «ya lo cubre», hay que medirlo **en la misma entrega**, y sobre el BORRADOR —no solo sobre
+lo enviado—, porque una pieza posterior puede estar tapando el hueco y la cifra de salida no lo
+delata. Si no se puede medir ahí, la guarda no se retira.
