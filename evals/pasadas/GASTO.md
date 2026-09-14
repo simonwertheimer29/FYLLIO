@@ -277,3 +277,11 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   lanzar: ahí el agente pregunta por las franjas que ACABA de enumerar, o sea propone la apertura
   como huecos, y la frase nueva lo perdona. Y aparece un FP nuevo en L12 («Te buscamos hueco por las
   tardes»). Antes del cambio la vara iba 61/62 con P2 como único fallo · ac. **~$13,66**
+
+- **14-09 · La distinción de la pregunta que señala hacia atrás** (`qa:juez`, 63 casos) · **$0,211
+  medido** (anunciado ~$0,20) · **LA CIFRA: 62/63 con FN=0**, el mejor estado de la vara hasta hoy.
+  P2 vuelve a infringir y P4 sigue pasando: la línea que las separa es **si el borrador acaba de
+  enumerar días o franjas** — preguntar POR ELLAS es proponerlas; preguntar por los suyos, no. El
+  único fallo que queda es L12, y **ha cambiado de familia**: ya no señala la frase de agenda sino
+  «tienes un pago pendiente», que es justo el recordatorio en genérico que la regla permite. Cae
+  cerca de lo siguiente en la cola (el pago por contexto) · ac. **~$13,87**

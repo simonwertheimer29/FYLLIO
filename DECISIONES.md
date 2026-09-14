@@ -5898,3 +5898,18 @@ GUARDIÁN** (positivo = ensucia, negativo = salva, cero = no toca). Hoy la fila 
 a corregir al redactor por un fallo del guardián. Las pasadas viejas salen con «—» y no con 0 (§4):
 sus juicios se pisaban entre sí porque el nombre del fichero solo llevaba la fecha — **arreglado, el
 nombre lleva ahora el fixture**, así que a partir de hoy cada pasada conserva su daño medido.
+
+## 2026-09-14 · La pregunta que señala hacia atrás: 62/63 y ningún falso negativo
+**La distinción que faltaba, en una frase: «si el borrador acaba de enumerar días, horas o franjas,
+preguntar POR ELLAS es proponerlas».** Eso separa los dos casos que parecían el mismo: P2 («abrimos
+de 9:30 a 20:00… ¿te viene bien alguna franja?») vuelve a infringir, y P4 («¿qué días te vienen
+bien?», sin nada enumerado antes) sigue pasando. **62/63 con FN=0**, el mejor estado de la vara.
+**El FP que queda es L12 y ha CAMBIADO DE FAMILIA**: antes señalaba «Te buscamos hueco por las
+tardes» (agenda) y ahora señala «tienes un pago pendiente» — el recordatorio en genérico que la regla
+permite explícitamente. No es una regresión del cambio de hoy: es otro agujero, y cae justo al lado
+de lo siguiente en la cola (el pago pendiente por contexto). Se deja anotado, no se parchea sobre la
+marcha.
+**Y el criterio de Simon para el guardián, que manda de aquí en adelante:** mientras la columna B−A
+diga «ENSUCIA» no se puede juzgar si el juez aporta —solo sabemos que resta—. Cuando llegue a cero o
+a negativo, entonces se mira si salva uno o dos cada tantas pasadas sin estropear nada; si es así, se
+queda como un plus. Modificar, no retirar.
