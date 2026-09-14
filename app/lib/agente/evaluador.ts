@@ -265,6 +265,11 @@ export type EvaluacionTurno = {
   /** El modelo no contestó o contestó ilegible: fail-closed compat
    *  (requiere_persona + MOTIVO_FALLBACK en el caller), SIN eventos. */
   fallback: boolean;
+  /** 15-09 — POR QUÉ no se pudo evaluar, en castellano y con el mensaje real
+   *  de la API si lo hubo. Va a la INCIDENCIA: sin esto la pantalla decía «No
+   *  se pudo evaluar el mensaje automáticamente», que no dice nada, y la causa
+   *  (saldo agotado, clave mal, timeout, JSON ilegible) se quedaba en el log. */
+  motivoFallback?: string | null;
   /** cacheEscritura/cacheLectura (22-08): tokens del prefijo cacheado —
    *  aditivos y opcionales; los precios son distintos (1.25× / 0.1×) y sin
    *  separarlos la medición de coste del plan de negocio saldría inflada. */
@@ -812,9 +817,17 @@ async function juzgar(
   e: EntradaEvaluador,
   promptOverride?: string,
   modelo: ModeloEvaluador = "haiku",
-): Promise<{ juicio: JuicioModelo | null; descartes?: string[]; usage?: EvaluacionTurno["usage"] }> {
+): Promise<{ juicio: JuicioModelo | null; descartes?: string[]; usage?: EvaluacionTurno["usage"]; motivoFallo?: string }> {
+  // POR QUÉ FALLÓ, no solo QUE falló (15-09). Hasta hoy las cuatro causas
+  // —sin clave, error de la API, JSON ilegible, excepción— volvían todas como
+  // `{juicio: null}` y el porqué se quedaba en un `console.error` que nadie
+  // lee. La primera prueba real de Simon por WhatsApp fue exactamente eso: el
+  // agente no contestó, la incidencia dijo «No se pudo evaluar el mensaje
+  // automáticamente», y la causa —saldo de la API agotado, un 400 que el log
+  // sí traía— no llegó a la pantalla. Llevamos una semana cazando cosas que
+  // fallan en silencio; esta era una de ellas.
   const apiKey = process.env["ANTHROPIC_API_KEY"];
-  if (!apiKey) return { juicio: null };
+  if (!apiKey) return { juicio: null, motivoFallo: "falta ANTHROPIC_API_KEY en el entorno" };
 
   const clinicas = e.clinica ? [e.clinica] : [];
   const mapa = construirMapaAnonimizacion(clinicas);
@@ -847,8 +860,19 @@ async function juzgar(
       signal: controller.signal,
     });
     if (!res.ok) {
-      console.error("[evaluador] Claude API error:", res.status, await res.text());
-      return { juicio: null };
+      const cuerpo = await res.text();
+      console.error("[evaluador] Claude API error:", res.status, cuerpo);
+      // El mensaje de la API es lo ÚNICO que distingue «saldo agotado» de
+      // «clave revocada» o «modelo caído», y las tres se arreglan de forma
+      // distinta. Se recorta pero no se resume.
+      let detalle = cuerpo.slice(0, 300);
+      try {
+        const j = JSON.parse(cuerpo);
+        if (typeof j?.error?.message === "string") detalle = j.error.message;
+      } catch {
+        /* cuerpo no-JSON: vale el recorte */
+      }
+      return { juicio: null, motivoFallo: `la API respondió ${res.status}: ${detalle}` };
     }
     const data = await res.json();
     const usage = data.usage
@@ -868,12 +892,16 @@ async function juzgar(
     const parseado = parsearJuicio(raw, mapa);
     if (!parseado) {
       console.error("[evaluador] sin JSON en la respuesta:", raw.slice(0, 200));
-      return { juicio: null, usage };
+      return { juicio: null, usage, motivoFallo: `el modelo no devolvió un JSON legible: «${raw.slice(0, 120)}»` };
     }
     return { juicio: parseado.juicio, descartes: parseado.descartes, usage };
   } catch (err) {
-    console.error("[evaluador] juzgar error:", err instanceof Error ? err.message : err);
-    return { juicio: null };
+    const razon = err instanceof Error ? err.message : String(err);
+    console.error("[evaluador] juzgar error:", razon);
+    return {
+      juicio: null,
+      motivoFallo: err instanceof Error && err.name === "AbortError" ? "el modelo no contestó en 20 s (timeout)" : `error al llamar al modelo: ${razon}`,
+    };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -1042,7 +1070,7 @@ export async function evaluarTurno(
   const { texto: entradaRenderizada, truncado } = renderEntrada(e);
   // MEJORAS 174: la latencia de la llamada (solo la llamada) viaja en el payload.
   const t0Modelo = Date.now();
-  const { juicio, descartes, usage } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
+  const { juicio, descartes, usage, motivoFallo } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
   const latenciaMs = Date.now() - t0Modelo;
 
   if (!juicio) {
@@ -1063,6 +1091,7 @@ export async function evaluarTurno(
       respuesta: "",
       hiloTruncado: truncado,
       fallback: true,
+      motivoFallback: motivoFallo ?? null,
       usage,
       latenciaMs,
       modelo: MODELOS[opts?.modelo ?? "haiku"].id,

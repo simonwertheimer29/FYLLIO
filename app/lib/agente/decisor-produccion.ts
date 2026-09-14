@@ -131,7 +131,9 @@ export async function aplicarDecisorAlcance(args: {
       })
     : null;
 
+  const fallo: { razon: string | null } = { razon: null };
   const opts = {
+    fallo,
     variante: "alcance" as const,
     objetivo: defObjetivo
       ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito, sabido: contrato?.sabido, falta: contrato?.falta }
@@ -144,7 +146,8 @@ export async function aplicarDecisorAlcance(args: {
     await new Promise((r) => setTimeout(r, 2000));
     s = await pedirSombra(entrada, opts);
   }
-  if (!s || !s.mensaje?.trim()) return await aPersona(args, "el agente no contestó (sin respuesta del modelo tras un reintento)");
+  if (!s || !s.mensaje?.trim())
+    return await aPersona(args, fallo.razon ?? "el modelo no contestó y no dijo por qué (tras un reintento)");
 
   // EL MISMO CONTROL QUE YA CORRE, sobre el mensaje del decisor: veto → juez →
   // una reescritura → poda → descarte. No es una segunda revisión: es que el

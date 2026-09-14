@@ -369,7 +369,11 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   if (evaluacion.fallback) {
     await avisarFalloAgente({
       motivo: "modelo_no_disponible",
-      detalle: MOTIVO_FALLBACK_EVALUADOR,
+      // 15-09: el PORQUÉ, no la frase genérica. `motivoFallback` trae el
+      // mensaje real de la API cuando lo hubo — «saldo agotado», «clave
+      // inválida», «timeout»—, que es lo que dice qué hacer. La frase de
+      // siempre queda de respaldo por si el motivo no llega.
+      detalle: evaluacion.motivoFallback ?? MOTIVO_FALLBACK_EVALUADOR,
       clinicaId: clinicaConfig,
       telefono: e.telefono,
       mensajeId: e.mensajeId,

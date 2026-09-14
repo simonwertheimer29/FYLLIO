@@ -6141,3 +6141,28 @@ detrás, el reintento barato deja de ser un lujo. Uno, no tres — si la API est
 retrasa la entrega del caso a la persona, que es lo que de verdad ayuda.
 **EL AGENTE VIEJO NO SE ARREGLA** (decisión de Simon): `qa:recorridos` en 5/6 se queda así. Se
 retira, y gastar en confirmar por qué falla un camino que se va es tirar el dinero.
+
+## 2026-09-15 · La primera prueba real: no era el código, era el saldo — y la incidencia no lo decía
+**QUÉ FALLÓ, con el log real:** `[evaluador] Claude API error: 400 — «Your credit balance is too low
+to access the Anthropic API.»` **Saldo agotado.** Es una de las cuatro causas que se nombraron al
+montar el fail-closed, justamente la que se dio por no vista. Reproducido en local con el mismo
+teléfono y el mismo «hola»: contexto correcto, prompt correcto, objetivo `cita` abierto, y la llamada
+rechazada por la API.
+**Y CORRIGE UNA CONCLUSIÓN MÍA DE HACE DOS HORAS:** dije que `qa:recorridos` bajaba a 5/6 y que el
+sospechoso era la regla de las fechas molestando al agente viejo. **Era mentira.** Las incidencias de
+R5 y R6 son `modelo_no_disponible` a las 23:14, quince minutos antes del «hola» de Simon: los
+recorridos no cambiaron de comportamiento, **se quedaron sin API a mitad de la corrida**. La regla de
+las fechas no tiene nada que ver. Lección: un QA que falla justo después de un cambio se atribuye al
+cambio, y aquí la causa estaba en una tabla que no miré.
+**POR QUÉ PASÓ CON UN «HOLA» Y NO EN EL BANCO:** no hay nada distinto en el camino de producción. La
+pasada de los 10 guiones corrió a las 22:45 y el saldo se acabó entre esa pasada y las 23:14. El
+banco no falló porque corrió ANTES.
+**ARREGLADO LO QUE SÍ ERA NUESTRO: el porqué llega a la pantalla.** Las cuatro causas volvían todas
+como `{juicio: null}` y el motivo se quedaba en un `console.error`. Ahora `juzgar` devuelve
+`motivoFallo` —con el mensaje REAL de la API cuando lo hay— y el orquestador lo pone en la
+incidencia en vez de la frase genérica. La distinción importa porque las tres se arreglan distinto:
+«saldo agotado» se paga, «clave inválida» se rota, «timeout» se reintenta. Y lo mismo para el decisor
+nuevo (`pedirSombra` rellena un `fallo.razon` que el caller pasa), porque si el piloto se queda mudo
+hay que saber si fue la API o el modelo.
+**EL FAIL-CLOSED FUNCIONÓ TAL Y COMO SE DISEÑÓ:** no salió ningún mensaje, el caso está en la bandeja
+y la incidencia saltó. Lo que faltaba no era la guarda: era que dijera algo útil.

@@ -336,11 +336,19 @@ export async function pedirSombra(
      *  anterior. En producción NO se usa: ahí la sombra es prescindible y
      *  jamás puede romper el turno real. */
     estricto?: boolean;
+    /** 15-09 — DÓNDE DEJAR EL PORQUÉ cuando se devuelve null. Un objeto que el
+     *  caller pasa y esta función rellena: sin él, las cuatro causas (sin
+     *  clave, error de la API, JSON ilegible, excepción) son indistinguibles
+     *  desde fuera y la incidencia no puede decir qué pasó. Se hace así, y no
+     *  cambiando el tipo de retorno, porque `null` ya significa «no hay
+     *  sombra» en media docena de callers que no quieren saber más. */
+    fallo?: { razon: string | null };
   },
 ): Promise<RespuestaSombra | null> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) {
     if (opts?.estricto) throw new Error("sin ANTHROPIC_API_KEY: no se puede preguntar al decisor");
+    if (opts?.fallo) opts.fallo.razon = "falta ANTHROPIC_API_KEY en el entorno";
     return null;
   }
   const variante = opts?.variante ?? "produccion";
@@ -374,6 +382,16 @@ export async function pedirSombra(
       const cuerpo = await res.text();
       console.error(`[sombra:${variante}] Claude API error:`, res.status, cuerpo);
       if (opts?.estricto) throw new Error(`la API no contestó al decisor (${res.status}): ${cuerpo.slice(0, 200)}`);
+      if (opts?.fallo) {
+        let detalle = cuerpo.slice(0, 300);
+        try {
+          const j = JSON.parse(cuerpo);
+          if (typeof j?.error?.message === "string") detalle = j.error.message;
+        } catch {
+          /* cuerpo no-JSON: vale el recorte */
+        }
+        opts.fallo.razon = `la API respondió ${res.status}: ${detalle}`;
+      }
       return null;
     }
     const data = await res.json();
@@ -390,12 +408,15 @@ export async function pedirSombra(
     const parse = parsearSombra(desanonimizarTexto(raw, mapa));
     if (!parse) {
       console.error(`[sombra:${variante}] sin JSON legible en la respuesta:`, raw.slice(0, 200));
+      if (opts?.fallo) opts.fallo.razon = `el modelo no devolvió un JSON legible: «${raw.slice(0, 120)}»`;
       return null;
     }
     return { ...parse, variante, usage, latenciaMs, modelo: modelo.id, entrada: texto };
   } catch (err) {
-    console.error(`[sombra:${variante}] pedirSombra error:`, err instanceof Error ? err.message : err);
+    const razon = err instanceof Error ? err.message : String(err);
+    console.error(`[sombra:${variante}] pedirSombra error:`, razon);
     if (opts?.estricto) throw err instanceof Error ? err : new Error(String(err));
+    if (opts?.fallo) opts.fallo.razon = err instanceof Error && err.name === "AbortError" ? "el modelo no contestó en 20 s (timeout)" : `error al llamar al modelo: ${razon}`;
     return null;
   } finally {
     clearTimeout(timeoutId);
