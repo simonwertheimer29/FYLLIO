@@ -5767,3 +5767,31 @@ ANTES —mensaje medio de entrega 3,75 → 3,67 → **2,75**, mientras `libre` s
 **Y el guardián ya casi no trabaja contra este agente:** borradores tocados por el control en
 `alcance` 7/15 → 7/16 → **3/11**, y la familia AGENDA —para la que se construyó todo— **5 → 5 → 1**.
 En el control `libre` sigue en 2. La pieza no es inútil: es que este agente ya no la necesita.
+
+## 2026-09-14 · Qué le mandamos a Anthropic, y la ficha que no leemos
+**Diagnóstico pedido por Simon antes de meter doctor y tratamiento en el prompt. Tres hallazgos que
+cambian el mapa.** (1) **La ficha no es que no se cuente: no se lee.** `contexto-conversacion.ts`
+hace `select ["id","nombre","clinica_id"]` sobre `pacientes`; las columnas `tratamientos` y
+`doctor_id` existen y nadie las toca, la cita futura se consulta como booleano (`select id … limit
+1`), y los presupuestos filtran `estado not in (ACEPTADO, PERDIDO)` — o sea que **el tratamiento en
+curso está excluido por diseño**, porque este contexto nació para perseguir decisiones pendientes, no
+para describir a una persona. (2) **Lo que ya se sabe no está marcado como sabido:** `renderObjetivos`
+imprime TODOS los campos como preguntas cada turno; el código sí lo sabe (`faltantesDe` salta
+`nombre_completo` si `esPacienteConocido`) pero eso vive en el cálculo de «caso completo» y no viaja
+al prompt. Lo único que llega es un parche en prosa. Y `camposRecogidos` tampoco vuelve: el modelo
+re-extrae del hilo cada turno, lo que funciona para lo dicho y **no puede funcionar para lo que está
+en la ficha**. (3) **El criterio del CÓMO ya está escrito y lleva tres pasadas sin usarse**
+(`CADENCIA_ALCANCE`, 13-09): medido, 0,53 · 0,56 · 0,55 preguntas por mensaje y **cero mensajes con
+dos preguntas** en 42. El permiso está dado; lo que falta es el QUÉ. Eso sostiene la hipótesis de
+Simon y desmonta el miedo al formulario como primer riesgo.
+**LA ANONIMIZACIÓN ES DE MARCA, NO DE PACIENTE.** `anonimizacion.ts` sustituye SOLO el nombre de la
+clínica por «Clínica A» — su cabecera lo dice sin querer: «Anthropic nunca ve nombres reales de
+clientes», y el cliente es la clínica. El hilo entero, el nombre de pila, los importes y el
+tratamiento del presupuesto van en claro, y con un desconocido sin perfil de WhatsApp **va el
+teléfono** (`Persona: +34611997001`). La consecuencia: la línea de «dato de salud» no está por
+delante, está detrás — hoy ya mandamos síntomas escritos por la persona y el tratamiento de un
+presupuesto vivo.
+**Orden fijado con Simon:** «lo que ya se sabe» + «lo que falta» son UNA corrección (por separado,
+la segunda es dañina y la primera va a medias); el listón del 14-09 va después, en su propia
+medición. La consulta legal (retención cero, seudonimización del identificador) va aparte y no
+bloquea.
