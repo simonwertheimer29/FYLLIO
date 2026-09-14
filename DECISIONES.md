@@ -5491,3 +5491,33 @@ porque no pasó por la app.
 **Dónde vive el bloqueo de PIN, que también estaba mal en mi diagnóstico:** en Upstash KV
 (`FYLLIO_KV_REST_API_URL`, no `KV_REST_API_URL`), compartido y persistente — reiniciar el servidor NO
 lo limpia. Claves `pinfail:` / `pinblock:` por usuario y por IP, 5 intentos / 15 min.
+
+## 2026-09-14 · Airtable Central era un resto, y yo escribí una credencial en él
+Simon pregunta por qué el PIN tenía como «fuente de verdad» un servicio que dimos por retirado. La
+respuesta: **no la tenía. Era un resto muerto y yo me fié del comentario de un script en vez de
+comprobar si el servicio seguía vivo.** Las pruebas, todas independientes: `AIRTABLE_BASE_CENTRAL` no
+aparece ni una vez en `app/`; `app/lib/airtable.ts` es desde el 27-jul un reexport de
+`cliente-contexto` («de Airtable ya solo queda el nombre del archivo»); las variables se retiraron de
+Vercel el 29-jul; `findUsersByEmail` delega en Postgres sin flag ni fallback; y **el paquete `airtable`
+no está ni en `package.json` ni instalado**, así que los dos scripts que lo usaban NO PODÍAN ARRANCAR.
+Si Airtable hubiera desaparecido, no se rompía nada y nadie perdía el acceso.
+**El error, escrito para que no se repita:** al fijar el PIN nuevo lo escribí también en Airtable
+«para que el próximo seed no lo revierta». Esa premisa venía de la cabecera de un script de antes de
+la migración. Un comentario no es una comprobación — la misma lección de toda la semana (la ventana
+vaga, el contador, el nombre de la variable de KV), esta vez con una credencial de por medio. Nunca
+viajó el PIN en claro, solo el hash bcrypt, y solo esa cuenta.
+**Hecho, en el orden que pidió Simon:** (1) **export** de la base entera a
+`~/fyllio-backups/airtable-central-2026-09-14.json` —39 tablas, con datos solo en Clínicas (15),
+Usuarios (8) y Usuario_Clinicas (12)— **fuera del repo, porque lleva hashes dentro**; (2) vaciados
+`Pin_hash` y `Password_hash` de **los 8 usuarios**, no solo del de Simon: dejar los hashes de los
+demás en un servicio muerto es el mismo problema con otro nombre; (3) **borrados
+`db-seed-identidad.mjs` y `db-seed-demo.mjs`** y quitadas las cinco `AIRTABLE_*` de `.env.local`
+(copia del fichero en la misma carpeta de backups).
+**Por qué los scripts eran lo más urgente, con las palabras de Simon:** un script que dice «restaura
+identidad» y en realidad BORRA usuarios, clínicas y junctions para reinsertar una foto de julio es
+peor que no tener nada — «si alguna vez lo corro a las tres de la mañana buscando arreglar algo, me
+cargo el producto». Con ellos se fue también la instrucción de `PREVIEW-SUPABASE-VERCEL.md` que
+mandaba correr los dos, que era la trampa armada y esperando.
+**Postgres es desde hoy la única copia de las credenciales.** Hallazgo suelto que queda pendiente:
+`guard-service-role.mjs` ya salía en rojo ANTES de tocarlo (tres scripts usan
+`SUPABASE_DB_URL_ADMIN` fuera de la allowlist) — no es de este bloque, pero está roto.

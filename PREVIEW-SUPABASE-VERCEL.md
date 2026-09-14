@@ -57,10 +57,13 @@ solo como "Production", añádelas también a Preview):
 
 El estado de demo se regenera con (en tu máquina, contra el mismo Supabase):
 ```
-npm run demo:reset            # Airtable DEMO (fuente)
-node scripts/db-seed-demo.mjs # copia DEMO negocio → Postgres
-node scripts/db-seed-identidad.mjs  # identidad (usuarios/clínicas/junction) → Postgres
+npm run demo:reset            # wipe + seed de DEMO, todo contra Postgres
 ```
+
+> Los dos `node scripts/db-seed-*.mjs` que había aquí **se borraron el 14-09-2026**:
+> copiaban desde Airtable, que dejó de ser fuente de nada el 21-jul, y lo que hacían
+> de verdad era BORRAR usuarios, clínicas y junctions y reinsertar una foto de julio.
+> No restauraban: revertían. La identidad vive solo en Postgres.
 
 ## 6. Verificar que el Preview corre sobre Supabase
 
