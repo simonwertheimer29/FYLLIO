@@ -127,6 +127,73 @@ export const OBJETIVOS_POR_DEFECTO: readonly ObjetivoAgente[] = [
   },
 ];
 
+// ─── EL ESTADO DEL CONTRATO (14-09-2026) ───────────────────────────────────
+//
+// QUÉ SE SABE YA Y QUÉ FALTA, la MISMA cuenta que decide si el caso está
+// completo. Vivía dentro del evaluador (`faltantesDe`) y solo servía para eso:
+// el modelo veía la lista ENTERA de campos como preguntas, cada turno, sin
+// marca de cuáles estaban resueltos — y el código sabía perfectamente que a un
+// paciente fichado no se le pregunta el nombre, pero eso no viajaba al prompt.
+// Sale aquí para que la cuenta y el prompt no puedan divergir (§25): si
+// divergieran, al agente se le diría «te falta X» mientras el código da el caso
+// por cerrado, que es la familia de bug más cara que tenemos.
+export function camposFaltantes(
+  etapa: EtapaObjetivo,
+  campos: readonly CampoObjetivo[],
+  valores: Record<string, string | null> | undefined,
+  opts?: { esPacienteConocido?: boolean; hablaPorOtraPersona?: boolean },
+): string[] {
+  return campos
+    .map((c) => c.clave)
+    .filter((clave) => {
+      // Lo que el SISTEMA ya sabe no se le pide a la persona (fase B): el
+      // objetivo cita nació para leads y pedía nombre completo; un paciente
+      // fichado lo tiene en la ficha — sin esto, su caso no completaba NUNCA.
+      // …salvo que quien escribe NO sea ese paciente (hablaPorOtraPersona,
+      // 11-09): la hija de Carmen no tiene ficha, y su nombre completo es
+      // justo lo que la entrega necesita.
+      if (etapa === "cita" && clave === "nombre_completo" && opts?.esPacienteConocido && !opts?.hablaPorOtraPersona) return false;
+      const v = valores?.[clave];
+      return v == null || String(v).trim() === "";
+    });
+}
+
+/** La pregunta del campo, dicha como LO QUE HAY QUE SABER y no como la frase
+ *  con la que preguntarlo: «¿Qué días y franjas le vienen bien?» → «qué días y
+ *  franjas le vienen bien». Quitarle los signos no es cosmético — un texto con
+ *  forma de pregunta se copia literal, y eso es el interrogatorio. */
+const enLlano = (pregunta: string) =>
+  pregunta.trim().replace(/^¿/, "").replace(/\?$/, "").replace(/^./, (c) => c.toLowerCase());
+
+/** Lo que ya consta y lo que falta, en lenguaje llano, para dárselo al modelo.
+ *
+ *  LOS CONDICIONALES NO ENTRAN EN «falta». Un campo «solo si declina la cita» o
+ *  «solo si la menciona» está en null hasta que su rama se activa, y decirle al
+ *  agente que le falta saber «por qué no quiere cita» a alguien que acaba de
+ *  pedirla es fabricar el formulario que esto viene a evitar. El cálculo del
+ *  caso completo (`camposFaltantes`) NO cambia: ahí siguen contando igual. */
+export function estadoDelContrato(
+  etapa: EtapaObjetivo,
+  campos: readonly CampoObjetivo[],
+  valores: Record<string, string | null> | undefined,
+  opts?: { esPacienteConocido?: boolean; hablaPorOtraPersona?: boolean },
+): { sabido: string[]; falta: string[] } {
+  const faltan = new Set(camposFaltantes(etapa, campos, valores, opts));
+  const sabido: string[] = [];
+  const falta: string[] = [];
+  for (const c of campos) {
+    if (faltan.has(c.clave)) {
+      if (!c.condicion) falta.push(enLlano(c.pregunta));
+      continue;
+    }
+    const v = valores?.[c.clave];
+    // Resuelto por la FICHA (no lo dijo ella): se nombra como lo que es.
+    if (v == null || String(v).trim() === "") sabido.push(`${enLlano(c.pregunta)} (consta en su ficha)`);
+    else if (String(v).trim() !== "no_aplica") sabido.push(`${enLlano(c.pregunta)}: ${String(v).trim()}`);
+  }
+  return { sabido, falta };
+}
+
 // ─── El parser de la configuración guardada ────────────────────────────────
 //
 // `configuracion_automatizaciones.objetivos` es un JSON-string (D5).

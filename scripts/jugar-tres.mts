@@ -73,6 +73,7 @@ import { dirname } from "node:path";
 import { sql } from "kysely";
 import { evaluarTurno, renderDatosQueConstan, SYSTEM_PROMPT_EVALUADOR, type EntradaEvaluador, type EvaluacionTurno } from "../app/lib/agente/evaluador";
 import { CONOCIMIENTO_VACIO, parseConocimiento, type ConocimientoClinica } from "../app/lib/agente/conocimiento";
+import { estadoDelContrato } from "../app/lib/automatizacion/objetivos";
 import { runWithClienteDb } from "../app/lib/db/context";
 import { construirEntradaDePrueba, relojDelBanco, type EscenarioPrueba, type TurnoPrueba } from "../app/lib/agente/banco-pruebas";
 import { avanzarSesion, SESION_NUEVA, type EstadoSesionPrueba } from "../app/lib/agente/sesion-prueba";
@@ -418,9 +419,21 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
       // otro nombre — pero es una asimetría con el libre y se dice al leer la
       // comparación.
       const defObjetivo = ev.objetivoActivo ? entrada.objetivosAbiertos.find((o) => o.etapa === ev.objetivoActivo) : null;
+      // EL ESTADO DEL CONTRATO (14-09): qué consta ya y qué falta, con la MISMA
+      // cuenta que usa el evaluador para decidir si el caso está completo
+      // (`camposFaltantes`, objetivos.ts). Es la corrección de Simon: hasta hoy
+      // el decisor sabía su propósito pero no QUÉ tenía que conseguir, y lo que
+      // el sistema ya sabía —el nombre de un paciente fichado— se le podía
+      // volver a preguntar.
+      const contrato = defObjetivo
+        ? estadoDelContrato(defObjetivo.etapa, defObjetivo.campos, ev.camposRecogidos[defObjetivo.etapa], {
+            esPacienteConocido: base.esPacienteConocido,
+            hablaPorOtraPersona: ev.juicios?.hablaPor != null,
+          })
+        : null;
       const opts = {
         variante: VARIANTE_DE[decisor],
-        objetivo: defObjetivo ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito } : null,
+        objetivo: defObjetivo ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito, sabido: contrato?.sabido, falta: contrato?.falta } : null,
         // §9 — «no pude preguntar» (sin clave, 4xx, timeout) LANZA y el hilo no
         // se guarda. «Contestó algo inservible» devuelve null y, tras el
         // reintento, LANZA TAMBIÉN (14-09): ver abajo.

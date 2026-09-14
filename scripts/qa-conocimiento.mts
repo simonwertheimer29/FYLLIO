@@ -618,7 +618,33 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   // «disponibilidad» es además español normal y sale en el papel del nivel 1.)
   ok("y NINGUNA clave de campo asoma (si no, es el formulario otra vez)",
     !/nombre_completo|tratamiento_o_molestia|confirma_pago|via_pago|fecha_pago|motivo_no_cita|disponibilidad_primera_cita|que_necesita|es_paciente/.test(nivel1));
-  ok("y se le dice que juzgue él qué falta", /lo juzgas t[úu]/i.test(nivel1) && /no hay una lista que rellenar/i.test(nivel1));
+  // 14-09 — LA DOCTRINA CAMBIÓ, y el test con ella. Hasta hoy se le escondía QUÉ
+  // tenía que conseguir («no hay una lista que rellenar») porque la lista lo
+  // volvía un formulario. Medido: con el permiso de agrupar preguntas ya dado y
+  // sin saber qué le faltaba, preguntaba 0,55 cosas por mensaje y NUNCA dos.
+  // Corrección de Simon: la lista dice QUÉ; el criterio pone CÓMO.
+  ok("la lista dice QUÉ y el criterio pone CÓMO (la doctrina de Simon, 14-09)",
+    /lo que tienes que llegar a saber/i.test(nivel1) && /c[ÓO]MO se pide lo juzgas t[úu]/i.test(nivel1));
+
+  // EL ESTADO DEL CONTRATO: lo que consta va primero (para NO preguntarlo) y lo
+  // que falta va en prosa, nunca en viñetas — un modelo imita la forma de su
+  // entrada, y una lista sale como lista.
+  {
+    const conContrato = renderAlcance(CONOCIMIENTO_VACIO, {
+      ...OBJ,
+      sabido: ["nombre completo (consta en su ficha)"],
+      falta: ["dolor ahora, esta semana, o sin prisa", "qué días y franjas le vienen bien"],
+    }).join("\n");
+    ok("lo que YA se sabe se dice para no preguntarlo, y va antes que lo que falta",
+      conContrato.indexOf("YA SABES") > 0 && conContrato.indexOf("YA SABES") < conContrato.indexOf("TE FALTA"));
+    ok("lo que falta entra en PROSA, sin viñetas ni signos de pregunta que copiar",
+      /TE FALTA[^\n]*qué días y franjas le vienen bien/.test(conContrato) && !/\n\s+- (dolor|qué días)/.test(conContrato) && !/¿/.test(conContrato.split("TE FALTA")[1] ?? ""));
+    ok("y se le dice que la lista es lo que hay que SABER, no cómo preguntarlo",
+      /no las palabras con las que preguntarlo/i.test(conContrato));
+    const sinContrato = renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n");
+    ok("sin contrato (hilo antiguo o sin objetivo) no se inventa ninguna de las dos líneas (§4)",
+      !/YA SABES|TE FALTA/.test(sinContrato));
+  }
   // EL ORDEN DENTRO DEL PAPEL (13-09): un papel sin orden lo elige el modelo, y
   // el que elegía era recoger primero. Se afirma la propiedad —contestar antes
   // que recoger— y que «pasa el caso» NO sea lo último pegado al propósito.

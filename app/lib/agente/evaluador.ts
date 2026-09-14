@@ -37,6 +37,7 @@ import {
   colaDeDerivacion,
   type CausaDerivacion,
 } from "../automatizacion/estado";
+import { camposFaltantes as calcularCamposFaltantes } from "../automatizacion/objetivos";
 import type { EtapaObjetivo, ObjetivoAgente } from "../automatizacion/objetivos";
 import { renderConocimiento, type ConocimientoClinica } from "./conocimiento";
 import { hoyISO } from "../time";
@@ -1044,23 +1045,14 @@ export async function evaluarTurno(
   }
   const abiertas = e.objetivosAbiertos.map((o) => o.etapa);
   // Campos faltantes de UNA etapa: contado, no opinado.
-  const faltantesDe = (etapa: EtapaObjetivo): string[] => {
-    const def = e.objetivosAbiertos.find((o) => o.etapa === etapa);
-    const valores = juicio.camposRecogidos[etapa] ?? {};
-    return (def?.campos ?? [])
-      .map((c) => c.clave)
-      .filter((clave) => {
-        // Lo que el SISTEMA ya sabe no se le pide a la persona (fase B): el
-        // objetivo cita nació para leads y pedía nombre completo; un paciente
-        // fichado lo tiene en la ficha — sin esto, su caso no completaba NUNCA.
-        // …salvo que quien escribe NO sea ese paciente (hablaPorOtraPersona,
-        // 11-09): la hija de Carmen no tiene ficha, y su nombre completo es
-        // justo lo que la entrega necesita.
-        if (etapa === "cita" && clave === "nombre_completo" && e.esPacienteConocido && juicio.hablaPorOtraPersona == null) return false;
-        const v = valores[clave];
-        return v == null || String(v).trim() === "";
-      });
-  };
+  const faltantesDe = (etapa: EtapaObjetivo): string[] =>
+    calcularCamposFaltantes(etapa, e.objetivosAbiertos.find((o) => o.etapa === etapa)?.campos ?? [], juicio.camposRecogidos[etapa], {
+      // La regla vive en `objetivos.ts` desde el 14-09: la MISMA cuenta que se
+      // le enseña al modelo («lo que ya sabes / lo que te falta»). Si se
+      // duplicara, el prompt y el caso completo podrían discrepar.
+      esPacienteConocido: e.esPacienteConocido,
+      hablaPorOtraPersona: juicio.hablaPorOtraPersona != null,
+    });
 
   // LA REGLA DEL ESTADO DE LA PERSONA (estado-persona.ts, 11-09): con
   // urgencia, queja o petición de persona no se persigue nada este turno;

@@ -845,17 +845,54 @@ const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string[]> = {
  *  el sistema extrae del hilo para saber si el caso quedó cerrable— y no una
  *  consigna de qué preguntar. Dársela al modelo es lo que convierte una
  *  conversación en un formulario. */
+/** El objetivo tal y como se le cuenta al PAPEL del agente: su propósito en una
+ *  frase y —desde el 14-09— el estado del contrato: qué consta ya y qué falta.
+ *  `sabido`/`falta` los produce `estadoDelContrato` (objetivos.ts), la misma
+ *  cuenta que decide si el caso está completo. */
+export type ObjetivoParaPapel = {
+  etapa: string;
+  proposito: string;
+  sabido?: readonly string[];
+  falta?: readonly string[];
+};
+
 export function renderAlcance(
   c: ConocimientoClinica,
-  objetivo: { etapa: string; proposito: string } | null,
+  objetivo: ObjetivoParaPapel | null,
 ): string[] {
   const lineas = ["TU ALCANCE Y TU OBJETIVO (hasta dónde llega tu papel aquí):"];
   for (const regla of PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]) lineas.push(`- ${regla}`);
   lineas.push(
     objetivo
-      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Y cerrar no es solo «ya tengo lo que hace falta»: también es «ya no puedo avanzar yo» — si vuelve sobre algo que ya le contestaste y no tienes nada nuevo que darle, dilo con franqueza, pásaselo a quien sí pueda y cierra ahí; repetir la misma respuesta una tercera vez no le sirve a nadie. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar.`
+      ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Y cerrar no es solo «ya tengo lo que hace falta»: también es «ya no puedo avanzar yo» — si vuelve sobre algo que ya le contestaste y no tienes nada nuevo que darle, dilo con franqueza, pásaselo a quien sí pueda y cierra ahí; repetir la misma respuesta una tercera vez no le sirve a nadie. Lo que tienes que llegar a saber te lo digo abajo; CÓMO se pide lo juzgas tú.`
       : "- Con esta persona no hay nada pendiente que recoger: contesta a lo que trae y ya. No busques un dato que pedirle.",
   );
+  // EL ESTADO DEL CONTRATO (14-09, corrección de Simon). Hasta hoy el agente no
+  // sabía QUÉ tenía que conseguir —la lista de campos se le escondía porque
+  // convertía la conversación en un formulario— y la consecuencia medida fue
+  // que preguntaba UNA cosa por mensaje, a ciegas, aunque el prompt ya le
+  // permitía agrupar («Las preguntas que hagan falta si encajan juntas…», que
+  // llevaba tres pasadas sin usarse: 0,55 preguntas por mensaje y CERO mensajes
+  // con dos, sobre 42).
+  //
+  // Va en PROSA y no en viñetas, y es deliberado: un modelo imita la forma de
+  // su entrada, y una lista entra como lista y sale como lista —«dame tus
+  // horarios. Y dime además si es urgencia»—, que es exactamente el
+  // interrogatorio que esto viene a evitar. La lista dice QUÉ; el criterio de
+  // CÓMO ya está arriba y no se repite aquí.
+  //
+  // Y LO QUE YA CONSTA VA PRIMERO, porque su función es que NO se pregunte: un
+  // paciente fichado al que se le pide el nombre es el fallo que el código ya
+  // sabía evitar (para contar el caso completo) y que el prompt no sabía.
+  if (objetivo?.sabido?.length) {
+    lineas.push(`- LO QUE YA SABES de ella, y por tanto NO le preguntas: ${objetivo.sabido.join("; ")}.`);
+  }
+  if (objetivo?.falta?.length) {
+    lineas.push(
+      `- LO QUE TE FALTA para poder pasarle el caso al equipo: ${objetivo.falta.join("; ")}.` +
+        " Eso es lo que tienes que LLEGAR A SABER, no las palabras con las que preguntarlo: con lo que acaba de decirte, decides tú qué cabe en este mensaje y cómo se lo pides.",
+    );
+  }
   if (c.alcance.urgencias?.atiende === false && c.alcance.urgencias.textoNoAtiende) {
     lineas.push(
       `- Esta clínica NO atiende urgencias. Si la persona trae una, tu papel es reproducir EXACTAMENTE este texto de la clínica y nada más: «${c.alcance.urgencias.textoNoAtiende}»`,

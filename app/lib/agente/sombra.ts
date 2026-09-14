@@ -50,6 +50,7 @@ import { esLegible } from "../mensajeria/tipos-mensaje";
 import { hashVersion } from "./version";
 import { costeUsdDeTurno, type UsageTurno } from "./coste";
 import { vetoAgendaDeterminista, vetoServicioDeterminista } from "./juez-borrador";
+import type { ObjetivoParaPapel } from "./conocimiento";
 import { CONOCIMIENTO_VACIO, renderAlcance, renderConocimiento } from "./conocimiento";
 import {
   ACTOS,
@@ -295,7 +296,7 @@ export function renderEntradaLibre(e: EntradaEvaluador): { texto: string; trunca
  *  experimento de la fusión, no este. */
 export function renderEntradaAlcance(
   e: EntradaEvaluador,
-  objetivo: { etapa: string; proposito: string } | null,
+  objetivo: ObjetivoParaPapel | null,
 ): { texto: string; truncado: boolean } {
   const base = renderEntradaLibre(e);
   const alcance = renderAlcance(e.conocimiento ?? CONOCIMIENTO_VACIO, objetivo);
@@ -321,7 +322,7 @@ export async function pedirSombra(
     modelo?: ModeloEvaluador;
     variante?: VarianteSombra;
     /** Solo variante 'alcance': el caso abierto, en una frase. */
-    objetivo?: { etapa: string; proposito: string } | null;
+    objetivo?: ObjetivoParaPapel | null;
     /** BANCO: «no pude preguntar» LANZA en vez de devolver null (§9: no es lo
      *  mismo que «pregunté y contestó algo inservible», que sigue siendo null
      *  porque ESO sí es una medida del decisor). Sin clave, sin red, un 4xx de
