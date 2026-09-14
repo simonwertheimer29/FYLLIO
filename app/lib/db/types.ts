@@ -382,6 +382,21 @@ export interface Tabla_agenda_corpus {
   created_at: Generated<Date>;
 }
 
+/** 054 — quién cambió qué credencial de quién. NUNCA guarda el PIN ni el hash:
+ *  un registro que copia la credencial la duplica en un sitio menos protegido.
+ *  `por_usuario_id` nulo = el cambio no pasó por la app (un seed, un script);
+ *  para esos, el CUÁNDO lo da `usuarios.updated_at`, que mueve un trigger. */
+export interface Tabla_credenciales_auditoria {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  usuario_id: string;
+  email: string | null;
+  accion: "pin_regenerado" | "pin_fijado" | "password_cambiada";
+  por_usuario_id: string | null;
+  origen: string | null;
+  created_at: Generated<Date>;
+}
+
 /** 041 — métricas por día (MEJORAS 172). Una fila por (cliente, clínica o
  *  red = null, día, métrica); `definicion_v` versiona la definición. */
 export interface Tabla_metricas_diarias {
@@ -673,4 +688,5 @@ export interface DB
   agente_sombra_hilos: Tabla_agente_sombra_hilos;
   agente_sombra_guiones: Tabla_agente_sombra_guiones;
   agenda_corpus: Tabla_agenda_corpus;
+  credenciales_auditoria: Tabla_credenciales_auditoria;
 }

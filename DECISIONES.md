@@ -5462,3 +5462,32 @@ materiales**. La regresión queda vigilada en `dev-captura-agenda-etiquetado.mjs
 verdad, comprueba que el contador sube, y borra su propia fila.
 Estado al cerrar: **48 de 91 etiquetados**. Faltan 8 de «Simon (prueba WhatsApp)» y los 35 de los
 cuatro guiones.
+
+## 2026-09-14 · El PIN no había cambiado, y la tabla de credenciales no tenía rastro
+Simon se queda fuera de su propia demo. Investigado a fondo porque la base es la MISMA que usa el
+despliegue: **el hash no lo tocó nadie.** El de Postgres es idéntico byte a byte al de Airtable
+Central (`rec3F7WFyfBrfoNzs`), el `created_at` sigue siendo el **21-jul** —y `db-seed-identidad.mjs`
+borra y reinserta con `now()`, así que no ha corrido desde entonces—, `qa-login-pg.ts` solo lee, y la
+única mención de `regenerar-pin` en otra sesión (8-sep) es un listado de rutas, no una ejecución.
+Lo que pasó: **llevaba semanas entrando con la sesión viva sin teclear el PIN**, hoy caducó la cookie
+y el PIN que recordaba no era el de julio. Los cinco fallos lo bloquearon 15 min.
+**Dos fallos de producto que salieron de aquí, y con un cliente real duelen más** (arreglados,
+`45e27d0`): (1) el mensaje decía «Demasiados intentos» y quien lo lee tras teclear su PIN de siempre
+entiende «me lo estoy equivocando» — ahora dice que está bloqueado, por qué, y que su PIN puede estar
+bien, y se pinta en ámbar, no en rojo; (2) el autoenvío salía en el mismo instante del sexto dígito,
+así que una errata gastaba un intento y cinco erratas eran quince minutos fuera — ahora espera 600 ms
+y cualquier borrado lo cancela.
+**Y el agujero de fondo: `usuarios` no tenía forma de contestar «¿quién tocó esto y cuándo?»** —solo
+`created_at`—, así que hubo que deducirlo comparando contra Airtable. Migración **054**: `updated_at`
+con TRIGGER (lo mueve CUALQUIER update, lo escriba la app, un seed o un script de madrugada: contesta
+el CUÁNDO siempre) y tabla `credenciales_auditoria` (quién, a quién, desde dónde; contesta el QUIÉN,
+pero solo cuando el cambio pasa por la app). **Nunca guarda el PIN ni el hash**: un registro que copia
+la credencial la duplica en un sitio peor protegido. La auditoría no lanza — que falle no puede dejar
+a un admin sin poder regenerarle el PIN a su coordinadora.
+PIN nuevo fijado en LOS DOS SITIOS (Airtable Central primero, Postgres después: si Airtable falla no
+queda divergencia que un seed revertiría sin avisar), verificado con bcrypt contra los dos y con el
+bloqueo de KV limpiado. La primera fila del rastro es ese mismo cambio, con `por_usuario_id` nulo
+porque no pasó por la app.
+**Dónde vive el bloqueo de PIN, que también estaba mal en mi diagnóstico:** en Upstash KV
+(`FYLLIO_KV_REST_API_URL`, no `KV_REST_API_URL`), compartido y persistente — reiniciar el servidor NO
+lo limpia. Claves `pinfail:` / `pinblock:` por usuario y por IP, 5 intentos / 15 min.

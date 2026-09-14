@@ -37,6 +37,10 @@ export interface Tabla_usuarios {
   pin_hash: string | null;
   pin_length: number | null;
   created_at: Generated<Date>;
+  /** 054 — lo mueve un trigger en CADA update, lo escriba la app o un script.
+   *  Es la única forma de contestar «¿cuándo se tocó esta credencial?» cuando
+   *  el cambio no pasó por la app. */
+  updated_at: Generated<Date>;
 }
 
 export interface Tabla_usuario_clinicas {

@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../../../lib/auth/session";
 import { getUsuarioById, updateUsuario } from "../../../../../lib/auth/users";
+import { registrarCambioCredencial } from "../../../../../lib/auth/users-pg";
 import { hashPin, genRandomPin } from "../../../../../lib/auth/hashing";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,16 @@ export const POST = withAdmin<Ctx>(async (session, _req, ctx) => {
   const pin = genRandomPin(length);
   const pinHash = await hashPin(pin);
   await updateUsuario(user.id, { pinHash, pinLength: length });
+  // 054 — el rastro: quién le cambió el PIN a quién. Sin el PIN ni el hash
+  // dentro, y sin poder tumbar la regeneración si la escritura falla.
+  await registrarCambioCredencial({
+    cliente: user.cliente,
+    usuarioId: user.id,
+    email: user.email ?? null,
+    accion: "pin_regenerado",
+    porUsuarioId: session.userId,
+    origen: "ajustes",
+  });
 
   return NextResponse.json({
     pin,

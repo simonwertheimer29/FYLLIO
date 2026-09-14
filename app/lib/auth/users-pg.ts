@@ -243,3 +243,27 @@ export async function findCoordinacionesByClinicaPg(clinicaId: string): Promise<
     .execute();
   return rows.map(rowToUsuario);
 }
+
+/** EL RASTRO DE UN CAMBIO DE CREDENCIAL (054, 14-09-2026). Quién le cambió qué
+ *  a quién y desde dónde. NUNCA el PIN ni el hash.
+ *
+ *  No lanza: una auditoría que falla no puede dejar a un admin sin poder
+ *  regenerar el PIN de su coordinadora (el fallo se ve en el log, y el CUÁNDO
+ *  queda igualmente en `usuarios.updated_at`, que mueve un trigger). */
+export async function registrarCambioCredencial(a: {
+  cliente: Cliente;
+  usuarioId: string;
+  email: string | null;
+  accion: "pin_regenerado" | "pin_fijado" | "password_cambiada";
+  porUsuarioId: string | null;
+  origen: string;
+}): Promise<void> {
+  try {
+    await runWithClienteDb(a.cliente, (trx) =>
+      sql`insert into credenciales_auditoria (cliente, usuario_id, email, accion, por_usuario_id, origen)
+          values (${a.cliente}, ${a.usuarioId}, ${a.email}, ${a.accion}, ${a.porUsuarioId}, ${a.origen})`.execute(trx),
+    );
+  } catch (err) {
+    console.error("[credenciales] no se pudo registrar el cambio:", err instanceof Error ? err.message : err);
+  }
+}
