@@ -146,13 +146,49 @@ console.log("\nC · con datos: lo publicado entra tal cual, con su frontera");
 {
   const conDeuda = renderEntrada({ ...entradaBase, pendienteCobro: 1200 }).texto;
   ok("el pago pendiente se condiciona al TEMA del mensaje, no al contador",
-    /va de pedir cita o de seguir su tratamiento/i.test(conDeuda) && /si va de otra cosa, no se menciona/i.test(conDeuda));
+    /va de pedir cita o de seguir su tratamiento/i.test(conDeuda) && /si va de otra cosa, no lo menciones/i.test(conDeuda));
+  // 15-09: MANDATO, no permiso. El diagnóstico de `cobro_vencido` fue que
+  // «solo se le recuerda si…» es permiso, y con una prohibición al lado un
+  // modelo prudente calla. Y la frase ya NO la pega código (ver evaluador).
+  ok("y es un MANDATO —«recuérdaselo»—, no un permiso («solo se le recuerda si…»)",
+    /RECU[ÉE]RDASELO una vez y en gen[ée]rico/i.test(conDeuda) && !/solo se le recuerda/i.test(conDeuda));
   ok("y nombra las tres situaciones donde NUNCA entra",
     /Nunca en una urgencia, una queja o una petici[óo]n/i.test(conDeuda));
   ok("ya NO queda el empujón de «aún no se le ha recordado»",
     !/a[úu]n no se le ha recordado/i.test(conDeuda));
   ok("y la frecuencia sigue existiendo, pero de última y solo si ya se recordó",
     /Y YA se le record[óo] en esta conversaci[óo]n: no lo repitas/i.test(renderEntrada({ ...entradaBase, pendienteCobro: 1200, cobroYaRecordado: true }).texto));
+}
+
+// ─── MOVER LA CITA: etapa propia y su puerta de entrada (15-09) ────────────
+{
+  const { OBJETIVOS_POR_DEFECTO, PRECEDENCIA_OBJETIVOS } = await import("../app/lib/automatizacion/objetivos");
+  const { pideMoverSuCita } = await import("../app/lib/agente/entrada-desde-contexto");
+  const mover = OBJETIVOS_POR_DEFECTO.find((o) => o.etapa === "mover_cita");
+  ok("existe la etapa y va PRIMERO en la precedencia (el hueco se pierde hoy)",
+    mover != null && PRECEDENCIA_OBJETIVOS[0] === "mover_cita");
+  // El reparto obligatorio/condicionado ES la decisión: un campo obligatorio
+  // es una pregunta que el agente HARÁ.
+  const obligatorios = (mover?.campos ?? []).filter((c) => !c.condicion).map((c) => c.clave).sort();
+  ok("solo DOS campos obligatorios: si mueve o anula, y los días nuevos",
+    obligatorios.join(",") === "dia_franja_nuevos,mover_o_anular");
+  ok("el motivo NO se pregunta (se anota si lo dice) y la cita concreta solo con dos o más",
+    /no se pregunta activamente/.test((mover?.campos ?? []).find((c) => c.clave === "motivo")?.condicion ?? "") &&
+      /dos o m[áa]s citas futuras/.test((mover?.campos ?? []).find((c) => c.clave === "cual_cita")?.condicion ?? ""));
+  ok("y NO pide nombre ni tratamiento: ya es paciente y la cita ya existe",
+    !(mover?.campos ?? []).some((c) => /nombre|tratamiento/.test(c.clave)));
+  // LA PUERTA: la abre la base, la confirma el texto. Falla hacia HOY.
+  const hilo = (t: string) => [{ direccion: "Entrante" as const, contenido: t }];
+  ok("«no voy a poder ir mañana, ¿se puede cambiar?» abre la etapa",
+    pideMoverSuCita(hilo("Hola, no voy a poder ir mañana, me ha salido un viaje. ¿Se puede cambiar?")));
+  ok("«cancelar», «aplazarla» y «cambiármela» también (los enclíticos van en el patrón)",
+    pideMoverSuCita(hilo("quiero cancelar la cita")) && pideMoverSuCita(hilo("¿podemos aplazarla?")) &&
+      pideMoverSuCita(hilo("¿me la podéis cambiar?")) && pideMoverSuCita(hilo("necesito cambiármela")));
+  ok("pero preguntar por el parking con una cita puesta NO la abre (el FP que importa)",
+    !pideMoverSuCita(hilo("¿Hay parking cerca de la clínica?")) &&
+      !pideMoverSuCita(hilo("¿A qué hora abrís mañana?")));
+  ok("y lo que mira es el ÚLTIMO entrante, no el hilo entero",
+    !pideMoverSuCita([{ direccion: "Entrante", contenido: "¿se puede cambiar?" }, { direccion: "Entrante", contenido: "vale, gracias" }]));
 }
 
 // ─── LA FICHA: doctor y tratamiento en curso (14-09) ───────────────────────

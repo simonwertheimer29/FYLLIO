@@ -19,7 +19,7 @@
 // el agente cuando el paciente no marca el tema —; la respuesta del turno la
 // gobierna siempre lo que el paciente acaba de decir.
 
-export type EtapaObjetivo = "identificar" | "cita" | "presupuesto" | "cobro";
+export type EtapaObjetivo = "identificar" | "cita" | "mover_cita" | "presupuesto" | "cobro";
 
 /**
  * Cuando conviven varios objetivos abiertos: el dinero ya comprometido antes
@@ -30,6 +30,13 @@ export type EtapaObjetivo = "identificar" | "cita" | "presupuesto" | "cobro";
  * configuración (fase D).
  */
 export const PRECEDENCIA_OBJETIVOS: readonly EtapaObjetivo[] = [
+  // `mover_cita` va PRIMERO (15-09): quien dice que no puede venir mañana
+  // tiene un problema con fecha de caducidad —el hueco se pierde hoy— y
+  // cualquier otra cosa que persigamos con él llega tarde. Además es el
+  // único objetivo que nace de una cita que YA existe, así que no compite
+  // con «cita»: son excluyentes por construcción (uno pide tenerla, el otro
+  // moverla).
+  "mover_cita",
   "cobro",
   "presupuesto",
   "cita",
@@ -105,6 +112,41 @@ export const OBJETIVOS_POR_DEFECTO: readonly ObjetivoAgente[] = [
         clave: "clinica_preferida",
         pregunta: "¿A qué clínica quiere ir?",
         condicion: "solo si el cliente tiene más de una clínica",
+      },
+    ],
+  },
+  {
+    // MOVER UNA CITA (15-09, dictado de Simon tras medir `recordatorio_cita`):
+    // etapa PROPIA y no un remiendo de «cita». Estirar la de conseguir cita
+    // obligaba a pedir cosas que no vienen a cuento —nombre, tratamiento,
+    // urgencia— a alguien que ya es paciente y ya tiene hora, y a taparlo
+    // después con excepciones, que es justo lo que se lleva días quitando.
+    //
+    // DOS CAMPOS OBLIGATORIOS Y DOS CONDICIONADOS, y el reparto es la
+    // decisión: un campo obligatorio ES una pregunta que el agente hará.
+    //  · `mover_o_anular` — «no puedo ir» no dice si quiere otra fecha o
+    //    anular, y son dos trabajos distintos para la clínica: uno recoloca,
+    //    el otro libera el hueco hoy.
+    //  · `dia_franja_nuevos` — el único dato que ahorra la llamada.
+    //  · `cual_cita` — solo con dos o más citas futuras; con una, preguntarlo
+    //    es preguntar lo que ya consta.
+    //  · `motivo` — se ANOTA si lo dice, no se pregunta: la coordinadora no
+    //    lo necesita para recolocar, y preguntárselo a quien acaba de decir
+    //    que le ha salido un viaje es interrogarle.
+    etapa: "mover_cita",
+    proposito: "Recoger lo necesario para recolocar (o anular) la cita que ya tiene, sin volver a preguntar.",
+    campos: [
+      { clave: "mover_o_anular", pregunta: "¿Quiere otra fecha o anular la cita?" },
+      { clave: "dia_franja_nuevos", pregunta: "¿Qué días y franjas le vienen bien ahora?" },
+      {
+        clave: "cual_cita",
+        pregunta: "¿Cuál de sus citas quiere mover?",
+        condicion: "solo si le constan dos o más citas futuras",
+      },
+      {
+        clave: "motivo",
+        pregunta: "¿Por qué no puede venir?",
+        condicion: "solo si lo menciona; no se pregunta activamente",
       },
     ],
   },
@@ -215,7 +257,11 @@ export function estadoDelContrato(
 // mitad configuración y mitad default sería imposible de razonar desde la
 // pantalla de la fase D.
 
-const ETAPAS: readonly string[] = ["identificar", "cita", "presupuesto", "cobro"];
+// Las etapas que una configuración de clínica puede nombrar. DERIVADA de la
+// precedencia (15-09): eran dos listas a mano y al añadir `mover_cita` una se
+// quedó atrás — el validador rechazaba la etapa nueva en cuanto una clínica la
+// configurara. Una lista, un sitio (§25).
+const ETAPAS: readonly string[] = PRECEDENCIA_OBJETIVOS;
 
 function esCampoValido(c: unknown): c is CampoObjetivo {
   if (typeof c !== "object" || c === null) return false;

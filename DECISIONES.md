@@ -6055,3 +6055,40 @@ salga una pasada donde el juez no dispara:**
 > ahí se verá si aporta en 1 de cada 100 o en 1 de cada 1.000.
 Lo que se sigue vigilando, entonces, no es «cuántas caza» sino **B − A**: en cuanto vuelva a subir de
 cero, el guardián está fabricando daño y eso sí se corrige.
+
+## 2026-09-15 · El pago lo dice el agente, y la cita que ya existe se puede mover
+**HECHO 1 · EL RECUERDO DEL PAGO SALE DEL CÓDIGO Y PASA A SER UN MANDATO.** Se retiró el bloque de
+`evaluador.ts` que PEGABA la frase al final de la respuesta (miraba la frecuencia, no el contexto, y
+solo existía en el decisor código). La instrucción vive ahora donde la leen los dos caminos —la línea
+de los HECHOS, que `renderEntrada` y `renderEntradaLibre` comparten— y es un mandato con sus tres
+límites: *«Si ESTE mensaje va de pedir cita o de seguir su tratamiento, RECUÉRDASELO una vez y en
+genérico, sin cifra y sin nombrar el tratamiento. Si va de otra cosa, no lo menciones. Y nunca en una
+urgencia, una queja o una petición de hablar con alguien.»* Lo que se queda en código es la GUARDA
+que QUITA el recuerdo si el modelo lo cuela en una queja o a otra persona: quitar es seguro, empujar
+no. **Medido: funciona.** Lucía, que pide revisión con 1.200 € pendientes, recibe *«Por otro lado,
+tienes un pago pendiente; administración te lo confirma»* — una vez, en genérico, sin cifra ni
+tratamiento. Con el permiso anterior no lo decía nunca.
+**HECHO 2 · `mover_cita`, ETAPA PROPIA** (y no estirar la de conseguir cita, que habría obligado a
+pedir nombre y tratamiento a quien ya es paciente y ya tiene hora). **Dos campos obligatorios y dos
+condicionados, y el reparto ES la decisión** porque un campo obligatorio es una pregunta que el
+agente hará: `mover_o_anular` (mover y anular son dos trabajos distintos: uno recoloca, el otro
+libera el hueco hoy) y `dia_franja_nuevos` (el único dato que ahorra la llamada); condicionados,
+`cual_cita` (solo con dos o más citas futuras) y `motivo` (se anota si lo dice, no se pregunta: la
+coordinadora no lo necesita y preguntárselo a quien acaba de decir que le salió un viaje es
+interrogarle). **Quién la abre:** la base dice que hay cita que mover y el TEXTO dice si la está
+pidiendo (`pideMoverSuCita`, determinista). Falla hacia HOY, nunca hacia preguntar de más.
+**Medido: Andrés ya no se cierra en el mensaje 1.** Le preguntan qué días, contesta «martes o
+jueves», y el caso sale en el 2 con el dato — el fallo que abrió esta pieza.
+**Y UN DAÑO QUE SUBE DE 0 A 4, QUE NO LO CREÓ LA ETAPA: LO DESTAPÓ.** A pasa de 0/16 a 4/16 y las
+cuatro son la misma familia: **el agente pone fecha de calendario a los días que ella dijo SIN
+fecha** («jueves 2026-09-17 o viernes 2026-09-18» por «jueves o viernes»; «martes 22 o jueves 24» por
+«martes o jueves») y se arroga la reserva («Apuntamos tu revisión para esta semana»). **Es la primera
+pasada en la que DOS conversaciones llegan a hablar de días**: el 0/20 de ayer era en parte un cero
+de «no llegó a esa parte». B − A sigue en 0 — el guardián no ensucia, pero tampoco cazó esto.
+**UN DEFECTO PROPIO, cazado por la medida:** `ETAPAS_VALIDAS` en el evaluador era una lista a mano y
+no llevaba `mover_cita`, así que los campos de la etapa nueva **se extraían y se tiraban** — Andrés
+dio «martes o jueves», el agente lo puso en el texto y el caso llegó con **0 datos**. Había una
+segunda lista igual en `objetivos.ts`. Las dos se derivan ahora de `PRECEDENCIA_OBJETIVOS` (§25).
+**PENDIENTE:** la pasada que confirme el arreglo de los datos (~$0,50), y decidir qué hacer con la
+familia de las fechas — el prompt ya prohíbe recapitular días al entregar, y aquí no lo está
+siguiendo.

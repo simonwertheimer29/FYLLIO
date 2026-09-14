@@ -19,6 +19,9 @@
 //      cerrado no abre cita, pero sabemos quién es) — excluyente con ambos
 //   5. objetivosAbiertos respeta la precedencia cobro > presupuesto > cita
 //   6. pendienteCobro nunca negativo; solo > 0 con paciente
+//   7b. mover_cita (15-09) ⇔ paciente único CON cita futura — excluyente con
+//      `cita`, que es la de conseguirla. Que la persona PIDA moverla lo filtra
+//      el constructor de la entrada, no esta función
 //   7. ficha (doctor y tratamiento en curso, 14-09) ⇔ paciente único con
 //      doctor en staff o tratamiento —el de su ficha o el del último
 //      presupuesto ACEPTADO—; nunca de un lead, nunca con identidad ambigua
@@ -220,12 +223,20 @@ await runWithCliente("DEMO", async () => {
     // 11-09: el desconocido total abre «cita» junto a «identificar».
     if (abiertos.includes("cita") !== (esperaCita || esperaIdent))
       fallo(tel, `cita: lib=${abiertos.includes("cita")} sql=${esperaCita || esperaIdent}`);
+    // 8 · mover_cita ⇔ paciente único CON cita futura. Aquí se abre por la
+    //     BASE; que la persona la pida lo filtra `entradaDesdeContexto`, que
+    //     es otro sitio y tiene su propia prueba (qa:conocimiento).
+    const esperaMover = pacienteEsperado != null && conCitaFutura.has(pacienteEsperado.id);
+    if (abiertos.includes("mover_cita") !== esperaMover)
+      fallo(tel, `mover_cita: lib=${abiertos.includes("mover_cita")} sql=${esperaMover}`);
+    if (abiertos.includes("mover_cita") && abiertos.includes("cita"))
+      fallo(tel, "mover_cita y cita a la vez — son excluyentes por construcción");
     if (abiertos.includes("identificar") !== esperaIdent)
       fallo(tel, `identificar: lib=${abiertos.includes("identificar")} esperado=${esperaIdent}`);
     if (abiertos.includes("identificar") && (ctx.pacienteId || ctx.leadActivo))
       fallo(tel, "identificar con paciente o lead resuelto — excluyentes");
 
-    const orden = ["cobro", "presupuesto", "cita", "identificar"];
+    const orden = ["mover_cita", "cobro", "presupuesto", "cita", "identificar"];
     const posiciones = abiertos.map((e) => orden.indexOf(e));
     if ([...posiciones].sort((a, b) => a - b).join() !== posiciones.join())
       fallo(tel, `precedencia rota: ${abiertos.join(" > ")}`);

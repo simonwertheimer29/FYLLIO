@@ -165,7 +165,7 @@ export interface Tabla_eventos_automatizacion {
    *  Hecho del turno, no derivable después; decide qué hecho del sistema
    *  cierra el asunto (lib/automatizacion/semaforo.ts). NULL pre-026 y en
    *  derivaciones sin objetivo abierto. */
-  objetivo_activo: "identificar" | "cita" | "presupuesto" | "cobro" | null;
+  objetivo_activo: "identificar" | "cita" | "mover_cita" | "presupuesto" | "cobro" | null;
   /** 026 — solo en evento='espera_fijada': sin contacto hasta esta fecha
    *  (día de clínica, inclusive). Al vencer solo se levanta la pausa. */
   hasta: Date | null;

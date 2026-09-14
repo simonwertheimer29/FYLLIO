@@ -57,7 +57,7 @@ export type RegistrarEventoArgs = {
   malestar?: boolean | null;
   /** 026 — qué perseguía el agente al derivar (solo en `derivado`). Hecho del
    *  turno; decide qué hecho del sistema cierra el asunto (semaforo.ts). */
-  objetivoActivo?: "identificar" | "cita" | "presupuesto" | "cobro" | null;
+  objetivoActivo?: "identificar" | "cita" | "mover_cita" | "presupuesto" | "cobro" | null;
   /** 026 — «sin contacto hasta» (YYYY-MM-DD). OBLIGATORIA en `espera_fijada`
    *  y solo ahí (constraint). */
   hasta?: string | null;

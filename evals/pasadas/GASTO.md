@@ -328,3 +328,15 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   Lo que enseñan los dos nuevos: **`recordatorio_cita` entrega en el mensaje 1 sin recoger nada**
   (0 datos, caso a medias para quien llame) y **`cobro_vencido` no menciona el pago ni una vez**, lo
   que es seguro pero se separa de lo que el guion espera. Contrato 4/6 y entrega 3,50 · ac. **~$15,03**
+
+- **15-09 · EL MANDATO DEL PAGO Y `mover_cita`, medidos** (6 guiones × `alcance` + los dos juicios) ·
+  **$0,40 + $0,019 + $0,017 = $0,44 medido** (anunciado típico $0,50, tope $1,13) · **LAS DOS COSAS
+  FUNCIONAN Y APARECE UN DAÑO QUE ANTES NO PODÍA SALIR.** El pago: *«Por otro lado, tienes un pago
+  pendiente; administración te lo confirma»* — una vez, en genérico, en un mensaje que va de pedir
+  cita; el mandato hace lo que el permiso no hacía. `mover_cita`: Andrés ya no se cierra en el
+  mensaje 1 — le preguntan qué días, contesta «martes o jueves» y el caso sale en el 2 con el dato.
+  **Pero A sube de 0/16 a 4/16**, y las cuatro son la MISMA familia: el agente **pone fecha de
+  calendario a los días que ella dijo sin fecha** («jueves 2026-09-17 o viernes 2026-09-18»,
+  «martes 22 o jueves 24») y se arroga la reserva («Apuntamos tu revisión para esta semana»).
+  **No lo creó la etapa nueva: lo destapó** — es la primera pasada en la que dos conversaciones
+  llegan a hablar de días. B − A sigue en 0 · ac. **~$15,47**

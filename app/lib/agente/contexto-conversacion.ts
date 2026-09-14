@@ -321,6 +321,13 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   // la tiene abierta: no hay nada que cerrar.
   if (leadActivo) abiertos.add("cita");
   if (paciente && !filas.citaFutura) abiertos.add("cita");
+  // MOVER LA CITA (15-09). Lo que la BASE puede decir es que hay una cita que
+  // se podría mover; que la persona QUIERA moverla lo dice el texto, y eso no
+  // se ve desde aquí (esta función solo recibe un teléfono). Así que se abre
+  // aquí y el constructor de la entrada la retira si el último mensaje no lo
+  // pide (`entradaDesdeContexto`). Sin ese filtro, quien escribe preguntando
+  // por el parking con una cita puesta recibiría «¿qué días te vienen bien?».
+  if (paciente && filas.citaFutura) abiertos.add("mover_cita");
   // «identificar» = no hay NINGUNA fila que diga quién es — ni paciente ni
   // lead en ningún estado. Un lead cerrado («No interesado») no abre cita,
   // pero sabemos su nombre: preguntárselo sería absurdo. Lo destapó el censo

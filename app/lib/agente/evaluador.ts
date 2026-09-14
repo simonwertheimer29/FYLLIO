@@ -37,7 +37,7 @@ import {
   colaDeDerivacion,
   type CausaDerivacion,
 } from "../automatizacion/estado";
-import { camposFaltantes as calcularCamposFaltantes } from "../automatizacion/objetivos";
+import { camposFaltantes as calcularCamposFaltantes, PRECEDENCIA_OBJETIVOS } from "../automatizacion/objetivos";
 import type { EtapaObjetivo, ObjetivoAgente } from "../automatizacion/objetivos";
 import { renderConocimiento, type ConocimientoClinica } from "./conocimiento";
 import { hoyISO } from "../time";
@@ -476,6 +476,7 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 - COBRO: si la persona dice que NO puede pagar, eso ES la respuesta del objetivo — confirma_pago = «no puede, hay que renegociar», via_pago y fecha_pago = "no_aplica" (y anotas plan_pago). No dejes el objetivo a medias esperando un sí que ya te han dicho que no.
 - IDENTIFICAR: sus campos (nombre, es_paciente, que_necesita) casi siempre están YA en el hilo — «me llamo X», «nunca he ido», «quiero ortodoncia» SON los valores. Extráelos SIEMPRE que existan: dejarlos en null con la respuesta delante es el fallo más caro de este juicio, porque completar este objetivo es lo que ENTREGA el caso. Y al revés: el nombre de PERFIL de WhatsApp que ves en el contexto NO es un dato recogido — «nombre» solo si la persona lo dice en el hilo; entregar un caso por un nombre que nadie dio es el otro fallo caro.
 - PRESUPUESTO: «sí, adelante», «lo hacemos» ES decision = «acepta» — extráela, y los campos de las otras ramas («solo si se lo piensa», «solo si rechaza») pasan a "no_aplica". Una aceptación con decision en null es un caso que nunca llega a la clínica.
+- MOVER_CITA: «no puedo ir», «me ha surgido algo», «¿se puede cambiar?» SON la petición. mover_o_anular sale de sus palabras (cambiar/otro día → «mover»; anular/cancelar/ya no me hace falta → «anular»), y si dice cuándo le viene bien —«la semana que viene por la tarde»— eso ES dia_franja_nuevos: extráelo, no se lo vuelvas a preguntar. Lo que falte, pregúntalo: el día nuevo es lo único que evita que la clínica tenga que llamarla. NO le pidas nombre ni tratamiento: ya es paciente y la cita ya existe.
 - CITA DECLINADA: si la persona dice que NO quiere cita ahora, que YA la tiene programada, que solo quería preguntar, o que no vendrá hasta saber algo, eso ES motivo_no_cita (con sus palabras: «ya tiene cita programada; solo preguntaba por la sedación», «quiere el precio antes de venir») — y desde ahí el objetivo cita está CERRADO: no se le vuelve a pedir día, franja ni disponibilidad. Si más adelante pide cita, motivo_no_cita vuelve a null y se retoma.
 Si la persona corrigió un dato, vale el último.
 
@@ -613,7 +614,7 @@ export function lineasDeHechos(e: EntradaEvaluador): string[] {
   // delante: por eso la condición se le da a él y no se calcula aquí.
   lineas.push(
     e.pendienteCobro > 0
-      ? `Pago pendiente que consta: ${eur(e.pendienteCobro)}. Solo se le recuerda —y en genérico, sin cifra ni tratamiento— si ESTE mensaje suyo va de pedir cita o de seguir su tratamiento; si va de otra cosa, no se menciona. Nunca en una urgencia, una queja o una petición de hablar con alguien.${
+      ? `Pago pendiente que consta: ${eur(e.pendienteCobro)}. Si ESTE mensaje suyo va de pedir cita o de seguir su tratamiento, RECUÉRDASELO una vez y en genérico —«tienes un pago pendiente; administración te lo confirma»—, sin cifra y sin nombrar el tratamiento. Si va de otra cosa, no lo menciones. Y nunca en una urgencia, una queja o una petición de hablar con alguien.${
           e.cobroYaRecordado ? " Y YA se le recordó en esta conversación: no lo repitas." : ""
         }`
       : "Pagos pendientes que consten: ninguno.",
@@ -781,7 +782,12 @@ type JuicioModelo = {
 
 const IDIOMAS_VALIDOS = ["es", "ca", "en", "otro"] as const;
 
-const ETAPAS_VALIDAS: readonly EtapaObjetivo[] = ["cobro", "presupuesto", "cita", "identificar"];
+// LA LISTA BLANCA de etapas cuyos campos se aceptan del juicio del modelo.
+// 15-09: estaba escrita a mano y no llevaba `mover_cita`, así que los campos
+// de la etapa nueva se EXTRAÍAN y se TIRABAN — medido: Andrés dio «martes o
+// jueves», el agente lo puso en el texto, y el caso llegó a la coordinadora
+// con 0 datos. Ahora se deriva de la precedencia, que es la lista de verdad.
+const ETAPAS_VALIDAS: readonly EtapaObjetivo[] = PRECEDENCIA_OBJETIVOS;
 
 /** Modelos admitidos. Haiku es el de producción; `sonnet` existe para MEDIR
  *  la comparación (pasada 3, 2026-08-14) — Sonnet corre con su comportamiento
@@ -1469,18 +1475,21 @@ export async function evaluarTurno(
     console.warn(`[evaluador] recuerdo de cobro quitado del borrador (${estado ?? "habla por otra persona"})`);
     respuestaFinal = limpio !== "" ? limpio : plantillaNeutraConRecogida(nombreParaPlantilla, [], plantillaOpts);
   }
-  if (
-    !cobroNoToca &&
-    e.pendienteCobro > 0 &&
-    juicio.tema !== "cobro" &&
-    !e.cobroYaRecordado &&
-    !juicio.pideNoContacto &&
-    juicio.idioma === "es" &&
-    respuestaFinal.trim() !== "" &&
-    !/pag|cobr|importe|pendiente/i.test(respuestaFinal)
-  ) {
-    respuestaFinal = `${respuestaFinal.trim()} Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa.`;
-  }
+  // EL RECUERDO DEL PAGO LO PONE EL AGENTE, NO EL CÓDIGO (15-09, dictado de
+  // Simon). Aquí vivía un bloque que PEGABA la frase al final de la respuesta
+  // cuando el modelo no la había dicho. Tenía dos problemas, los dos medidos:
+  //  · no miraba el contexto sino la FRECUENCIA (`!cobroYaRecordado`), que es
+  //    lo contrario de lo que se decidió el 14-09 — el empujón seguía entero
+  //    en el único camino que va a producción;
+  //  · y solo existía aquí, así que el decisor `alcance` —que escribe su
+  //    propio mensaje— no recordaba el pago JAMÁS. Con `alcance` sustituyendo
+  //    al código, el recordatorio desaparecía del producto sin que nadie lo
+  //    decidiera (diagnóstico del 14-09 sobre `cobro_vencido`, MEJORAS 249).
+  // Ahora la instrucción está donde la leen los dos: la línea de los HECHOS
+  // (`lineasDeHechos`), y es un MANDATO con sus tres límites, no un permiso.
+  // Lo que se queda aquí es la GUARDA de arriba (`cobroNoToca`), que QUITA el
+  // recuerdo si el modelo lo cuela en una queja, una urgencia o a otra
+  // persona: quitar es seguro, empujar no.
 
   if (antecedenteConCita) {
     return {

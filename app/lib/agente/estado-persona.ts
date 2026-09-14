@@ -117,6 +117,7 @@ export function objetivoActivoDe(args: {
 
 export const ETIQUETA_OBJETIVO: Record<EtapaObjetivo, string> = {
   cita: "Quiere cita",
+  mover_cita: "Quiere mover su cita",
   presupuesto: "Decidir su presupuesto",
   cobro: "Su pago pendiente",
   identificar: "Contacto nuevo",

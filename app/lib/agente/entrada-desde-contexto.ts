@@ -77,12 +77,39 @@ export type PiezasEntrada = {
   hoy?: string;
 };
 
+/** ¿El último mensaje de la persona pide cambiar o anular su cita? (15-09)
+ *
+ *  Determinista y a propósito CORTA: la base sabe que hay una cita que se
+ *  podría mover, pero solo el texto dice si lo está pidiendo. Falla hacia
+ *  HOY — si la frase no casa, `mover_cita` no se abre y el turno se comporta
+ *  como antes de existir esta etapa—, nunca hacia preguntar de más: un falso
+ *  positivo haría que el agente pida días nuevos a quien no los ha pedido.
+ *  Por eso son firmas de petición explícita y no una lista de sinónimos de
+ *  «cita». */
+export const FIRMAS_MOVER_CITA =
+  // Los enclíticos van en el patrón, no en la lista: «aplazarla», «cambiármela»
+  // y «cancelarlo» son la misma petición que el infinitivo pelado, y una lista
+  // de formas se olvida siempre de una (medido: «¿podemos aplazarla?» se
+  // escapaba). Y el acento del enclítico va en la RAÍZ: «cambiármela» lleva
+  // tilde en la a, así que `\bcambiar\b` no la ve — por eso cada verbo admite
+  // su vocal acentuada.
+  /\b(?:cambi[aá]r|mov[eé]r|aplaz[aá]r|pospon[eé]r|retras[aá]r|adelant[aá]r|anul[aá]r|cancel[aá]r)(?:[ms]e)?(?:l[ao]s?)?\b|\bno (?:puedo|podr[ée]|voy a poder|podr[ií]a) (?:ir|acudir|venir|asistir)\b|\bme (?:ha surgido|ha salido) algo\b/i;
+
+export function pideMoverSuCita(hilo: readonly MensajeHilo[]): boolean {
+  const ultimo = [...hilo].reverse().find((m) => m.direccion === "Entrante");
+  return ultimo != null && FIRMAS_MOVER_CITA.test(ultimo.contenido);
+}
+
 export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
   const { ctx } = p;
   // Solo una FICHA (paciente o lead) da nombre. Sin ficha, el nombre es el
   // teléfono y el perfil de WhatsApp viaja aparte, como pista.
   const fichado = ctx.origenNombre === "paciente" || ctx.origenNombre === "lead";
+  const quiereMover = pideMoverSuCita(p.hilo);
   const objetivosAbiertos = ctx.objetivosAbiertos
+    // `mover_cita` la abre la base por tener cita futura; aquí se retira si el
+    // texto no la pide (ver `pideMoverSuCita`).
+    .filter((etapa) => etapa !== "mover_cita" || quiereMover)
     .map((etapa) => p.objetivosConfig.find((o) => o.etapa === etapa))
     .filter((o): o is ObjetivoAgente => o != null);
   const ultimoEntrante = [...p.hilo].reverse().find((m) => m.direccion === "Entrante") ?? null;

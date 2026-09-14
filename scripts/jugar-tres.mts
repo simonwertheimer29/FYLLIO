@@ -89,6 +89,10 @@ import { runWithCliente } from "../app/lib/cliente-contexto";
 import { hoyISO } from "../app/lib/time";
 import { pacienteDice, esFin, MODELO_PACIENTE, type Espejo } from "./hilos-jugados-paciente.mts";
 import { GUIONES } from "./hilos-jugados-guiones.mts";
+import { FIRMAS_MOVER_CITA } from "../app/lib/agente/entrada-desde-contexto";
+import { OBJETIVOS_POR_DEFECTO } from "../app/lib/automatizacion/objetivos";
+
+const OBJ_MOVER_CITA = OBJETIVOS_POR_DEFECTO.find((o) => o.etapa === "mover_cita") ?? null;
 
 /** LA FICHA DEL GUION (14-09), de su DEFINICIÓN VIVA y no del fixture: el
  *  fixture congeló su turno 1 antes de que existiera este campo, así que leerla
@@ -209,7 +213,6 @@ function entradaDelTurno(args: {
     nombrePerfil: b.nombrePerfil ?? null,
     esPacienteConocido: b.esPacienteConocido,
     clinica: b.clinica ?? null,
-    objetivosAbiertos: b.objetivosAbiertos,
     presupuestosVivos: b.presupuestosVivos,
     pendienteCobro: b.pendienteCobro,
     umbralInsistencia: b.umbralInsistencia,
@@ -218,6 +221,15 @@ function entradaDelTurno(args: {
     umbralCitaProximaDias: b.umbralCitaProximaDias,
     identidadAmbigua: b.identidadAmbigua ?? null,
     ficha: b.esPacienteConocido ? args.ficha : null,
+    // MOVER LA CITA (15-09): el fixture congeló los objetivos del turno 1, y
+    // para un paciente con cita futura eran NINGUNO — que es justo el fallo
+    // que esta etapa arregla. Se recompone con la MISMA regla que producción:
+    // la base dice que hay cita que mover (`diasHastaProximaCita`) y el TEXTO
+    // dice si la está pidiendo. Sin esto la pasada mediría el mundo de ayer.
+    objetivosAbiertos:
+      b.diasHastaProximaCita != null && FIRMAS_MOVER_CITA.test(args.mensaje) && OBJ_MOVER_CITA
+        ? [OBJ_MOVER_CITA, ...b.objetivosAbiertos]
+        : b.objetivosAbiertos,
     clinicasDelHilo: b.clinicasDelHilo ?? null,
     ultimoNoLegible: args.noLegible,
   };
