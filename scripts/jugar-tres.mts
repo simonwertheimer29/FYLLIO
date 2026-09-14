@@ -336,6 +336,11 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     } else {
       const p = await pacienteDice(g, st.espejo);
       st.usd += costeUsdDeTurno(p.usage, MODELO_PACIENTE) ?? 0;
+      // §9 — el paciente mudo NO es un paciente que se fue. Si el modelo
+      // devuelve vacío (refusal, corte por max_tokens, bloque sin texto), el
+      // hilo seguiría con un entrante «» y el evaluador juzgaría la nada: un
+      // fallo del instrumento con cara de conversación corta.
+      if (!p.texto.trim()) throw new Error(`el paciente no dijo nada en el turno ${n}: no hay medida que guardar`);
       if (esFin(p.texto)) {
         st.fin = "resuelto";
         st.detalleFin = "el paciente dio por resuelto lo suyo";
@@ -417,8 +422,8 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
         variante: VARIANTE_DE[decisor],
         objetivo: defObjetivo ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito } : null,
         // §9 — «no pude preguntar» (sin clave, 4xx, timeout) LANZA y el hilo no
-        // se guarda; «contestó algo inservible» sigue devolviendo null, porque
-        // eso sí es una medida del decisor y se cuenta como hilo perdido.
+        // se guarda. «Contestó algo inservible» devuelve null y, tras el
+        // reintento, LANZA TAMBIÉN (14-09): ver abajo.
         estricto: true,
       };
       let s = ev.sinJuicio ? null : await pedirSombra(entrada, opts);
@@ -431,10 +436,16 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
           texto = "";
           acto = "atender";
         } else {
-          st.fin = "perdido";
-          st.detalleFin = "el decisor no respondió";
-          st.mensajes.push({ n, quien: "agente", texto: "", deriva: false, motivo: "el decisor no respondió" });
-          break;
+          // §9, y es el mismo agujero que los timeouts (14-09, pedido de
+          // Simon): esto TERMINABA el hilo con `perdido · el decisor no
+          // respondió`, que es la cara exacta de lo que medimos —un agente que
+          // pierde a la persona— y entraba en el denominador como si fuera una
+          // conversación. El 14-09 `telefono_compartido/libre` se cortó así en
+          // el turno 5 y contó como uno de los cuatro hilos de la tabla. Que el
+          // modelo conteste JSON ilegible DOS VECES es un fallo del
+          // instrumento, no una decisión suya: se lanza, el hilo no se guarda y
+          // el pase sale distinto de 0.
+          throw new Error(`el decisor no respondió nada usable en el turno ${n} (dos intentos): no hay medida que guardar`);
         }
       } else {
         st.usd += costeUsdDeTurno(s.usage, s.modelo) ?? 0;
@@ -571,6 +582,7 @@ const jugados = Object.fromEntries(DECISORES.map((d) => [d, [] as HiloTres[]])) 
 // los cuatro guiones petaron en el modo por defecto y el pase terminó con
 // «coste medido $0.00» y salida 0 — un fallo total con cara de pase vacío.
 let fallos = 0;
+const caidos: string[] = [];
 
 for (const h of hilosBase) {
   console.log("\n" + "═".repeat(72) + `\n▶ ${h.guion.id} · ${h.guion.titulo}`);
@@ -584,6 +596,14 @@ for (const h of hilosBase) {
       if (!sinDb) await runWithCliente("DEMO", () => guardarHiloTres(hilo));
     } catch (err) {
       fallos++;
+      caidos.push(`${h.guion.id}/${d}: ${err instanceof Error ? err.message : String(err)}`);
+      // Y NO SE DEJA EL DE LA PASADA ANTERIOR EN SU SITIO. El fixture se
+      // reabre y se reescribe encima: si el hilo de hoy no se jugó, el de ayer
+      // seguiría ahí con su fecha vieja y el juicio lo contaría como parte de
+      // esta pasada (es lo que hay en `fixture.json`: hilos de las 11:51
+      // mezclados con los de las 22:00). Un hueco se ve; un dato caducado que
+      // ocupa el hueco, no.
+      delete entradaGuion.decisores[d];
       console.error(`  ✗ ${h.guion.id}/${d}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -591,6 +611,29 @@ for (const h of hilosBase) {
   salida.jugadoEl = new Date().toISOString();
   mkdirSync(dirname(rutaSalida), { recursive: true });
   writeFileSync(rutaSalida, JSON.stringify(salida, null, 1));
+}
+
+// §9 — UNA TABLA CON AGUJEROS NO SE PINTA COMO UNA TABLA. Va ANTES que las
+// cifras, no después: el que lee decide con lo primero que ve. Mismo aviso que
+// `juicio-sobre-hilos.mts` cuando falta un juicio.
+const intentados = hilosBase.length * decisores.length;
+if (fallos > 0) {
+  console.log("\n" + "!".repeat(78));
+  console.log(`✗ ${fallos} de ${intentados} HILOS NO SE JUGARON — el instrumento falló, no el agente:`);
+  for (const c of caidos) console.log(`    · ${c}`);
+  console.log("  LAS CIFRAS DE ABAJO NO VALEN: describen menos conversaciones de las que dicen,");
+  console.log("  y el fixture está incompleto (esos hilos no están: ni el nuevo ni el viejo).");
+  console.log("  Vuelve a lanzarlo. NO lo juzgues con `agenda:juicio:hilos`.");
+  console.log("!".repeat(78));
+}
+// Los hilos que siguen en el fichero de salida SIN haberse jugado hoy (`--solo`,
+// otro juego de decisores, un pase anterior sobre el mismo fichero). No son un
+// fallo, pero el juicio los lee como si fueran de esta pasada.
+const jugadosHoy = new Set(DECISORES.flatMap((d) => jugados[d].map((h) => `${h.guionId}/${d}`)));
+const arrastrados = salida.hilos.flatMap((h) => Object.keys(h.decisores).map((d) => `${h.guion.id}/${d}`)).filter((k) => !jugadosHoy.has(k));
+if (arrastrados.length > 0) {
+  console.log(`\n⚠ ${rutaSalida} arrastra ${arrastrados.length} hilo(s) de pases ANTERIORES: ${arrastrados.join(", ")}.`);
+  console.log("  El juicio los contará como parte de esta pasada. Usa --salida con un fichero nuevo si no los quieres.");
 }
 
 console.log("\n" + "═".repeat(72));
@@ -602,8 +645,18 @@ for (const d of decisores) {
   console.log(
     `  ${ETIQUETA_DECISOR[d]}: ${a.medidos}/${a.hilos} con el objetivo cubierto · a tiempo ${a.aTiempo} · tarde ${a.tarde} (+${a.turnosDeMas}${media})` +
       ` · se pudo y no entregó ${a.nunca}${a.nunca ? ` (+${a.turnosDeMasNunca})` : ""} · sin cubrirlo ${a.sinContrato}` +
-      `${a.incoherentes ? ` · INCOHERENTES ${a.incoherentes}` : ""}`,
+      `${a.incoherentes ? ` · INCOHERENTES ${a.incoherentes}` : ""}` +
+      `${a.hilos < hilosBase.length ? `  ⚠ de ${hilosBase.length} intentados` : ""}`,
   );
+  // UN HILO DE UN SOLO MENSAJE NO SE LEE COMO UNA CONVERSACIÓN (14-09). Es
+  // legítimo —entregar en el primer mensaje por una queja o una urgencia lo
+  // es— pero el objetivo NUNCA pudo cubrirse ahí, así que baja la fracción de
+  // arriba por una razón que no tiene nada que ver con recoger mal. Se dice al
+  // lado del número, no en el detalle de más abajo.
+  const cortos = jugados[d].filter((h) => h.resumen.turnos <= 1);
+  for (const h of cortos) {
+    console.log(`      ⚠ ${h.guionId}: murió en el mensaje 1 (${h.resumen.fin}${h.resumen.causa ? ` · ${h.resumen.causa}` : ""}) — cuenta en el denominador y no pudo cubrir nada`);
+  }
 }
 console.log("═".repeat(72));
 console.log(

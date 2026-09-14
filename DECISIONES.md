@@ -5742,3 +5742,28 @@ sobre filtro sin tocar al redactor. Lo que se queda de todo lo construido es **l
 vara etiquetada y la separación entre lo que el agente escribe y lo que sale.
 Siguiente: la factura de arriba (¿prudencia o varianza?), y después pasar los vetos y el juez contra
 este agente para ver qué sobra.
+
+## 2026-09-14 · El hilo que muere no es una conversación corta, y la factura es varianza tanto como regla
+**El agujero de `jugar-tres.mts`, cerrado como el de `juicio-sobre-hilos.mts`.** Tres cosas dejaban
+pasar un fallo del instrumento como si fuera una medida del agente: (1) el decisor que contesta algo
+ilegible dos veces terminaba el hilo con `perdido · el decisor no respondió` —la cara exacta de lo que
+medimos— y entraba en el denominador; el 14-09 `telefono_compartido/libre` se cortó así en el turno 5
+y contó como uno de los cuatro hilos. (2) Un paciente que devuelve vacío seguía el hilo con un
+entrante «». (3) Al fallar un hilo, el de la pasada ANTERIOR se quedaba en su sitio en el fixture con
+su fecha vieja, y el juicio lo cuenta como de esta pasada (es lo que hay en `fixture.json`: hilos de
+las 11:51 mezclados con los de las 22:00). Ahora los dos primeros LANZAN, el hilo caído se BORRA del
+fixture, y **el aviso a toda pantalla va ANTES de la tabla**, con los hilos arrastrados de pases
+viejos listados aparte. Y el hilo de un solo mensaje —que puede ser legítimo: entregar por queja en el
+primero lo es— se dice al lado del número: baja la fracción por una razón que no es recoger mal.
+**LA FACTURA, medida gratis sobre lo ya jugado (237 → 240 → 241, mismos 4 guiones, `libre` de
+control): NO se puede atribuir a la regla.** Contrato cubierto: alcance **3/4 → 4/4 → 2/4**, control
+`libre` **2/4 → 2/4 → 1/4**. El control cae en la misma dirección, y entre 237 y 240 el REDACTOR no se
+tocó y aun así se movió un hilo entero. **El suelo de ruido de esta métrica con n=4 es ±1/4**, y la
+caída observada es −2/4 con el control en −1/4: no separable.
+**Lo que sí apunta a la regla y no al ruido, porque el control no lo acompaña:** el agente ENTREGA
+ANTES —mensaje medio de entrega 3,75 → 3,67 → **2,75**, mientras `libre` se queda en 3,25 → 3,00 →
+3,25— y recoge menos datos (16 → 18 → **14**, `libre` 14 las tres veces). Esa es la forma que tendría
+«la regla lo vuelve prudente»: no deja de cubrir por timidez, cierra antes.
+**Y el guardián ya casi no trabaja contra este agente:** borradores tocados por el control en
+`alcance` 7/15 → 7/16 → **3/11**, y la familia AGENDA —para la que se construyó todo— **5 → 5 → 1**.
+En el control `libre` sigue en 2. La pieza no es inútil: es que este agente ya no la necesita.
