@@ -263,6 +263,21 @@ export function EtiquetadoAgendaView() {
                     <StatePill variant="neutral">ninguno {r.ninguno}</StatePill>
                   </span>
                 )}
+                {/* MEJORAS 239 — etiquetas que ya no tienen su mensaje detrás: alguien
+                    rejugó ese hilo. No es un error a esconder, es la vara encogiendo,
+                    y hasta hoy pasaba en silencio heredando la etiqueta en falso. Las
+                    que salieron por el enrutador van en gris y aparte: son 10 fijas, y
+                    sumarlas aquí dejaría el aviso encendido en permanente. */}
+                {r != null && r.huerfanas > 0 && (
+                  <StatePill variant="warning">
+                    {r.huerfanas} {r.huerfanas === 1 ? "etiqueta se quedó" : "etiquetas se quedaron"} sin su mensaje: se rejugó ese hilo
+                  </StatePill>
+                )}
+                {r != null && r.fueraDelEnrutador > 0 && (
+                  <span className="text-xs text-[var(--color-muted)]">
+                    +{r.fueraDelEnrutador} etiquetadas que el enrutador ya no marca
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border)] p-0.5">
                 {(["pendientes", "todos", "etiquetados"] as const).map((f) => (

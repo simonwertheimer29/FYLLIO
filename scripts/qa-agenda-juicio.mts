@@ -152,8 +152,43 @@ console.log("\n6 · el borde del juicio: se canoniza y lo que no encaja se CUENT
   ok("JSON roto → null", parsearJuicioAgenda('{"etiqueta":"afirma"') === null);
 }
 
+// ─── MEJORAS 239 · LA CLAVE LLEVA EL TEXTO DENTRO ──────────────────────────
+//
+// Lo que protege: que rejugar un hilo NO pueda heredar la etiqueta de Simon.
+// Es el fallo más caro de los posibles aquí porque es invisible — el número
+// cambia y nadie ha tocado el juez.
+console.log("\n5 · la clave de un candidato lleva la huella de su texto (rejugar no hereda etiquetas)");
+{
+  const { claveCandidato, leerClave } = await import("../app/lib/agente/agenda-corpus");
+  const { huellaTexto } = await import("../app/lib/agente/version");
+  const ID = "guion:caso_completo:alcance:2";
+
+  const a = claveCandidato(ID, "codigo", "Te anotamos el jueves 17 por la tarde.");
+  const b = claveCandidato(ID, "codigo", "Apunto tu preferencia de jueves por la tarde.");
+  ok("EL CASO QUE JUSTIFICA TODO: mismo turno y mismo decisor, otro texto → OTRA clave", a !== b);
+  ok("y el mismo texto da siempre la misma clave (si no, nada se podría reetiquetar)",
+    a === claveCandidato(ID, "codigo", "Te anotamos el jueves 17 por la tarde."));
+
+  const l = leerClave(a);
+  ok("la clave se puede deshacer: mensajeId, fuente y huella", l?.mensajeId === ID && l?.fuente === "codigo");
+  ok("y la huella es la del texto (12 hex de sha256, sin normalizar — la migración 055 calcula la misma)",
+    l?.huella === huellaTexto("Te anotamos el jueves 17 por la tarde.") && /^[0-9a-f]{12}$/.test(l!.huella));
+
+  // La forma VIEJA deja de leerse a propósito: una etiqueta que llegue hoy con
+  // clave sin huella es una clave inventada (la migración 055 convirtió las 91).
+  ok("una clave de la forma vieja ya NO se lee (`textoDeClave` la rechaza y no se escribe nada)",
+    leerClave(`${ID}|codigo`) === null);
+  ok("ni una con una huella que no lo es", leerClave(`${ID}|codigo|NOESUNHASH`) === null);
+  ok("ni una con una fuente inventada", leerClave(`${ID}|modelo_inventado|${huellaTexto("x")}`) === null);
+
+  // Se lee de DERECHA a izquierda: un mensaje_id de la sombra puede llevar «|».
+  const raro = "wamid|con|barras";
+  const c = claveCandidato(raro, "modelo_libre", "hola");
+  ok("un mensajeId con «|» dentro se sigue leyendo entero", leerClave(c)?.mensajeId === raro && leerClave(c)?.fuente === "modelo_libre");
+}
+
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s) — el recuento del corpus de agenda miente`);
   process.exit(1);
 }
-console.log("\n✓ los «ninguno» van aparte, los errores se nombran por su coste y el borde cuenta lo que descarta");
+console.log("\n✓ los «ninguno» van aparte, los errores se nombran por su coste, el borde cuenta lo que descarta y la clave lleva su texto");

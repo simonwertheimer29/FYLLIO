@@ -241,6 +241,20 @@ export type ResumenCorpus = {
    *  guiones para el final (petición de Simon, 14-09): empezar por cuatro
    *  situaciones repetidas y llegar al resto cansado sesga la vara. */
   porOrigen: Record<OrigenCorpus, { candidatos: number; etiquetados: number; hilos: number }>;
+  /** LA ALARMA (MEJORAS 239): etiquetas de Simon cuyo mensaje ya no está —se
+   *  rejugó el hilo y el texto es otro, o la fila se perdió—. Antes del 14-09
+   *  esto no podía verse porque la clave no llevaba el texto: la etiqueta se
+   *  heredaba en falso y el número seguía saliendo redondo. Ahora la vara
+   *  encoge, y se DICE. **Un cero aquí es lo normal**; un número es «alguien
+   *  rejugó», y hay que ir a mirar qué. */
+  huerfanas: number;
+  /** Y ESTO NO ES LA ALARMA, por eso va aparte: etiquetas de mensajes que
+   *  siguen donde estaban pero que el enrutador **dejó de marcar** como
+   *  candidatos (al quitar la palabra «cita» pelada salieron unos cuantos).
+   *  Son 10 y van a ser 10 siempre. Mezclarlas con las de arriba dejaría el
+   *  aviso encendido en permanente, que es la forma de que nadie lo mire el
+   *  día que valga algo. */
+  fueraDelEnrutador: number;
 };
 
 // ─── La comparación: lo de Simon contra lo del juicio ──────────────────────

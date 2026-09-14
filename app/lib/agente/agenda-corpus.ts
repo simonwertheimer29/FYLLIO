@@ -29,6 +29,7 @@ import {
   type OrigenCorpus,
   type ResumenCorpus,
 } from "./agenda-enrutador";
+import { huellaTexto } from "./version";
 
 type FilaSombra = {
   origen: "produccion" | "hilos_jugados";
@@ -63,11 +64,45 @@ type FilaEtiqueta = {
   se_arroga: boolean | null;
   nota: string | null;
   en: Date | string | null;
+  /** El texto que Simon tenía delante al etiquetar. Se lee para poder decir
+   *  POR QUÉ una etiqueta se quedó sin candidato (MEJORAS 239): si ese texto
+   *  ya no es candidato para el enrutador es una baja conocida; si lo es, el
+   *  mensaje ha desaparecido y eso sí es una alarma. */
+  texto: string | null;
 };
 
 const iso = (d: Date | string | null): string | null => (d == null ? null : d instanceof Date ? d.toISOString() : String(d));
 
-export const claveCandidato = (mensajeId: string, fuente: FuenteCandidato) => `${mensajeId}|${fuente}`;
+/** LA IDENTIDAD DE UN CANDIDATO, Y LLEVA EL TEXTO DENTRO (MEJORAS 239, 14-09).
+ *
+ *  Hasta hoy era `<mensajeId>|<fuente>`: el turno y de dónde salió, NADA del
+ *  mensaje. Y las dos tablas de las que se leen los candidatos se reemplazan
+ *  al rejugar (`agente_sombra_hilos` hace upsert por (cliente, guion, decisor);
+ *  la sombra, por variante y turno). O sea que un `npm run hilos:tres` normal
+ *  —lo más razonable del mundo— dejaba las 91 etiquetas de Simon, 32 de ellas
+ *  en la vara del juez, pegadas a mensajes que él no ha leído. **La nota del
+ *  instrumento habría cambiado sin que nadie tocara el instrumento**, y ese es
+ *  el peor fallo posible en algo que existe para medir: invisible.
+ *
+ *  Con la huella del texto dentro, rejugar produce candidatos con clave NUEVA:
+ *  salen sin etiqueta y se ven como pendientes, y la fila vieja se queda sin
+ *  candidato — contada en `resumen.huerfanas`, no escondida. Se prefiere perder
+ *  una etiqueta EN ALTO a heredarla en falso.
+ *
+ *  La huella va al final y no al principio para que la clave se siga leyendo
+ *  («guion:caso_completo:alcance:2|codigo|a1b2…»), y se lee de derecha a
+ *  izquierda porque un `mensajeId` puede llevar «|» dentro. */
+export const claveCandidato = (mensajeId: string, fuente: FuenteCandidato, texto: string) =>
+  `${mensajeId}|${fuente}|${huellaTexto(texto)}`;
+
+/** El reverso de `claveCandidato`. `null` = no tiene la forma de una clave (o
+ *  es una de las viejas, sin huella: la migración 055 las convirtió, y una que
+ *  llegue hoy sin huella es una clave inventada). */
+export function leerClave(clave: string): { mensajeId: string; fuente: FuenteCandidato; huella: string } | null {
+  const m = clave.match(/^(.+)\|(codigo|modelo_produccion|modelo_libre)\|([0-9a-f]{12})$/);
+  if (!m) return null;
+  return { mensajeId: m[1]!, fuente: m[2] as FuenteCandidato, huella: m[3]! };
+}
 
 /** La identidad de un mensaje de guion. Lleva el decisor dentro porque los
  *  cuatro contestan a la MISMA frase: sin él, cuatro mensajes distintos
@@ -147,7 +182,7 @@ function candidatosDeLaSombra(filas: FilaSombra[]): Omit<CandidatoAgenda, "etiqu
           mensajes.push({ quien: "agente", texto: esEl ? texto : x.fila.mensaje_codigo, esElCandidato: esEl });
         }
         out.push({
-          clave: claveCandidato(mensajeId, fuente),
+          clave: claveCandidato(mensajeId, fuente, texto),
           mensajeId,
           fuente,
           telefono,
@@ -185,7 +220,7 @@ function candidatosDeLosGuiones(filas: FilaGuion[]): Omit<CandidatoAgenda, "etiq
       const dicho = [...ms.slice(0, i)].reverse().find((x) => x.quien === "paciente")?.texto ?? "";
       const cambiado = m.borrador != null && m.borrador.trim() !== (m.texto ?? "").trim();
       out.push({
-        clave: claveCandidato(mensajeId, "codigo"),
+        clave: claveCandidato(mensajeId, "codigo", texto),
         mensajeId,
         fuente: "codigo",
         telefono: null,
@@ -229,12 +264,29 @@ export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgend
     const g = await sql<FilaGuion>`select guion_id, titulo, decisor, mensajes, jugado_el
         from agente_sombra_hilos order by guion_id, decisor`.execute(trx);
     // A CIEGAS: aquí no se pide `juicio`, `juicio_se_arroga` ni `juicio_por_que`.
-    const e = await sql<FilaEtiqueta>`select clave, etiqueta, se_arroga, nota, en from agenda_corpus`.execute(trx);
+    const e = await sql<FilaEtiqueta>`select clave, etiqueta, se_arroga, nota, en, texto from agenda_corpus`.execute(trx);
     return { filas: s.rows, guiones: g.rows, etiquetas: e.rows };
   });
 
   const porClave = new Map(etiquetas.map((e) => [e.clave, e]));
   const crudos = [...candidatosDeLaSombra(filas), ...candidatosDeLosGuiones(guiones)];
+  const clavesVivas = new Set(crudos.map((c) => c.clave));
+
+  // MEJORAS 239 — LAS ETIQUETAS QUE SE QUEDARON SIN CANDIDATO, en dos montones
+  // que NO son lo mismo. Solo cuentan las filas con criterio de Simon dentro:
+  // una que solo lleve el veredicto del juicio no es una pérdida (se vuelve a
+  // juzgar por $0,0016).
+  //   · `huerfanas` — el mensaje ya no está con ese texto: alguien rejugó. ES
+  //     LA ALARMA, y su valor normal es cero.
+  //   · `fueraDelEnrutador` — el mensaje sigue donde estaba, pero el enrutador
+  //     dejó de marcarlo (al quitar la «cita» pelada salieron 10). Van a ser 10
+  //     siempre, y sumarlos a la alarma la dejaría encendida en permanente.
+  const conCriterio = etiquetas.filter((e) => e.etiqueta != null || e.se_arroga != null || e.nota != null);
+  const perdidas = conCriterio.filter((e) => !clavesVivas.has(e.clave));
+  const sinCandidato = {
+    huerfanas: perdidas.filter((e) => senalDeAgenda(e.texto ?? "").candidato).length,
+    fueraDelEnrutador: perdidas.filter((e) => !senalDeAgenda(e.texto ?? "").candidato).length,
+  };
   const candidatos: CandidatoAgenda[] = crudos.map((c) => {
     const e = porClave.get(c.clave);
     return {
@@ -271,6 +323,7 @@ export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgend
     seArroga: candidatos.filter((c) => c.seArroga != null).length,
     hilos: new Set(candidatos.map((c) => c.hilo)).size,
     porOrigen,
+    ...sinCandidato,
   };
   return { candidatos, resumen };
 }
@@ -280,12 +333,18 @@ export async function listarCorpusAgenda(): Promise<{ candidatos: CandidatoAgend
  *  fuente que la lista, o la etiqueta acabaría pegada a un texto que nadie
  *  vio. `null` = esa clave no existe para este cliente. */
 async function textoDeClave(clave: string): Promise<{ mensajeId: string; fuente: FuenteCandidato; texto: string; telefono: string | null } | null> {
-  const corte = clave.lastIndexOf("|");
-  if (corte <= 0) return null;
-  const mensajeId = clave.slice(0, corte);
-  const fuente = clave.slice(corte + 1) as FuenteCandidato;
-  if (fuente !== "codigo" && fuente !== "modelo_produccion" && fuente !== "modelo_libre") return null;
+  const partes = leerClave(clave);
+  if (!partes) return null;
+  const { mensajeId, fuente, huella } = partes;
   const cliente = requireCliente("textoDeClave");
+  // MEJORAS 239 — LA COMPROBACIÓN QUE CIERRA EL AGUJERO, y va aquí porque esta
+  // es la única puerta por la que entra una etiqueta de Simon. Si el texto que
+  // hay AHORA no es el de la huella, la clave no vale: el mensaje que él leyó
+  // ya no existe (se rejugó el hilo entre que cargó la pantalla y pulsó la
+  // tecla). Devolver null hace que la API conteste «esa clave no existe» en vez
+  // de escribir su criterio encima de un mensaje que no ha visto.
+  const verificado = (r: { mensajeId: string; fuente: FuenteCandidato; texto: string; telefono: string | null } | null) =>
+    r && huellaTexto(r.texto) === huella ? r : null;
   // Los cuatro guiones viven en otra tabla y su id la lleva dentro.
   if (mensajeId.startsWith("guion:")) {
     const [, guionId, decisor, nCrudo] = mensajeId.split(":");
@@ -300,7 +359,7 @@ async function textoDeClave(clave: string): Promise<{ mensajeId: string; fuente:
     const m = leerMensajes(fila.mensajes).find((x) => x.quien === "agente" && x.n === n);
     const texto = m ? textoDelGuion(m) : "";
     if (!texto) return null;
-    return { mensajeId, fuente, texto, telefono: null };
+    return verificado({ mensajeId, fuente, texto, telefono: null });
   }
   const r = await runWithClienteDb(cliente, (trx) =>
     sql<FilaSombra>`select origen, variante, telefono, mensaje_id, turno, hilo_etiqueta, persona,
@@ -313,7 +372,7 @@ async function textoDeClave(clave: string): Promise<{ mensajeId: string; fuente:
   for (const f of r.rows) if (!porVariante.has(f.variante)) porVariante.set(f.variante, f);
   const texto = textosDelTurno(porVariante)[fuente];
   if (!texto) return null;
-  return { mensajeId, fuente, texto, telefono: r.rows[0]!.telefono };
+  return verificado({ mensajeId, fuente, texto, telefono: r.rows[0]!.telefono });
 }
 
 /** La etiqueta de Simon sobre un candidato. Las dos preguntas van por separado

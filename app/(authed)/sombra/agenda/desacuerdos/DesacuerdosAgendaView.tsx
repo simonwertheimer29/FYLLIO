@@ -164,6 +164,17 @@ export function DesacuerdosAgendaView() {
                         {cmp.vara.acuerdo} de {cmp.vara.n} · aquí se juega si el test funciona
                       </span>
                     </p>
+                    {/* MEJORAS 239 — si alguien rejugó un hilo, la vara ENCOGE y hay
+                        que poder verlo al lado del porcentaje: un 88 % sobre 32 casos
+                        y otro sobre 24 no son la misma nota. Antes ni encogía: la
+                        etiqueta se heredaba en falso y el número salía redondo. */}
+                    {datos != null && datos.resumen.huerfanas > 0 && (
+                      <p className="mt-1.5">
+                        <StatePill variant="warning">
+                          {datos.resumen.huerfanas} {datos.resumen.huerfanas === 1 ? "etiqueta" : "etiquetas"} ya no tienen mensaje detrás: se rejugó ese hilo y salieron de la vara
+                        </StatePill>
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3">

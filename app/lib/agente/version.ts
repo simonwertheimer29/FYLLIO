@@ -17,6 +17,18 @@ export function hashVersion(texto: string): string {
   return createHash("sha256").update(texto, "utf8").digest("hex").slice(0, 12);
 }
 
+/** LA HUELLA DE UN TEXTO ETIQUETADO (MEJORAS 239, 14-09). El mismo hash de
+ *  identidad, con otro nombre porque no identifica una versión de prompt sino
+ *  el texto CONCRETO al que se refiere una etiqueta de Simon: la clave de un
+ *  candidato del corpus la lleva dentro, y así rejugar un hilo crea candidatos
+ *  nuevos (sin etiqueta, visibles como pendientes) en vez de heredar las viejas.
+ *
+ *  SIN NORMALIZAR, y es a propósito: se hashea el texto TAL CUAL se guardó. La
+ *  migración 055 calcula la misma huella en SQL (`sha256` de Postgres sobre el
+ *  mismo `texto`), y dos normalizaciones escritas en dos lenguajes es justo la
+ *  forma de que un día dejen de coincidir sin que nadie lo note. */
+export const huellaTexto = (texto: string): string => hashVersion(texto);
+
 /** De qué salió el juicio. `null` en conocimiento/objetivos = no había nada
  *  publicado / ningún objetivo abierto (no es «desconocido», es «vacío»). */
 export type VersionTurno = {
