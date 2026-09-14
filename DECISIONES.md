@@ -5639,3 +5639,35 @@ corpus de agenda saca 35 candidatos de `agente_sombra_hilos` con clave `guion:<i
 etiquetas de Simon colgando de textos que él no ha leído: la vara 28/32 se corrompería en silencio.
 El arreglo de fondo queda en MEJORAS 239.
 Siguiente: 238 (el tercer daño) con su pregunta y su vara, ahora que se sabe qué frase lo produce.
+
+## 2026-09-14 · La vara ya no se corrompe sola, y el tercer daño resultó ser medio del guardián
+**MEJORAS 239 hecha primero, por orden de Simon.** La clave del corpus era `<mensaje_id>|<fuente>`:
+el turno y de dónde salió, **nada del mensaje**, sobre dos tablas que se reemplazan al rejugar. Un
+`npm run hilos:tres` normal dejaba 91 etiquetas suyas —32 en la vara— pegadas a mensajes que no ha
+leído. Ahora la clave lleva la **huella del texto** (12 hex de sha256) y `textoDeClave` la verifica
+antes de escribir: si el texto cambió, la API dice que esa clave no existe en vez de escribir encima.
+Migración 055, idempotente, calculada sobre `agenda_corpus.texto` —que ya guardaba el mensaje que él
+tenía delante— y verificada antes de aplicarla: la huella de Postgres y la de TS coinciden en las 101
+filas. **Probado de punta a punta** proyectando los hilos rejugados: etiquetados 91→72, huérfanas
+0→19, vara 28/32→24/28. Visible, no heredado; restaurado, 28/32 = 88 % otra vez.
+Y las bajas se cuentan en **dos montones**: `huerfanas` (el mensaje ya no está — la alarma, valor
+normal cero) y `fueraDelEnrutador` (siguen ahí, el enrutador dejó de marcarlas al quitar la «cita»
+pelada: son 10 y van a ser 10 siempre). Sumarlas dejaría el aviso encendido en permanente, que es la
+forma de que nadie lo mire el día que valga algo.
+
+**Y el diagnóstico del tercer daño (238), que era la otra pregunta.** No se arregla afinando la
+regla 1: esa es de ATRIBUCIÓN —quién hace la acción— y «paso al equipo para que te reserve la cita»
+atribuye bien. El daño está en otro eje: del futuro se cuenta un **paso** («te dirá qué hay ese día»)
+o un **final** («te reserve la cita»). Y la regla que lo cubre **ya está escrita: la 3**. No falta
+doctrina — falta que la prueba se EJECUTE, y hoy es un guion en una lista de contexto mientras el
+prompt numera un procedimiento 1→5 que no la incluye. **La prueba no es una regla, es un paso.**
+**Lo que cambió el sitio del arreglo:** juzgando lo ENVIADO y no el borrador (`--enviado`, $0,008),
+el control se llevó dos mensajes de agenda enteros y **cero daños**. Podó «Te tengo anotado para el
+sábado 26» (verdad) y dejó «para que te reserve la cita» (la promesa); podó «Sí, abrimos sábados» y
+dejó dos fechas inventadas; y dejó a un paciente sin paso siguiente. El caso más limpio del tercer
+daño salió TAL CUAL con la regla 5 aprobándolo, mientras el juicio de agenda lo marca con el motivo
+correcto — **el desacuerdo concreto que faltaba para retirarla**. MEJORAS 240.
+**Lección:** medir el borrador mide al redactor y nada más. Si el número tiene que decir qué le pasa
+al paciente, hay que juzgar las dos cosas por separado en la misma pasada; si no, el guardián queda
+fuera de la vara y es la mitad del daño.
+Siguiente (esperando OK): la regla 3 como paso, y después la 240.
