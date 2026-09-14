@@ -44,8 +44,12 @@ export const LIMITES_HILOS_JUGADOS: readonly string[] = [
 export type ClinicaDemo = "centro" | "norte" | "sur" | "este";
 
 export type MundoJugado = {
-  /** Sin paciente = desconocido (solo nombre de perfil de WhatsApp). */
-  paciente?: { nombre: string };
+  /** Sin paciente = desconocido (solo nombre de perfil de WhatsApp). `doctor`
+   *  y `tratamiento` son SU FICHA (14-09): el nombre del doctor tiene que
+   *  existir en el staff de la clínica del guion — el seed resuelve el id por
+   *  nombre y lanza si no está, para que el mundo del guion y la base digan
+   *  lo mismo. */
+  paciente?: { nombre: string; doctor?: string; tratamiento?: string };
   /** Estados reales de `presupuestos` (001): PRESENTADO = pendiente de decidir. */
   presupuesto?: { importe: number; estado: "PRESENTADO" | "EN_DUDA" | "ACEPTADO"; tratamiento: string; haceDias: number };
   /** Pago parcial ya registrado: deja cobro pendiente = importe − pago. */

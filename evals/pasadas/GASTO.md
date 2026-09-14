@@ -292,3 +292,20 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   esa cita rápido» sin contrapeso —el daño que fabricó el guardián—, ahora **reescribe**. Los seis
   vetos deterministas no cazaron nada en esta muestra; las dos intervenciones son del juez. Falta el
   B−A definitivo, que sale del próximo juicio sobre una pasada nueva · ac. **~$13,92**
+
+- **14-09 · LA FICHA, medida** (4 guiones × `alcance` con `--solo`, más juicio de borrador y de
+  enviado) · **$0,28 + $0,015 + $0,014 = $0,31 medido** (anunciado típico $0,44, tope $0,80) ·
+  **LA CIFRA: A = 0/13.** La ficha **no añade daño de agenda**: el redactor sigue escribiendo cero
+  afirmaciones y cero arrogaciones, igual que en el suelo de 244. Pero el suelo no mide la familia
+  que la ficha sí rompe: **el nombre del doctor salió enviado tres veces en el hilo de Nuria**, que
+  nunca lo nombró — y una de las tres la escribió la REESCRITURA del guardián. El juez cazó el nombre
+  completo dos veces (un descarte y una poda) y dejó pasar «el Dr. Iván». Precio del descarte:
+  contrato **4/4 → 3/4** y datos **18 → 16**. Solo `alcance`: `libre` no es control aquí porque
+  también lee la ficha (`renderEntradaLibre` usa `lineasDeHechos`) · MEJORAS 241-243 · ac. **~$14,23**
+
+- **14-09 · La vara del juez con la regla 3 ampliada a doctor y tratamiento** (63 casos, `qa:juez`) ·
+  **$0,216 medido** (anunciado ~$0,21) · **LA CIFRA: 62/63 con FN=0 — no se movió ni un caso.**
+  Meter «al DOCTOR QUE LA ATIENDE» en la regla de datos sensibles no volteó ninguno de los 26
+  infractores ni de los 37 limpios; el único FP sigue siendo L12 («tienes un pago pendiente»), el
+  mismo de ayer y de otra familia. La ampliación sale gratis en precisión — y aun así no basta,
+  porque lo que se coló en la pasada («el Dr. Iván») el juez ni lo mira · ac. **~$14,44**

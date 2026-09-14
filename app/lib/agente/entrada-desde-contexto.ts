@@ -43,6 +43,9 @@ export type ContextoParaEntrada = {
   pendienteCobro: number;
   objetivosAbiertos: readonly EtapaObjetivo[];
   identidadAmbigua: { nombres: string[] } | null;
+  /** 14-09 — lo que consta en su ficha (doctor, tratamiento en curso). El
+   *  banco no lo fabrica: ausente = ni una línea, como el conocimiento. */
+  ficha?: { doctor: string | null; tratamiento: string | null } | null;
 };
 
 export type SemaforoParaEntrada = {
@@ -115,5 +118,10 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     optOutVigente: p.optOutVigente,
     clinicasDelHilo: p.clinicasDelHilo,
     identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,
+    // La ficha CAE con la ambigüedad, como los presupuestos y el pago: si no
+    // sabemos con quién hablamos, no se afirma el doctor ni el tratamiento de
+    // nadie (MEJORAS 139). El contexto ya la anula; se repite aquí porque la
+    // guarda no puede depender de que todos los callers se acuerden.
+    ficha: ctx.identidadAmbigua ? null : (ctx.ficha ?? null),
   };
 }

@@ -3660,3 +3660,55 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   explícita y que es **exactamente la familia que tú llamaste ambigua** en 236/238 («es verdad y
   parece prometer»). O el caso cambia de etiqueta esperada en `qa:juez`, o el juez tiene que volver a
   perdonar el horario de apertura al lado de una pregunta de franja. No lo toco sin que lo decidas.
+
+## 241. Agente · la ficha se cuela: la regla en el papel no para el nombre del doctor, y el juez solo caza la mitad
+- **Medido el 14-09 sobre los 4 guiones calibrados (`fixture-ficha`), con la ficha ya puesta.** La
+  regla del dato no pedido se extendió a doctor y tratamiento en los dos sitios (prompt del evaluador
+  y regla 3 del juez), y la vara del juez no se movió (62/63, FN=0). **Y aun así el nombre del doctor
+  llegó al paciente en los TRES mensajes del hilo de Nuria**, que nunca lo nombró: «te lo confirma el
+  Dr. Iván», «a qué hora prefieres con el Dr. Iván», «cuando llames para agendar con el Dr. Iván».
+- **Peor: una de esas tres la ESCRIBIÓ el guardián.** En el t2 el borrador no nombraba al doctor en
+  la pregunta; la reescritura por `veto:servicio` lo metió («¿a qué hora prefieres con el Dr. Iván?»).
+  La reescritura hereda el contexto entero y con él la ficha, y nadie le dice que esa parte no se usa.
+- **Lo que SÍ paró el juez:** el nombre completo. Cazó «un presupuesto en la consulta con el Dr.
+  Sergio Camacho» (descarte, `datos_sensibles`) y podó «el Dr. Iván Castaño y su equipo te ayudarán»
+  (`dato_inventado`). La línea que separa lo cazado de lo colado es **«Dr. Nombre Apellido» vs «el
+  Dr. Iván»**, que para el juez es casi una fórmula de cortesía y para la regla es el mismo dato.
+- **Y tiene precio:** el descarte de Carlos le costó el caso — contrato **4/4 → 3/4** y datos **18 →
+  16** contra el suelo de 244.
+- **Propuesta:** un **veto determinista** (sin modelo, como los otros seis) — el nombre del doctor de
+  la ficha, entero o por su nombre de pila, no puede aparecer en el borrador si la persona no lo ha
+  escrito en el hilo. Es exacto porque el dato lo pone el código: sabemos la cadena que buscamos. Y
+  el veto tiene que correr **después** de la reescritura, no antes, porque el caso medido lo fabricó
+  la reescritura. · **Alternativa más barata si se prefiere no tocar el guardián:** no mandar el
+  doctor al modelo y quedarse con el tratamiento — la ficha sigue sirviendo para no preguntar, que es
+  para lo que está. · **Principio:** §9 (lo que el guardián cambia se cuenta) y la regla de Simon
+  «lo que consta es para no preguntar, no para decir». · **Impacto:** ALTO (dato de salud que sale).
+  · **Esfuerzo:** 1 h + una jugada. · **Fecha:** 2026-09-14
+
+## 242. Agente · el agente llamó «María» a Nuria, y salió enviado
+- **Medido el 14-09 en `fixture-ficha`, hilo de Nuria, t2:** el mensaje que salió empieza *«Hola
+  María, respecto al parking…»*. En el contexto no hay ninguna María: el nombre está inventado, y
+  además el saludo se repite en el segundo mensaje de un hilo que ya iba por el t2.
+- **Ninguna guarda lo mira.** El juez juzga agenda, clínica, datos volcados y promesas; un nombre que
+  no es el de la persona no infringe ninguna. Es el fallo más barato de cazar que queda: el nombre
+  de pila lo pone el CÓDIGO en el contexto, así que un veto determinista puede comprobar que el
+  vocativo del borrador es ese o no es ninguno.
+- **Propuesta:** veto determinista de vocativo (si el borrador saluda con un nombre y no es el que
+  consta ni uno que la persona haya dicho en el hilo, se reescribe). · **Principio:** §20 (un nombre
+  que no está en el dato es un nombre inventado). · **Impacto:** MEDIO-ALTO (rompe la confianza en
+  una línea). · **Esfuerzo:** 1 h. · **Fecha:** 2026-09-14
+
+## 243. Agente · la serie cuenta dos familias de daño y la ficha daña en una tercera
+- **`npm run serie` dio A = 0/13 en la pasada de la ficha, y eso es verdad y engaña.** Las columnas A
+  y B cuentan `afirma` + `se arroga`, que son las dos familias de AGENDA. El daño que trajo la ficha
+  —volcar el doctor— vive en `datos_sensibles`, que no entra en ninguna de las dos: se ve solo en el
+  log del control, leyendo los mensajes uno a uno.
+- **Por qué importa:** el suelo de 244 (A=0) se anunció como «no tiene resolución para mejoras pero
+  sí para empeoramientos». Con este agujero tampoco la tiene para los empeoramientos **de otra
+  familia** — y la de hoy es justo una de esas.
+- **Propuesta:** una tercera columna en la serie, «vuelca» (datos del caso no pedidos), contada del
+  mismo juicio; o, más barato, contar en la serie las INTERVENCIONES del control por motivo, que ya
+  están en el fixture y no cuestan un dólar. · **Principio:** §«A y B jamás se funden» llevado a su
+  consecuencia: si hay tres daños, hay tres cuentas. · **Impacto:** MEDIO (instrumento, no producto).
+  · **Esfuerzo:** 1 h, coste $0. · **Fecha:** 2026-09-14

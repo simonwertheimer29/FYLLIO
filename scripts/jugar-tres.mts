@@ -88,6 +88,19 @@ import { agregarTardanza, DECISORES, type VarianteSombra, ETIQUETA_DECISOR, fras
 import { runWithCliente } from "../app/lib/cliente-contexto";
 import { hoyISO } from "../app/lib/time";
 import { pacienteDice, esFin, MODELO_PACIENTE, type Espejo } from "./hilos-jugados-paciente.mts";
+import { GUIONES } from "./hilos-jugados-guiones.mts";
+
+/** LA FICHA DEL GUION (14-09), de su DEFINICIÓN VIVA y no del fixture: el
+ *  fixture congeló su turno 1 antes de que existiera este campo, así que leerla
+ *  de ahí daría null para todos y la pasada mediría el prompt de ayer. La
+ *  definición es la misma que resiembra la DEMO (`construirMundo`), o sea el
+ *  mismo mundo en los dos sitios — no una segunda verdad. Sin paciente en el
+ *  mundo (un desconocido), no hay ficha. */
+function fichaDelGuion(id: string): EntradaEvaluador["ficha"] {
+  const p = GUIONES.find((g) => g.id === id)?.mundo.paciente;
+  if (!p || (!p.doctor && !p.tratamiento)) return null;
+  return { doctor: p.doctor ?? null, tratamiento: p.tratamiento ?? null };
+}
 
 const COSTE_TURNO: Record<Decisor, number> = { codigo: 0.022, contexto: 0.03, libre: 0.03, alcance: 0.03 };
 /** Qué prompt de la sombra lleva cada decisor. El código no lleva ninguno. */
@@ -171,6 +184,8 @@ function escenarioDe(b: EntradaEvaluador): EscenarioPrueba {
  *  evaluador en el turno 1 del fixture. */
 function entradaDelTurno(args: {
   base: EntradaEvaluador;
+  /** La ficha del guion (doctor y tratamiento en curso), que el fixture no trae. */
+  ficha: EntradaEvaluador["ficha"];
   hilo: TurnoPrueba[];
   mensaje: string;
   sesion: EstadoSesionPrueba;
@@ -202,6 +217,7 @@ function entradaDelTurno(args: {
     diasHastaProximaCita: b.diasHastaProximaCita ?? null,
     umbralCitaProximaDias: b.umbralCitaProximaDias,
     identidadAmbigua: b.identidadAmbigua ?? null,
+    ficha: b.esPacienteConocido ? args.ficha : null,
     clinicasDelHilo: b.clinicasDelHilo ?? null,
     ultimoNoLegible: args.noLegible,
   };
@@ -354,7 +370,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
     st.mensajes.push({ n, quien: "paciente", texto: entrante, noLegible: noLegible != null });
     st.espejo.push({ direccion: "Entrante", contenido: entrante, quien: "paciente" });
 
-    const entrada = entradaDelTurno({ base, hilo: st.hilo, mensaje: entrante, sesion: st.sesion, hoy, noLegible });
+    const entrada = entradaDelTurno({ base, ficha: fichaDelGuion(g.id), hilo: st.hilo, mensaje: entrante, sesion: st.sesion, hoy, noLegible });
     const ev = await evaluarTurno(entrada);
     st.usd += costeUsdDeTurno(ev.usage, ev.modelo) ?? 0;
     if (ev.fallback) {

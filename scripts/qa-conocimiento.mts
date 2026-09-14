@@ -32,7 +32,7 @@ const HORARIO_QA = {
   viernes: { ...dia }, sabado: { activo: true, inicio: "10:00", fin: "14:00" },
   domingo: { activo: false, inicio: "10:00", fin: "14:00" },
 };
-import { renderEntrada, type EntradaEvaluador } from "../app/lib/agente/evaluador";
+import { renderDatosQueConstan, renderEntrada, type EntradaEvaluador } from "../app/lib/agente/evaluador";
 
 let fallos = 0;
 const ok = (n: string, c: boolean, extra = "") => {
@@ -153,6 +153,37 @@ console.log("\nC · con datos: lo publicado entra tal cual, con su frontera");
     !/a[úu]n no se le ha recordado/i.test(conDeuda));
   ok("y la frecuencia sigue existiendo, pero de última y solo si ya se recordó",
     /Y YA se le record[óo] en esta conversaci[óo]n: no lo repitas/i.test(renderEntrada({ ...entradaBase, pendienteCobro: 1200, cobroYaRecordado: true }).texto));
+}
+
+// ─── LA FICHA: doctor y tratamiento en curso (14-09) ───────────────────────
+// Llega para NO PREGUNTAR, no para decir. Los asserts vigilan las dos mitades:
+// que el dato esté (si no, el agente repregunta lo que ya sabe) y que el
+// límite viaje pegado (si no, lo suelta).
+{
+  const FICHA = { doctor: "Dra. Marta Villalba", tratamiento: "Ortodoncia invisible" };
+  const conFicha = renderEntrada({ ...entradaBase, ficha: FICHA }).texto;
+  ok("la ficha entra en PROSA dentro de lo que ya se sabe de la persona, con los dos datos",
+    /De su ficha consta que la atiende Dra\. Marta Villalba y que tiene en curso Ortodoncia invisible\./.test(conFicha) &&
+      !/^\s*[-·•]/m.test(conFicha.split("De su ficha consta")[1]?.split("\n")[0] ?? ""));
+  ok("y lleva su límite pegado: es para no preguntar, no para decir, y soltarlo tira el borrador",
+    /para NO pregunt[áa]rselo/i.test(conFicha) && /no para dec[íi]rselo/i.test(conFicha) &&
+      /tira el borrador entero/i.test(conFicha));
+  ok("con solo doctor, no se inventa el tratamiento (ni al revés)",
+    /De su ficha consta que la atiende Dra\. Marta Villalba\./.test(renderEntrada({ ...entradaBase, ficha: { doctor: FICHA.doctor, tratamiento: null } }).texto) &&
+      /De su ficha consta que tiene en curso Ortodoncia invisible\./.test(renderEntrada({ ...entradaBase, ficha: { doctor: null, tratamiento: FICHA.tratamiento } }).texto));
+  ok("sin ficha (null, ausente o las dos vacías) el prompt NO cambia ni un byte",
+    sinCampo === renderEntrada({ ...entradaBase, ficha: null }).texto &&
+      sinCampo === renderEntrada({ ...entradaBase, ficha: { doctor: null, tratamiento: null } }).texto);
+  ok("quien NO es paciente no tiene ficha aunque se la pasen (un lead no tiene doctor)",
+    !renderEntrada({ ...entradaBase, esPacienteConocido: false, ficha: FICHA }).texto.includes("De su ficha consta"));
+  // El juez juzga contra `renderDatosQueConstan` (§25): si la ficha no constara
+  // ahí, contestar «te atiende la Dra. Villalba» a quien lo PREGUNTA sería un
+  // dato inventado para él. Que conste no lo hace decible — eso lo gobierna su
+  // regla 3—, pero no constar sí lo haría matable.
+  ok("y la ficha CONSTA para el juez (doctor y tratamiento, en los datos que constan)",
+    renderDatosQueConstan({ ...entradaBase, ficha: FICHA }).includes("Doctor que la atiende: Dra. Marta Villalba") &&
+      renderDatosQueConstan({ ...entradaBase, ficha: FICHA }).includes("Tratamiento en curso: Ortodoncia invisible") &&
+      renderDatosQueConstan(entradaBase) === renderDatosQueConstan({ ...entradaBase, ficha: null }));
 }
 
 const conDatos = renderEntrada({ ...entradaBase, conocimiento: bueno }).texto;

@@ -84,10 +84,23 @@ export async function construirMundo(args: {
 }): Promise<MundoCreado> {
   const { q, mundo, telefono, clinicaId, doctorNombre, diaHilo } = args;
   if (!mundo.paciente) return { pacienteId: null, presupuestoId: null, citaId: null };
+  // LA FICHA del guion (14-09): el doctor se resuelve por NOMBRE dentro de su
+  // clínica y LANZA si no está — el mundo del guion y la base tienen que decir
+  // lo mismo, y un doctor_id en silencio a null es justo el dato que el agente
+  // dejaría de tener sin que nadie lo notara.
+  let doctorId: string | null = null;
+  if (mundo.paciente.doctor) {
+    const r = await q(`select id from staff where cliente='DEMO' and clinica_id = $1 and nombre = $2 limit 1`, [
+      clinicaId,
+      mundo.paciente.doctor,
+    ]);
+    if (!r.rows[0]) throw new Error(`El guion pide «${mundo.paciente.doctor}» como doctor y no está en el staff de esa clínica en DEMO.`);
+    doctorId = String(r.rows[0].id);
+  }
   const pac = await q(
-    `insert into pacientes (cliente, nombre, telefono, clinica_id, consentimiento_whatsapp, activo)
-     values ('DEMO', $1, $2, $3, true, true) returning id`,
-    [mundo.paciente.nombre, telefono, clinicaId],
+    `insert into pacientes (cliente, nombre, telefono, clinica_id, doctor_id, tratamientos, consentimiento_whatsapp, activo)
+     values ('DEMO', $1, $2, $3, $4, $5, true, true) returning id`,
+    [mundo.paciente.nombre, telefono, clinicaId, doctorId, mundo.paciente.tratamiento ?? null],
   );
   const pacienteId = String(pac.rows[0].id);
   let presupuestoId: string | null = null;

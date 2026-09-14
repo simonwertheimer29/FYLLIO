@@ -19,6 +19,9 @@
 //      cerrado no abre cita, pero sabemos quién es) — excluyente con ambos
 //   5. objetivosAbiertos respeta la precedencia cobro > presupuesto > cita
 //   6. pendienteCobro nunca negativo; solo > 0 con paciente
+//   7. ficha (doctor y tratamiento en curso, 14-09) ⇔ paciente único con
+//      doctor en staff o tratamiento —el de su ficha o el del último
+//      presupuesto ACEPTADO—; nunca de un lead, nunca con identidad ambigua
 //
 // Cobertura (§5: un entorno sin casos da falsos aprobados): exige que el DEMO
 // ejercite LAS CUATRO ramas con datos reales — identificar incluida, desde el
@@ -105,6 +108,29 @@ const conCitaFutura = new Set(
   ).rows.map((r) => String(r.paciente_id)),
 );
 
+// LA FICHA (14-09), con SQL propio: doctor = staff.nombre por doctor_id;
+// tratamiento = el primer trozo de `pacientes.tratamientos` y, si está vacío,
+// el tratamiento del presupuesto ACEPTADO más reciente.
+const fichaPorPaciente = new Map<string, { doctor: string | null; tratamientos: string | null }>();
+for (const r of (
+  await db.query(
+    `select pa.id, s.nombre as doctor, pa.tratamientos
+       from pacientes pa left join staff s on s.id = pa.doctor_id and s.cliente = pa.cliente`,
+  )
+).rows as { id: string; doctor: string | null; tratamientos: string | null }[]) {
+  fichaPorPaciente.set(r.id, { doctor: r.doctor, tratamientos: r.tratamientos });
+}
+const aceptadoPorPaciente = new Map<string, string | null>();
+for (const r of (
+  await db.query(
+    `select distinct on (paciente_id) paciente_id, tratamiento_nombre
+       from presupuestos where estado = 'ACEPTADO' and paciente_id is not null
+      order by paciente_id, fecha_aceptado desc nulls last, created_at desc, id desc`,
+  )
+).rows as { paciente_id: string; tratamiento_nombre: string | null }[]) {
+  aceptadoPorPaciente.set(r.paciente_id, r.tratamiento_nombre);
+}
+
 const pendientePorPaciente = new Map<string, number>();
 for (const r of (
   await db.query(
@@ -124,7 +150,7 @@ await db.end();
 
 // ── el recorrido ───────────────────────────────────────────────────────────
 let fallos = 0;
-let nCobro = 0, nPresu = 0, nCita = 0, nIdent = 0, nSinObjetivo = 0, nAmbiguos = 0;
+let nCobro = 0, nPresu = 0, nCita = 0, nIdent = 0, nSinObjetivo = 0, nAmbiguos = 0, nFicha = 0;
 const fallo = (tel: string, msg: string) => {
   console.error(`  ✗ ${tel}: ${msg}`);
   fallos++;
@@ -168,6 +194,9 @@ await runWithCliente("DEMO", async () => {
       if (abiertos.join() !== "identificar") fallo(tel, `ambiguo: esperaba [identificar], salió [${abiertos.join(", ")}]`);
       if (ctx.pacienteId || ctx.leadActivo || ctx.presupuestosVivos.length || ctx.pendienteCobro)
         fallo(tel, "ambiguo: afirma paciente, lead, presupuestos o pendiente");
+      // La ficha cae con lo demás: sin saber con quién hablas no hay doctor
+      // ni tratamiento de nadie.
+      if (ctx.ficha) fallo(tel, "ambiguo: afirma la ficha (doctor o tratamiento) de alguien");
       nAmbiguos++;
       return;
     }
@@ -206,6 +235,19 @@ await runWithCliente("DEMO", async () => {
     for (const v of ctx.presupuestosVivos)
       if (v.estado === "ACEPTADO" || v.estado === "PERDIDO") fallo(tel, `presupuesto ${v.id} cerrado entre los vivos`);
 
+    // 7 · ficha ⇔ paciente único con doctor en staff o tratamiento (de su ficha
+    //     o del último presupuesto aceptado). Un lead NO tiene ficha.
+    const fila = pacienteEsperado ? fichaPorPaciente.get(pacienteEsperado.id) : undefined;
+    const espDoctor = fila?.doctor?.trim() || null;
+    const espTrat =
+      ((fila?.tratamientos ?? "").split(/[\n,;]/)[0]?.trim() || null) ??
+      (pacienteEsperado ? aceptadoPorPaciente.get(pacienteEsperado.id)?.trim() || null : null);
+    const espFicha = espDoctor || espTrat ? { doctor: espDoctor, tratamiento: espTrat } : null;
+    if (JSON.stringify(ctx.ficha) !== JSON.stringify(espFicha))
+      fallo(tel, `ficha: lib=${JSON.stringify(ctx.ficha)} sql=${JSON.stringify(espFicha)}`);
+    if (ctx.ficha && !ctx.pacienteId) fallo(tel, "ficha sin paciente — un lead no tiene doctor ni tratamiento");
+    if (ctx.ficha) nFicha++;
+
     if (abiertos.includes("cobro")) nCobro++;
     if (abiertos.includes("presupuesto")) nPresu++;
     if (abiertos.includes("cita")) nCita++;
@@ -227,7 +269,11 @@ await runWithCliente("DEMO", async () => {
 // Un «346 en verde» que mezcla las dos leería como cuatro ramas cubiertas con
 // datos reales, y no es verdad: una rama cubierta solo por un caso que existe
 // dentro de este script no está probada contra el producto.
-console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCobro} · presupuesto=${nPresu} · cita=${nCita} · identificar=${nIdent} · sin objetivo=${nSinObjetivo} · número compartido (guarda)=${nAmbiguos}`);
+console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCobro} · presupuesto=${nPresu} · cita=${nCita} · identificar=${nIdent} · sin objetivo=${nSinObjetivo} · número compartido (guarda)=${nAmbiguos} · con ficha (doctor/tratamiento)=${nFicha}`);
+if (nFicha === 0) {
+  console.error("✗ cobertura: ningún hilo del DEMO tiene ficha (doctor o tratamiento) — la invariante 7 es vacua");
+  fallos++;
+}
 console.log(`Cobertura SINTÉTICA (1 caso): cita + identificar`);
 
 const ramasReales = [["cobro", nCobro], ["presupuesto", nPresu], ["cita", nCita], ["identificar", nIdent]] as const;

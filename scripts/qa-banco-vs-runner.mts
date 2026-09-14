@@ -83,6 +83,12 @@ const DECLARADOS: Record<string, string> = {
   diasHastaProximaCita: "el banco no tiene citas (declarado en banco-pruebas)",
   clinicasDelHilo: "el banco es de una clínica (declarado en banco-pruebas)",
   umbralCitaProximaDias: "no lo pasa ningún camino",
+  // 14-09 — la ficha (doctor y tratamiento en curso) sale de un paciente REAL
+  // de la base: el banco no tiene uno detrás, y fabricar «Dra. Prueba» sería
+  // enseñarle al modelo un dato de salud inventado. Va a null y se declara,
+  // como las señales. Los hilos jugados sí la llevan: `hilos:tres` la pone
+  // desde la definición del guion, que es la misma que resiembra la DEMO.
+  ficha: "el banco no tiene paciente real detrás; va a null (una ficha inventada sería un dato de salud inventado)",
 };
 
 const corto = (v: unknown) => {

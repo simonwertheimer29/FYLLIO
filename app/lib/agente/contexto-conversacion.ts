@@ -74,6 +74,14 @@ export type ContextoConversacion = {
    *  vacío, `pendienteCobro` 0, y el único objetivo abierto es `identificar`.
    *  Los nombres viajan solo para que la ficha lo declare. */
   identidadAmbigua: { motivo: "varios_pacientes" | "paciente_y_lead"; nombres: string[] } | null;
+  /** LA FICHA DEL PACIENTE (14-09): quién le atiende y qué tratamiento tiene
+   *  en curso. Solo de un PACIENTE — un lead no tiene ficha— y null cuando la
+   *  identidad es ambigua (misma caída que presupuestos y pago). El doctor
+   *  sale de `pacientes.doctor_id` → `staff.nombre`; el tratamiento, de
+   *  `pacientes.tratamientos` y, si está vacío, del último presupuesto
+   *  ACEPTADO (que es el tratamiento que la persona contrató: evidencia, no
+   *  suposición). Ninguno de los dos se inventa: lo que no consta va a null. */
+  ficha: { doctor: string | null; tratamiento: string | null } | null;
 };
 
 /** ¿Dos nombres son razonablemente la misma persona? Normalizados; iguales,
@@ -108,7 +116,12 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
 
   type Filas = {
     /** Hasta cinco: más de uno es la ambigüedad que la guarda declara. */
-    pacientes: { id: string; nombre: string; clinica_id: string | null }[];
+    pacientes: { id: string; nombre: string; clinica_id: string | null; doctor_id: string | null; tratamientos: string | null }[];
+    /** Nombre del doctor de la ficha (staff), si el paciente lleva uno. */
+    doctorNombre: string | null;
+    /** Tratamiento del último presupuesto ACEPTADO — el respaldo de
+     *  `pacientes.tratamientos` cuando la ficha no lo tiene escrito. */
+    tratamientoAceptado: string | null;
     leads: {
       id: string;
       nombre: string;
@@ -139,7 +152,7 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     // más reciente en silencio; con dos, el que decide es la guarda.
     const pacientes = await trx
       .selectFrom("pacientes")
-      .select(["id", "nombre", "clinica_id"])
+      .select(["id", "nombre", "clinica_id", "doctor_id", "tratamientos"])
       .where(
         sql<boolean>`replace(replace(replace(coalesce(telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}`,
       )
@@ -202,7 +215,48 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
           .executeTakeFirst()) ?? null)
       : null;
 
-    return { pacientes, leads, vivos, perfil, citaFutura: citaFutura != null };
+    // LA FICHA (14-09). Dos consultas más, y SOLO si hay un paciente único:
+    // sin ficha no hay doctor ni tratamiento que leer. Un fallo aquí lanza,
+    // como el resto — quedarse sin doctor por una consulta rota es tratar a
+    // un paciente con historia como a un desconocido.
+    const doctor = paciente?.doctor_id
+      ? ((await trx
+          .selectFrom("staff")
+          .select("nombre")
+          .where("id", "=", paciente.doctor_id)
+          .limit(1)
+          .executeTakeFirst()) ?? null)
+      : null;
+    // El tratamiento CONTRATADO: el presupuesto aceptado más reciente. Es el
+    // respaldo de `pacientes.tratamientos` (que en muchas bases está vacío),
+    // y es evidencia —lo firmó— no una suposición sobre lo que le harán.
+    const aceptado = paciente
+      ? ((await trx
+          .selectFrom("presupuestos")
+          .select("tratamiento_nombre")
+          .where("paciente_id", "=", paciente.id)
+          .where("estado", "=", "ACEPTADO")
+          // El orden tiene que ser TOTAL: con dos aceptados del mismo lote
+          // (mismo created_at, que es lo normal en una importación), un
+          // «order by created_at desc limit 1» devuelve uno u otro según le
+          // apetezca al plan — y el agente llegaría con un tratamiento
+          // distinto en cada turno. Se desempata por fecha de aceptación y,
+          // al final, por id.
+          .orderBy(sql`fecha_aceptado desc nulls last`)
+          .orderBy("created_at", "desc")
+          .orderBy("id", "desc")
+          .limit(1)
+          .executeTakeFirst()) ?? null)
+      : null;
+    return {
+      pacientes,
+      leads,
+      vivos,
+      perfil,
+      citaFutura: citaFutura != null,
+      doctorNombre: doctor?.nombre ?? null,
+      tratamientoAceptado: aceptado?.tratamiento_nombre ?? null,
+    };
   });
 
   const leadActivoFila =
@@ -229,6 +283,7 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
       clinicaId: filas.perfil?.clinica_id ?? filas.pacientes[0]?.clinica_id ?? leadActivoFila?.clinica_id ?? null,
       objetivosAbiertos: ["identificar"],
       identidadAmbigua,
+      ficha: null,
     };
   }
   const paciente = filas.pacientes[0] ?? null;
@@ -316,5 +371,23 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
       null,
     objetivosAbiertos,
     identidadAmbigua: null,
+    ficha: fichaDe(paciente, filas.doctorNombre, filas.tratamientoAceptado),
   };
+}
+
+/** La ficha que viaja al agente. Solo de un paciente, y solo lo que consta:
+ *  si no hay ni doctor ni tratamiento, no hay ficha (null) y el prompt no
+ *  cambia ni un byte. `tratamientos` es un texto libre en la base — puede
+ *  traer varios separados por coma o por salto de línea: se manda el primero,
+ *  que es el que la clínica escribió primero, y no se inventa una lista. */
+function fichaDe(
+  paciente: { tratamientos: string | null } | null,
+  doctorNombre: string | null,
+  tratamientoAceptado: string | null,
+): ContextoConversacion["ficha"] {
+  if (!paciente) return null;
+  const deFicha = (paciente.tratamientos ?? "").split(/[\n,;]/)[0]?.trim() || null;
+  const tratamiento = deFicha ?? (tratamientoAceptado?.trim() || null);
+  const doctor = doctorNombre?.trim() || null;
+  return doctor || tratamiento ? { doctor, tratamiento } : null;
 }

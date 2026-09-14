@@ -198,7 +198,7 @@ export const GUIONES: Guion[] = [
     clinica: "norte",
     telefono: telefono(12),
     haceDias: 4,
-    mundo: { paciente: { nombre: "Carlos Peña" } },
+    mundo: { paciente: { nombre: "Carlos Peña", doctor: "Dr. Sergio Camacho", tratamiento: "Endodoncia molar" } },
     paciente: {
       perfil: "Carlos, 50 años, paciente antiguo. Quiere saber el precio EXACTO de un implante por WhatsApp, ahora. No acepta «depende» ni «en la visita te lo decimos»: repite la pregunta de otra manera en cada mensaje («vale, pero el más básico, ¿cuánto?», «un número aproximado», «¿más o menos de mil?»). No quiere cita hasta saberlo.",
       objetivo: "Una cifra exacta.",
@@ -213,7 +213,7 @@ export const GUIONES: Guion[] = [
     clinica: "este",
     telefono: telefono(13),
     haceDias: 5,
-    mundo: { paciente: { nombre: "Nuria Gil" } },
+    mundo: { paciente: { nombre: "Nuria Gil", doctor: "Dr. Iván Castaño", tratamiento: "Extracción muela del juicio" } },
     paciente: {
       perfil: "Nuria, 42 años, paciente. Tiene que hacerse una extracción y le da pánico. Pregunta dos cosas que la clínica no tiene escritas: si hacen sedación consciente y si hay parking cerca. Acepta que se lo confirmen. Después pregunta si abren los sábados.",
       objetivo: "Saber si hay sedación y parking.",
@@ -228,7 +228,7 @@ export const GUIONES: Guion[] = [
     clinica: "sur",
     telefono: telefono(14),
     haceDias: 3,
-    mundo: { paciente: { nombre: "Carmen Ruiz" } },
+    mundo: { paciente: { nombre: "Carmen Ruiz", doctor: "Dra. Marta Villalba", tratamiento: "Ortodoncia invisible" } },
     paciente: {
       perfil: "Lucía, 34 años, hija de Carmen Ruiz (paciente). Escribe desde el móvil de su madre y lo dice en el primer mensaje. Quiere cita para ELLA, no para su madre: una revisión, hace años que no va al dentista. Da su nombre completo (Lucía Ruiz Prado) si se lo piden. Si el agente la confunde con su madre, lo corrige.",
       objetivo: "Cita de revisión para ella misma.",

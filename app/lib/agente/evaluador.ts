@@ -81,6 +81,12 @@ export type EntradaEvaluador = {
   nombrePerfil?: string | null;
   esPacienteConocido: boolean;
   clinica?: string | null;
+  /** LO QUE CONSTA EN SU FICHA (14-09, encargo de Simon): quién le lleva y qué
+   *  tratamiento tiene en curso. Existe para NO PREGUNTAR lo que ya sabemos —
+   *  no para decírselo: el render lo dice con esas palabras y la regla del
+   *  dato no pedido lo cubre igual que el pago y el presupuesto. null = no es
+   *  paciente, la identidad es ambigua, o no consta ninguna de las dos cosas. */
+  ficha?: { doctor: string | null; tratamiento: string | null } | null;
   /** Objetivos ABIERTOS de la conversación, en orden de precedencia
    *  (contextoDeConversacion + objetivosDeClinica). Vacío es válido. */
   objetivosAbiertos: readonly ObjetivoAgente[];
@@ -485,6 +491,7 @@ TU TRABAJO ES AVANZAR — las prohibiciones de abajo son pocas y exactas, y NO s
 El horario de APERTURA que conste se dice como apertura («abrimos de 17:00 a 20:00») — NUNCA como disponibilidad tuya: «tenemos disponibilidad de 17 a 20» convierte la apertura en huecos que no ves.\nLO ÚNICO PROHIBIDO en este terreno, y es exactamente esto: (1) afirmar huecos, días u horas libres concretos de la agenda («tenemos hueco el martes» — no la ves, son inventados); (2) decir que TÚ reservas, cierras o agendas la cita («te la reservo» — reservar lo hace el equipo); (3) inventar cualquier dato que no conste (precios, condiciones, coberturas).
 Cuando el caso se completa y lo entregas, el mensaje es corto y sin recapitular tratamiento ni días (repetirlos te expone a convertir SU disponibilidad en huecos de la clínica): «¡Perfecto, [nombre]! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora.» Un dato que CONSTA se afirma directamente (un pago registrado se confirma, un importe emitido se cita).
 Y LA REGLA DEL DATO NO PEDIDO (protección de datos de salud — un revisor DESCARTA el borrador entero si la incumples): cuando el contexto traiga un pago pendiente o un presupuesto que la persona NO ha preguntado en su último mensaje, la ÚNICA forma permitida de recordárselo es en genérico: «tienes un pago pendiente; administración te lo confirma» — JAMÁS la cifra, JAMÁS el tratamiento. Escribir «te quedan 600 €» o «del implante» sin que lo pregunte tira tu borrador entero. Si la persona SÍ pregunta por su importe o su tratamiento, contestarle con el dato es correcto.
+LA MISMA REGLA VALE PARA SU FICHA — el DOCTOR QUE LA ATIENDE y el TRATAMIENTO EN CURSO que te da el contexto—, y ahí no hay siquiera versión genérica: no se nombran. Los sabes para NO PREGUNTARLE lo que ya consta (no le preguntas quién la lleva ni qué tratamiento tiene), no para decírselos. «Veo que sigues con tu ortodoncia con el Dr. Marín» a quien no ha sacado ni una cosa ni la otra es volcarle un dato de salud que ella no ha puesto encima de la mesa, y tira tu borrador entero. Si es ELLA quien lo pregunta o lo menciona —ahora o antes en la conversación—, contestarle o darlo por sabido es correcto.
 
 RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema de abajo enseña la FORMA — los <ángulos> son huecos que TÚ rellenas con tus juicios reales, no valores por defecto que copiar:
 {
@@ -551,6 +558,33 @@ export function lineasDeHechos(e: EntradaEvaluador): string[] {
     );
   } else {
     lineas.push(`Persona: ${e.nombre.split(" ")[0]}${e.esPacienteConocido ? " (paciente de la clínica)" : " (no consta como paciente)"}`);
+  }
+  // LA FICHA (14-09, encargo de Simon): quien ya es paciente llega con su
+  // doctor y su tratamiento en curso puestos, para que el agente NO se los
+  // pregunte. Va aquí —en el bloque de lo que ya se sabe de la persona— y en
+  // PROSA, no en viñetas: una viñeta se lee como un dato que enseñar, y esto
+  // es exactamente lo contrario. Por eso la frase lleva su propio límite
+  // pegado: lo que consta es para no preguntar, no para decir.
+  // La clínica NO entra: ya viaja en la entrada y se ANONIMIZA antes de salir
+  // (`construirMapaAnonimizacion`), así que nombrarla aquí sería escribir un
+  // nombre que el modelo no llega a ver.
+  const f = e.ficha;
+  if (e.esPacienteConocido && f && (f.doctor || f.tratamiento)) {
+    const consta =
+      f.doctor && f.tratamiento
+        ? `que la atiende ${f.doctor} y que tiene en curso ${f.tratamiento}`
+        : f.doctor
+          ? `que la atiende ${f.doctor}`
+          : `que tiene en curso ${f.tratamiento}`;
+    const cuales =
+      f.doctor && f.tratamiento
+        ? "ni quién la atiende ni qué tratamiento lleva"
+        : f.doctor
+          ? "quién la atiende"
+          : "qué tratamiento lleva";
+    lineas.push(
+      `De su ficha consta ${consta}. Lo sabes para NO preguntárselo —${cuales}—, no para decírselo: es un dato de salud suyo, y sacarlo tú sin que lo haya traído ella a la conversación tira el borrador entero. Si lo pregunta o lo menciona ella, contestarle con lo que consta es correcto.`,
+    );
   }
   if (e.presupuestosVivos.length > 0) {
     // Cada presupuesto lleva su LETRA: el juicio «presupuestoReferido» la
@@ -640,6 +674,13 @@ export function renderDatosQueConstan(e: EntradaEvaluador): string {
       (p) => `Presupuesto emitido: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
     ),
     e.pendienteCobro > 0 ? `Pago pendiente: ${eur(e.pendienteCobro)}` : null,
+    // 14-09 — la ficha CONSTA para el juez. Sin esto, contestar «te atiende la
+    // Dra. Villalba» a quien lo pregunta sería un dato inventado para un juez
+    // que no lo ve (el mismo riesgo que ya se pagó con lo publicado y con la
+    // cita programada). Que conste no lo hace decible: lo que prohíbe soltarlo
+    // sin que lo pidan es la regla 3 del juez, no esta lista.
+    e.ficha?.doctor ? `Doctor que la atiende: ${e.ficha.doctor}` : null,
+    e.ficha?.tratamiento ? `Tratamiento en curso: ${e.ficha.tratamiento}` : null,
     e.diasHastaProximaCita != null
       ? `Cita ya programada: ${e.diasHastaProximaCita === 0 ? "HOY" : e.diasHastaProximaCita === 1 ? "MAÑANA" : `dentro de ${e.diasHastaProximaCita} días`}`
       : null,
