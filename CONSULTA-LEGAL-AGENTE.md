@@ -99,3 +99,61 @@ que tratarlo distinto.
 (bloquea el catálogo de Meta); (2) el plazo de retención (bloquea el borrado); (3) si se exige
 seudonimizar o retención cero con Anthropic; (4) consentimiento y menores; (5) si el resumen
 técnico redactado de `incidencias` (§2, añadido el 6-sep) necesita algo más que caducidad y borrado.
+
+---
+
+## 5 · Inventario del 14-09-2026, leído del código (no de memoria)
+
+Actualiza y precisa el §1. **Decisión de producto de Simon: se sigue construyendo sobre el supuesto
+de que el agente tiene acceso a todo.** Si la consulta dice que algo no puede salir, se anonimiza en
+la capa de envío o se activa la retención cero — **esto no bloquea el producto.**
+
+### 5.1 · La anonimización protege la marca de la clínica, no al paciente
+
+`app/lib/anonimizacion.ts` sustituye **solo el nombre de la clínica** por «Clínica A». Nada más. Su
+cabecera lo dice sin querer: «Anthropic nunca ve nombres reales de **clientes**» — y el cliente es la
+clínica, no la persona. **El nombre del fichero engaña y hay que decirlo así de claro:** el paciente
+nunca estuvo en el alcance de esa función.
+
+Viajan en claro: el hilo entero, el nombre de pila, los importes y el tratamiento del presupuesto. Y
+con un desconocido sin nombre de perfil de WhatsApp, la línea enviada es `Persona: +34611997001` —
+**el teléfono va en el prompt**.
+
+### 5.2 · Hoy ya mandamos datos de salud de personas identificables
+
+No es un riesgo futuro: es el estado actual. En el prompt viajan el tratamiento de un presupuesto
+vivo junto al nombre («Ortodoncia invisible (2.400 €)»), el importe pendiente, y sobre todo **el hilo
+entero**, donde la persona escribe sus síntomas y sus miedos con sus palabras («me da mucho miedo la
+extracción», «tengo dolor e hinchazón»). Art. 9 RGPD, persona identificable, en producción.
+
+**Meter la ficha cambia el ORIGEN, no la categoría.** Pasaríamos de *lo que la persona escribió
+voluntariamente en una conversación* a *lo que su historial clínico dice de ella* (doctor,
+tratamiento en curso). Las dos cosas son Art. 9; lo que cambia es el origen y el volumen —contenido
+conversacional frente a extracto de historial—. Esa es la pregunta concreta para el abogado.
+
+### 5.3 · Las dos preguntas para Anthropic
+
+La retención cero (ZDR) es una configuración de **organización o workspace**, no un parámetro por
+petición: se activa hablando con Anthropic, no tocando código (ingeniería ≈ 0). La retención estándar
+son **30 días**. Hay modelos que no admiten ZDR (los Fable/Mythos 5.x devuelven `400` en todas las
+peticiones si la org está en ZDR); los que usamos hoy no están en esa lista.
+
+1. **¿Es la retención cero compatible con el CACHÉ DE PROMPTS?** Lo usamos desde el 22-08 —el system
+   se cachea, las lecturas cuestan 0,1×— y es parte del coste por turno. Si ZDR lo desactiva, la
+   factura sube: hay que saber cuánto ANTES de decidir.
+2. **¿Qué condiciones comerciales lleva la retención cero?** Requisitos de cuenta, acuerdo asociado,
+   y si condiciona el acceso a modelos futuros.
+
+### 5.4 · Palanca preparada, NO ejecutada: seudonimizar el identificador
+
+El mapa de `anonimizacion.ts` ya es bidireccional (`desanonimizarTexto` restituye en la respuesta) y
+hoy solo lleva el nombre de la clínica. Meterle el nombre y el teléfono de la persona son **tres
+líneas**, y como el reemplazo es global sobre todo el texto también los taparía **dentro del hilo**.
+Resultado: el modelo recibe síntomas y tratamientos **sin un identificador directo pegado** — sigue
+siendo dato personal, pero es seudonimización de verdad y baja el riesgo un escalón.
+
+Dos pegas a probar contra el corpus antes: un nombre corto puede colisionar con palabras del texto
+(el reemplazo distingue mayúsculas: «Rosa» sí, «rosa» no), y el modelo escribe sobre el alias, que se
+restituye a la salida igual que ya se hace con la clínica.
+
+**Queda preparada y sin ejecutar.** Es lo primero que se hace al volver de la consulta.
