@@ -492,6 +492,10 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
         const m = await controlarMensajeDelDecisor({
           mensaje: texto,
           nombre: st.datos["cita.nombre_completo"] ?? st.datos["identificar.nombre"] ?? (base.esPacienteConocido ? base.nombre : ""),
+          // Contra qué se COMPARA el vocativo: lo que consta más la pista del
+          // perfil, igual que producción. Sin la pista, «Hola Dani» a un lead
+          // cuyo perfil dice Dani se corrige como si fuera inventado.
+          nombrePersona: [base.esPacienteConocido ? base.nombre : null, base.nombrePerfil].filter(Boolean).join(" ") || null,
           datosQueConstan: renderDatosQueConstan(entrada),
           ultimoMensaje: entrante,
           dichoPorLaPersona: st.hilo.filter((t) => t.direccion === "Entrante").map((t) => t.contenido).concat(entrante).join(" · ").slice(-1500),

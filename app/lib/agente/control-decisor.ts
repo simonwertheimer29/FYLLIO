@@ -68,6 +68,13 @@ export async function controlarMensajeDelDecisor(a: {
   mensaje: string;
   /** Para la plantilla de reemplazo: el primer nombre que se usa al hablarle. */
   nombre: string;
+  /** TODOS los nombres válidos para dirigirse a ella (el que consta y la pista
+   *  del perfil de WhatsApp), para el veto del vocativo. Separado de `nombre`
+   *  porque aquel es el que se ESCRIBE en la plantilla y este es contra el que
+   *  se COMPARA: en un desconocido el primero está vacío o es el teléfono, y
+   *  usar ese como vara convertía «Hola Dani» —el nombre de su perfil, que el
+   *  prompt autoriza— en un nombre inventado. Medido el 14-09. */
+  nombrePersona?: string | null;
   /** `renderDatosQueConstan(entrada)` — los MISMOS que ve producción. */
   datosQueConstan: string;
   ultimoMensaje?: string;
@@ -92,7 +99,7 @@ export async function controlarMensajeDelDecisor(a: {
       datosQueConstan: a.datosQueConstan,
       ultimoMensaje: a.ultimoMensaje,
       dichoPorLaPersona: a.dichoPorLaPersona,
-      nombrePersona: a.nombre,
+      nombrePersona: a.nombrePersona ?? a.nombre,
       turnoEntrega: a.turnoEntrega,
       citaConsta: a.citaConsta,
       idioma,

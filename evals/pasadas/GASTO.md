@@ -319,3 +319,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   motivo de la reescritura le faltaba «o el nombre de su doctor» — sin eso la corrección volvía a
   nombrarlo y el mensaje acababa podado. **Barrido de precisión aparte, coste $0: 263 mensajes de
   todos los fixtures y decisores, 4 señalados, los 4 de verdad** · ac. **~$14,59**
+
+- **14-09 · EL SET CALIBRADO A SEIS** (`hilos:tres --solo` con los 4 de siempre + `cobro_vencido` y
+  `recordatorio_cita`, decisor `alcance`, más los dos juicios) · **$0,40 + $0,023 + $0,020 = $0,44
+  medido** (anunciado típico $0,59, tope $1,13) · **LA CIFRA: B − A = 0, «no toca» — la primera vez
+  que el guardián no ensucia**, con A = 0/20 y B = 0/18. Y **C vuelca 0/21 · C inventa 0/21** con
+  ficha en cinco de los seis guiones: `veto:doctor` disparó tres veces y ninguno llegó al paciente.
+  Lo que enseñan los dos nuevos: **`recordatorio_cita` entrega en el mensaje 1 sin recoger nada**
+  (0 datos, caso a medias para quien llame) y **`cobro_vencido` no menciona el pago ni una vez**, lo
+  que es seguro pero se separa de lo que el guion espera. Contrato 4/6 y entrega 3,50 · ac. **~$15,03**

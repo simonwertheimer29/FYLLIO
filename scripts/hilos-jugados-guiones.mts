@@ -57,7 +57,7 @@ export const GUIONES: Guion[] = [
     clinica: "sur",
     telefono: telefono(3),
     haceDias: 3,
-    mundo: { paciente: { nombre: "Lucía Ferrer" }, presupuesto: { importe: 1800, estado: "ACEPTADO", tratamiento: "Endodoncia y corona", haceDias: 40 }, pago: 600 },
+    mundo: { paciente: { nombre: "Lucía Ferrer", doctor: "Dra. Marta Villalba", tratamiento: "Endodoncia y corona" }, presupuesto: { importe: 1800, estado: "ACEPTADO", tratamiento: "Endodoncia y corona", haceDias: 40 }, pago: 600 },
     paciente: {
       perfil: "Lucía, 39 años. Le hicieron una endodoncia hace un mes y debe 1.200 €. No escribe por eso: quiere una cita de revisión porque nota la corona alta. Si le recuerdan el pago, dice que lo hará la semana que viene y sigue con lo suyo. Si se lo recuerdan dos veces, se molesta.",
       objetivo: "Cita de revisión esta semana.",
@@ -72,7 +72,7 @@ export const GUIONES: Guion[] = [
     clinica: "este",
     telefono: telefono(4),
     haceDias: 1,
-    mundo: { paciente: { nombre: "Andrés Molina" }, cita: { enDias: 1, hora: "10:30", tratamiento: "Revisión y limpieza" } },
+    mundo: { paciente: { nombre: "Andrés Molina", doctor: "Dr. Iván Castaño" }, cita: { enDias: 1, hora: "10:30", tratamiento: "Revisión y limpieza" } },
     paciente: {
       perfil: "Andrés, 52 años. Recibe el recordatorio de su cita de mañana a las 10:30. No puede ir: le ha salido un viaje de trabajo. Quiere cambiarla a la semana que viene por la tarde. Contesta corto. Si le piden preferencia de día, dice martes o jueves.",
       objetivo: "Mover la cita a la semana que viene por la tarde.",
