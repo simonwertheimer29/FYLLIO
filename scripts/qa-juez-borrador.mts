@@ -179,7 +179,19 @@ CASOS.push(
   { id: "P1", infringe: false, nota: "precio PUBLICADO citado tal cual — leer no es negociar", entrega: false,
     datos: PUBLICADO, ultimo: "¿Cuánto cuesta la ortodoncia invisible?",
     borrador: "La ortodoncia invisible está publicada desde 35 €/mes, Ana, con financiación hasta 24 meses. En la valoración te concretamos tu caso." },
-  { id: "P2", infringe: false, nota: "horario PUBLICADO contestado", entrega: false,
+  // P2 CAMBIÓ DE ETIQUETA EL 14-09, y es la prueba la que estaba caducada, no
+  // el juez (§26). La regla 5 vieja lo perdonaba con una excepción escrita a
+  // mano —«citar el horario de apertura NO infringe»— y con el test de
+  // falsabilidad el juez lo caza: recitar la apertura y rematar con «¿te viene
+  // bien alguna franja?» invita a elegir hueco dentro de ese rango, y si no hay
+  // ninguno el mensaje se cae. Simon lo zanjó: es la MISMA familia que los dos
+  // mensajes que marcó el 12-09 (Lucía, «¿mañana por la mañana, por la tarde, o
+  // algún otro día?»; Íñigo, «abrimos a las 9:00, llama y te verá un doctor»)
+  // — suenan a ofrecer huecos aunque técnicamente pregunten. Contestar el
+  // horario sigue siendo correcto; lo que infringe es la invitación pegada al
+  // lado. Perdonarlo otra vez sería devolver la excepción que se acaba de
+  // quitar.
+  { id: "P2", infringe: true, categoria: "agenda", nota: "el horario publicado contestado + «¿te viene bien alguna franja?»: la apertura leída como huecos (Simon, 14-09)", entrega: false,
     datos: PUBLICADO, ultimo: "¿Qué horario tenéis?",
     borrador: "Abrimos de lunes a viernes de 9:30 a 20:00, y los sábados de 10 a 14, Ana. ¿Te viene bien alguna franja?" },
   { id: "P3", infringe: false, nota: "política publicada (seguros) + la cobertura personal se remite", entrega: true,
