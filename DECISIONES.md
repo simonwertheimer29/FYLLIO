@@ -5913,3 +5913,25 @@ marcha.
 diga «ENSUCIA» no se puede juzgar si el juez aporta —solo sabemos que resta—. Cuando llegue a cero o
 a negativo, entonces se mira si salva uno o dos cada tantas pasadas sin estropear nada; si es así, se
 queda como un plus. Modificar, no retirar.
+
+## 2026-09-14 · El juez dejó de podar, y el pago pendiente pasa a ser por contexto
+**Paso 1 (¿dejó de ensuciar?): CERO PODAS sobre los mismos 11 mensajes, sin rejugar** (`control:hilos
+--fixture fixture-244`, $0,054). El control interviene en 2 de 11 y mata 0. El mensaje que ayer se
+rompió —se le podó «¿Prefieres venir esta semana o la próxima…?» y quedó «te puedo agendar esa cita
+rápido» sin contrapeso— ahora se **reescribe** en vez de podarse. Los seis vetos deterministas no
+cazaron nada; las dos intervenciones son del juez. **El B−A definitivo no está aún**: `control:hilos`
+enseña qué hizo el control, no juzga lo que sale. Sale con el próximo juicio, y la serie lo recogerá.
+**Paso 2: el pago pendiente, por contexto y no por frecuencia.** La línea decía «aún no se le ha
+recordado en esta conversación», que es un EMPUJÓN —le dice al modelo que le queda un recordatorio
+por gastar pase lo que pase en el mensaje—. La guarda real vivía en otro sitio (`estado-persona`:
+urgencia, queja y petición), pero **una conversación sobre el horario de apertura no es ninguna de
+las tres**, y ahí el empujón entraba. Ahora el hecho se dice como hecho y la condición es de contexto:
+se recuerda si ESTE mensaje va de pedir cita o de seguir su tratamiento, nunca si va de otra cosa, y
+nunca en urgencia, queja o petición. La frecuencia se queda, pero de última y no de titular. Quién
+sabe de qué va el mensaje es el modelo, que lo tiene delante: por eso la condición se le da a él y no
+se calcula en código. Cuatro casos nuevos en `qa:conocimiento`.
+**PENDIENTE, en orden, para la sesión nueva:** (1) la ficha —doctor y tratamiento en curso— medida
+sobre los 4 guiones calibrados, que es el bloque grande; (2) `cobro_vencido` y `recordatorio_cita`,
+la variedad más barata que existe porque ya están escritos; (3) los guiones nuevos, empezando por
+**la cita ya puesta que quiere moverse**. Y un hallazgo que no es un guion sino un DATO QUE FALTA:
+**el agente no sabe qué días cierra la clínica**, así que a un festivo diría que sí sin saberlo.

@@ -285,3 +285,10 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   único fallo que queda es L12, y **ha cambiado de familia**: ya no señala la frase de agenda sino
   «tienes un pago pendiente», que es justo el recordatorio en genérico que la regla permite. Cae
   cerca de lo siguiente en la cola (el pago por contexto) · ac. **~$13,87**
+
+- **14-09 · ¿Dejó de ensuciar el juez?** (`control:hilos` sobre los MISMOS 11 mensajes de la pasada
+  del mapa, sin rejugar) · **$0,054 medido** (anunciado ~$0,05) · **LA CIFRA: CERO PODAS.** El
+  control interviene en 2 de 11 y **mata 0**: donde antes podó la pregunta y dejó «te puedo agendar
+  esa cita rápido» sin contrapeso —el daño que fabricó el guardián—, ahora **reescribe**. Los seis
+  vetos deterministas no cazaron nada en esta muestra; las dos intervenciones son del juez. Falta el
+  B−A definitivo, que sale del próximo juicio sobre una pasada nueva · ac. **~$13,92**

@@ -564,12 +564,23 @@ export function lineasDeHechos(e: EntradaEvaluador): string[] {
   } else {
     lineas.push("Presupuesto emitido: ninguno pendiente de decisión.");
   }
+  // EL PAGO PENDIENTE, POR CONTEXTO Y NO POR FRECUENCIA (14-09, encargo de
+  // Simon). La línea decía «aún no se le ha recordado en esta conversación», y
+  // eso es un EMPUJÓN: le dice al modelo que le queda un recordatorio por
+  // gastar, pase lo que pase en el mensaje. La guarda real estaba en otro sitio
+  // —la regla del estado de la persona (`estado-persona.ts`) tapa urgencia,
+  // queja y petición— pero una conversación sobre el horario de apertura no es
+  // ninguna de las tres, y ahí el empujón entraba.
+  //
+  // Ahora el HECHO se dice como hecho y la condición es de CONTEXTO: se
+  // menciona si este mensaje va de pedir cita o de seguir su tratamiento, y no
+  // si va de cualquier otra cosa. La frecuencia se queda, pero de última y no
+  // de titular. Quién sabe de qué va el mensaje es el modelo, que lo tiene
+  // delante: por eso la condición se le da a él y no se calcula aquí.
   lineas.push(
     e.pendienteCobro > 0
-      ? `Pago pendiente que consta: ${eur(e.pendienteCobro)}${
-          e.cobroYaRecordado
-            ? " — YA se le recordó en esta conversación: no lo repitas."
-            : " — aún no se le ha recordado en esta conversación."
+      ? `Pago pendiente que consta: ${eur(e.pendienteCobro)}. Solo se le recuerda —y en genérico, sin cifra ni tratamiento— si ESTE mensaje suyo va de pedir cita o de seguir su tratamiento; si va de otra cosa, no se menciona. Nunca en una urgencia, una queja o una petición de hablar con alguien.${
+          e.cobroYaRecordado ? " Y YA se le recordó en esta conversación: no lo repitas." : ""
         }`
       : "Pagos pendientes que consten: ninguno.",
   );

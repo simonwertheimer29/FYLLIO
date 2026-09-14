@@ -139,6 +139,22 @@ ok("y el prompt de hoy NO menciona lo publicado (sonda del assert: si esto falla
 // ─── C · El render con datos ───────────────────────────────────────────────
 console.log("\nC · con datos: lo publicado entra tal cual, con su frontera");
 
+// EL PAGO PENDIENTE, POR CONTEXTO (14-09). La línea decía «aún no se le ha
+// recordado en esta conversación», que es un empujón: le dice al modelo que le
+// queda un recordatorio por gastar pase lo que pase en el mensaje. Ahora la
+// condición es de contexto y la frecuencia va de última.
+{
+  const conDeuda = renderEntrada({ ...entradaBase, pendienteCobro: 1200 }).texto;
+  ok("el pago pendiente se condiciona al TEMA del mensaje, no al contador",
+    /va de pedir cita o de seguir su tratamiento/i.test(conDeuda) && /si va de otra cosa, no se menciona/i.test(conDeuda));
+  ok("y nombra las tres situaciones donde NUNCA entra",
+    /Nunca en una urgencia, una queja o una petici[óo]n/i.test(conDeuda));
+  ok("ya NO queda el empujón de «aún no se le ha recordado»",
+    !/a[úu]n no se le ha recordado/i.test(conDeuda));
+  ok("y la frecuencia sigue existiendo, pero de última y solo si ya se recordó",
+    /Y YA se le record[óo] en esta conversaci[óo]n: no lo repitas/i.test(renderEntrada({ ...entradaBase, pendienteCobro: 1200, cobroYaRecordado: true }).texto));
+}
+
 const conDatos = renderEntrada({ ...entradaBase, conocimiento: bueno }).texto;
 ok("el bloque aparece con la frontera en cabecera (afirmar sí; adaptar se anota)",
   conDatos.includes("LO PUBLICADO POR LA CLÍNICA") && conDatos.includes("se anota siempre"));
