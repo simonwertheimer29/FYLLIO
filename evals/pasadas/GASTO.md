@@ -340,3 +340,16 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   «martes 22 o jueves 24») y se arroga la reserva («Apuntamos tu revisión para esta semana»).
   **No lo creó la etapa nueva: lo destapó** — es la primera pasada en la que dos conversaciones
   llegan a hablar de días. B − A sigue en 0 · ac. **~$15,47**
+
+- **15-09 · LA REGLA DE LAS FECHAS + 4 GUIONES NUEVOS + el arreglo de los datos** (10 guiones ×
+  `alcance`, uno solo pase, más los dos juicios) · **$0,54 + $0,030 + $0,027 = $0,60 medido**
+  (anunciado típico $0,80, tope $1,90) · **LA REGLA FUNCIONA: cero fechas de calendario puestas a una
+  preferencia** — «jueves o viernes por la tarde» y «martes o jueves por la tarde» salen como ella
+  los dijo, donde la pasada anterior escribía «jueves 2026-09-17» y «martes 22». Y donde la persona
+  SÍ dio fecha («el 12 de octubre», «el jueves a las 17:00»), el agente la repite, que es lo que la
+  regla manda. **B − A = −3: primera pasada en que el guardián SALVA**, no solo «no resta». Contrato
+  **9/10** y entrega **2,78** con cuatro guiones nuevos y más difíciles. Confirmado el arreglo de
+  `ETAPAS_VALIDAS`: `recordatorio_cita` pasa de 0 a 3 datos. Lo que queda (8 daños) es otra familia,
+  la del verbo: «anotamos tu revisión para esta semana», «nos encantaría atenderte el 12 de octubre».
+  Montar el mundo de un guion nuevo desde su definición ahorró ~$0,45 de `hilos:jugar` y lo deja
+  gratis para siempre · ac. **~$16,07**

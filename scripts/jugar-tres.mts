@@ -154,12 +154,77 @@ if (!existsSync(RUTA_FIXTURE)) {
 }
 const fixture = JSON.parse(readFileSync(RUTA_FIXTURE, "utf8")) as FixtureHilos;
 const hilosBase = (solo ? fixture.hilos.filter((h) => solo.includes(h.guion.id)) : fixture.hilos).filter((h) => h.turnos[0]?.entrada);
+// GUIONES QUE NO ESTÁN EN EL FIXTURE (15-09). Hasta hoy, añadir un guion
+// obligaba a pre-jugarlo con `hilos:jugar` (~$0,11 cada uno) solo para que
+// tuviera un turno 1 del que copiar el mundo. Pero el mundo de un guion está
+// ESCRITO en su definición —es de donde lo saca también el seed de la DEMO—,
+// así que se puede montar sin gastar: el escenario sale de `mundo`, la entrada
+// la construye el MISMO constructor del banco, y lo único que hay que pedirle
+// al modelo es el primer mensaje del paciente. Con guiones nuevos entrando a
+// menudo, esto deja de costar dinero cada vez.
+const NOMBRE_CLINICA: Record<string, string> = {
+  centro: "Clínica Demo Centro",
+  norte: "Clínica Demo Norte",
+  sur: "Clínica Demo Sur",
+  este: "Clínica Demo Este",
+};
+/** El escenario del banco que describe el mundo del guion. Misma derivación
+ *  que `qa-banco-vs-runner` (§25: si divergieran, el guion se jugaría contra
+ *  un mundo distinto del que dice su definición). */
+function escenarioDeGuion(g: (typeof GUIONES)[number]): EscenarioPrueba {
+  if (!g.mundo.paciente) return { tipo: "lead_nuevo", nombre: g.nombrePerfil };
+  if (g.mundo.presupuesto && g.mundo.presupuesto.estado !== "ACEPTADO")
+    return { tipo: "presupuesto", nombre: g.mundo.paciente.nombre, tratamiento: g.mundo.presupuesto.tratamiento, importe: g.mundo.presupuesto.importe };
+  const deuda = g.mundo.presupuesto ? g.mundo.presupuesto.importe - (g.mundo.pago ?? 0) : 0;
+  if (deuda > 0) return { tipo: "cobro", nombre: g.mundo.paciente.nombre, deuda };
+  return { tipo: "al_dia", nombre: g.mundo.paciente.nombre };
+}
+async function hiloDesdeLaDefinicion(g: (typeof GUIONES)[number], hoy: string): Promise<HiloJugado> {
+  const primero = await pacienteDice(g, []);
+  const entrada = construirEntradaDePrueba({
+    escenario: escenarioDeGuion(g),
+    hilo: [],
+    mensaje: primero.texto,
+    conocimiento: CONOCIMIENTO_VACIO,
+    objetivosConfig: OBJETIVOS_POR_DEFECTO,
+    clinicaNombre: NOMBRE_CLINICA[g.clinica] ?? null,
+    sesion: SESION_NUEVA,
+    hoy,
+  });
+  return {
+    guion: g,
+    jugadoEl: new Date().toISOString(),
+    hoy,
+    fin: { motivo: "max_turnos", detalle: null },
+    mensajes: [{ direccion: "Entrante", contenido: primero.texto, fuente: null, tipo: "text", mensajeId: null, instante: null } as never],
+    eventos: [],
+    turnos: [
+      {
+        entrada: { ...entrada, diasHastaProximaCita: g.mundo.cita ? g.mundo.cita.enDias : null },
+        version: null, usage: null, modelo: null, latenciaMs: null, decision: null,
+      } as never,
+    ],
+    coste: { usdAgente: 0, usdPaciente: 0, turnosSinTarifa: 0 },
+    veredicto: { valor: null, nota: null },
+  };
+}
+const faltan = (solo ?? []).filter((id) => !hilosBase.some((h) => h.guion.id === id));
 const maxDe = (h: HiloJugado) => Math.min(h.guion.maxTurnos, topeTurnos ?? 99);
+const guionesNuevos = faltan
+  .map((id) => GUIONES.find((g) => g.id === id))
+  .filter((g): g is (typeof GUIONES)[number] => g != null);
+if (faltan.length > guionesNuevos.length) {
+  console.error(`✗ --solo nombra guiones que no existen: ${faltan.filter((id) => !GUIONES.some((g) => g.id === id)).join(", ")}`);
+  process.exit(1);
+}
 
-const tope = hilosBase.reduce((s, h) => s + maxDe(h) * decisores.reduce((x, d) => x + COSTE_TURNO[d], 0), 0);
-const tipico = hilosBase.reduce((s, h) => s + Math.min(3, maxDe(h)) * decisores.reduce((x, d) => x + COSTE_TURNO[d], 0), 0);
+const totalHilos = hilosBase.length + guionesNuevos.length;
+const tope =
+  hilosBase.reduce((s, h) => s + maxDe(h) * decisores.reduce((x, d) => x + COSTE_TURNO[d], 0), 0) +
+  guionesNuevos.reduce((s, g) => s + Math.min(g.maxTurnos, topeTurnos ?? 99) * decisores.reduce((x, d) => x + COSTE_TURNO[d], 0), 0);
+const tipico = totalHilos * 3 * decisores.reduce((x, d) => x + COSTE_TURNO[d], 0);
 console.log(
-  `Tres conversaciones por guion · ${hilosBase.length} guiones · decisores: ${decisores.join(", ")} · paciente ${MODELO_PACIENTE} · ` +
+  `Tres conversaciones por guion · ${totalHilos} guiones${guionesNuevos.length ? ` (${guionesNuevos.length} desde su definición, sin fixture)` : ""} · decisores: ${decisores.join(", ")} · paciente ${MODELO_PACIENTE} · ` +
     `coste TOPE $${tope.toFixed(2)} (todos los hilos hasta maxTurnos) · típico ≈ $${tipico.toFixed(2)} (3 turnos por hilo)`,
 );
 if (estimar) process.exit(0);
@@ -628,6 +693,10 @@ const jugados = Object.fromEntries(DECISORES.map((d) => [d, [] as HiloTres[]])) 
 // «coste medido $0.00» y salida 0 — un fallo total con cara de pase vacío.
 let fallos = 0;
 const caidos: string[] = [];
+
+// Los guiones nuevos se montan AQUÍ (pide un mensaje al paciente, así que es
+// asíncrono) y se juegan igual que los del fixture, en el mismo bucle.
+for (const g of guionesNuevos) hilosBase.push(await hiloDesdeLaDefinicion(g, hoy));
 
 for (const h of hilosBase) {
   console.log("\n" + "═".repeat(72) + `\n▶ ${h.guion.id} · ${h.guion.titulo}`);

@@ -551,7 +551,16 @@ export function lineasDeHechos(e: EntradaEvaluador): string[] {
     calendario.push(`${DIA_SEMANA[d.getUTCDay()]} ${d.toISOString().slice(0, 10)}`);
   }
   lineas.push(`HOY es ${hoy} (${DIA_SEMANA[new Date(`${hoy}T12:00:00Z`).getUTCDay()]}).`);
-  lineas.push(`CALENDARIO de los próximos 14 días (para fechas tipo «el viernes», usa EXACTAMENTE la fecha de aquí): ${calendario.join(" · ")}.`);
+  lineas.push(`CALENDARIO de los próximos 14 días (para ENTENDER a qué día se refiere cuando dice «el viernes», usa EXACTAMENTE la fecha de aquí): ${calendario.join(" · ")}.`);
+  // LA REGLA DE LAS FECHAS (15-09, dictada por Simon palabra por palabra tras
+  // medirla). Va pegada al CALENDARIO porque el calendario es lo que la
+  // provocaba: decía «usa exactamente la fecha de aquí» sin distinguir
+  // ENTENDER de ESCRIBIR, y el agente devolvía «jueves 2026-09-17 o viernes
+  // 2026-09-18» a quien había dicho «jueves o viernes». Cuatro de los cuatro
+  // daños de la pasada del 15-09 eran esto.
+  lineas.push(
+    "REGLA DE LAS FECHAS: solo mencionas una fecha concreta si la persona te ha dado una fecha concreta. Si dice «un martes por la tarde» o «jueves o viernes», eso es una PREFERENCIA DE DÍA, no una fecha: la repites como ella la dijo y no le pones número ni mes. Si dice «el martes 17», entonces sí la repites: «el equipo mira si hay hueco el martes 17». Poner fecha a una preferencia parece ofrecer ese día, y ahí no hay nada ofrecido.",
+  );
   if (e.nombrePerfil) {
     // MEJORAS 225: la pista se declara como pista. No es un nombre dado.
     lineas.push(

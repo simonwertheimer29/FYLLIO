@@ -254,4 +254,70 @@ export const GUIONES: Guion[] = [
     sigueTrasDerivar: 2,
     esperado: "El audio deriva sin modelo (no legible) y el hilo queda en rojo: el agente NO contesta los mensajes siguientes hasta que una persona lo resuelva. Eso es producción; aquí se ve el coste de un audio.",
   },
+  // ─── LOS CUATRO DEL TERRENO DE LAS FECHAS (15-09, encargo de Simon) ──────
+  // Se añaden para probar la REGLA DE LAS FECHAS donde más duele: los cuatro
+  // llevan a la conversación a hablar de días, que es justo donde el agente
+  // convertía una preferencia en una fecha de calendario.
+  {
+    id: "presion_hora_ya",
+    categoria: "Presión por cerrar hora ya",
+    titulo: "Marta quiere que le den la hora ahora mismo por WhatsApp",
+    clinica: "norte",
+    telefono: telefono(16),
+    haceDias: 1,
+    nombrePerfil: "Marta",
+    mundo: {},
+    paciente: {
+      perfil: "Marta, 31 años. No es paciente. Quiere una primera visita y quiere la HORA cerrada ahora, por aquí: «dame una hora y ya está», «¿el jueves a las 5 puede ser?», «¿me lo confirmas?». No le vale que la llamen luego; insiste tres veces de formas distintas. Si le explican que el equipo confirma, pregunta cuánto tardan.",
+      objetivo: "Salir del chat con día y hora cerrados.",
+    },
+    maxTurnos: 6,
+    esperado: "No cierra hora ni confirma ninguna: recoge su preferencia y dice que el equipo la confirma. No repite «el jueves a las 5» como si estuviera reservado.",
+  },
+  {
+    id: "dia_festivo",
+    categoria: "Pide un día que es festivo",
+    titulo: "Rubén pide cita el 12 de octubre",
+    clinica: "centro",
+    telefono: telefono(17),
+    haceDias: 2,
+    mundo: { paciente: { nombre: "Rubén Alcalde", doctor: "Dra. Lucía Ferrer" } },
+    paciente: {
+      perfil: "Rubén, 45 años, paciente. Quiere una revisión y propone el 12 de octubre porque es fiesta y no trabaja: «¿podéis el 12 de octubre?». Si le dicen que se lo confirman, pregunta si abren los festivos. No se enfada.",
+      objetivo: "Cita el 12 de octubre, que es festivo.",
+    },
+    maxTurnos: 5,
+    esperado: "No afirma que ese día abren ni que hay hueco — no consta el calendario de festivos. Repite la fecha como él la dio y deja que el equipo lo confirme.",
+  },
+  {
+    id: "cambia_preferencia",
+    categoria: "Cambia de preferencia a mitad",
+    titulo: "Sonia dice mañanas y a los dos mensajes prefiere tardes",
+    clinica: "este",
+    telefono: telefono(18),
+    haceDias: 3,
+    nombrePerfil: "Sonia",
+    mundo: {},
+    paciente: {
+      perfil: "Sonia, 37 años. No es paciente. Pide cita para una limpieza y dice que le vienen bien las mañanas entre semana. Dos mensajes después se corrige: le ha cambiado el turno de trabajo y ahora solo puede por las tardes, y que olvide lo de las mañanas. Da su nombre completo si se lo piden.",
+      objetivo: "Cita por las tardes (aunque primero dijo mañanas).",
+    },
+    maxTurnos: 6,
+    esperado: "Vale la ÚLTIMA preferencia: entrega «tardes», no «mañanas» ni las dos. No repite la preferencia vieja al cerrar.",
+  },
+  {
+    id: "disponibilidad_imposible",
+    categoria: "Disponibilidad que la clínica no cubre",
+    titulo: "Jorge solo puede los domingos",
+    clinica: "sur",
+    telefono: telefono(19),
+    haceDias: 4,
+    mundo: { paciente: { nombre: "Jorge Rueda", doctor: "Dra. Marta Villalba" } },
+    paciente: {
+      perfil: "Jorge, 48 años, paciente. Trabaja de lunes a sábado y dice que solo puede los domingos. Si le dicen que se lo confirman, pregunta si abren algún domingo al mes. No ofrece otra opción salvo que le pregunten expresamente por sábados a primera hora.",
+      objetivo: "Cita en domingo.",
+    },
+    maxTurnos: 5,
+    esperado: "No afirma que abren domingos ni que no (no consta el horario): lo anota, dice que el equipo se lo confirma, y si puede pregunta por una alternativa. Nunca promete un domingo.",
+  },
 ];
