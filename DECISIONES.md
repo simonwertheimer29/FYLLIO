@@ -5795,3 +5795,27 @@ presupuesto vivo.
 la segunda es dañina y la primera va a medias); el listón del 14-09 va después, en su propia
 medición. La consulta legal (retención cero, seudonimización del identificador) va aparte y no
 bloquea.
+
+## 2026-09-14 · La lista arregla la recogida y rompe lo que llega al paciente
+**La corrección de Simon —«lo que ya se sabe» + «lo que falta»— funciona en lo que perseguía y falla
+en la guarda.** Recoger: contrato cubierto **2/4 → 4/4**, datos **14 → 18**, y por primera vez en
+cuatro pasadas el agente pide **dos cosas en el mismo mensaje** (0 → 2 de 16). El control `libre`, sin
+tocar, se queda en 1/4 y en cero mensajes con dos preguntas: el movimiento es del cambio, no del ruido.
+**LA GUARDA SALTÓ:** borrador **afirma 1 → 7 · se arroga 0 → 5**, y lo **ENVIADO pasa de CERO a 5
+afirma y 4 se arroga** — tres días de trabajo del guardián deshechos en una pasada. El guardián solo
+tocó **3 de 16** borradores (antes 3 de 11 con la mitad de mensajes de agenda).
+**El mecanismo, leído en los mensajes y no inferido:** con una lista concreta de qué conseguir, el
+agente recoge la disponibilidad y luego **se la devuelve como hueco propio** («te apunto revisión
+general entre semana por la tarde a partir de las 17:00», «ya tengo todo lo que necesito: tu revisión
+general entre semana por la tarde»). Es la regla 2 del papel incumplida de forma sistemática: lo que
+ELLA dijo vuelve más concreto y en boca de la clínica. La lista no crea la mentira; le da material.
+**Y las dos preguntas agrupadas salieron como el ejemplo «Mal» de Simon**, no como el «Bien»: «…qué te
+trae a la clínica: ¿…? **Y también**, ¿qué días y horas te vienen mejor…?». La prosa en el prompt no
+bastó; el modelo agrupa enumerando.
+**Coste de método, apuntado:** se anunciaron 4 guiones y se lanzaron 15 por no poner `--solo` ($0,85
+frente a ~$0,39; bajo el tope anunciado de $1,54, por encima del esperado). El juicio se hizo sobre un
+subconjunto de los 4 comparables —241 solo tiene esos cuatro— filtrado a mano a `fixture-243-cuatro`.
+**Lo que sí ganó el día:** el guardián nuevo de `jugar-tres` cazó a la primera un fallo real
+(`lead_precio/alcance`, evaluador en fallback en el turno 1), lo dejó fuera del fixture y sacó el pase
+con salida 1; y el campo `fuente` da su primer dato: de 3 intervenciones, **2 el juez y 1
+`veto:valora`**.

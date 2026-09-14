@@ -243,3 +243,16 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   veces (el guardián ya lo tenía en cero). **La factura:** el agente habla menos (16 → 11 mensajes, 14
   → 5 de agenda) y el contrato cubierto cae 4/4 → 2/4. **Falsa el patrón del inventario de esta
   mañana**: una regla de verdad, en el papel, sí muerde si está escrita entera · ac. **~$12,05**
+
+- **14-09 · «Lo que ya se sabe» + «lo que falta», medido** (pasada de 15 guiones × `alcance` y
+  `libre` —se anunciaron 4 y se lanzaron 15 por olvidar `--solo`: el tope anunciado era $1,54 y no se
+  rebasó, pero el esperado sí—, más juicio de borrador y de enviado sobre los 4 comparables) ·
+  **$0,85 + $0,038 + $0,034 = $0,92 medido** (anunciado ~$0,50, tope $1,54) · **LA CIFRA: la recogida
+  se arregla y lo enviado se rompe.** Recoger: contrato cubierto 2/4 → **4/4**, datos 14 → **18**,
+  y por primera vez en cuatro pasadas aparecen mensajes que piden **dos cosas juntas** (0 → 2 de 16);
+  el control `libre` no se mueve (1/4, cero mensajes con dos). Romper: **borrador afirma 1 → 7 y se
+  arroga 0 → 5**; **ENVIADO 0 → 5 afirma y 0 → 4 se arroga** — el guardián solo tocó 3 de 16
+  borradores. Con la lista delante, el agente convierte la disponibilidad que ELLA dijo en un hueco
+  suyo («te apunto revisión general entre semana por la tarde a partir de las 17:00»). Y las dos
+  preguntas agrupadas salieron como la lista leída en voz alta («…? Y también, ¿…?»), que es el
+  ejemplo que Simon marcó como «Mal» · ac. **~$12,97**
