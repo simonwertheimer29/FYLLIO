@@ -206,3 +206,13 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   volviendo** —el juicio contesta bien «¿se arroga reservar?» y luego mete esa respuesta dentro de
   la primera pregunta (MEJORAS 233)—, y otros 4 pueden ser etiquetas caducadas, no errores del juez
   (MEJORAS 235). Léelo en `/sombra/agenda/desacuerdos` · ac. **~$9,50**
+
+- **14-09 (noche) · CERRAR EL JUICIO DE AGENDA: tres pasadas, una sirvió** (los 91 candidatos,
+  haiku) · **$0,1317 + $0,1497 + $0,1310 = $0,412 medido** · **LA CIFRA: vara 29/35 = 83 %** con la
+  versión final, y «veta algo verdadero» de 9 a **1**. El arreglo era **quitar una frase** («o dice
+  que algo queda reservado»: la segunda pregunta dentro de la primera). Antes, 7 etiquetas
+  recolocadas por Simon subieron la vara de 21/35 a 28/35 **sin gastar nada** — la mitad del
+  suspenso eran etiquetas caducadas. **Las dos versiones intermedias se descartan y están
+  documentadas para que nadie las reintente:** «ventana» → 24/35 con descarte 49/56; «objeto no
+  verbo» → 27/35 con descarte 35/56. Las dos suben un bloque hundiendo el otro. Y la primera no
+  midió nada porque cambió dos cosas a la vez · ac. **~$9,91**

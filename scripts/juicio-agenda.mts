@@ -78,12 +78,16 @@ await runWithCliente("DEMO", async () => {
     `GASTO ANUNCIADO: ~$${(aJuzgar.length * COSTE_POR_CANDIDATO_USD).toFixed(3)} ` +
       `(${aJuzgar.length} × ~$${COSTE_POR_CANDIDATO_USD}) — para medir si UN test de falsabilidad acierta donde la regla 5 del juez falla.`,
   );
-  if (aJuzgar.length === 0) {
-    console.log("\nNo hay nada que juzgar. Con --rejuzgar se vuelven a pasar los que ya tienen veredicto.");
-    process.exit(1);
-  }
-  if (dry) {
-    console.log("\n--dry: no se ha llamado al modelo ni escrito nada.");
+  // Sin nada que juzgar NO se sale: se enseña el recuento igual. Preguntar
+  // «¿cómo vamos?» no puede costar una pasada de modelo — y después de
+  // recolocar etiquetas a mano, el número cambia sin que se juzgue nada.
+  if (aJuzgar.length === 0 || dry) {
+    console.log(
+      aJuzgar.length === 0
+        ? "\nNada que juzgar: todo tiene veredicto. Con --rejuzgar se vuelven a pasar."
+        : "\n--dry: no se ha llamado al modelo ni escrito nada.",
+    );
+    informar(compararAgenda(origen ? delOrigen : filas), 0, 0);
     process.exit(0);
   }
 
@@ -145,14 +149,30 @@ await runWithCliente("DEMO", async () => {
   const { filas: despues } = await listarDesacuerdosAgenda();
   const cmp = compararAgenda(origen ? despues.filter((f) => f.origen === origen) : despues);
 
+  informar(cmp, guardados, sinJuicio, { descartes, textoDivergente, usd, anunciado: aJuzgar.length * COSTE_POR_CANDIDATO_USD });
+  process.exit(sinJuicio > 0 ? 1 : 0);
+});
+
+/** El informe, en una función, porque hace falta en tres sitios: tras juzgar,
+ *  en `--dry`, y cuando ya está todo juzgado. Preguntar cómo va no cuesta nada.
+ *  LOS BLOQUES VAN SEPARADOS (condición de Simon): la vara primero, los
+ *  «ninguno» aparte, y el global el último con su aviso. */
+function informar(
+  cmp: ReturnType<typeof compararAgenda>,
+  guardados: number,
+  sinJuicio: number,
+  gasto?: { descartes: string[]; textoDivergente: number; usd: number; anunciado: number },
+) {
   console.log("\n" + "═".repeat(72));
-  console.log(
-    `Juzgados ahora: ${guardados}${sinJuicio ? ` · ${sinJuicio} sin juicio` : ""}` +
-      `${descartes.length ? ` · ${descartes.length} descartes de vocabulario (${[...new Set(descartes)].slice(0, 3).join(", ")})` : ""}` +
-      `${textoDivergente ? ` · ⚠ ${textoDivergente} con texto divergente` : ""}`,
-  );
-  console.log(`Coste MEDIDO: $${usd.toFixed(4)} (anunciado ~$${(aJuzgar.length * COSTE_POR_CANDIDATO_USD).toFixed(3)})`);
-  console.log("─".repeat(72));
+  if (gasto) {
+    console.log(
+      `Juzgados ahora: ${guardados}${sinJuicio ? ` · ${sinJuicio} sin juicio` : ""}` +
+        `${gasto.descartes.length ? ` · ${gasto.descartes.length} descartes de vocabulario (${[...new Set(gasto.descartes)].slice(0, 3).join(", ")})` : ""}` +
+        `${gasto.textoDivergente ? ` · ⚠ ${gasto.textoDivergente} con texto divergente` : ""}`,
+    );
+    console.log(`Coste MEDIDO: $${gasto.usd.toFixed(4)} (anunciado ~$${gasto.anunciado.toFixed(3)})`);
+    console.log("─".repeat(72));
+  }
   console.log(
     `LA VARA (solo donde Simon dijo afirma o repite) · ${cmp.vara.acuerdo}/${cmp.vara.n}` +
       `${cmp.vara.pct != null ? ` = ${cmp.vara.pct} %` : ""}\n` +
@@ -164,7 +184,8 @@ await runWithCliente("DEMO", async () => {
   );
   console.log(
     `Segunda pregunta (¿se arroga reservar?) · ${cmp.reserva.acuerdo}/${cmp.reserva.n}` +
-      `${cmp.reserva.pct != null ? ` = ${cmp.reserva.pct} %` : ""}`,
+      `${cmp.reserva.pct != null ? ` = ${cmp.reserva.pct} %` : ""}` +
+      `${cmp.reserva.n < 10 ? " — n demasiado pequeño para leerlo como una nota" : ""}`,
   );
   console.log(
     `Global ${cmp.global.acuerdo}/${cmp.global.n}` +
@@ -172,5 +193,4 @@ await runWithCliente("DEMO", async () => {
   );
   console.log("─".repeat(72));
   console.log("Léelo caso a caso en /sombra/agenda/desacuerdos. Apunta el coste en evals/pasadas/GASTO.md.");
-  process.exit(sinJuicio > 0 ? 1 : 0);
-});
+}

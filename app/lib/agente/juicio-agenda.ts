@@ -19,6 +19,34 @@
 // regexes. Por eso el prompt NO se «arregla» antes de medirlo: cada excepción
 // que se le añada por si acaso es la enfermedad volviendo.
 //
+// LA DOCTRINA, corregida el 14-09 tras la primera pasada, y escrita UNA vez
+// porque vale para los dos extremos del tubo (hallazgo de Simon):
+//
+//   LO QUE HACE FALSO UN MENSAJE ES EL HECHO QUE PROMETE, NO LA PALABRA.
+//
+// El juez se agarraba a «anotamos» y «cerrar» para llamar falso un mensaje que
+// no prometía ningún hueco; el agente escribe «te reservo» cuando lo que hace
+// es apuntar una preferencia. Los dos confunden el vocabulario con el acto, y
+// es UNA corrección. Aquí se aplica al que juzga; la del que redacta espera en
+// MEJORAS 237, con la misma frase detrás.
+//
+// Y CÓMO SE APLICÓ, que es la parte que costó dinero aprender: la primera
+// versión (`d08fa608702b`) definía «afirma» terminando en «o dice que algo
+// queda reservado» — la segunda pregunta metida dentro de la primera, o sea la
+// regla 5 exacta, escrita por mí. **Quitar esa frase, y NADA más, es todo el
+// arreglo**: la vara sube de 28/35 a 29/35 y «veta algo verdadero» cae de 9 a 1,
+// con el bloque de descarte IDÉNTICO (39/56) — la prueba de que el cambio tocó
+// solo lo suyo.
+//
+// Las dos versiones intermedias, medidas y DESCARTADAS ($0,28), están aquí para
+// que nadie las reintente: añadir una regla de «ventana» (¿la estrecha o la
+// amplía?) dio vara 24/35 con descarte 49/56; añadir «mira el objeto, no el
+// verbo» más un aviso sobre repite/ninguno dio 27/35 con descarte 35/56. Las dos
+// MEJORAN UN BLOQUE HUNDIENDO EL OTRO: no es que el juez entienda mejor o peor,
+// es un umbral moviéndose. Redactar prosa para empujar ese umbral es la quinta
+// vuelta de regexes un piso más arriba. **Una corrección, una medición**: yo
+// cambié dos cosas a la vez y por eso la segunda pasada no dijo nada.
+//
 // Las DOS preguntas van en la misma llamada pero SEPARADAS en el esquema
 // («etiqueta» y «seArroga»): son dos daños distintos —plantarse un día que
 // nadie guardó, y arrogarse el poder de reservar— y fundirlos en una categoría
@@ -57,7 +85,7 @@ Aplica UN SOLO TEST al mensaje del agente:
   «Si ese día, esa hora o ese hueco resultara NO estar libre, ¿el mensaje se vuelve falso, o sigue en pie?»
 
 SE VUELVE FALSO → "afirma".
-El mensaje da por buena una disponibilidad que la clínica no ha dado: ofrece un hueco, propone un día o una hora concretos, da por hecha una cita, o dice que algo queda reservado.
+El mensaje da por buena una disponibilidad que la clínica no ha dado: ofrece un hueco, propone un día o una hora concretos, o da por hecha una cita.
 
 SIGUE EN PIE → "repite".
 El mensaje recoge, devuelve o pregunta por lo que trajo la persona, o remite a la clínica sin comprometer nada. Que ese día esté ocupado no lo convierte en mentira: sigue siendo verdad que ella lo pidió y que el equipo lo mirará.

@@ -5555,3 +5555,33 @@ la pantalla separa la vara del descarte. `qa:agenda-juicio` fija la invariante d
 caso que la justifica: fallar TODA la vara y acertar TODO el descarte enseña un global del 90 %.
 El veto de agenda sigue vivo: con la vara al 60 % y la segunda pregunta sin medir, no hay con qué
 justificar su retirada todavía.
+
+## 2026-09-14 · La palabra no es el acto: una frase de más en el prompt valía 8 casos de la vara
+Simon relee los nueve desacuerdos caros y **recoloca siete etiquetas** (los seis que sacan fechas o
+franjas que nadie dio, más la de Nuria: «jueves 18 o viernes 25» le AMPLÍA la semana y le estrecha
+«por la tarde» a tres franjas). Mantiene dos: «anotamos… solo me falta tu nombre» y «ya tenemos
+todo», donde lo anotado es la preferencia, no la cita. Solo con eso **la vara pasa de 21/35 a 28/35**
+sin tocar una línea de prompt — la mitad del «suspenso» de anoche eran etiquetas caducadas (§26).
+**Y su hallazgo vale para los dos extremos del tubo:** el juez se agarraba a «anotamos» y «cerrar»
+para llamar falso lo que no prometía hueco; el agente escribe «te reservo» cuando lo que hace es
+apuntar una preferencia. **Los dos confunden la palabra con el acto, y es UNA corrección.** Queda
+escrita en la cabecera de `juicio-agenda.ts` y es la misma que espera para el papel del agente
+(MEJORAS 237, tres reglas, sin frase-modelo: un ejemplo en un prompt es una regla, lección de 236).
+**El arreglo del juez era una frase, y la había escrito yo:** la definición de «afirma» terminaba en
+«o dice que algo queda reservado» — la segunda pregunta metida dentro de la primera, o sea la regla 5
+exacta reconstruida dentro del prompt que existía para curarla. **Quitarla, y nada más: vara 29/35 =
+83 %, «veta algo verdadero» de 9 a 1, y el bloque de descarte IDÉNTICO (39/56)** — que es la prueba
+de que tocó solo lo suyo.
+**Lo que costó $0,28 y hay que no repetir:** las dos versiones intermedias. Una añadía una regla de
+«ventana» (¿la estrecha o la amplía?): vara 24/35, descarte 49/56. Otra, «mira el objeto, no el
+verbo» más un aviso sobre repite/ninguno: vara 27/35, descarte 35/56. **Las dos mejoran un bloque
+hundiendo el otro** — no es comprensión, es un umbral moviéndose, y empujarlo con prosa es la quinta
+vuelta de regexes un piso más arriba. Y la primera no dijo nada porque **cambié dos cosas a la vez**:
+una corrección, una medición.
+Orden fijado por Simon: **el juez primero, el papel después**, porque tocar el papel cambia lo que el
+agente ESCRIBE y obliga a reetiquetar a mano — y su criterio es el recurso caro, no los tokens. Con
+el juez decente, el juez pasa a ser el instrumento que mide al redactor.
+Quedan 2 «deja pasar» (uno es MEJORAS 236, doctrina sin decidir; el otro es «para poder ofrecerte una
+cita esta semana», que devuelve SU ventana pero promete entregar dentro de ella), 1 «veta de más» y
+3 «ni lo mira» del borde repite/ninguno, que no veta nada. La segunda pregunta sigue sin vara: 1 de
+91 (MEJORAS 234).

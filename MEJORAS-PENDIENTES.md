@@ -3426,7 +3426,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   preguntas también al razonar («arrogarse la reserva NO hace falso el mensaje: eso es la segunda
   pregunta»), rejugar y comparar contra esta pasada — hay línea base y cuesta $0,10. NO añadir
   excepciones: si hace falta una lista, el test no vale. · **Impacto:** ALTO (decide si la regla 5
-  se puede retirar). · **Esfuerzo:** 30 min + una pasada. · **Fecha:** 2026-09-14 · 🔵
+  se puede retirar). · **Esfuerzo:** 30 min + una pasada. · **Fecha:** 2026-09-14 · 🟢 **HECHA**
+  el 14-09: era **quitar una frase** («o dice que algo queda reservado»). Vara 29/35 = 83 %, «veta
+  algo verdadero» de 9 a 1, descarte idéntico. Dos versiones con reglas añadidas quedaron peores y
+  están documentadas en la cabecera del módulo para que nadie las reintente.
 
 ## 234. Agente · la segunda pregunta del corpus no tiene vara: está contestada en 1 de 91
 - `se_arroga` es opcional en la pantalla de etiquetar (tecla R) y Simon la contestó **una vez**.
@@ -3449,7 +3452,9 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `/sombra/agenda/desacuerdos` (salen agrupados y con la conversación al lado) y decide si cambia la
   etiqueta o no; si cambian, la vara sube a 25/35 sin tocar el prompt, y eso cambia la conclusión
   del bloque. · **Impacto:** ALTO sobre la interpretación de la cifra. · **Esfuerzo:** 10 min de
-  lectura. · **Fecha:** 2026-09-14 · 🔵
+  lectura. · **Fecha:** 2026-09-14 · 🟢 **HECHA** el 14-09: Simon releyó los nueve y recolocó
+  **siete** (los seis que sacan fechas o franjas que nadie dio, más la de Nuria). La vara subió de
+  21/35 a 28/35 **sin gastar modelo**: la mitad del suspenso eran etiquetas caducadas (§26).
 
 ## 236. Agente · «mañana abrimos a las 9:00, llámanos» — el horario de apertura no siempre es «ninguno»
 - Uno de los 2 «deja pasar» es: *«El sangrado después de una extracción es algo que el doctor
@@ -3464,3 +3469,35 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   «deja pasar» es una **ventana vaga** («para poder ofrecerte una cita esta semana»), la misma
   familia que el censo del 12-09 ya marcó como la que se escapa. · **Impacto:** ALTO (es del tipo
   caro: llega al paciente). · **Esfuerzo:** decisión + 1 línea. · **Fecha:** 2026-09-14 · 🔵
+
+## 237. Agente · el papel: que diga lo que hace, no «te reservo» — tres reglas, cero frases prohibidas
+- **Hallazgo de Simon (14-09), y es el que importa más que la cifra:** casi todos los casos ambiguos
+  del corpus lo son porque **el agente redacta mal**, no porque el juez juzgue mal. «Te reservamos»,
+  «te cierro la cita», «te anotamos el jueves 17» — ni una dice lo que el agente hace de verdad, que
+  es apuntar una preferencia para que el equipo cierre. Con precisión —«apunto tu preferencia de
+  jueves o viernes por la tarde, el equipo te dirá el hueco que encaje»— **no habría nada que
+  juzgar**. · **Principio:** §6 coherencia + §17 (el agente informa de lo decidido). Es **la misma
+  corrección de doctrina que cerró la 233**, por el otro extremo del tubo: la palabra no es el acto.
+  · **Propuesta, aprobada por Simon el 14-09 y esperando turno** (enumerar frases prohibidas está
+  descartado: una lista describe la salida y de cada cosa hay quince maneras de decirla — cinco
+  vueltas de regex y nueve excepciones lo demostraron). Tres reglas que describen la SITUACIÓN:
+  1. **Qué haces tú y qué hace el equipo:** «No ves la agenda ni cierras citas: eso lo hace el
+     equipo. Lo tuyo es recoger cuándo le viene bien a la persona y pasárselo. Cuenta lo que haces
+     tú, no lo que hará el equipo.» No prohíbe «te reservo»: lo vuelve **falso sobre sí mismo**.
+  2. **De quién es el día:** «El día y la hora los pone la persona. Si no los ha dicho,
+     pregúntaselos. Si ya los ha dicho, devuélveselos tal y como ella los dijo: ni más concretos, ni
+     más amplios.» Los dos incisos cubren los siete casos que Simon recolocó.
+  3. **La prueba antes de enviar:** «Léelo como si el equipo abriera la agenda y no hubiera hueco
+     donde ella pedía. Si algo se vuelve mentira, reescríbelo.» Es el test de falsabilidad apuntando
+     hacia delante: el que escribe y el que juzga usan **una sola regla**.
+  · **Lo que NO se mete, decidido:** una frase-modelo. MEJORAS 236 acaba de enseñar que **un ejemplo
+  en un prompt es una regla** —el «horario de apertura = ninguno» del juicio le habló en contra de un
+  caso real— y una frase-modelo saldría literal en cien conversaciones.
+  · **Y el riesgo a vigilar:** precisión que se convierte en pasividad. El trabajo del 13-09 fue que
+  el agente AVANCE («ya no puedo avanzar yo»); la regla 2 tiene que dejarle preguntar y cerrar lo que
+  puede cerrar, no volverlo mudo.
+  · **Cómo se mide (y por qué va después del juez):** esto cambia lo que el agente ESCRIBE, así que
+  el corpus etiquetado **no puede medirlo** —ese mide al juez—. Hay que rejugar y juzgar los mensajes
+  nuevos. Con el juez en 83 %, **el juez es el instrumento**: si no, Simon reetiqueta a mano cada vez
+  que se toca el papel, y su criterio es el recurso caro. · **Impacto:** ALTO. · **Esfuerzo:** 1 h +
+  una jugada. · **Fecha:** 2026-09-14 · ✅ aprobada, esperando turno
