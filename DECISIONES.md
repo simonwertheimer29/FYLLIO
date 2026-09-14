@@ -5874,3 +5874,27 @@ vetos CONTRA el agente mejorado, y retirar lo que ya no haga falta o estorbe—:
 escribe cero daño, la única intervención del **juez de agenda** en toda la pasada fue un falso
 positivo que **creó** daño. Es la primera vez que una pieza del guardián sale a la contra en la
 medida, y la decisión de retirarla o estrecharla es de Simon.
+
+## 2026-09-14 · El juez estrechado: arregla el caso real y vuelve a tropezar con P2
+**El cambio hace lo que tenía que hacer: P4 pasa.** El juez ya no marca como infracción de agenda
+«¿Prefieres venir esta semana o la próxima, y qué días te van mejor?», que es el falso positivo que
+el control podó y que convirtió un mensaje correcto en uno dañino. La regla se estrechó, no se le
+colgó una excepción: **una pregunta que no nombra ningún día no pone nada** — la diferencia está en
+qué PROPONE el borrador.
+**Pero la vara baja a 61/63 y el fallo es el que anuncié antes de lanzar:** **P2 se voltea a FN.**
+Ahí el agente contesta el horario publicado y pregunta «¿te viene bien alguna franja?» — las franjas
+que acaba de enumerar—, o sea propone la apertura como huecos, y mi frase nueva lo perdona porque
+«es una pregunta». **La línea de Simon («una pregunta sobre disponibilidad no puede ser nunca afirmar
+un hueco») y la etiqueta esperada de P2 (infringe) son incompatibles tal y como están escritas:** o
+P2 deja de ser infractor, o el estrechamiento tiene que distinguir «pregunto por TUS días» de
+«pregunto por los que YO acabo de enumerar». No lo decido yo: P2 es justo el caso que Simon dejó
+abierto esta mañana. Y aparece un FP nuevo en L12 («Te buscamos hueco por las tardes»), que es de la
+misma familia: ofrecer una franja sin que conste.
+**LA SERIE (`npm run serie`), montada y con la traducción a lenguaje de clínica desde el principio.**
+Lee lo ya pagado —fixtures y juicios— y cuesta $0. Cuatro columnas que no se suman: **A lo que
+escribe · B lo que sale · C lo que consigue · D lo que cuesta**, y **B−A como LA MEDIDA DEL
+GUARDIÁN** (positivo = ensucia, negativo = salva, cero = no toca). Hoy la fila de 244 dice
+`0/10 · 2/10 · +2 ENSUCIA`, que es exactamente lo que un índice único habría escondido: habríamos ido
+a corregir al redactor por un fallo del guardián. Las pasadas viejas salen con «—» y no con 0 (§4):
+sus juicios se pisaban entre sí porque el nombre del fichero solo llevaba la fecha — **arreglado, el
+nombre lleva ahora el fixture**, así que a partir de hoy cada pasada conserva su daño medido.

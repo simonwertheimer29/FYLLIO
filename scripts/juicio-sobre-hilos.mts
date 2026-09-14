@@ -244,7 +244,12 @@ if (senalados.length > 0) {
   }
 }
 
-const salida = `evals/pasadas/${new Date().toISOString().slice(0, 10)}-juicio-sobre-hilos${enviado ? "-enviado" : ""}.json`;
+// 14-09 — EL NOMBRE LLEVA EL FIXTURE, y no es cosmética: hasta hoy dos juicios
+// del mismo día se pisaban, así que la serie en el tiempo (`npm run serie`)
+// solo podía leer el último y el resto de las pasadas se quedaban sin su daño
+// medido. Con el fixture en el nombre, cada pasada conserva el suyo.
+const etiquetaFixture = (rutaNueva ?? "").split("/").pop()?.replace(/\.json$/, "") ?? "sin-fixture";
+const salida = `evals/pasadas/${new Date().toISOString().slice(0, 10)}-juicio-${etiquetaFixture}${enviado ? "-enviado" : "-borrador"}.json`;
 mkdirSync(dirname(salida), { recursive: true });
 writeFileSync(
   salida,

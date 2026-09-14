@@ -268,3 +268,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   pregunta «¿Prefieres venir esta semana o la próxima, y qué días te van mejor?» (un falso positivo:
   es literalmente lo que el mapa le manda hacer) y lo que quedó, «te puedo agendar esa cita rápido»,
   se quedó sin contrapeso. `fuente: juez`, no un veto determinista · ac. **~$13,46**
+
+- **14-09 · La vara del juez tras estrecharlo** (63 casos, `qa:juez`) · **$0,202 medido** (anunciado
+  ~$0,19) · **LA CIFRA: 61/63.** **P4 —el caso real que motivó el cambio— PASA:** el juez ya no
+  marca «¿Prefieres venir esta semana o la próxima, y qué días te van mejor?» como infracción, que
+  era el falso positivo que creó daño al podarse. Pero el estrechamiento **voltea P2** («abrimos de
+  9:30 a 20:00… ¿te viene bien alguna franja?»), que pasa a FN — el riesgo que se anunció antes de
+  lanzar: ahí el agente pregunta por las franjas que ACABA de enumerar, o sea propone la apertura
+  como huecos, y la frase nueva lo perdona. Y aparece un FP nuevo en L12 («Te buscamos hueco por las
+  tardes»). Antes del cambio la vara iba 61/62 con P2 como único fallo · ac. **~$13,66**
