@@ -42,6 +42,7 @@ import type { ObjetivoAgente } from "../automatizacion/objetivos";
 import { hoyISO, horaClinica } from "../time";
 import { type TipoMensaje } from "../mensajeria/tipos-mensaje";
 import { avisarFalloAgente, falloReintentable, type MotivoFalloAgente } from "./avisos";
+import { aplicarDecisorAlcance } from "./decisor-produccion";
 import { optOutDeTelefono, marcarOptOut } from "../contacto/optout";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
 
@@ -336,15 +337,30 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     clinicasDelHilo,
     hoy: e.hoy,
   });
-  const evaluacion = await evaluarTurno(entrada);
+  const evaluacionBase = await evaluarTurno(entrada);
 
-  if (!evaluacion.actuar) return { estado: "saltado", motivo: "sin_actuar" };
+  if (!evaluacionBase.actuar) return { estado: "saltado", motivo: "sin_actuar" };
+
+  // EL AGENTE NUEVO, CON INTERRUPTOR (15-09). Apagado por defecto: sin
+  // `AGENTE_DECISOR_ALCANCE` esto devuelve la evaluación TAL CUAL y el turno es
+  // byte a byte el de siempre. Encendido, el mensaje y el acto los pone el
+  // decisor «alcance» —pasados por el MISMO control— y las entregas
+  // obligatorias por hecho siguen mandando. Va ANTES de persistir para que el
+  // log guarde lo que de verdad salió.
+  const { evaluacion, escritoPor, motivoFallback } = await aplicarDecisorAlcance({
+    cliente: requireCliente("evaluarEntrante"),
+    entrada,
+    evaluacion: evaluacionBase,
+    nombre: ctx.nombre.split(" ")[0] ?? ctx.nombre,
+  });
+  if (motivoFallback) console.warn(`[agente] decisor alcance encendido pero escribe el código: ${motivoFallback}`);
 
   await persistirTurno({
     telefono: e.telefono,
     mensajeId: e.mensajeId,
     respuestaPaciente: e.contenido,
     evaluacion,
+    escritoPor,
   });
 
   if (evaluacion.fallback) {

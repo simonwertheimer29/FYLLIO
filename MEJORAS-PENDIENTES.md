@@ -3791,3 +3791,28 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   producto — que la coordinadora pueda llamar y cerrar sin volver a preguntar nada. · **Impacto:**
   ALTO: es el segundo motivo de mensaje entrante de una clínica (después de pedir cita). ·
   **Esfuerzo:** 3-4 h + una jugada. · **Fecha:** 2026-09-14
+
+## 251. Agente · reducir el coste por turno: quitar grasa del prompt, vetos que no cazan y juez que no puede cazar
+- **PARA CUANDO EL AGENTE NUEVO ESTÉ EN PRODUCCIÓN, no antes** (encargo de Simon, 15-09). La medida
+  se hace con tráfico real; hacerla ahora sería optimizar contra diez conversaciones simuladas.
+- **El desglose, con lo medido hoy:** la cifra de `$0,03/turno` que se manejó es la del BANCO e
+  incluye al paciente simulado (sonnet, ~$0,013/turno), que en producción no existe. Restándolo, el
+  turno real sale en torno a **$0,005-0,007**: evaluador (haiku, system cacheado) + decisor (haiku) +
+  juez (~$0,0011 por mensaje juzgado, medido en los dos juicios de hoy) + la reescritura cuando toca.
+  **Eso son ~$5-7 por cada 1.000 mensajes, no $30.** La cifra exacta por pieza no está medida: hoy
+  `costeUsd` se guarda sumado por hilo y no por llamada — **lo primero de esta tarea es partirlo.**
+- **Las cuatro sospechas de Simon, para mirar en ese orden:**
+  1. **Prompt repetido o contradictorio.** Al montar el mapa aparecieron seis frases duplicadas; se
+     llevan semanas añadiendo reglas y casi ninguna se ha retirado. Cada línea se paga en CADA turno.
+  2. **Vetos que llevan pasadas sin cazar nada.** En la muestra del 14-09 los seis deterministas
+     cazaron cero; los dos nuevos (doctor, vocativo) sí. Retirar uno es gratis en coste de modelo
+     (son código), pero su valor es el mismo argumento que el del juez: lo raro sale en producción.
+  3. **¿Tiene que correr el juez en TODOS los turnos?** Hay turnos donde no puede haber nada que
+     cazar (un acuse, un «gracias», un turno sin mensaje). Ahí el juez es ~$0,0011 tirado.
+  4. **El caché.** El system del evaluador va con `cache_control` desde el 22-08; el del decisor y el
+     del juez hay que comprobar si también, y qué parte del prompt se paga entera cada vez (la
+     ENTRADA —hechos, calendario, conversación— no se cachea porque cambia en cada turno).
+- **Condición de Simon, literal: «el desglose y qué se puede quitar sin tocar calidad, medido contra
+  las varas que ya tenemos. No por intuición.»** O sea: cada retirada se prueba contra `qa:juez`
+  (63 casos), `qa:conocimiento` y una pasada de los 10 guiones, y se queda solo si las varas no se
+  mueven. · **Impacto:** MEDIO hoy, ALTO con volumen. · **Esfuerzo:** 1 día. · **Fecha:** 2026-09-15

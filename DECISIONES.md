@@ -6092,3 +6092,32 @@ segunda lista igual en `objetivos.ts`. Las dos se derivan ahora de `PRECEDENCIA_
 **PENDIENTE:** la pasada que confirme el arreglo de los datos (~$0,50), y decidir qué hacer con la
 familia de las fechas — el prompt ya prohíbe recapitular días al entregar, y aquí no lo está
 siguiendo.
+
+## 2026-09-15 · El agente nuevo, escrito y APAGADO; y el juez se queda porque salva
+**EL JUEZ, CERRADO Y NO SE VUELVE A DISCUTIR.** Ayer el criterio pasó a «mientras no reste, se
+queda». Hoy la pasada de los 10 guiones da **B − A = −3: el juez SALVA**. Con el criterio de ayer eso
+ya no es «no resta», es que **aporta** — y encima en el banco, que es el terreno donde Simon decía
+que no se vería. Se queda. Tema cerrado.
+**EL AGENTE NUEVO EN PRODUCCIÓN, CON INTERRUPTOR** (`app/lib/agente/decisor-produccion.ts`).
+Deliberadamente poco: sustituye la RESPUESTA y, cuando toca, la DECISIÓN de una evaluación que ya
+está hecha — así todo lo de abajo (persistir, avisar, encolar, notificar) sigue leyendo los mismos
+campos y no se entera. Meterlo más adentro habría obligado a tocar el orquestador entero para poder
+apagarlo. **Lo que NO toca nunca:** las entregas obligatorias por hecho (urgencia, queja, antecedente
+con cita, no legible, callejón) — el acto del decisor solo puede AÑADIR entrega, jamás devolver a
+«sigue» un caso que el sistema garantiza que ve una persona. **Fail-closed:** si el decisor no
+contesta, sale el mensaje de siempre. **El interruptor es por cliente y se lee en cada turno**
+(`AGENTE_DECISOR_ALCANCE=DEMO`), así que encender y apagar no pide un deploy. Y el turno persistido
+guarda **quién lo escribió** (`escritoPor`), o las métricas de mañana mezclarían dos agentes.
+**EL COSTE POR TURNO: la cifra que di era del banco, no de producción.** Los $0,03 incluyen al
+paciente simulado (~$0,013/turno), que en producción no existe. Restándolo, el turno real sale en
+**$0,005-0,007** — unos **$5-7 por cada 1.000 mensajes, no $30**. El desglose exacto por pieza no se
+puede dar hoy porque `costeUsd` se guarda sumado por hilo: partirlo es lo primero de MEJORAS 251, la
+tarea de reducir coste que se hace CON TRÁFICO REAL, no antes.
+**UNA SORPRESA QUE HAY QUE MIRAR ANTES DE ENCENDER: `qa:recorridos` baja a 5/6.** R1 y R6 salen rojos
+(«derivaciones: 1 — hay 0»): el agente no da el caso por completo donde antes sí. **Los dos recorridos
+corren por el camino VIEJO** (el interruptor está apagado), así que si es culpa de algo de hoy, es de
+la regla de las fechas —la única línea nueva que ve ese camino en todos los turnos—. La pasada de los
+10 guiones, que corre por el camino NUEVO, da a la vez el mejor contrato de la serie (9/10) y la
+mejor entrega (2,78). **Lectura honesta: la regla ayuda al agente nuevo y puede estar molestando al
+viejo** — que es justo el que se va a retirar. No se toca sin medirlo: una corrida de control de
+`qa:recorridos` lo dice.

@@ -92,6 +92,9 @@ export type PayloadEvaluacion = {
    *  la métrica dirá «desde el día X» — un 0 ahí sería inventado. */
   casoCompleto?: boolean;
   objetivoActivo?: string | null;
+  /** 15-09 — qué agente escribió el mensaje: el camino de siempre o el decisor
+   *  «alcance». Ausente = «codigo» (todo lo anterior al interruptor). */
+  escritoPor?: "codigo" | "alcance";
 };
 
 export type TurnoAPersistir = {
@@ -102,6 +105,12 @@ export type TurnoAPersistir = {
   /** El texto del entrante, para el motivo legible del derivado. */
   respuestaPaciente: string;
   evaluacion: EvaluacionTurno;
+  /** QUIÉN ESCRIBIÓ el mensaje del turno (15-09): el camino de siempre
+   *  («codigo») o el decisor nuevo («alcance»). Se guarda en el payload
+   *  porque en cuanto el interruptor esté encendido para un cliente y no
+   *  para otro, las métricas estarían mezclando dos agentes distintos sin
+   *  poder separarlos después. Ausente = «codigo», que es lo que había. */
+  escritoPor?: "codigo" | "alcance";
 };
 
 export async function persistirTurno(t: TurnoAPersistir): Promise<{
@@ -264,6 +273,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     senales: ev.senales ?? undefined,
     casoCompleto: ev.casoCompleto,
     objetivoActivo: ev.objetivoActivo ?? null,
+    escritoPor: t.escritoPor ?? undefined,
   };
   cuenta(
     await registrarEventoIdempotente({
