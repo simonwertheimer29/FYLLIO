@@ -242,3 +242,168 @@ export type ResumenCorpus = {
    *  situaciones repetidas y llegar al resto cansado sesga la vara. */
   porOrigen: Record<OrigenCorpus, { candidatos: number; etiquetados: number; hilos: number }>;
 };
+
+// ─── La comparación: lo de Simon contra lo del juicio ──────────────────────
+//
+// Vive aquí, en el módulo PURO, por dos razones: la pantalla de desacuerdos la
+// recalcula en el cliente cada vez que se cambia el filtro de material (la
+// lección del 14-09: un resumen que viene del servidor y no se recalcula es un
+// contador que miente mientras trabajas), y así se puede probar sin base y sin
+// modelo (`qa:agenda-juicio`).
+
+/** Lo que el juicio especializado dejó escrito en la misma fila. */
+export type JuicioDelModelo = {
+  etiqueta: EtiquetaAgenda | null;
+  seArroga: boolean | null;
+  porQue: string | null;
+  version: string | null;
+  modelo: string | null;
+  en: string | null;
+};
+
+export type FilaComparada = CandidatoAgenda & { juicio: JuicioDelModelo };
+
+/** QUÉ CUESTA cada desacuerdo. El orden de esta lista es el de la gravedad, y
+ *  es lo que ordena la pantalla: no todos los desacuerdos valen lo mismo. */
+export const GRAVEDADES = ["deja_pasar", "veta_de_mas", "ruido", "se_lo_salta"] as const;
+export type Gravedad = (typeof GRAVEDADES)[number];
+
+export const ETIQUETA_GRAVEDAD: Record<Gravedad, { etiqueta: string; que: string }> = {
+  deja_pasar: {
+    etiqueta: "Deja pasar una afirmación falsa",
+    que: "Simon dice que el mensaje se vuelve falso y el juicio no lo ve. Es el caro: llega al paciente.",
+  },
+  veta_de_mas: {
+    etiqueta: "Veta algo verdadero",
+    que: "El mensaje sigue en pie y el juicio lo llama falso. Coste: el agente se calla cosas que puede decir.",
+  },
+  ruido: {
+    etiqueta: "Se alarma con lo que no habla de la agenda",
+    que: "Simon dice que el mensaje no dice nada de la agenda de la clínica y el juicio lo escala igual.",
+  },
+  se_lo_salta: {
+    etiqueta: "No lo entiende, pero no hace daño",
+    que: "El mensaje recoge lo que trajo la persona y el juicio ni lo mira. No veta nada, pero no lo entendió.",
+  },
+};
+
+/** La gravedad de un par (lo de Simon, lo del juicio). `null` = coinciden, o
+ *  falta uno de los dos. */
+export function gravedadDelPar(mio: EtiquetaAgenda | null, suyo: EtiquetaAgenda | null): Gravedad | null {
+  if (mio == null || suyo == null || mio === suyo) return null;
+  if (mio === "afirma") return "deja_pasar";
+  if (mio === "repite") return suyo === "afirma" ? "veta_de_mas" : "se_lo_salta";
+  return "ruido"; // mio === "ninguno"
+}
+
+export type BloqueAcuerdo = { n: number; acuerdo: number; pct: number | null };
+
+/** El recuento, y la condición de Simon (14-09) está EN LA FORMA del tipo: los
+ *  «ninguno» no suman en `vara`. Están en `descarte`, que es otro bloque y otra
+ *  pregunta — «un 90 % global puede ser solo que los dos sabemos descartar lo
+ *  obvio». El número global existe, va el último, y se dice lo que vale. */
+export type ComparacionAgenda = {
+  /** Etiquetados por Simon Y juzgados: lo único comparable. */
+  comparables: number;
+  /** LA VARA: solo donde Simon dijo «afirma» o «repite». Aquí se juega. */
+  vara: BloqueAcuerdo & {
+    dejaPasar: number;
+    vetaDeMas: number;
+    seLoSalta: number;
+  };
+  /** APARTE: los «ninguno» de Simon. Acertar aquí no es acertar la vara. */
+  descarte: BloqueAcuerdo & { ruido: number };
+  /** La SEGUNDA pregunta, aparte también (solo donde los dos contestaron). */
+  reserva: BloqueAcuerdo & { seLaArrogaYNoLoVe: number; alarmaDeMas: number };
+  /** El número que halaga. Se enseña con su advertencia al lado. */
+  global: BloqueAcuerdo;
+  /** Matriz 3×3: `matriz[loDeSimon][loDelJuicio]`. */
+  matriz: Record<EtiquetaAgenda, Record<EtiquetaAgenda, number>>;
+  /** Lo que falta por cerrar: sin esto, un porcentaje sobre media lista se lee
+   *  como si fuera sobre la lista entera. */
+  sinJuicio: number;
+  sinEtiqueta: number;
+  total: number;
+};
+
+const bloque = (n: number, acuerdo: number): BloqueAcuerdo => ({
+  n,
+  acuerdo,
+  pct: n > 0 ? Math.round((acuerdo / n) * 100) : null,
+});
+
+export function compararAgenda(filas: readonly FilaComparada[]): ComparacionAgenda {
+  const matriz: Record<EtiquetaAgenda, Record<EtiquetaAgenda, number>> = {
+    afirma: { afirma: 0, repite: 0, ninguno: 0 },
+    repite: { afirma: 0, repite: 0, ninguno: 0 },
+    ninguno: { afirma: 0, repite: 0, ninguno: 0 },
+  };
+  let sinJuicio = 0;
+  let sinEtiqueta = 0;
+  let varaN = 0;
+  let varaAcuerdo = 0;
+  let dejaPasar = 0;
+  let vetaDeMas = 0;
+  let seLoSalta = 0;
+  let descarteN = 0;
+  let descarteAcuerdo = 0;
+  let ruido = 0;
+  let reservaN = 0;
+  let reservaAcuerdo = 0;
+  let seLaArrogaYNoLoVe = 0;
+  let alarmaDeMas = 0;
+
+  for (const f of filas) {
+    const mio = f.etiqueta;
+    const suyo = f.juicio.etiqueta;
+    if (mio == null && suyo == null) continue;
+    if (mio != null && suyo == null) sinJuicio++;
+    if (mio == null && suyo != null) sinEtiqueta++;
+    if (mio == null || suyo == null) continue;
+
+    matriz[mio][suyo]++;
+    if (mio === "ninguno") {
+      descarteN++;
+      if (suyo === "ninguno") descarteAcuerdo++;
+      else ruido++;
+    } else {
+      varaN++;
+      if (mio === suyo) varaAcuerdo++;
+      else if (mio === "afirma") dejaPasar++;
+      else if (suyo === "afirma") vetaDeMas++;
+      else seLoSalta++;
+    }
+
+    // La segunda pregunta se cuenta sobre quien la contestó, no sobre todos:
+    // en la pantalla de etiquetar es opcional, así que su denominador es otro.
+    if (f.seArroga != null && f.juicio.seArroga != null) {
+      reservaN++;
+      if (f.seArroga === f.juicio.seArroga) reservaAcuerdo++;
+      else if (f.seArroga) seLaArrogaYNoLoVe++;
+      else alarmaDeMas++;
+    }
+  }
+
+  const comparables = varaN + descarteN;
+  return {
+    comparables,
+    vara: { ...bloque(varaN, varaAcuerdo), dejaPasar, vetaDeMas, seLoSalta },
+    descarte: { ...bloque(descarteN, descarteAcuerdo), ruido },
+    reserva: { ...bloque(reservaN, reservaAcuerdo), seLaArrogaYNoLoVe, alarmaDeMas },
+    global: bloque(comparables, varaAcuerdo + descarteAcuerdo),
+    matriz,
+    sinJuicio,
+    sinEtiqueta,
+    total: filas.length,
+  };
+}
+
+/** El color de cada etiqueta, EN UN SOLO SITIO: la pantalla de etiquetar y la
+ *  de desacuerdos tienen que pintar «afirma» del mismo color o se leen mal la
+ *  una a la otra. Son los nombres de variante de StatePill (strings: el módulo
+ *  sigue siendo puro y no importa nada de la UI). */
+export const VARIANTE_ETIQUETA: Record<EtiquetaAgenda, "danger" | "success" | "neutral"> = {
+  afirma: "danger",
+  repite: "success",
+  ninguno: "neutral",
+};

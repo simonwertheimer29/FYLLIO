@@ -39,6 +39,7 @@ import {
   ETIQUETA_FUENTE,
   ETIQUETA_ORIGEN_CORPUS,
   ORIGENES_CORPUS,
+  VARIANTE_ETIQUETA,
   type CandidatoAgenda,
   type EtiquetaAgenda,
   type OrigenCorpus,
@@ -50,12 +51,6 @@ type Filtro = "pendientes" | "todos" | "etiquetados";
 type FiltroOrigen = OrigenCorpus | "todos";
 
 const LA_PREGUNTA = "Si ese día resulta no estar libre, ¿el mensaje se vuelve falso o sigue en pie?";
-
-const VARIANTE_ETIQUETA: Record<EtiquetaAgenda, "danger" | "success" | "neutral"> = {
-  afirma: "danger",
-  repite: "success",
-  ninguno: "neutral",
-};
 
 const ATAJO: Record<EtiquetaAgenda, string> = { afirma: "1", repite: "2", ninguno: "3" };
 

@@ -196,3 +196,13 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   fechas inventadas porque `horarioLegible` la abrevia «lun–jue»—. El perdón SÍ se usó dos veces aquí
   (donde la vara decía que no hacía falta) · log en `2026-09-13-propiedad-del-dia.txt` · ac. **~$9,39**
 
+
+- **14-09 · PRIMERA PASADA DEL JUICIO ESPECIALIZADO DE AGENDA** (los 91 candidatos del corpus
+  etiquetado, haiku, versión `d08fa608702b`) · **$0,1056 medido** (anunciado ~$0,146) · **LA CIFRA,
+  Y HAY QUE LEERLA POR BLOQUES: la vara sale 21/35 = 60 %** (solo donde Simon dijo afirma o repite),
+  con **2 «deja pasar algo falso» · 9 «veta algo verdadero» · 3 «ni lo mira»**. Aparte, el descarte
+  de los 56 «ninguno»: **39/56 = 70 %**, se alarma de más en 17. El global sería 66 % y no significa
+  nada: lo domina el material fácil. **El hallazgo: 5 de los 9 falsos positivos son la regla 5
+  volviendo** —el juicio contesta bien «¿se arroga reservar?» y luego mete esa respuesta dentro de
+  la primera pregunta (MEJORAS 233)—, y otros 4 pueden ser etiquetas caducadas, no errores del juez
+  (MEJORAS 235). Léelo en `/sombra/agenda/desacuerdos` · ac. **~$9,50**

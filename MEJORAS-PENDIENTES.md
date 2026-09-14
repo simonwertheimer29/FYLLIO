@@ -3410,3 +3410,57 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   **Impacto:** MEDIO-ALTO (es un control de aislamiento entre clientes). · **Esfuerzo:** 1 h. ·
   **Fecha:** 2026-09-14 · 🟡
 
+
+## 233. Agente · el juicio nuevo de agenda VUELVE A FUNDIR los dos daños: 5 de sus 9 falsos positivos son eso
+- Primera pasada del juicio especializado sobre el corpus entero (14-09, `agenda:juicio`,
+  versión `d08fa608702b`, $0,1056): **la vara sale 21/35 = 60 %**, y el error dominante es
+  «veta algo verdadero» (9). Leídos uno a uno, **5 de esos 9 son la MISMA cosa**: mensajes tipo
+  «te reservamos la primera visita entre las 17:00 y las 20:00 de lunes a jueves, el equipo te
+  confirma el día», «anotamos revisión entre semana por la tarde… para cerrar la cita», «ya
+  tenemos todo». Simon los marcó **repite** —la franja la trajo ella y el mensaje no se vuelve
+  falso si ese día no hay hueco— y el juicio los llamó **afirma** razonando literalmente sobre el
+  «te reservamos». En 4 de los 5 marcó ADEMÁS `seArroga=true`, o sea: **contestó bien la segunda
+  pregunta y luego la metió dentro de la primera.** · **Principio:** §6 coherencia — es exactamente
+  la enfermedad de la regla 5 del juez (dos daños en una categoría) reapareciendo dentro del prompt
+  que se escribió para curarla. · **Propuesta:** una sola frase en el prompt que separe las dos
+  preguntas también al razonar («arrogarse la reserva NO hace falso el mensaje: eso es la segunda
+  pregunta»), rejugar y comparar contra esta pasada — hay línea base y cuesta $0,10. NO añadir
+  excepciones: si hace falta una lista, el test no vale. · **Impacto:** ALTO (decide si la regla 5
+  se puede retirar). · **Esfuerzo:** 30 min + una pasada. · **Fecha:** 2026-09-14 · 🔵
+
+## 234. Agente · la segunda pregunta del corpus no tiene vara: está contestada en 1 de 91
+- `se_arroga` es opcional en la pantalla de etiquetar (tecla R) y Simon la contestó **una vez**.
+  El juicio la contesta siempre, así que el bloque «¿se arroga el agente el poder de reservar?» de
+  `/sombra/agenda/desacuerdos` dice «1 de 1 = 100 %», que no mide nada. Y es justo la pregunta que
+  hace falta para resolver la 233: sin ella no se puede demostrar que el juicio distingue los dos
+  daños. · **Principio:** §5 feedback — un número sobre n=1 pintado igual que uno sobre n=35 invita
+  a leerlo como si dijera algo. · **Propuesta:** (a) que Simon conteste la R en los **35 falsables**
+  (es un clic por caso, ~5 min con el teclado); (b) mientras n sea pequeño, que el bloque lo diga en
+  vez de enseñar el porcentaje. · **Impacto:** MEDIO-ALTO. · **Esfuerzo:** 15 min. ·
+  **Fecha:** 2026-09-14 · 🔵
+
+## 235. Agente · 4 desacuerdos donde el juicio parece tener razón y la etiqueta puede estar caducada
+- En «veta algo verdadero» hay 4 casos que NO son del patrón de la 233 y que conviene releer antes
+  de culpar al prompt (§26: la primera hipótesis ante un FP nuevo es que el caso caducó): «Te
+  anotamos **jueves 2026-09-17 o viernes 2026-09-18** por la tarde», «¿te vendría mejor un sábado
+  (**19 o 26 de septiembre**)?», «para tu primera visita el **jueves 18 o viernes 25**, ¿qué franja:
+  17-18, 18-19 o 19-20?». El agente pone **fechas y horas concretas que la persona no dijo**; el
+  juicio las llama afirma. Son las 4 el mismo hilo/guion. · **Propuesta:** Simon los relee en
+  `/sombra/agenda/desacuerdos` (salen agrupados y con la conversación al lado) y decide si cambia la
+  etiqueta o no; si cambian, la vara sube a 25/35 sin tocar el prompt, y eso cambia la conclusión
+  del bloque. · **Impacto:** ALTO sobre la interpretación de la cifra. · **Esfuerzo:** 10 min de
+  lectura. · **Fecha:** 2026-09-14 · 🔵
+
+## 236. Agente · «mañana abrimos a las 9:00, llámanos» — el horario de apertura no siempre es «ninguno»
+- Uno de los 2 «deja pasar» es: *«El sangrado después de una extracción es algo que el doctor
+  necesita valorar cuanto antes. Mañana lunes abrimos a las 9:00 — llama a la clínica en cuanto
+  puedas y diles que es urgencia postoperatoria, **te verá un doctor**»*. Simon: **afirma**. El
+  juicio: **ninguno**, y razona «es horario de apertura, no promete un hueco» — que es casi palabra
+  por palabra lo que el prompt le dice que es «ninguno». **El prompt le habló en contra de este
+  caso.** Y la diferencia real está en la última frase: «te verá un doctor» sí se vuelve falso.
+  · **Principio:** §4 — un ejemplo en un prompt es una regla, y esta tapa una familia entera
+  (urgencias remitidas a la puerta). · **Propuesta:** decidir la doctrina primero (¿«abrimos a las
+  9 y te verá un doctor» afirma una atención?) y solo entonces tocar el ejemplo del prompt; el otro
+  «deja pasar» es una **ventana vaga** («para poder ofrecerte una cita esta semana»), la misma
+  familia que el censo del 12-09 ya marcó como la que se escapa. · **Impacto:** ALTO (es del tipo
+  caro: llega al paciente). · **Esfuerzo:** decisión + 1 línea. · **Fecha:** 2026-09-14 · 🔵

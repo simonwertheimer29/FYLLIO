@@ -5521,3 +5521,37 @@ mandaba correr los dos, que era la trampa armada y esperando.
 **Postgres es desde hoy la única copia de las credenciales.** Hallazgo suelto que queda pendiente:
 `guard-service-role.mjs` ya salía en rojo ANTES de tocarlo (tres scripts usan
 `SUPABASE_DB_URL_ADMIN` fuera de la allowlist) — no es de este bloque, pero está roto.
+
+## 2026-09-14 · El juicio de agenda ya tiene vara, y su primer número dice que la enfermedad volvió
+El juicio especializado y la vista de desacuerdos, sobre el corpus que Simon acabó de etiquetar
+(91/91: 7 afirma · 28 repite · 56 ninguno). **Del plan de cuatro piezas siguen pendientes la 2**
+(retirar `FIRMAS_DISPONIBILIDAD`/`FIRMAS_CITA_CONFIRMADA` y los tres perdones, con la HORA llevada a
+la entrada del evaluador) **y la 4** (acuerdo consigo mismo: el mismo mensaje juzgado dos veces). El juicio especializado (`juicio-agenda.ts`) son **~260 palabras
+y UN test** contra las ~1.200 con nueve excepciones de la regla 5 del juez, con el mismo modelo a
+propósito: lo que se mide es el prompt, no el motor. Corre en sombra, escribe en las columnas
+`juicio_*` que la migración 053 ya tenía puestas, y **no toca nada de lo de Simon** —ni su etiqueta,
+ni su nota, ni el `texto` congelado al que apunta— porque un juicio que reescribe a qué se refiere
+una etiqueta ya puesta convierte la comparación en dos mensajes distintos sin avisar.
+**LA CIFRA, por bloques, que es la condición que puso él: la vara sale 21/35 = 60 %** (2 deja pasar ·
+9 veta de más · 3 ni lo mira). Los 56 «ninguno» van **aparte**: 39/56 = 70 %. El global sería 66 % y
+no dice nada — lo domina el material fácil, y por eso la pantalla lo pone último y con su aviso.
+**Y el hallazgo es mejor que el número: 5 de los 9 falsos positivos son la regla 5 volviendo.** Ante
+«te reservamos la visita entre las 17:00 y las 20:00, el equipo te confirma el día», el juicio marca
+`seArroga=true` —bien— y acto seguido usa eso para decir que el mensaje AFIRMA un hueco. Contesta las
+dos preguntas por separado en el esquema y las funde al razonar. Otros 4 apuntan al lado contrario
+(el agente pone fechas concretas que nadie dijo y Simon los marcó «repite»): §26 dice que ante un FP
+nuevo la primera hipótesis es que el caso caducó, así que se releen antes de tocar el prompt.
+MEJORAS **233-236**, ninguna ejecutada.
+**Lo que la comparación NO puede decir todavía:** si el juicio distingue los dos daños. `se_arroga`
+es opcional al etiquetar y Simon la contestó **1 de 91** — el bloque de la segunda pregunta dice
+«1 de 1 = 100 %», que es un número sobre nada.
+**De paso, dos pruebas que se habían quedado viejas** (`dev-captura-agenda-etiquetado.mjs`): con el
+corpus al 100 % no queda nada en «Sin etiquetar», así que el caso 3 contaba 0 botones de etiqueta
+—la pantalla estaba bien, la prueba pedía el filtro equivocado— y el caso 4 **borraba la fila entera**
+del candidato que etiquetaba: desde hoy eso se habría llevado el veredicto del modelo junto con la
+etiqueta. Ahora se fabrica su hueco quitando una etiqueta y la **restaura**. Añadido el caso 5: el
+candado de la ruta nueva, que el juicio SÍ viaja por ella (lo contrario que en la de etiquetar) y que
+la pantalla separa la vara del descarte. `qa:agenda-juicio` fija la invariante del recuento con el
+caso que la justifica: fallar TODA la vara y acertar TODO el descarte enseña un global del 90 %.
+El veto de agenda sigue vivo: con la vara al 60 % y la segunda pregunta sin medir, no hay con qué
+justificar su retirada todavía.

@@ -22,7 +22,9 @@ import {
   senalDeAgenda,
   type CandidatoAgenda,
   type EtiquetaAgenda,
+  type FilaComparada,
   type FuenteCandidato,
+  type JuicioDelModelo,
   type MensajeDelHilo,
   type OrigenCorpus,
   type ResumenCorpus,
@@ -341,4 +343,91 @@ export async function anotarEtiquetaAgenda(a: {
         returning id`.execute(trx),
   );
   return r.rows.length === 1;
+}
+
+// ─── EL JUICIO EN SOMBRA, y su lectura ─────────────────────────────────────
+//
+// Escribir y leer el juicio vive AQUÍ y NO en `listarCorpusAgenda`, que sigue
+// teniendo su lista de columnas escrita a mano y sin `juicio_*`. La ceguera no
+// se sostiene con un flag («pásale false y no te lo manda»): se sostiene con
+// dos funciones distintas, para que nadie pueda filtrarlo por descuido al
+// tocar un parámetro. Cuesta una consulta más y es exactamente lo que compra.
+
+/** Escribe el veredicto del juicio especializado en la fila del candidato.
+ *
+ *  NO toca NADA de lo de Simon: ni `etiqueta`, ni `se_arroga`, ni `nota`, ni
+ *  `por`/`en`. Y no toca `texto` si la fila ya existe: ese texto es el que él
+ *  vio al etiquetar, y el juicio no puede reescribir a qué se refiere una
+ *  etiqueta ya puesta. Devuelve el texto GUARDADO para que quien llama pueda
+ *  ver si juzgó otra cosa (§9: divergencia contada, no silenciosa). */
+export async function guardarJuicioAgenda(a: {
+  candidato: Pick<CandidatoAgenda, "clave" | "mensajeId" | "fuente" | "telefono" | "texto">;
+  etiqueta: EtiquetaAgenda;
+  seArroga: boolean | null;
+  porQue: string | null;
+  version: string;
+  modelo: string;
+}): Promise<{ textoGuardado: string }> {
+  const cliente = requireCliente("guardarJuicioAgenda");
+  const c = a.candidato;
+  const r = await runWithClienteDb(cliente, (trx) =>
+    sql<{ texto: string }>`insert into agenda_corpus
+          (cliente, clave, mensaje_id, fuente, telefono, texto, juicio, juicio_se_arroga, juicio_por_que, juicio_version, juicio_modelo, juicio_en)
+        values (${cliente}, ${c.clave}, ${c.mensajeId}, ${c.fuente}, ${c.telefono}, ${c.texto},
+                ${a.etiqueta}, ${a.seArroga}, ${a.porQue}, ${a.version}, ${a.modelo}, ${new Date()})
+        on conflict (cliente, clave) do update set
+          juicio = excluded.juicio,
+          juicio_se_arroga = excluded.juicio_se_arroga,
+          juicio_por_que = excluded.juicio_por_que,
+          juicio_version = excluded.juicio_version,
+          juicio_modelo = excluded.juicio_modelo,
+          juicio_en = excluded.juicio_en
+        returning texto`.execute(trx),
+  );
+  // §1 — una escritura que no toca fila no es un éxito. Aquí cero filas solo
+  // puede ser RLS filtrando, y devolver «ok» escondería un pase entero vacío.
+  const fila = r.rows[0];
+  if (!fila) throw new Error(`guardarJuicioAgenda: la escritura no tocó ninguna fila (${c.clave})`);
+  return { textoGuardado: fila.texto };
+}
+
+type FilaJuicio = {
+  clave: string;
+  juicio: EtiquetaAgenda | null;
+  juicio_se_arroga: boolean | null;
+  juicio_por_que: string | null;
+  juicio_version: string | null;
+  juicio_modelo: string | null;
+  juicio_en: Date | string | null;
+};
+
+const SIN_JUICIO: JuicioDelModelo = { etiqueta: null, seArroga: null, porQue: null, version: null, modelo: null, en: null };
+
+/** Los candidatos con las DOS columnas al lado: la de Simon y la del juicio.
+ *  Es la ruta de los desacuerdos, y la única que lee `juicio_*`. */
+export async function listarDesacuerdosAgenda(): Promise<{ filas: FilaComparada[]; resumen: ResumenCorpus }> {
+  const { candidatos, resumen } = await listarCorpusAgenda();
+  const cliente = requireCliente("listarDesacuerdosAgenda");
+  const j = await runWithClienteDb(cliente, (trx) =>
+    sql<FilaJuicio>`select clave, juicio, juicio_se_arroga, juicio_por_que, juicio_version, juicio_modelo, juicio_en
+        from agenda_corpus where juicio is not null`.execute(trx),
+  );
+  const porClave = new Map(j.rows.map((f) => [f.clave, f]));
+  const filas: FilaComparada[] = candidatos.map((c) => {
+    const f = porClave.get(c.clave);
+    return {
+      ...c,
+      juicio: f
+        ? {
+            etiqueta: f.juicio,
+            seArroga: f.juicio_se_arroga,
+            porQue: f.juicio_por_que,
+            version: f.juicio_version,
+            modelo: f.juicio_modelo,
+            en: iso(f.juicio_en),
+          }
+        : SIN_JUICIO,
+    };
+  });
+  return { filas, resumen };
 }
