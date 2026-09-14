@@ -734,12 +734,54 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
 // prompt, con el registro que le toca a cada lector (a la clínica se le vende
 // el hueco: «se elimina conectando tu agenda»; al modelo eso es ruido).
 
-/** El papel, por nivel de agenda. Hoy solo existe el 1 (`parseConocimiento`
- *  rechaza cualquier otro hasta que haya conexión de agenda): el 2 se deja
- *  escrito para que conectarla sea cambiar un número, no reescribir esto. */
-const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string> = {
-  1: "No ves la agenda: los huecos, los días y las horas libres los sabe el equipo, y reservar es cosa suya. Con las citas, tu trabajo es recoger lo que la persona prefiere y lo que haga falta para poder cerrársela, y pasarlo para que el equipo la reserve con el caso ya hecho. El horario publicado es cuándo ABRE la clínica, no tu disponibilidad.",
-  2: "Ves la agenda en solo lectura: puedes ofrecer los huecos que te consten, tal como te consten. Reservar sigue siendo cosa del equipo: tú recoges cuál le viene bien.",
+/** El papel, por nivel de agenda, en LÍNEAS (un guion por regla). Hoy solo
+ *  existe el 1 (`parseConocimiento` rechaza cualquier otro hasta que haya
+ *  conexión de agenda): el 2 se deja escrito para que conectarla sea cambiar un
+ *  número, no reescribir esto.
+ *
+ *  MEJORAS 237 (14-09, hallazgo de Simon): casi todos los casos ambiguos del
+ *  corpus lo eran porque **el agente redacta mal**, no porque el juez juzgue
+ *  mal. «Te reservamos», «te cierro la cita», «te anotamos el jueves 17»: ni
+ *  una dice lo que el agente hace de verdad, que es apuntar una preferencia
+ *  para que el equipo cierre. Es la MISMA corrección de doctrina que cerró la
+ *  233 por el otro extremo del tubo —**la palabra no es el acto**— aplicada
+ *  ahora al que redacta y no al que juzga.
+ *
+ *  POR QUÉ TRES REGLAS DE SITUACIÓN Y NO UNA LISTA DE FRASES PROHIBIDAS: una
+ *  lista describe la SALIDA, y de cada cosa hay quince maneras de decirla
+ *  (cinco vueltas de regex y nueve excepciones ya lo demostraron). La regla 1
+ *  no prohíbe «te reservo»: lo vuelve **falso sobre sí mismo**.
+ *
+ *  Y POR QUÉ NO HAY FRASE-MODELO, que es lo que uno querría escribir aquí:
+ *  MEJORAS 236 acaba de enseñar que **un ejemplo en un prompt es una regla**
+ *  (el «horario de apertura = ninguno» del juicio habló en contra de un caso
+ *  real), y una frase-modelo saldría literal en cien conversaciones.
+ *
+ *  De las tres, la 3 es el test de falsabilidad apuntando HACIA DELANTE: el que
+ *  escribe y el que juzga (`juicio-agenda.ts`) usan UNA SOLA regla.
+ *
+ *  LO QUE NO SE PIERDE AL METERLAS (y es deliberado): la regla 1 dice «recoger
+ *  cuándo le viene bien y pasarlo», que es MÁS ESTRECHO que lo que el papel ya
+ *  decía desde el 13-09 —recoger además lo que haga falta para poder cerrar la
+ *  cita, y pasarlo con el caso ya hecho—. Sustituir aquella frase por esta
+ *  habría metido de tapadillo una segunda corrección, justo la que el riesgo de
+ *  esta mejora avisa: precisión que se vuelve pasividad. Así que la regla 1 va
+ *  literal y la cláusula de recoger se queda, recortada solo en lo que la
+ *  regla 1 ya dice. */
+const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string[]> = {
+  1: [
+    // Regla 1 — qué haces TÚ y qué hace el equipo.
+    "No ves la agenda ni cierras citas: eso lo hace el equipo. Lo tuyo es recoger cuándo le viene bien a la persona y pasárselo. Cuenta lo que haces tú, no lo que hará el equipo.",
+    "Con las citas, recoge además lo que haga falta para poder cerrársela, y pásalo para que el equipo la reserve con el caso ya hecho. El horario publicado es cuándo ABRE la clínica, no tu disponibilidad.",
+    // Regla 2 — de quién es el día. Los dos incisos («si no los ha dicho» / «si
+    // ya los ha dicho») son los que dejan que el agente AVANCE: sin el primero,
+    // la regla se lee como «no hables del día» y lo vuelve mudo.
+    "El día y la hora los pone la persona. Si no los ha dicho, pregúntaselos. Si ya los ha dicho, devuélveselos tal y como ella los dijo: ni más concretos, ni más amplios.",
+    // Regla 3 — la prueba antes de enviar. «Antes de enviar:» es el único
+    // añadido al literal: sin él, «léelo» no tiene antecedente en una lista.
+    "Antes de enviar: Léelo como si el equipo abriera la agenda y no hubiera hueco donde ella pedía. Si algo se vuelve mentira, reescríbelo.",
+  ],
+  2: ["Ves la agenda en solo lectura: puedes ofrecer los huecos que te consten, tal como te consten. Reservar sigue siendo cosa del equipo: tú recoges cuál le viene bien."],
 };
 
 // EL ORDEN DENTRO DEL PAPEL (13-09, pedido de Simon tras leer C vs D): en la
@@ -786,7 +828,7 @@ export function renderAlcance(
   objetivo: { etapa: string; proposito: string } | null,
 ): string[] {
   const lineas = ["TU ALCANCE Y TU OBJETIVO (hasta dónde llega tu papel aquí):"];
-  lineas.push(`- ${PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]}`);
+  for (const regla of PAPEL_POR_NIVEL_AGENDA[c.agendaNivel]) lineas.push(`- ${regla}`);
   lineas.push(
     objetivo
       ? `- Con esta persona, ahora: ${objetivo.proposito} El orden es siempre el mismo: primero contestas lo que te han preguntado; recoger va después, y solo si encaja — si no encaja, este turno no pides nada. Y EN CUANTO tengas lo que hace falta, cierras en ESE MISMO mensaje y pasas el caso: no lo alargues un turno más. Y cerrar no es solo «ya tengo lo que hace falta»: también es «ya no puedo avanzar yo» — si vuelve sobre algo que ya le contestaste y no tienes nada nuevo que darle, dilo con franqueza, pásaselo a quien sí pueda y cierra ahí; repetir la misma respuesta una tercera vez no le sirve a nadie. Qué te falta DE VERDAD para eso, y qué ya sabes y no hace falta volver a preguntar, lo juzgas tú: no hay una lista que rellenar.`

@@ -5612,3 +5612,30 @@ corrección, una medición; antes de tocar el instrumento se audita la vara (ree
 movió más que el prompt); y el arreglo suele ser QUITAR, no añadir.
 Siguiente: Simon contesta la tecla R en los falsables (MEJORAS 234) y arrancamos el papel con las tres
 reglas de la 237.
+
+## 2026-09-14 · Las tres reglas del papel (237): entraron, cambiaron cómo escribe, y el daño no bajó
+Se metieron en `PAPEL_POR_NIVEL_AGENDA` (nivel 1) las tres reglas aprobadas: **qué haces tú y qué hace
+el equipo** («cuenta lo que haces tú, no lo que hará el equipo»), **de quién es el día** («los pone la
+persona; si no los ha dicho, pregúntaselos; si ya los ha dicho, devuélveselos tal y como ella los
+dijo») y **la prueba antes de enviar** (el test de falsabilidad apuntando hacia delante). Literales,
+sin frase-modelo, y la cláusula de recoger lo que hace falta para cerrar se quedó: la regla 1 es más
+estrecha y sustituirla habría colado una segunda corrección justo donde 237 se avisa a sí misma.
+**Medido como dijo Simon: rejugando los 4 guiones y juzgando los mensajes NUEVOS con el juicio al
+88 %** (`npm run agenda:juicio:hilos`, nuevo), con el decisor `libre` rejugado en la misma pasada como
+**suelo de ruido** — rejugar con el mismo prompt ya da mensajes distintos.
+**LA CIFRA: 5 daños antes, 5 después** (alcance: afirma 4→3, se arroga 1→2, sobre 9 mensajes de agenda
+las dos veces). Mensajes señalados 4→3. El control se movió lo mismo. **No es una mejora medible.**
+Lo que SÍ se lee en los textos, y es el hallazgo: **la familia cambió**. «Plantarse un día que nadie
+dio» pasó de 3 a 1 —la regla 2 muerde—, y «dar el día por guardado» de 1 a 2: «te tengo anotado para
+el sábado 26», «te anotamos la revisión para el miércoles 16 a las 17:00». Es el día que ELLA dio,
+devuelto tal cual (regla 2 cumplida) y con el equipo nombrado después (regla 1 cumplida) — **y sigue
+siendo falso si no hay hueco**. Ninguna de las tres reglas cubre ANOTAR: es lo que el agente hace de
+verdad, es verdad, y lee como reserva. **Es MEJORAS 238 con forma reproducible**, encontrada por la
+vara y no por opinión.
+Y la pasividad que 237 temía no apareció: el objetivo cubierto subió 1/4 → 3/4 (el control, 1/4 → 2/4).
+**Lo que se protegió por el camino:** la pasada de medición va a su propio fixture con `--sin-db`. El
+corpus de agenda saca 35 candidatos de `agente_sombra_hilos` con clave `guion:<id>:<decisor>:<n>` —
+**sin el texto dentro**—, así que un `npm run hilos:tres` normal reemplaza los mensajes y deja las
+etiquetas de Simon colgando de textos que él no ha leído: la vara 28/32 se corrompería en silencio.
+El arreglo de fondo queda en MEJORAS 239.
+Siguiente: 238 (el tercer daño) con su pregunta y su vara, ahora que se sabe qué frase lo produce.

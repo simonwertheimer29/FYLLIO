@@ -216,3 +216,13 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   documentadas para que nadie las reintente:** «ventana» → 24/35 con descarte 49/56; «objeto no
   verbo» → 27/35 con descarte 35/56. Las dos suben un bloque hundiendo el otro. Y la primera no
   midió nada porque cambió dos cosas a la vez · ac. **~$9,91**
+
+- **14-09 · MEJORAS 237: rejugar con el papel nuevo y juzgar los mensajes nuevos** (4 guiones ×
+  2 decisores —`alcance` cambiado y `libre` como suelo de ruido—, paciente sonnet; después 34
+  mensajes de agenda por el juicio al 88 %, haiku) · **$0,47 + $0,039 = $0,509 medido** (anunciado
+  tope $1,44 + $0,054) · **LA CIFRA: 5 daños antes, 5 después** (alcance: afirma 4→3, se arroga 1→2,
+  sobre 9 mensajes de agenda las dos veces; el control se movió igual). **Las tres reglas no bajan el
+  daño medible**, pero le cambian la familia: «plantarse un día que nadie dio» 3→1 y «dar el día por
+  guardado» 1→2 («te tengo anotado para el sábado 26»). Eso es MEJORAS 238 con forma reproducible.
+  La pasividad que 237 temía no apareció: objetivo cubierto 1/4 → 3/4. Detalle en
+  `evals/pasadas/2026-09-14-juicio-sobre-hilos.json` · ac. **~$10,42**

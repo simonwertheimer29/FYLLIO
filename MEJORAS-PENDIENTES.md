@@ -3504,7 +3504,22 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   el corpus etiquetado **no puede medirlo** —ese mide al juez—. Hay que rejugar y juzgar los mensajes
   nuevos. Con el juez en 83 %, **el juez es el instrumento**: si no, Simon reetiqueta a mano cada vez
   que se toca el papel, y su criterio es el recurso caro. · **Impacto:** ALTO. · **Esfuerzo:** 1 h +
-  una jugada. · **Fecha:** 2026-09-14 · ✅ aprobada, esperando turno
+  una jugada. · **Fecha:** 2026-09-14 · 🟢 **HECHA Y MEDIDA el 14-09, y el resultado es que NO
+  mejora la cifra.** Las tres reglas están en `PAPEL_POR_NIVEL_AGENDA` (nivel 1), literales y sin
+  frase-modelo; la cláusula de «recoge además lo que haga falta para poder cerrársela» se quedó
+  porque la regla 1 es más estrecha y sustituirla habría colado una segunda corrección —justo el
+  riesgo de pasividad que esta mejora se apunta a sí misma—. Se midió como estaba escrito: rejugando
+  los 4 guiones y juzgando los mensajes NUEVOS con el juicio al 88 % (`npm run agenda:juicio:hilos`,
+  nuevo), con `libre` rejugado en la misma pasada como **suelo de ruido** ($0,509).
+  **La cifra: 5 daños antes, 5 después** (afirma 4→3, se arroga 1→2, sobre 9 mensajes de agenda las
+  dos veces; mensajes señalados 4→3, y el control se movió lo mismo).
+  **Lo que sí cambió, y es el hallazgo: la FAMILIA del daño.** «Plantarse un día que nadie dio» 3→1
+  (la regla 2 muerde) y «dar el día por guardado» 1→2: *«te tengo anotado para el sábado 26»*, *«te
+  anotamos la revisión para el miércoles 16 a las 17:00»*. Es el día que ELLA dio, devuelto tal cual
+  (regla 2 cumplida) y con el equipo nombrado después (regla 1 cumplida) — y sigue siendo falso si no
+  hay hueco. **Ninguna de las tres cubre ANOTAR**, que es lo que el agente hace de verdad, es verdad,
+  y lee como reserva. Eso es la 238 con forma reproducible. La pasividad temida no apareció: objetivo
+  cubierto 1/4 → 3/4 (control 1/4 → 2/4).
 
 ## 238. Agente · EL TERCER DAÑO: prometer por el equipo (ninguna regla lo cubre, y es la pieza siguiente)
 - **El caso, y lo vio Simon (14-09):** *«Para poder **ofrecerte una cita esta semana**, ¿qué días te
@@ -3532,3 +3547,33 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   apareciendo, se le hace su pregunta y su vara.
 - **Impacto:** ALTO (es del tipo caro: llega al paciente como un compromiso de la clínica). ·
   **Esfuerzo:** decidir doctrina + 1 regla del papel. · **Fecha:** 2026-09-14 · 🔵
+- **14-09, DESPUÉS DE LA 237: sigue apareciendo, y ya se sabe con qué frase.** La pasada de medición
+  lo produjo dos veces de tres daños, con el papel nuevo puesto: *«Te tengo anotado para el sábado 26
+  de septiembre por la mañana. Paso todo al equipo ahora mismo para que te reserve la cita»* y *«Te
+  anotamos la revisión general para el miércoles 16 de septiembre a las 17:00. El equipo te confirma
+  la cita en breve»*. Las dos **cumplen las tres reglas** —el día es el que ella dio, devuelto tal
+  cual, y el equipo aparece nombrado como quien reserva— y las dos se vuelven falsas si no hay hueco.
+  **La pieza que falta es ANOTAR:** es literalmente lo que el agente hace, es verdad, y lee como
+  «guardado». Ya no hace falta inventarle casos: **tiene material propio y repetible**, así que ahora
+  sí se le puede hacer su pregunta y su vara (el mismo `agenda:juicio:hilos` los cuenta aparte en
+  cuanto el juez sepa distinguirlos). Nota al margen, del mismo material y ya vista en la 235: el
+  agente escribe fechas en ISO al paciente («el sábado 2026-09-19 o 2026-09-26»).
+
+## 239. Agente · el corpus de agenda hereda etiquetas por posición: rejugar los guiones lo corrompe en silencio
+- **Lo que hay:** `candidatosDeLosGuiones` identifica cada candidato con
+  `guion:<guion_id>:<decisor>:<n>` — el número de turno, **sin nada del texto dentro**—, y
+  `agente_sombra_hilos` hace upsert por `(cliente, guion_id, decisor)`. Así que un `npm run
+  hilos:tres` normal reemplaza los mensajes y **las 35 etiquetas que puso Simon a mano se quedan
+  pegadas a textos que él no ha leído**. 11 de esas 35 están en la vara del juez (28/32): la nota del
+  instrumento cambiaría sin que nadie tocara el instrumento, y el histórico de `/sombra/agenda` no
+  se podría explicar. · **Principio:** §25 (se verifica lo que se usa) y el mismo motivo por el que
+  `versionSombra` hashea la plantilla del alcance: un dato de medición tiene que ser atribuible al
+  texto que lo produjo. · **Lo que se hizo el 14-09 y NO es el arreglo:** `hilos:tres --salida <ruta>
+  --sin-db`, para que una pasada de medición vaya a su fixture y no toque la base. Tapa el agujero
+  cuando alguien se acuerda; no lo cierra. · **Propuesta:** meter en la clave un hash corto del texto
+  etiquetado (`guion:<id>:<decisor>:<n>:<hash>`), de forma que rejugar CREE candidatos nuevos —sin
+  etiqueta, visibles como pendientes— en vez de heredar las viejas; y migrar de una vez las 35 claves
+  actuales calculando el hash de los textos que hay hoy en la base, que son exactamente los que Simon
+  leyó. Lo mismo vale para los candidatos de `agente_sombra` (`mensaje_id|fuente`), que tienen el
+  mismo agujero si se rejuega un hilo. · **Impacto:** ALTO (no rompe nada visible: falsea la vara). ·
+  **Esfuerzo:** 1 h + una migración de 35 filas. · **Fecha:** 2026-09-14 · 🔵

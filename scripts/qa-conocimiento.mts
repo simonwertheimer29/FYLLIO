@@ -581,9 +581,28 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
 
   const nivel1 = renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n");
   ok("nivel 1: el papel dice que la agenda la lleva el equipo, no que esté prohibido hablar de ella",
-    nivel1.includes("los sabe el equipo") && nivel1.includes("reservar es cosa suya"));
+    /no ves la agenda ni cierras citas: eso lo hace el equipo/i.test(nivel1) && /para que el equipo la reserve/i.test(nivel1));
   ok("nivel 1: el horario publicado se declara como APERTURA, no como disponibilidad",
     /horario publicado es cu[áa]ndo ABRE/i.test(nivel1));
+  // MEJORAS 237 (14-09) — LAS TRES REGLAS DEL REDACTOR. Se afirma cada una por
+  // su propiedad, no por su literal entero: lo que no puede desaparecer sin que
+  // esto se ponga rojo es la SITUACIÓN que describen.
+  ok("237/1 · el papel manda contar lo que hace ÉL, no lo que hará el equipo (es lo que vuelve falso un «te reservo»)",
+    /cuenta lo que haces t[úu], no lo que har[áa] el equipo/i.test(nivel1));
+  ok("237/2 · el día lo pone la persona, y se le devuelve tal cual: ni más concreto, ni más amplio",
+    /el d[íi]a y la hora los pone la persona/i.test(nivel1) && /ni m[áa]s concretos, ni m[áa]s amplios/i.test(nivel1));
+  ok("237/2 · con los DOS incisos: si no lo ha dicho, PREGUNTAR (sin esto la regla lo vuelve mudo)",
+    /si no los ha dicho, preg[úu]ntaselos/i.test(nivel1));
+  ok("237/3 · la prueba antes de enviar es el MISMO test de falsabilidad que usa el juez",
+    /antes de enviar/i.test(nivel1) && /no hubiera hueco donde ella ped[íi]a/i.test(nivel1) && /se vuelve mentira, reescr[íi]belo/i.test(nivel1));
+  // Y lo que NO puede entrar: un ejemplo de cómo decirlo. MEJORAS 236 — un
+  // ejemplo en un prompt es una regla, y saldría literal en cien conversaciones.
+  ok("237 · y NINGUNA frase-modelo que copiar (un ejemplo en un prompt es una regla)",
+    !/por ejemplo|p\. ej\.|«apunto tu preferencia/i.test(nivel1));
+  // El recorte deliberado: la regla 1 es más estrecha que el papel del 13-09, y
+  // sustituirla del todo habría metido una segunda corrección de tapadillo.
+  ok("237 · no se ha perdido recoger lo que hace falta para poder CERRAR la cita",
+    /lo que haga falta para poder cerr[áa]rsela/i.test(nivel1) && /con el caso ya hecho/i.test(nivel1));
   ok("el objetivo entra como PROPÓSITO en una frase", nivel1.includes(OBJ.proposito));
   // La prueba de que esto no es un formulario con otro nombre: ninguna CLAVE
   // de campo puede asomar por aquí. (Se buscan las claves, no las palabras:

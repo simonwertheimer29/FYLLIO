@@ -64,6 +64,7 @@
     "qa:agenda-enrutador": "tsx scripts/qa-agenda-enrutador.mts",
     "qa:agenda-juicio": "tsx scripts/qa-agenda-juicio.mts",
     "agenda:juicio": "tsx scripts/juicio-agenda.mts",
+    "agenda:juicio:hilos": "tsx scripts/juicio-sobre-hilos.mts",
     "qa:agenda-externa": "tsx scripts/qa-agenda-externa.mts",
     "qa:coste": "tsx scripts/qa-coste.mts",
     "qa:inicio": "tsx scripts/qa-inicio.mts",

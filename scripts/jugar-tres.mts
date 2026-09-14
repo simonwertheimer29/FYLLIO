@@ -50,6 +50,11 @@
 //
 //   npm run hilos:tres -- --estimar                    el tope de coste, sin gastar
 //   npm run hilos:tres [-- --solo a,b] [--turnos N] [--decisores codigo,contexto,libre]
+//   npm run hilos:tres -- --salida <ruta> --sin-db     pasada de MEDICIÓN: va a su
+//                                                      propio fixture y no toca la
+//                                                      base (ver el comentario de
+//                                                      `rutaSalida`: rejugar encima
+//                                                      corrompe el corpus de agenda)
 //
 // Coste (medido en hilos:jugar y sombra): paciente ≈ $0,013/turno · evaluador
 // con juez ≈ $0,009 · sombra ≈ $0,003. A ≈ $0,022/turno; B y C ≈ $0,030 desde
@@ -105,6 +110,18 @@ if (decisores.some((d) => !(DECISORES as readonly string[]).includes(d))) {
   console.error(`✗ --decisores admite ${DECISORES.join(", ")}.`);
   process.exit(1);
 }
+// 14-09 (MEJORAS 237) — LA PASADA DE MEDICIÓN NO PUEDE PISAR EL CORPUS. El
+// corpus de agenda saca 35 candidatos de `agente_sombra_hilos` (origen
+// «guiones»), 11 de ellos en la vara, y su clave es `guion:<id>:<decisor>:<n>`:
+// SIN EL TEXTO DENTRO. Rejugar un decisor reemplaza esas filas y las etiquetas
+// que puso Simon a mano quedan colgando de mensajes que él nunca leyó — la vara
+// del juez (28/32) se corrompería EN SILENCIO, que es la peor forma. Así que
+// una pasada que solo sirve para medir el papel se escribe en SU fixture y no
+// toca la base: `--salida <ruta> --sin-db`. (El arreglo de fondo —que la clave
+// lleve el hash del texto, y rejugar cree candidatos nuevos en vez de heredar
+// etiquetas— va en MEJORAS 239, no aquí.)
+const rutaSalida = flag("--salida") ?? RUTA_FIXTURE_TRES;
+const sinDb = argv.includes("--sin-db");
 // 12-09: el conocimiento de cada clínica sale del fixture (el mundo del turno
 // 1, jugado con las clínicas VACÍAS) o, con `--conocimiento db`, de lo que hay
 // AHORA publicado en DEMO (npm run demo:conocimiento) — el caso real.
@@ -543,7 +560,7 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
 
 // ─── el pase ───────────────────────────────────────────────────────────────
 
-const previo: FixtureTres | null = existsSync(RUTA_FIXTURE_TRES) ? (JSON.parse(readFileSync(RUTA_FIXTURE_TRES, "utf8")) as FixtureTres) : null;
+const previo: FixtureTres | null = existsSync(rutaSalida) ? (JSON.parse(readFileSync(rutaSalida, "utf8")) as FixtureTres) : null;
 const salida: FixtureTres = previo ?? { v: 1, jugadoEl: new Date().toISOString(), modeloPaciente: MODELO_PACIENTE, hilos: [] };
 const hoy = hoyISO();
 let usdTotal = 0;
@@ -564,7 +581,7 @@ for (const h of hilosBase) {
       usdTotal += hilo.costeUsd;
       jugados[d].push(hilo);
       entradaGuion.decisores[d] = hilo;
-      await runWithCliente("DEMO", () => guardarHiloTres(hilo));
+      if (!sinDb) await runWithCliente("DEMO", () => guardarHiloTres(hilo));
     } catch (err) {
       fallos++;
       console.error(`  ✗ ${h.guion.id}/${d}: ${err instanceof Error ? err.message : String(err)}`);
@@ -572,8 +589,8 @@ for (const h of hilosBase) {
   }
   if (!salida.hilos.some((x) => x.guion.id === h.guion.id)) salida.hilos.push(entradaGuion);
   salida.jugadoEl = new Date().toISOString();
-  mkdirSync(dirname(RUTA_FIXTURE_TRES), { recursive: true });
-  writeFileSync(RUTA_FIXTURE_TRES, JSON.stringify(salida, null, 1));
+  mkdirSync(dirname(rutaSalida), { recursive: true });
+  writeFileSync(rutaSalida, JSON.stringify(salida, null, 1));
 }
 
 console.log("\n" + "═".repeat(72));
@@ -589,7 +606,10 @@ for (const d of decisores) {
   );
 }
 console.log("═".repeat(72));
-console.log(`${hilosBase.length} guiones × ${decisores.length} decisores · coste medido $${usdTotal.toFixed(2)} · fixture ${RUTA_FIXTURE_TRES} · léelo en /sombra › Conversaciones`);
+console.log(
+  `${hilosBase.length} guiones × ${decisores.length} decisores · coste medido $${usdTotal.toFixed(2)} · fixture ${rutaSalida}` +
+    (sinDb ? " · --sin-db: la base NO se ha tocado (el corpus de agenda sigue apuntando a los mensajes que etiquetó Simon)" : " · léelo en /sombra › Conversaciones"),
+);
 console.log("Apunta el coste en evals/pasadas/GASTO.md.");
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} hilo(s) NO se jugaron: lo de arriba no es un pase completo.`);
