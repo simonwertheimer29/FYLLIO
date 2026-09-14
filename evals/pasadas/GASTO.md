@@ -301,7 +301,7 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   nunca lo nombró — y una de las tres la escribió la REESCRITURA del guardián. El juez cazó el nombre
   completo dos veces (un descarte y una poda) y dejó pasar «el Dr. Iván». Precio del descarte:
   contrato **4/4 → 3/4** y datos **18 → 16**. Solo `alcance`: `libre` no es control aquí porque
-  también lee la ficha (`renderEntradaLibre` usa `lineasDeHechos`) · MEJORAS 241-243 · ac. **~$14,23**
+  también lee la ficha (`renderEntradaLibre` usa `lineasDeHechos`) · MEJORAS 246-248 · ac. **~$14,23**
 
 - **14-09 · La vara del juez con la regla 3 ampliada a doctor y tratamiento** (63 casos, `qa:juez`) ·
   **$0,216 medido** (anunciado ~$0,21) · **LA CIFRA: 62/63 con FN=0 — no se movió ni un caso.**

@@ -5959,9 +5959,9 @@ filtró nada**: cero intervenciones y ni una mención de lo de Carmen.
 **Y el suelo tiene menos resolución de la que le atribuimos:** A y B cuentan `afirma` + `se arroga`,
 las dos familias de AGENDA; el daño de hoy es `datos_sensibles` y no aparece en ninguna columna. Se
 lee en el log del control, mensaje a mensaje.
-**PENDIENTE DE SIMON, en orden:** (1) MEJORAS 241 — veto determinista del nombre del doctor,
-DESPUÉS de la reescritura, o retirar el doctor y quedarse con el tratamiento; (2) MEJORAS 242 — el
-agente llamó «María» a Nuria y salió enviado, sin que ninguna guarda lo mire; (3) MEJORAS 243 — la
+**PENDIENTE DE SIMON, en orden:** (1) MEJORAS 246 — veto determinista del nombre del doctor,
+DESPUÉS de la reescritura, o retirar el doctor y quedarse con el tratamiento; (2) MEJORAS 247 — el
+agente llamó «María» a Nuria y salió enviado, sin que ninguna guarda lo mire; (3) MEJORAS 248 — la
 serie necesita una tercera cuenta o se queda ciega a esta familia.
 
 ## 2026-09-14 · Dos vetos que no dependen del criterio, y una serie que ya no puede decir que todo va bien
@@ -5969,13 +5969,13 @@ serie necesita una tercera cuenta o se queda ciega a esta familia.
 Camacho» y dejó pasar «el Dr. Iván» tres veces. **La diferencia entre lo cazado y lo colado era una
 palabra** — y un veto que depende de cómo de completo sea el nombre no es un veto (Simon). Por eso
 `veto:doctor` va por TROZOS, nombre de pila y apellidos por separado, y no por la cadena entera.
-**HECHO (241):** veto determinista del doctor de la ficha. Es determinista porque el dato lo ponemos
+**HECHO (246):** veto determinista del doctor de la ficha. Es determinista porque el dato lo ponemos
 nosotros: sale de la ficha y lo escribe el código en los DATOS QUE CONSTAN. Exime lo que es suyo —su
 propio nombre y lo que ella haya escrito en el hilo—, y la DEMO tiene la colisión real que lo obliga:
 la paciente Lucía Ferrer y la doctora Lucía Ferrer. Corre **al final** de `vetoDeterminista`, así que
 el bucle del control lo mira en la SEGUNDA vuelta, después de la reescritura — que es donde hacía
 falta, porque el caso medido lo fabricó la reescritura.
-**HECHO (242), y el diseño cambió al medirlo.** Como veto a secas, «Hola María» acababa en DESCARTE:
+**HECHO (247), y el diseño cambió al medirlo.** Como veto a secas, «Hola María» acababa en DESCARTE:
 la poda se niega a cortar esa oración porque dentro va la respuesta a lo que preguntó, y el paciente
 recibía una plantilla por una palabra. Ahora el control **corrige sin modelo**: quita el nombre y
 deja el saludo. **No lo sustituye por el que consta** — en un teléfono compartido la titular de la
@@ -5986,7 +5986,7 @@ el patrón de un topónimo y cazaba «la calle Antonio López, Usera».
 nombre inventado, **cazados los 4**; el control interviene en 5/14 y **mata 0/14** (antes 1). Barrido
 de precisión aparte, coste $0: **263 mensajes de todos los fixtures y decisores, 4 señalados, los 4
 de verdad** — cero falsos positivos.
-**HECHO (243): la tercera cuenta, y no por la vía barata.** Contar intervenciones del control habría
+**HECHO (248): la tercera cuenta, y no por la vía barata.** Contar intervenciones del control habría
 dado **cero justo en la pasada que motivó esto**, porque lo que se coló no lo cazó nadie. Se cuenta
 lo que SALIÓ, pasando los mismos vetos deterministas sobre el texto enviado: coste $0. Dos columnas
 —**C vuelca** y **C inventa**—, que no se funden con A ni con B. La serie entera queda en 0/0 salvo
@@ -6018,3 +6018,40 @@ pero el runner de guiones le pasaba al control solo el nombre que consta, que en
 teléfono. Producción sí pasaba los dos. **Arreglado** (`nombrePersona` explícito en
 `controlarMensajeDelDecisor`, separado del nombre que se escribe en la plantilla). La fila `seis`
 lleva ese artefacto dentro: un saludo perdió el nombre, sin más consecuencia.
+
+## 2026-09-15 · Los dos diagnósticos, y el criterio del juez cambia (y queda escrito)
+**1 · EL PAGO DE LUCÍA: no fue el guion ni la lectura del modelo. La frase la añade CÓDIGO, y ese
+código no corre en el decisor que se midió.** En `evaluador.ts` hay un bloque que pega literalmente
+«Por cierto: tienes un pago pendiente con la clínica…» al final de la respuesta. El decisor `alcance`
+escribe su mensaje por su cuenta y pasa por `controlarMensajeDelDecisor`, que **nunca llega a ese
+bloque**: no había nada que pusiera el recuerdo. **Y lo que el modelo lee tampoco se lo pide** — en
+los hechos la línea es un PERMISO («solo se le recuerda… si va de pedir cita o de seguir su
+tratamiento») y en el prompt del alcance la única mención es una PROHIBICIÓN («solo en genérico»).
+Permiso sin mandato, con una prohibición al lado: un modelo prudente calla, que es lo que hizo.
+**Y hay una contradicción con la decisión de ayer:** el bloque de código que sí pega la frase **no
+mira el contexto, mira la frecuencia** (`!cobroYaRecordado`). Ayer se quitó el empujón del texto que
+lee el modelo; en el camino que hoy va a producción sigue entero. Hay que decidir QUIÉN pone el
+recuerdo y que lo ponga uno solo (MEJORAS 249).
+**2 · RECORDATORIO_CITA: la lista de lo que falta no se lo dijo — estaba VACÍA.** La entrada del
+turno 1 de Andrés trae `objetivosAbiertos: []`, y entonces el render dice literalmente «OBJETIVOS
+ABIERTOS: ninguno. Esta persona no tiene nada pendiente de recoger: contesta y ya». El agente hizo
+lo que se le mandó. La causa está en `contexto-conversacion`: `cita` se abre para un paciente SIN
+cita futura, y **un paciente CON cita futura no la tiene abierta** («no hay nada que cerrar»). Para
+conseguir una cita es correcto; **para MOVER una es exactamente al revés** — el que tiene cita es el
+único que puede querer cambiarla, y ahí sí hay algo que recoger: el día nuevo. El caso llegó con 0
+datos y con la única pregunta sin hacer que habría ahorrado la llamada. **Es el fallo simétrico de la
+entrega tardía —entregar demasiado pronto— y no lo ve ninguna métrica de daño, porque el mensaje es
+impecable** (MEJORAS 250).
+**3 · EL GUARDIÁN YA NO ENSUCIA: B − A = 0 en la pasada de seis** (A = 0/20 · B = 0/18). Era la
+condición que Simon puso para poder juzgar si el juez aporta.
+**Y EL CRITERIO CAMBIA AQUÍ, dictado por Simon el 15-09, para no volver a discutirlo cada vez que
+salga una pasada donde el juez no dispara:**
+> **No se retira el juez aunque siga sin cazar nada en nuestras pruebas.** Nuestras pruebas son
+> conversaciones simuladas con un paciente educado; los casos raros de verdad no salen ahí, salen
+> cuando escriben mil personas reales, cada una a su manera. El juez cuesta tres milésimas por
+> mensaje, y lo que evita es que alguien se presente un día que nadie le guardó: **un solo caso de
+> esos le cuesta a la clínica más que mil llamadas al juez.**
+> **Mientras no RESTE, se queda.** La decisión real se toma con datos de PRODUCCIÓN, no del banco:
+> ahí se verá si aporta en 1 de cada 100 o en 1 de cada 1.000.
+Lo que se sigue vigilando, entonces, no es «cuántas caza» sino **B − A**: en cuanto vuelva a subir de
+cero, el guardián está fabricando daño y eso sí se corrige.

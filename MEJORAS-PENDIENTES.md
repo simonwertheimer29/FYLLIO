@@ -3661,7 +3661,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   parece prometer»). O el caso cambia de etiqueta esperada en `qa:juez`, o el juez tiene que volver a
   perdonar el horario de apertura al lado de una pregunta de franja. No lo toco sin que lo decidas.
 
-## 241. Agente · la ficha se cuela: la regla en el papel no para el nombre del doctor, y el juez solo caza la mitad
+## 246. Agente · la ficha se cuela: la regla en el papel no para el nombre del doctor, y el juez solo caza la mitad
 - **Medido el 14-09 sobre los 4 guiones calibrados (`fixture-ficha`), con la ficha ya puesta.** La
   regla del dato no pedido se extendió a doctor y tratamiento en los dos sitios (prompt del evaluador
   y regla 3 del juez), y la vara del juez no se movió (62/63, FN=0). **Y aun así el nombre del doctor
@@ -3694,7 +3694,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   reescritura le faltaba media frase — sin «o el nombre de su doctor», la corrección volvía a
   nombrarlo y el mensaje acababa podado.
 
-## 242. Agente · el agente llamó «María» a Nuria, y salió enviado
+## 247. Agente · el agente llamó «María» a Nuria, y salió enviado
 - **Medido el 14-09 en `fixture-ficha`, hilo de Nuria, t2:** el mensaje que salió empieza *«Hola
   María, respecto al parking…»*. En el contexto no hay ninguna María: el nombre está inventado, y
   además el saludo se repite en el segundo mensaje de un hilo que ya iba por el t2.
@@ -3719,7 +3719,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   que es donde el patrón no es ambiguo. **Barrido de precisión: 263 mensajes de todos los fixtures y
   todos los decisores, 4 señalados, los 4 de verdad.**
 
-## 243. Agente · la serie cuenta dos familias de daño y la ficha daña en una tercera
+## 248. Agente · la serie cuenta dos familias de daño y la ficha daña en una tercera
 - **`npm run serie` dio A = 0/13 en la pasada de la ficha, y eso es verdad y engaña.** Las columnas A
   y B cuentan `afirma` + `se arroga`, que son las dos familias de AGENDA. El daño que trajo la ficha
   —volcar el doctor— vive en `datos_sensibles`, que no entra en ninguna de las dos: se ve solo en el
@@ -3739,3 +3739,55 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   inventa** (la llama por un nombre que no es el suyo)—, y ninguna se funde con A y B. La serie
   entera queda en 0/0 salvo la pasada de la ficha: **3/14 y 1/14**, que es exactamente lo que A=0
   escondía.
+
+## 249. Agente · el recordatorio del pago NO existe fuera del decisor código, y en el código va por frecuencia
+- **Diagnóstico del 14-09, pedido por Simon** («¿por qué Lucía no recibió el recuerdo si pedir una
+  revisión ES seguir su tratamiento?»). **Ni el guion ni la lectura del modelo: la frase la añade
+  CÓDIGO, y ese código solo corre en `evaluarTurno`.** En `evaluador.ts` hay un bloque que pega
+  literalmente *«Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma
+  cuando quieras, sin prisa.»* al final de la respuesta. El decisor `alcance` —el que se midió—
+  escribe su mensaje por su cuenta y pasa por `controlarMensajeDelDecisor`, que **nunca llega a ese
+  bloque**. Por eso el recuerdo no apareció: no había nada que lo pusiera.
+- **Y lo que el modelo lee tampoco se lo pide.** En los hechos (`lineasDeHechos`) la línea es un
+  PERMISO: «solo se le recuerda… si este mensaje va de pedir cita o de seguir su tratamiento». En el
+  prompt del alcance la única mención es una PROHIBICIÓN: «un pago pendiente que la persona no ha
+  preguntado solo se menciona en genérico». Ninguna de las dos dice «recuérdaselo». Un modelo
+  prudente, ante permiso sin mandato y una prohibición al lado, calla — que es lo que hizo.
+- **Tercera pieza, y es una contradicción con la decisión del 14-09:** el bloque de código que sí
+  pega la frase **no mira el contexto**, mira la frecuencia (`!cobroYaRecordado`). La decisión de esa
+  mañana fue justamente la contraria — «el hecho se dice como hecho y la condición es de contexto; la
+  frecuencia se queda de última y no de titular»—, pero solo se aplicó al texto que lee el modelo.
+  **En el camino que hoy va a producción, el empujón sigue entero.**
+- **Propuesta:** decidir primero QUIÉN pone el recuerdo. Si es el modelo, la línea de los hechos
+  tiene que mandar y no permitir («si este mensaje va de pedir cita o de seguir su tratamiento,
+  recuérdaselo en genérico»), y el bloque de código se retira. Si es el código, la condición de
+  contexto tiene que bajar al código —y eso exige un juicio nuevo del modelo, «de qué va este
+  mensaje», porque el código no lo sabe—. Lo que no puede quedarse es la mitad y mitad de hoy: un
+  camino que empuja por frecuencia y otro que no empuja nunca. · **Principio:** §25 (una
+  construcción, un sitio). · **Impacto:** ALTO si `alcance` sustituye al código — el recordatorio de
+  cobro desaparecería del producto sin que nadie lo decidiera. · **Esfuerzo:** 2 h. · **Fecha:**
+  2026-09-14
+
+## 250. Agente · querer MOVER una cita que ya existe no abre ningún objetivo: el caso sale vacío
+- **Diagnóstico del 14-09 sobre `recordatorio_cita`, y NO es lo que parecía.** Andrés contesta al
+  recordatorio «no puedo mañana, ¿se puede cambiar a la semana que viene por la tarde?» y el agente
+  cierra en el mensaje 1 sin preguntarle qué día. **La lista de lo que falta no se lo dijo: estaba
+  VACÍA.** En el turno 1 su entrada trae `objetivosAbiertos: []`, y el render entonces dice
+  literalmente *«OBJETIVOS ABIERTOS: ninguno. Esta persona no tiene nada pendiente de recoger:
+  contesta y ya.»* El agente hizo exactamente lo que se le mandó.
+- **La causa está en `contexto-conversacion`:** `cita` se abre para un lead activo y para un paciente
+  **SIN** cita futura; un paciente **con** cita futura no la tiene abierta, con este comentario:
+  «no hay nada que cerrar». Para el ciclo de vida que se modeló (conseguir la cita) es correcto.
+  **Para mover una cita es exactamente al revés:** el que tiene cita es el único que puede querer
+  cambiarla, y ahí sí hay algo que recoger — el día nuevo.
+- **Lo que cuesta, medido:** el caso llega a la coordinadora con **0 datos** y con la única pregunta
+  sin hacer que habría ahorrado la llamada (el perfil habría contestado «martes o jueves»). Es el
+  fallo simétrico de la entrega tardía: **entrega demasiado pronto**, y no lo ve ninguna métrica de
+  daño porque el mensaje es impecable.
+- **Propuesta:** un objetivo `cita` abierto también para el paciente CON cita futura cuando el hilo
+  trae una petición de cambio — o, más limpio y sin adivinar, una etapa propia (`mover_cita`) con
+  sus campos (día/franja nuevos y, si consta, la cita que se mueve). El juicio de «esto es una
+  petición de cambio» ya lo puede dar el modelo: `pideAccion` existe. · **Principio:** el listón del
+  producto — que la coordinadora pueda llamar y cerrar sin volver a preguntar nada. · **Impacto:**
+  ALTO: es el segundo motivo de mensaje entrante de una clínica (después de pedir cita). ·
+  **Esfuerzo:** 3-4 h + una jugada. · **Fecha:** 2026-09-14
