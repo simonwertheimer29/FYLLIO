@@ -100,3 +100,46 @@ A5 │ - Con esta persona, ahora: Recoger lo necesario para poder cerrarle una c
 
 LO QUE YA SABEMOS QUE NO FUNCIONA (y cualquier propuesta tiene que esquivarlo):
   más prosa · ejemplos que salen literales (236) · listas de frases prohibidas.
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# (c) EL INVENTARIO: qué cambios de prompt movieron la conducta y cuáles no
+# (de GASTO.md, 13 y 14 de septiembre. Cada línea tiene su pasada medida.)
+# ══════════════════════════════════════════════════════════════════════════
+
+SÍ MOVIERON                                             dónde vivía el cambio
+  13-09 · el ORDEN (contestar antes que recoger)         papel (entrada)
+     → entrega 3/4 → 4/4, pero +2 mensajes de retraso. Mixto pero medible.
+  13-09 · EL CIERRE + fuera «una pregunta como mucho»    papel + paso 5 system
+     → datos_sensibles 3 → 0; entrega tardía 0 a tiempo/2 tarde → 1 y 1.
+  13-09 · «ya no puedo avanzar yo» (2º motivo de cierre) papel (entrada)
+     → Carlos arreglado sin tocar a los otros tres; 2 a tiempo.
+  14-09 · la regla 5 del juez → test de falsabilidad     prompt del JUEZ
+     → caza lo que antes pasaba tal cual; 62/62 tras recolocar P2.
+  14-09 · el guardián reescribe en vez de podar          CÓDIGO
+     → lo enviado: 5 daños → 0.
+
+NO MOVIERON NADA
+  14-09 · las tres reglas del papel (237)                papel (entrada)
+     → 5 daños → 5. Tasa de daño del borrador plana.
+  14-09 · la regla 3 movida al paso 6                    system (paso)
+     → tasa 0,56 → 0,57.
+
+(y una que salió EN CONTRA por otra causa: 13-09 · la propiedad del día, que
+ hundió el contrato 3/4 → 1/4 por una guarda de CÓDIGO —`horarioLegible`
+ abreviaba «lun–jue» y la guarda leía cuatro fechas inventadas—, no por el texto.)
+
+EL PATRÓN QUE SE VE, y no es el que yo suponía (la posición):
+  · Lo que muerde en el papel son REGLAS DE CONDUCTA: qué hago primero, cuándo
+    paro, cuántas preguntas caben. Cosas que el modelo EJECUTA y puede contar.
+  · Lo que no muerde son REGLAS DE VERDAD: qué puedo afirmar, si el día está
+    guardado, si cuento el final. Son restricciones sobre el contenido de lo
+    que dice, no sobre lo que hace.
+  · Y las reglas de verdad SÍ muerden — pero en el JUEZ, no en el redactor. Es
+    literalmente la doctrina que este repo escribió el 14-08 y que está en la
+    cabecera de `juez-borrador.ts`: «si es regla dura, no puede depender de la
+    obediencia del generador; la DETECCIÓN es más fácil que la generación».
+  · Marcador: 3 aciertos y 0 fallos entre las de conducta; 0 aciertos y 2
+    fallos entre las de verdad puestas en el redactor; 2 aciertos de 2 entre
+    las de verdad puestas en el guardián.
+  · n pequeño. Es un patrón, no una ley — y es falsable con la pasada siguiente.
