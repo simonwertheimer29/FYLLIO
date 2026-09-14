@@ -633,3 +633,28 @@ mismo cambio que lo cierra); si además destila una **regla general** que el có
 debe cumplir, se añade aquí como mandamiento con su línea de "Nos lo enseñó". Las
 referencias S1-S12 son de la tabla de fiabilidad de
 [AUDITORIA_FABLE.md](../../../AUDITORIA_FABLE.md) (§Área 4).
+
+### 29. Un umbral que se mueve no es comprensión — y una corrección, una medición
+Cuando una vara tiene DOS bloques (los casos que importan y los que solo hay que descartar), toda
+mejora hay que leerla en los dos a la vez. Si un cambio **sube un bloque y hunde el otro**, no ha
+entendido nada: ha movido un umbral. Y empujar ese umbral redactando más prosa es el bucle de las
+regexes un piso más arriba — la misma enfermedad, con párrafos en vez de patrones. Reglas:
+- **La mejora que vale toca UN bloque y deja el otro donde estaba.** Un bloque intacto es la prueba
+  de que el cambio hizo lo que decía; dos bloques moviéndose en sentidos opuestos es un trueque, y
+  hay que decirlo como trueque, no como avance.
+- **Una corrección, una medición.** Dos cambios en la misma pasada no se pueden atribuir: la pasada
+  no dice nada y el dinero está gastado. Si hay dos ideas, son dos pasadas o no es un experimento.
+- **Antes de tocar el instrumento, comprobar la vara.** Reetiquetar casos caducados es GRATIS y en
+  esta clase de trabajo suele mover más que el prompt (§26). Primero se audita la vara, después se
+  toca lo que mide.
+- **Y el arreglo suele ser QUITAR, no añadir.** Una regla nueva por si acaso es la excepción número
+  diez: si el prompt necesita una lista para acertar, la pregunta está mal planteada.
+Corolario sobre el denominador: cuando reetiquetar SACA casos de un bloque, el porcentaje sube sin
+que el juez cambie. Se reporta el par (aciertos/total), nunca el porcentaje solo.
+> **Nos lo enseñó:** el juicio de agenda (14-09-2026). La vara decía 21/35; **siete etiquetas
+> caducadas recolocadas a mano la subieron a 28/35 sin gastar un céntimo**, y el arreglo del prompt
+> fue **quitar una frase** («o dice que algo queda reservado»: la segunda pregunta metida dentro de
+> la primera) → 29/35, «veta algo verdadero» de 9 a 1 y el bloque de descarte IDÉNTICO. Antes de dar
+> con eso se pagaron $0,28 en dos versiones «mejores»: una regla de «ventana» dio 24/35 con descarte
+> 49/56, y «mira el objeto, no el verbo» dio 27/35 con descarte 35/56 — las dos, un bloque a costa
+> del otro. Y la primera no midió nada porque llevaba dos cambios dentro.

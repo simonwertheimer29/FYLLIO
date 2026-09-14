@@ -5585,3 +5585,30 @@ Quedan 2 «deja pasar» (uno es MEJORAS 236, doctrina sin decidir; el otro es «
 cita esta semana», que devuelve SU ventana pero promete entregar dentro de ella), 1 «veta de más» y
 3 «ni lo mira» del borde repite/ninguno, que no veta nada. La segunda pregunta sigue sin vara: 1 de
 91 (MEJORAS 234).
+
+## 2026-09-14 · Tres etiquetas más, y el tercer daño con nombre: prometer por el equipo
+Cierre del bloque del juicio de agenda. Simon lee los cinco casos donde el juicio le contradecía y los
+parte en dos: **tres son suyos y los cambia a «ninguno»** («el equipo te confirmará la hora exacta»,
+«el equipo verá tu mensaje mañana», la limpieza de 49 € con enlace — ninguno devuelve una preferencia)
+y **dos los deja como están porque el juicio NO falla: el mensaje es ambiguo.**
+**Vara 28/32 = 88 %, y se dice con su asterisco: el juez no ha mejorado, la vara ha encogido.** De los
+tres que salieron, dos eran errores suyos y uno era un acierto (29/35 → 28/32). El 88 % es una
+medición más limpia, no un instrumento mejor — por eso se reporta el par, nunca el porcentaje solo.
+**EL HALLAZGO, y es la pieza siguiente (MEJORAS 238):** «Para poder **ofrecerte una cita esta
+semana**, ¿qué días te vienen mejor?» devuelve la ventana de ella, no dice que exista ninguna cita, y
+**pasa por las dos reglas con las que hoy se juzga** — y se vuelve falso igual si el equipo no tiene
+nada esa semana. Lo que promete es **que se va a poder**. En palabras de Simon: «es el agente
+prometiendo por el equipo». Es un **tercer daño**, al lado de plantarse un día que nadie dio y
+arrogarse la reserva. Los dos ambiguos que dejó son de esta familia, y **con eso se cierra la doctrina
+que 236 dejaba abierta**: el horario de apertura nunca fue el problema, lo era la entrega prometida al
+lado («mañana abrimos a las 9:00, llama y **te verá un doctor**» → debería ser «te dirán cuándo pueden
+atenderte»).
+Y NO se arregla metiéndolo como tercera cláusula del prompt: son 3 casos de 91, no hay corpus para
+medirlo, y movería el umbral de los otros dos bloques. **Primero el papel del redactor (237): si el
+agente no promete por el equipo, no hay nada que juzgar.**
+**Lección general escrita en el skill (§29), a petición de Simon:** un umbral que se mueve no es
+comprensión. Si un cambio sube un bloque hundiendo el otro, es un trueque y se dice como trueque; una
+corrección, una medición; antes de tocar el instrumento se audita la vara (reetiquetar es gratis y
+movió más que el prompt); y el arreglo suele ser QUITAR, no añadir.
+Siguiente: Simon contesta la tecla R en los falsables (MEJORAS 234) y arrancamos el papel con las tres
+reglas de la 237.

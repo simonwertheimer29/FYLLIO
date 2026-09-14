@@ -3468,7 +3468,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   9 y te verá un doctor» afirma una atención?) y solo entonces tocar el ejemplo del prompt; el otro
   «deja pasar» es una **ventana vaga** («para poder ofrecerte una cita esta semana»), la misma
   familia que el censo del 12-09 ya marcó como la que se escapa. · **Impacto:** ALTO (es del tipo
-  caro: llega al paciente). · **Esfuerzo:** decisión + 1 línea. · **Fecha:** 2026-09-14 · 🔵
+  caro: llega al paciente). · **Esfuerzo:** decisión + 1 línea. · **Fecha:** 2026-09-14 · 🟢
+  **RESUELTA el 14-09 y NO tocando el prompt:** Simon leyó el caso y el juicio no falla — «es verdad,
+  pero parece prometer que le atienden mañana; debería decir *llama y te dirán cuándo pueden
+  atenderte*». El horario de apertura no era el problema: lo era la ENTREGA prometida al lado. Pasa a
+  ser del redactor (237) y del tercer daño (238).
 
 ## 237. Agente · el papel: que diga lo que hace, no «te reservo» — tres reglas, cero frases prohibidas
 - **Hallazgo de Simon (14-09), y es el que importa más que la cifra:** casi todos los casos ambiguos
@@ -3501,3 +3505,30 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   nuevos. Con el juez en 83 %, **el juez es el instrumento**: si no, Simon reetiqueta a mano cada vez
   que se toca el papel, y su criterio es el recurso caro. · **Impacto:** ALTO. · **Esfuerzo:** 1 h +
   una jugada. · **Fecha:** 2026-09-14 · ✅ aprobada, esperando turno
+
+## 238. Agente · EL TERCER DAÑO: prometer por el equipo (ninguna regla lo cubre, y es la pieza siguiente)
+- **El caso, y lo vio Simon (14-09):** *«Para poder **ofrecerte una cita esta semana**, ¿qué días te
+  vienen mejor y en qué franja?»* — Lucía había pedido «una revisión para esta semana». El agente
+  **devuelve su ventana** (no la estrecha ni la amplía) y **no dice que exista ninguna cita**, así que
+  pasa por las dos reglas con las que hoy se juzga. Y sin embargo se vuelve falso si el equipo abre la
+  agenda y no hay nada esta semana: lo que ha prometido es **que se va a poder**. En palabras de
+  Simon: **«es el agente prometiendo por el equipo».**
+- **Por qué es un daño APARTE y no un caso más:** los dos que ya están medidos son «plantarse un día
+  que nadie dio» y «arrogarse la reserva». Este es un tercero — **comprometer a la clínica a
+  entregar** dentro de una ventana que sí es de la persona. Se mide con la misma pregunta de
+  falsabilidad, pero lo que quedaría desmentido no es un día ni una reserva: es la entrega.
+- **Los dos ambiguos del corpus son de esta familia, y Simon los dejó a propósito** con el juicio
+  «equivocado» porque **el juicio no falla: el mensaje es ambiguo** (van a MEJORAS 237, son del
+  redactor): (a) Lucía, *«¿qué días te vienen mejor y en qué franja: mañana por la mañana, por la
+  tarde, o algún otro día?»* — técnicamente pregunta, pero **suena a ofrecer huecos**; (b) Íñigo,
+  *«mañana abrimos a las 9:00, llama y te verá un doctor»* — **es verdad y parece prometer que le
+  atienden mañana**; debería decir «llama y te dirán cuándo pueden atenderte». **Esto cierra la
+  doctrina que 236 dejaba abierta**: el horario de apertura no es el problema, lo es la entrega
+  prometida al lado.
+- **Cómo NO se arregla** (§29, recién pagado): metiéndolo como tercera cláusula en el prompt del
+  juicio junto a las otras dos. No hay corpus para esta familia —son 3 casos de 91— así que un cambio
+  así no se podría medir y movería el umbral de los otros dos bloques. **Primero el papel del
+  redactor (237): si el agente no promete por el equipo, no hay nada que juzgar.** Si después sigue
+  apareciendo, se le hace su pregunta y su vara.
+- **Impacto:** ALTO (es del tipo caro: llega al paciente como un compromiso de la clínica). ·
+  **Esfuerzo:** decidir doctrina + 1 regla del papel. · **Fecha:** 2026-09-14 · 🔵
