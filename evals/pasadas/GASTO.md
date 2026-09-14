@@ -256,3 +256,15 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   suyo («te apunto revisión general entre semana por la tarde a partir de las 17:00»). Y las dos
   preguntas agrupadas salieron como la lista leída en voz alta («…? Y también, ¿…?»), que es el
   ejemplo que Simon marcó como «Mal» · ac. **~$12,97**
+
+- **14-09 · EL MAPA, medido** (4 guiones × `alcance` y `libre` con `--solo`, más juicio de borrador y
+  de enviado contra la pasada de hoy) · **$0,41 + $0,042 + $0,039 = $0,49 medido** (anunciado ~$0,46,
+  tope $1,51) · **LA CIFRA: el redactor escribe CERO daño** — borrador afirma **7 → 0** y se arroga
+  **5 → 0** sobre 10 mensajes de agenda— **y la recogida no se pierde**: contrato **4/4** y **18
+  datos** igual que antes, pero en **11 mensajes en vez de 16** y entregando en el **2,33 en vez del
+  4,00**. El «y además» desaparece (1 → 0). Control `libre`: igual (se mueve 1/4 → 2/4, el ±1 de
+  siempre). **Y EL DAÑO QUE QUEDA ES DEL GUARDIÁN, NO DEL AGENTE:** enviado 1 afirma + 1 se arroga,
+  de un mensaje que el redactor había escrito bien — el juez podó como infracción de agenda la
+  pregunta «¿Prefieres venir esta semana o la próxima, y qué días te van mejor?» (un falso positivo:
+  es literalmente lo que el mapa le manda hacer) y lo que quedó, «te puedo agendar esa cita rápido»,
+  se quedó sin contrapeso. `fuente: juez`, no un veto determinista · ac. **~$13,46**

@@ -5848,3 +5848,29 @@ las seis frases retiradas sobrevive suelta. Un bloque nuevo MÁS las viejas es p
 otra pieza «ya lo cubre», hay que medirlo **en la misma entrega**, y sobre el BORRADOR —no solo sobre
 lo enviado—, porque una pieza posterior puede estar tapando el hueco y la cifra de salida no lo
 delata. Si no se puede medir ahí, la guarda no se retira.
+
+## 2026-09-14 · El mapa funciona, y ahora el que hace daño es el guardián
+**LA CIFRA: el redactor escribe CERO daño.** Borrador `alcance`: **afirma 7 → 0 · se arroga 5 → 0**
+sobre 10 mensajes de agenda. Y **sin pagar la recogida**: contrato **4/4** y **18 datos**, idénticos a
+la pasada de la lista, pero en **11 mensajes en vez de 16** y entregando en el **2,33 en vez del 4,00**
+— o sea, el caso llega igual de completo, antes y con menos ruido. El ejemplo «Mal» de Simon
+desaparece: «y además / y también» pasa de 1 a 0. El control `libre`, sin tocar, se mueve 1/4 → 2/4
+(el ±1 de siempre) y no cambia en nada más.
+**Las dos lecturas separadas funcionaron como se diseñaron:** la mitad 1+2 del mapa (cómo se pide,
+cuándo cierras) movió SOLO las métricas de recogida; la mitad 3+4 (listón y agenda) movió SOLO las de
+daño. Una pasada, dos atribuciones, sin pagar una ablación.
+**Y EL DAÑO QUE QUEDA NO ES DEL AGENTE: LO FABRICA EL GUARDIÁN.** Lo enviado tiene 1 afirma + 1 se
+arroga, sobre un mensaje que el redactor había escrito bien. El juez marcó como infracción de agenda
+la pregunta «¿Prefieres venir esta semana o la próxima, y qué días te van mejor?» —un falso positivo:
+es exactamente lo que el mapa le manda hacer, y era la primera mitad de la regla 2 de siempre— el
+control la podó, y lo que quedó («lo que sí te puedo hacer es agendar esa cita rápido») se quedó sin
+su contrapeso y pasó a ser una promesa de reservar. **Podar una pregunta legítima convirtió un mensaje
+correcto en uno dañino.**
+**El campo `fuente` se ganó el sueldo en su segunda pasada:** dice `juez`, no un veto determinista. Sin
+él, «retirar el juez» y «retirar el veto» habrían sido la misma cifra. Las dos intervenciones del
+control fueron `podado/agenda/juez` (la dañina) y `reescrito/clinica/veto:servicio`.
+**Esto responde la pregunta que Simon dejó abierta el 14-09 por la mañana** —probar el juez y los
+vetos CONTRA el agente mejorado, y retirar lo que ya no haga falta o estorbe—: contra un redactor que
+escribe cero daño, la única intervención del **juez de agenda** en toda la pasada fue un falso
+positivo que **creó** daño. Es la primera vez que una pieza del guardián sale a la contra en la
+medida, y la decisión de retirarla o estrecharla es de Simon.
