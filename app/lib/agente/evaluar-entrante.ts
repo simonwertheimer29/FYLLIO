@@ -352,6 +352,9 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     entrada,
     evaluacion: evaluacionBase,
     nombre: ctx.nombre.split(" ")[0] ?? ctx.nombre,
+    mensajeId: e.mensajeId,
+    clinicaId: clinicaConfig,
+    telefono: e.telefono,
   });
   if (motivoFallback) console.warn(`[agente] decisor alcance encendido pero escribe el código: ${motivoFallback}`);
 

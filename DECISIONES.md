@@ -6121,3 +6121,23 @@ la regla de las fechas —la única línea nueva que ve ese camino en todos los 
 mejor entrega (2,78). **Lectura honesta: la regla ayuda al agente nuevo y puede estar molestando al
 viejo** — que es justo el que se va a retirar. No se toca sin medirlo: una corrida de control de
 `qa:recorridos` lo dice.
+
+## 2026-09-15 · Si el agente nuevo no contesta, no contesta nadie — y se ve
+**CORRECCIÓN DE SIMON al fail-closed, y tiene razón.** La primera versión caía al mensaje del agente
+VIEJO. Eso es tener dos agentes conviviendo con un backup que además está en retirada: el paciente
+recibiría, sin que nadie lo supiera, una respuesta escrita por el camino que estamos apagando.
+**En un piloto lo correcto es lo contrario: si el agente falla, que se vea.** Ahora, cuando el
+decisor no puede contestar: **no sale ningún mensaje** (`respuesta: ""`, la misma convención del
+turno no legible), el caso **se deriva** con causa `sin_respuesta_valida` y un motivo en castellano
+que la coordinadora lee al abrirlo *(«El agente no pudo contestar: … No se ha enviado ningún
+mensaje.»)*, y se levanta una **incidencia con motivo propio** (`decisor_sin_respuesta`).
+**MOTIVO PROPIO Y NO REUTILIZAR `modelo_no_disponible`:** el aviso de aquel manda a «Mensajería ›
+sin evaluar», y aquí el turno SÍ se evaluó — lo que hay es un caso esperando en la bandeja. Un aviso
+que manda a mirar donde no está es peor que no avisar. Y va con campana **«siempre»**, no
+«sistemático»: durante el piloto, UN solo turno sin contestar es exactamente lo que hay que ver, y
+esperar a que sea sistemático es enterarse por el paciente.
+**Y UN REINTENTO antes de rendirse** (2 s, el mismo que el runner lleva desde el 14-09): sin backup
+detrás, el reintento barato deja de ser un lujo. Uno, no tres — si la API está caída, insistir solo
+retrasa la entrega del caso a la persona, que es lo que de verdad ayuda.
+**EL AGENTE VIEJO NO SE ARREGLA** (decisión de Simon): `qa:recorridos` en 5/6 se queda así. Se
+retira, y gastar en confirmar por qué falla un camino que se va es tirar el dinero.

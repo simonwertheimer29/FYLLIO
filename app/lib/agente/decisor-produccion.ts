@@ -24,9 +24,22 @@
 //    aquí no se entra.
 //  · El opt-out y la espera, que los resuelve el código antes.
 //
-// FAIL-CLOSED: si el decisor no contesta (sin clave, 4xx, timeout, JSON
-// ilegible) se devuelve la evaluación TAL CUAL y sale el mensaje de siempre.
-// Un agente nuevo que no contesta no puede dejar a nadie sin respuesta.
+// SI EL DECISOR NO CONTESTA, NO SALE NADA Y EL CASO PASA A UNA PERSONA
+// (15-09, corrección de Simon). La primera versión caía al mensaje del agente
+// VIEJO, y eso es tener dos agentes conviviendo con un backup que además está
+// en retirada: el paciente recibiría, sin que nadie lo sepa, una respuesta
+// escrita por el camino que estamos apagando. En un piloto lo correcto es lo
+// contrario — **si el agente falla, que se vea**—, así que:
+//   · no sale ningún mensaje (`respuesta: ""`, la misma convención que usa el
+//     turno no legible),
+//   · el caso se DERIVA con causa `sin_respuesta_valida` y un motivo en
+//     castellano para que la coordinadora sepa qué pasó al abrirlo,
+//   · y se levanta una INCIDENCIA visible (`avisarFalloAgente`), no una línea
+//     de log: llevamos una semana cazando cosas que fallaban en silencio y
+//     esta no puede ser una más.
+// Antes de rendirse se REINTENTA una vez a los 2 s (el mismo reintento que el
+// runner de guiones lleva desde el 14-09): sin backup detrás, el reintento
+// barato deja de ser un lujo.
 //
 // EL INTERRUPTOR es por CLIENTE y está apagado por defecto:
 //   AGENTE_DECISOR_ALCANCE=DEMO      → solo la demo
@@ -39,6 +52,36 @@ import { pedirSombra } from "./sombra";
 import { estadoDelContrato } from "../automatizacion/objetivos";
 import { canonizarActo, type Acto } from "./actos";
 import { colaDeDerivacion } from "../automatizacion/estado";
+import { avisarFalloAgente } from "./avisos";
+
+/** SIN MENSAJE Y A UNA PERSONA, con el porqué a la vista. Es la única salida
+ *  cuando el agente nuevo no puede contestar: ni se envía nada ni contesta
+ *  otro por detrás. La incidencia se levanta aquí y no en el caller para que
+ *  no dependa de que el caller se acuerde. */
+async function aPersona(
+  args: { entrada: EntradaEvaluador; evaluacion: EvaluacionTurno; mensajeId?: string | null; clinicaId?: string | null; telefono?: string | null },
+  motivo: string,
+): Promise<ResultadoDecisor> {
+  await avisarFalloAgente({
+    motivo: "decisor_sin_respuesta",
+    detalle: `decisor «alcance»: ${motivo}`,
+    clinicaId: args.clinicaId ?? null,
+    telefono: args.telefono ?? null,
+    mensajeId: args.mensajeId ?? null,
+  });
+  return {
+    escritoPor: "alcance",
+    motivoFallback: motivo,
+    evaluacion: {
+      ...args.evaluacion,
+      respuesta: "",
+      decision: "deriva",
+      causa: "sin_respuesta_valida",
+      cola: "normal",
+      motivoDerivacion: `El agente no pudo contestar: ${motivo}. No se ha enviado ningún mensaje.`,
+    },
+  };
+}
 
 /** Actos que PASAN EL CASO a una persona. Los demás siguen la conversación. */
 const ACTOS_QUE_ENTREGAN: readonly Acto[] = ["cerrar", "atender", "parar"];
@@ -66,6 +109,10 @@ export async function aplicarDecisorAlcance(args: {
   evaluacion: EvaluacionTurno;
   /** Primer nombre con el que se le habla (para la plantilla de reemplazo). */
   nombre: string;
+  /** Para que la incidencia se pueda seguir hasta el turno exacto. */
+  mensajeId?: string | null;
+  clinicaId?: string | null;
+  telefono?: string | null;
 }): Promise<ResultadoDecisor> {
   const { entrada, evaluacion } = args;
   const tal_cual = (motivo?: string): ResultadoDecisor => ({ evaluacion, escritoPor: "codigo", ...(motivo ? { motivoFallback: motivo } : {}) });
@@ -84,13 +131,20 @@ export async function aplicarDecisorAlcance(args: {
       })
     : null;
 
-  const s = await pedirSombra(entrada, {
-    variante: "alcance",
+  const opts = {
+    variante: "alcance" as const,
     objetivo: defObjetivo
       ? { etapa: defObjetivo.etapa, proposito: defObjetivo.proposito, sabido: contrato?.sabido, falta: contrato?.falta }
       : null,
-  });
-  if (!s || !s.mensaje?.trim()) return tal_cual("el decisor no respondió");
+  };
+  let s = await pedirSombra(entrada, opts);
+  if (!s || !s.mensaje?.trim()) {
+    // UN reintento, no tres: si la API está caída, insistir solo retrasa la
+    // entrega del caso a la persona, que es lo que de verdad ayuda ahora.
+    await new Promise((r) => setTimeout(r, 2000));
+    s = await pedirSombra(entrada, opts);
+  }
+  if (!s || !s.mensaje?.trim()) return await aPersona(args, "el agente no contestó (sin respuesta del modelo tras un reintento)");
 
   // EL MISMO CONTROL QUE YA CORRE, sobre el mensaje del decisor: veto → juez →
   // una reescritura → poda → descarte. No es una segunda revisión: es que el
@@ -105,7 +159,7 @@ export async function aplicarDecisorAlcance(args: {
     citaConsta: entrada.diasHastaProximaCita != null,
     descartesSeguidosAntes: entrada.descartesSeguidosAntes ?? 0,
   });
-  if (!controlado.texto.trim()) return tal_cual("el control dejó el mensaje vacío");
+  if (!controlado.texto.trim()) return await aPersona(args, "el agente escribió algo que la revisión de seguridad no dejó salir");
 
   const acto = canonizarActo(s.acto);
   const entregaElDecisor = acto != null && ACTOS_QUE_ENTREGAN.includes(acto);

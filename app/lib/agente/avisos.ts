@@ -22,13 +22,21 @@ export type MotivoFalloAgente =
   | "contexto_no_disponible"
   | "error_inesperado"
   /** MEJORAS 145 — la conversación superó el tope de turnos en 24 h. */
-  | "tope_turnos";
+  | "tope_turnos"
+  /** 15-09 — el DECISOR nuevo no contestó y no hay backup por diseño: no sale
+   *  ningún mensaje y el caso pasa a una persona. Tiene motivo propio y no
+   *  reutiliza `modelo_no_disponible` porque el aviso de aquel manda a
+   *  «Mensajería › sin evaluar», y aquí el turno SÍ se evaluó: lo que hay es un
+   *  caso esperando en la bandeja. Un aviso que manda a mirar donde no está es
+   *  peor que no avisar. */
+  | "decisor_sin_respuesta";
 
 const TITULO: Record<MotivoFalloAgente, string> = {
   modelo_no_disponible: "El agente no está evaluando: el modelo no responde",
   configuracion_ilegible: "El agente no está evaluando: la configuración no se puede leer",
   contexto_no_disponible: "El agente no está evaluando: no pudo cargar el caso",
   error_inesperado: "El agente no está evaluando: error inesperado",
+  decisor_sin_respuesta: "El agente no pudo contestar: el caso ha pasado a una persona",
   tope_turnos: "El agente ha parado en una conversación: superó el tope de turnos en 24 h",
 };
 
@@ -41,6 +49,9 @@ const REINTENTABLE: Record<MotivoFalloAgente, boolean> = {
   contexto_no_disponible: true,
   error_inesperado: true,
   tope_turnos: false,
+  // No reintentable desde fuera: el reintento ya lo hizo el propio decisor, y
+  // el caso está entregado — repetirlo crearía un segundo turno.
+  decisor_sin_respuesta: false,
 };
 
 const CAMPANA: Record<MotivoFalloAgente, "siempre" | "sistematico"> = {
@@ -49,6 +60,10 @@ const CAMPANA: Record<MotivoFalloAgente, "siempre" | "sistematico"> = {
   contexto_no_disponible: "sistematico",
   error_inesperado: "sistematico",
   tope_turnos: "siempre",
+  // SIEMPRE, no «sistemático»: durante el piloto, un solo turno en el que el
+  // agente no contesta es exactamente lo que Simon quiere ver, y esperar a
+  // que sea sistemático es enterarse por el paciente.
+  decisor_sin_respuesta: "siempre",
 };
 
 export function falloReintentable(motivo: MotivoFalloAgente): boolean {
@@ -76,8 +91,11 @@ export async function avisarFalloAgente(args: {
     avisar: CAMPANA[args.motivo],
     aviso: {
       titulo: TITULO[args.motivo],
-      mensaje: `Los mensajes entran y se guardan, pero el agente no los evalúa: revísalos en Mensajería (filtro «Sin evaluar»).${detalle ? ` Detalle: ${detalle}` : ""}`,
-      link: "/mensajeria?filtro=sin-evaluar",
+      mensaje:
+        args.motivo === "decisor_sin_respuesta"
+          ? `NO se ha enviado ningún mensaje a la persona y su caso está en la bandeja esperando a alguien.${detalle ? ` Detalle: ${detalle}` : ""}`
+          : `Los mensajes entran y se guardan, pero el agente no los evalúa: revísalos en Mensajería (filtro «Sin evaluar»).${detalle ? ` Detalle: ${detalle}` : ""}`,
+      link: args.motivo === "decisor_sin_respuesta" ? "/mensajeria" : "/mensajeria?filtro=sin-evaluar",
     },
     soloLog: args.telefono ? `tel=${args.telefono}` : undefined,
   });
