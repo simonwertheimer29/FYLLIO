@@ -3577,3 +3577,60 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   leyó. Lo mismo vale para los candidatos de `agente_sombra` (`mensaje_id|fuente`), que tienen el
   mismo agujero si se rejuega un hilo. · **Impacto:** ALTO (no rompe nada visible: falsea la vara). ·
   **Esfuerzo:** 1 h + una migración de 35 filas. · **Fecha:** 2026-09-14 · 🔵
+
+- **DIAGNÓSTICO (14-09, pregunta de Simon: «¿se arregla afinando la regla 1, o es otra cosa?»).
+  Respuesta corta: NO es la regla 1, y tampoco una cuarta. Son tres piezas y solo una es del papel.**
+  1. **El eje que falta no es el de la regla 1.** La regla 1 es de ATRIBUCIÓN: quién hace la acción.
+     «Paso todo al equipo para que te reserve la cita» **atribuye bien** —dice que reserva el
+     equipo—, y por eso pasa. El daño está en otro eje: si lo que se cuenta del futuro es un **PASO**
+     («te dirá qué hay ese día, o cuál es el más cercano»: no se puede desmentir) o un **FINAL**
+     («te reserve la cita»: se desmiente solo con abrir la agenda). Meter el segundo eje en la última
+     frase de la regla 1 la deja llevando dos ideas dentro — que es exactamente cómo empezó la regla
+     5 del juez (§29).
+  2. **La regla que lo cubre YA ESTÁ ESCRITA: es la 3.** «Léelo como si el equipo abriera la agenda
+     y no hubiera hueco donde ella pedía. Si algo se vuelve mentira, reescríbelo.» Aplicada a «para
+     que te reserve la cita» da mentira a la primera. O sea que **no falta doctrina: falta que la
+     prueba se ejecute.** Y no se ejecuta porque hoy es un guion más en una lista de contexto («TU
+     ALCANCE Y TU OBJETIVO»), mientras el prompt numera un procedimiento 1→5 que no la incluye.
+     **La prueba no es una regla, es un paso**, y moverla al final del procedimiento no añade ni una
+     idea nueva. Es lo primero que hay que probar, y se mide con el mismo instrumento.
+     **Lo que hay que vigilar al medirlo:** que «reescríbelo» no se convierta en «bórralo» — la
+     pasividad otra vez, ahora por la puerta del guardián.
+  3. **Y la mitad del daño NO es del redactor: es del guardián.** Medido en la misma pasada
+     (`agenda:juicio:hilos --enviado`, $0,008): borrador 3 afirma + 2 se arroga sobre 9 mensajes de
+     agenda; **lo que SALIÓ, 3 y 2 sobre 7**. El control se llevó por delante dos mensajes de agenda
+     enteros y **cero daños**. Va en MEJORAS 240 porque no se arregla escribiendo mejor.
+  · La frase de Simon, que es la doctrina y NO va al prompt como ejemplo (236): **«anotar es verdad y
+  no hay que evitarlo; lo que hay que evitar es contar el final de una historia que aún no ha
+  ocurrido»**. · **Orden propuesto, por retorno:** (1) la regla 3 como paso; (2) MEJORAS 240; (3) si
+  después sigue apareciendo, entonces sí su propia pregunta en el juicio y su vara. · **Esfuerzo:**
+  15 min + una jugada ($0,50). · 🔵 esperando OK
+
+## 240. Agente · EL GUARDIÁN CON ESTA FAMILIA: deja pasar el caso más claro y poda la mitad verdadera
+- **Medido el 14-09 sobre la pasada de 237, y son dos defectos distintos en la misma secuencia.**
+- **(a) La regla 5 del juez deja pasar el caso más limpio del tercer daño.** *«Perfecto, Lucía. Te
+  anotamos la revisión general para el miércoles 16 de septiembre a las 17:00. El equipo te confirma
+  la cita en breve.»* salió **TAL CUAL** (`control: null` = el juez corrió y lo aprobó). El juicio de
+  agenda, sobre ese mismo texto, lo marca afirma + se arroga y explica por qué: «si el miércoles 16 a
+  las 17:00 no estuviera libre, el mensaje sería falso». **Es el desacuerdo que faltaba para retirar
+  la regla 5**: ya no es «el juicio saca mejor nota en el corpus», es «sobre este mensaje concreto uno
+  acierta y el otro no».
+- **(b) La poda corta por FRASE, y en esta familia la frase lleva dentro una mitad verdadera y una
+  falsa.** El caso, literal: el agente escribe *«Te tengo anotado para el sábado 26 de septiembre por
+  la mañana. Paso todo al equipo ahora mismo para que te reserve la cita…»*. El control poda **la
+  primera** (motivo `agenda`) y deja **la segunda**. O sea: **quita lo que era verdad y deja la
+  promesa.** Pasó lo mismo con el horario: podó «Sí, abrimos sábados» (verdad, `dato_inventado`) y
+  dejó «el sábado 2026-09-19 o 2026-09-26» (fechas que el agente se inventó). Y en un tercer caso la
+  poda dejó al paciente **sin paso siguiente**: cortó «Le paso el caso al equipo para que te reserve
+  la cita» y el mensaje salió siendo una lista de datos y punto.
+- **Por qué pasa:** la reescritura solo corre cuando la frase que infringe ERA la respuesta; si al
+  podar queda algo en pie, se envía lo que quede. Aquí siempre queda algo en pie, y lo que queda es
+  la mitad equivocada — el infractor es una subordinada («para que te reserve la cita») dentro de una
+  oración cuya principal es verdad.
+- **Propuesta:** (1) que el veredicto de agenda pida **reescribir**, no podar — en esta familia
+  cortar es elegir mitad al azar; (2) subir el juicio de agenda a la secuencia del control en lugar
+  de la regla 5, que es el plan escrito en la cabecera de `juicio-agenda.ts` desde el 14-09 y que
+  ahora tiene el desacuerdo concreto que lo justifica. · **Principio:** §29 (un guardián que mejora
+  un bloque hundiendo otro es un trueque) y §9 (lo que el guardián cambia se cuenta). · **Impacto:**
+  ALTO — es lo único que llega al paciente. · **Esfuerzo:** 2 h + una jugada. · **Fecha:** 2026-09-14
+  · 🔵

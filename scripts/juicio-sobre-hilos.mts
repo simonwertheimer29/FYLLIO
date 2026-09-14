@@ -31,7 +31,7 @@
 // de `libre`, que no ha cambiado.
 //
 //   npm run agenda:juicio:hilos -- --fixture <ruta> [--contra <ruta>]
-//                                  [--decisores alcance,libre] [--dry]
+//                                  [--decisores alcance,libre] [--enviado] [--dry]
 //
 // Se juzga el BORRADOR cuando el control cambió el mensaje: lo que se mide es
 // lo que escribió el agente, no lo que dejó salir la poda.
@@ -60,6 +60,7 @@ const flag = (n: string) => {
   return i >= 0 ? (argv[i + 1] ?? "") : null;
 };
 const dry = argv.includes("--dry");
+const enviado = argv.includes("--enviado");
 const rutaNueva = flag("--fixture");
 const rutaContra = flag("--contra");
 const decisores = (flag("--decisores")?.split(",").filter(Boolean) ?? [...DECISORES]) as Decisor[];
@@ -89,9 +90,15 @@ type Candidato = {
   podado: boolean;
 };
 
-/** El texto que se juzga: el BORRADOR cuando el control lo cambió (la misma
- *  regla que usa el corpus, `textoDelGuion`). */
-const textoDelMensaje = (m: MensajeTres) => (m.borrador ?? m.texto ?? "").trim();
+/** El texto que se juzga. Por defecto el BORRADOR cuando el control lo cambió
+ *  (la misma regla que usa el corpus, `textoDelGuion`): mide AL REDACTOR.
+ *
+ *  Con `--enviado` se juzga lo que SALIÓ, que es otra pregunta y no menos
+ *  importante: **qué le llega al paciente**. Las dos hacen falta y por separado,
+ *  porque podar una frase no siempre mejora el mensaje — puede cortar la mitad
+ *  verdadera y dejar la falsa. Correr las dos sobre la misma pasada es lo único
+ *  que separa «el agente escribe mal» de «el guardián corta mal». */
+const textoDelMensaje = (m: MensajeTres) => (enviado ? (m.texto ?? "") : (m.borrador ?? m.texto ?? "")).trim();
 
 function candidatosDelFixture(ruta: string, etiqueta: string): { candidatos: Candidato[]; mensajesDeAgente: Record<string, number> } {
   if (!existsSync(ruta)) {
@@ -137,7 +144,7 @@ const todos = [...(base?.candidatos ?? []), ...nueva.candidatos];
 
 console.log(
   `Juicio sobre hilos · versión del juez ${VERSION_JUICIO_AGENDA} · modelo ${MODELO_JUICIO_AGENDA}\n` +
-    `Fixture ${rutaNueva}${rutaContra ? ` · contra ${rutaContra}` : ""} · decisores ${decisores.join(", ")}\n` +
+    `Fixture ${rutaNueva}${rutaContra ? ` · contra ${rutaContra}` : ""} · decisores ${decisores.join(", ")} · se juzga ${enviado ? "LO QUE SALIÓ (después del control)" : "EL BORRADOR (lo que escribió el agente)"}\n` +
     `${todos.length} mensajes hablan de agenda (de ${Object.values(nueva.mensajesDeAgente).reduce((a, b) => a + b, 0) + Object.values(base?.mensajesDeAgente ?? {}).reduce((a, b) => a + b, 0)} del agente)`,
 );
 console.log(
@@ -220,7 +227,7 @@ if (senalados.length > 0) {
   }
 }
 
-const salida = `evals/pasadas/${new Date().toISOString().slice(0, 10)}-juicio-sobre-hilos.json`;
+const salida = `evals/pasadas/${new Date().toISOString().slice(0, 10)}-juicio-sobre-hilos${enviado ? "-enviado" : ""}.json`;
 mkdirSync(dirname(salida), { recursive: true });
 writeFileSync(
   salida,
@@ -231,6 +238,7 @@ writeFileSync(
       modelo: MODELO_JUICIO_AGENDA,
       fixtureNuevo: rutaNueva,
       fixtureBase: rutaContra,
+      juzgado: enviado ? "enviado" : "borrador",
       decisores,
       costeUsd: usdTotal,
       sinJuicio,
