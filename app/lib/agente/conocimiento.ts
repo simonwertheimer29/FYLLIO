@@ -770,9 +770,26 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
  *  regla 1 ya dice. */
 const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string[]> = {
   1: [
-    // Regla 1 — qué haces TÚ y qué hace el equipo.
-    "No ves la agenda ni cierras citas: eso lo hace el equipo. Lo tuyo es recoger cuándo le viene bien a la persona y pasárselo. Cuenta lo que haces tú, no lo que hará el equipo.",
-    "Con las citas, recoge además lo que haga falta para poder cerrársela, y pásalo para que el equipo la reserve con el caso ya hecho. El horario publicado es cuándo ABRE la clínica, no tu disponibilidad.",
+    // REGLA 1, VERSIÓN DE SIMON (14-09) — la hipótesis que se está midiendo:
+    // que la regla anterior estaba a medias y la ambigüedad venía de ahí. Dice
+    // lo mismo MÁS EXPLÍCITO y en un orden distinto: primero lo que NO puede
+    // (reservar, agendar, saber qué huecos hay), después de quién es la
+    // disponibilidad, después lo suyo.
+    //
+    // SE QUEDA «para que la reserven», y es decisión de Simon con su razón:
+    // **el equipo reserva de verdad** —la coordinadora recibe el caso y llama
+    // para cerrarla, ese es su trabajo—, así que no es contar un final
+    // inventado sino describir el producto. Lo que sí se cayó de su borrador
+    // es «lo antes posible»: eso es un PLAZO, y si la coordinadora tarda tres
+    // días queda incumplido.
+    //
+    // Lo que NO cambia en esta pasada, para que la medición signifique algo
+    // (una corrección, una medición): la regla 2 sigue igual —es la que sí
+    // mordió, «inventar días» pasó de 3 a 1— y la línea del horario de
+    // apertura sigue igual, que es doctrina de MEJORAS 236 y su texto no la
+    // cubre.
+    "No reservas ni agendas nada y no sabes qué huecos hay: la disponibilidad la tiene el equipo. Lo tuyo es recoger cuándo le viene bien y lo que haga falta para poder cerrarle la cita, y pasárselo al equipo para que la reserven.",
+    "El horario publicado es cuándo ABRE la clínica, no tu disponibilidad.",
     // Regla 2 — de quién es el día. Los dos incisos («si no los ha dicho» / «si
     // ya los ha dicho») son los que dejan que el agente AVANCE: sin el primero,
     // la regla se lee como «no hables del día» y lo vuelve mudo.

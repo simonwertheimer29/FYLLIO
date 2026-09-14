@@ -163,8 +163,15 @@ let usdTotal = 0;
 
 for (let i = 0; i < todos.length; i += A_LA_VEZ) {
   const lote = todos.slice(i, i + A_LA_VEZ);
+  // UN REINTENTO, y no es comodidad: la API se satura y un fallo transitorio
+  // silencioso vacía la tabla sin vaciar el informe. El 14-09 una pasada entera
+  // salió con 4 juicios de 22 y la tabla se pintó igual de convincente.
   const rs = await Promise.all(
-    lote.map(async (c) => ({ c, r: await juzgarAgenda({ texto: c.texto, dichoPorLaPersona: c.dichoPorLaPersona }) })),
+    lote.map(async (c) => {
+      let r = await juzgarAgenda({ texto: c.texto, dichoPorLaPersona: c.dichoPorLaPersona });
+      if (!r || r.etiqueta == null) r = await juzgarAgenda({ texto: c.texto, dichoPorLaPersona: c.dichoPorLaPersona });
+      return { c, r };
+    }),
   );
   for (const { c, r } of rs) {
     if (!r || r.etiqueta == null) {
@@ -196,6 +203,16 @@ const linea = (etiqueta: string, r: Recuento) =>
   `  ${etiqueta.padEnd(26)} ${String(r.agente).padStart(3)} mensajes · ${String(r.agenda).padStart(3)} de agenda · ` +
   `AFIRMA ${String(r.afirma).padStart(2)} · SE ARROGA ${String(r.arroga).padStart(2)} · repite ${String(r.repite).padStart(2)} · ninguno ${String(r.ninguno).padStart(2)}`;
 
+// §9 — UN RECUENTO CON AGUJEROS NO SE PINTA COMO UN RECUENTO. Si falló algún
+// juicio, la tabla describe una muestra distinta de la que dice describir, y
+// eso es peor que no tener tabla: se lee y se decide con ella.
+if (sinJuicio > 0) {
+  console.log("\n" + "!".repeat(78));
+  console.log(`✗ ${sinJuicio} de ${todos.length} MENSAJES SE QUEDARON SIN JUICIO (la API falló dos veces seguidas).`);
+  console.log("  LA TABLA DE ABAJO NO VALE: le faltan esos mensajes y no se sabe de qué lado caían.");
+  console.log("  Vuelve a lanzarlo. No se ha escrito nada que dependa de estas cifras.");
+  console.log("!".repeat(78));
+}
 console.log("\n" + "═".repeat(78));
 console.log("LO QUE EL JUEZ DICE DE LOS MENSAJES (afirma = se planta en un día que nadie dio;");
 console.log("se arroga = da por hecho que la reserva la cierra él). Son DOS daños, no uno.");

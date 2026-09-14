@@ -5704,3 +5704,41 @@ decidido por él, no por mí.
 **Lección:** juzgar solo el borrador mide al redactor y esconde al guardián; juzgar solo lo enviado
 esconde de dónde viene la mejora. Con las dos en la misma pasada, tres cambios a la vez se pudieron
 atribuir sin gastar tres pasadas.
+
+## 2026-09-14 · La regla de Simon muerde: el daño del REDACTOR baja de 8 a 1, y mi patrón era falso
+La regla 1 del papel pasa a su versión, **donde estaba**: «No reservas ni agendas nada y no sabes qué
+huecos hay: la disponibilidad la tiene el equipo. Lo tuyo es recoger cuándo le viene bien y lo que
+haga falta para poder cerrarle la cita, y pasárselo al equipo para que la reserven.» Se queda «para
+que la reserven» y la razón es suya y es correcta: **el equipo reserva de verdad** —la coordinadora
+recibe el caso y llama—, así que describe el producto, no inventa un final. Lo único que cayó de su
+borrador es «lo antes posible», que es un PLAZO y sí se incumple. La regla 2 y la línea del horario no
+se tocan: una corrección, una medición.
+**LA CIFRA, en el BORRADOR, que es donde vive la hipótesis: afirma 5 → 1 y se arroga 3 → 0.** Ocho
+daños escritos pasan a uno. Y **el control se movió EN CONTRA** (`libre`, sin tocar: afirma 0 → 2), o
+sea que la mejora no es el ruido de rejugar: va en dirección opuesta a él. En lo ENVIADO no cambia
+nada (0 y 0 las dos veces) porque el guardián ya lo dejaba en cero desde ayer.
+**MI PATRÓN ERA FALSO Y ESTO LO FALSA.** El inventario de esta mañana decía que en el papel muerden
+las reglas de CONDUCTA y no las de VERDAD (3 de 3 contra 0 de 2), y que las de verdad solo muerden en
+el juez. Esta es una regla de verdad, en el papel, en el mismo sitio, y muerde. Lo que fallaba no era
+la clase de regla ni su posición: era, como dijo Simon, que **el texto estaba a medias**. Lo explícito
+—primero lo que NO puede hacer, y que ni siquiera sabe qué huecos hay— quita la ambigüedad que las
+tres reglas dejaban abierta.
+**LA FACTURA, que hay que mirar antes de cantar victoria:** el agente habla bastante menos (16 → 11
+mensajes; 14 → 5 hablan de agenda) y el contrato cubierto cae de 4/4 a 2/4, con 2 hilos sin cubrir.
+La puntualidad sí mejora (a tiempo 2 · tarde 0, antes 1 y 2). Con n=4 no se puede separar «la regla lo
+vuelve prudente» de la varianza de cuatro conversaciones, y es EXACTAMENTE el riesgo que Simon marcó:
+un agente que por prudencia deja de decir cosas útiles es otro daño, más difícil de ver. Es lo
+siguiente que hay que mirar, y no con la vara de agenda: con la de entrega.
+**Y una pasada que no valió, antes de esta, por quedarse sin saldo de API a mitad.** Terminó con
+salida 0 y «coste medido $0,36» —cara de pase completo— con un hilo de UN mensaje; y el juicio juzgó 4
+de 22 y pintó su tabla igual de convincente. Se borró el fixture en vez de guardarlo. Dos arreglos en
+`juicio-sobre-hilos.mts`: un reintento por mensaje y un aviso a toda pantalla ANTES de la tabla
+cuando falta algún juicio (§9: un recuento con agujeros no se pinta como un recuento). Queda pendiente
+lo mismo en `jugar-tres.mts`, que hoy cuenta como éxito un hilo que murió en el turno 1.
+**LA PRIORIDAD DE MÉTODO QUE FIJA SIMON, y manda de aquí en adelante:** primero se intenta que el
+AGENTE escriba bien —una frase, una medición—, y solo DESPUÉS se prueban vetos y juez contra ese
+agente mejorado, retirando o readaptando lo que ya no haga falta. Llevábamos días poniendo filtro
+sobre filtro sin tocar al redactor. Lo que se queda de todo lo construido es **la forma de medir**: la
+vara etiquetada y la separación entre lo que el agente escribe y lo que sale.
+Siguiente: la factura de arriba (¿prudencia o varianza?), y después pasar los vetos y el juez contra
+este agente para ver qué sobra.

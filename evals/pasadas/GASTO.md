@@ -234,3 +234,12 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   control pasando de 7 podados/0 reescritos a 6 reescritos/1 podado. **El borrador NO mejoró** (tasa
   0,56 → 0,57): todo el efecto es del guardián, no del paso 6. Vara del juez 62/62 → 61/62 ·
   ac. **~$11,37**
+
+- **14-09 · LA REGLA DE SIMON EN EL PAPEL, medida** (4 guiones × alcance y libre; después 31 mensajes
+  de borrador y 29 de enviado por el juicio) · **$0,39 + $0,096 = $0,486 medido** (anunciado ~$0,57;
+  más $0,36 de una pasada ANTERIOR que no valió por quedarse sin saldo a mitad y se descartó entera) ·
+  **LA CIFRA, en el BORRADOR: afirma 5 → 1 · se arroga 3 → 0**, con el control (`libre`, sin tocar)
+  moviéndose EN CONTRA (afirma 0 → 2): la mejora no es ruido de rejugar. En lo enviado, 0 y 0 las dos
+  veces (el guardián ya lo tenía en cero). **La factura:** el agente habla menos (16 → 11 mensajes, 14
+  → 5 de agenda) y el contrato cubierto cae 4/4 → 2/4. **Falsa el patrón del inventario de esta
+  mañana**: una regla de verdad, en el papel, sí muerde si está escrita entera · ac. **~$12,05**

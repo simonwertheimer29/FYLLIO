@@ -581,14 +581,20 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
 
   const nivel1 = renderAlcance(CONOCIMIENTO_VACIO, OBJ).join("\n");
   ok("nivel 1: el papel dice que la agenda la lleva el equipo, no que esté prohibido hablar de ella",
-    /no ves la agenda ni cierras citas: eso lo hace el equipo/i.test(nivel1) && /para que el equipo la reserve/i.test(nivel1));
+    /la disponibilidad la tiene el equipo/i.test(nivel1) && /pas[áa]rselo al equipo para que la reserven/i.test(nivel1));
   ok("nivel 1: el horario publicado se declara como APERTURA, no como disponibilidad",
     /horario publicado es cu[áa]ndo ABRE/i.test(nivel1));
   // MEJORAS 237 (14-09) — LAS TRES REGLAS DEL REDACTOR. Se afirma cada una por
   // su propiedad, no por su literal entero: lo que no puede desaparecer sin que
   // esto se ponga rojo es la SITUACIÓN que describen.
-  ok("237/1 · el papel manda contar lo que hace ÉL, no lo que hará el equipo (es lo que vuelve falso un «te reservo»)",
-    /cuenta lo que haces t[úu], no lo que har[áa] el equipo/i.test(nivel1));
+  // 237/1 · versión de Simon (14-09): lo explícito va DELANTE — lo que no
+  // puede hacer, y que ni siquiera sabe qué huecos hay.
+  ok("237/1 · el papel dice de entrada que NO reserva, NO agenda y NO sabe qué huecos hay",
+    /no reservas ni agendas nada y no sabes qu[ée] huecos hay/i.test(nivel1));
+  // Y lo que se quitó a propósito de su borrador: un PLAZO. «Lo antes posible»
+  // es lo único de esa frase que se puede incumplir.
+  ok("237/1 · y NO promete ningún plazo (eso sí se incumple si la coordinadora tarda)",
+    !/lo antes posible|en breve|enseguida|hoy mismo/i.test(nivel1));
   ok("237/2 · el día lo pone la persona, y se le devuelve tal cual: ni más concreto, ni más amplio",
     /el d[íi]a y la hora los pone la persona/i.test(nivel1) && /ni m[áa]s concretos, ni m[áa]s amplios/i.test(nivel1));
   ok("237/2 · con los DOS incisos: si no lo ha dicho, PREGUNTAR (sin esto la regla lo vuelve mudo)",
@@ -605,7 +611,7 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   // El recorte deliberado: la regla 1 es más estrecha que el papel del 13-09, y
   // sustituirla del todo habría metido una segunda corrección de tapadillo.
   ok("237 · no se ha perdido recoger lo que hace falta para poder CERRAR la cita",
-    /lo que haga falta para poder cerr[áa]rsela/i.test(nivel1) && /con el caso ya hecho/i.test(nivel1));
+    /lo que haga falta para poder cerrarle la cita/i.test(nivel1));
   ok("el objetivo entra como PROPÓSITO en una frase", nivel1.includes(OBJ.proposito));
   // La prueba de que esto no es un formulario con otro nombre: ninguna CLAVE
   // de campo puede asomar por aquí. (Se buscan las claves, no las palabras:
