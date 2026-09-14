@@ -47,28 +47,36 @@
 // el motivo y no inventa ninguna presentación. Esa decisión es del caller
 // porque depende de quién habla, no del control.
 
-import { juzgarBorrador, podarBorrador, vetoDeterminista, type VeredictoJuez } from "./juez-borrador";
+import { juzgarBorrador, podarBorrador, vetoDeterminista, type ReglaVeto, type VeredictoJuez } from "./juez-borrador";
 import { reescribirBorrador } from "./reescribir-borrador";
 
 export type MotivoControl = NonNullable<VeredictoJuez["categoria"]> | "sin_categoria";
+
+/** QUIÉN CAZÓ la infracción que disparó lo que hizo el control: uno de los
+ *  vetos deterministas (por su nombre, no por su familia) o el juez del modelo.
+ *  14-09, pedido de Simon: el veto corre ANTES y cortocircuita al juez, así que
+ *  sin este campo «el juez ya no caza nada» y «un veto llega primero» son la
+ *  misma cifra, y retirar una pieza u otra se decide a ciegas. */
+export type FuenteControl = `veto:${ReglaVeto}` | "juez";
 
 export type ResultadoControl =
   /** El borrador sale tal cual. */
   | { estado: "pasa"; texto: string; usage?: VeredictoJuez["usage"] }
   /** Salió sin la oración que infringía. `frase` = lo que se fue. */
-  | { estado: "podado"; texto: string; motivo: MotivoControl; frase: string; reescrito: boolean; usage?: VeredictoJuez["usage"] }
+  | { estado: "podado"; texto: string; motivo: MotivoControl; frase: string; fuente: FuenteControl; reescrito: boolean; usage?: VeredictoJuez["usage"] }
   /** El generador corrigió la frase y la corrección pasa. Es el camino NORMAL
    *  desde el 14-09, no la excepción. `motivo` y `frase` son los del veredicto
    *  ORIGINAL — la traza tiene que decir QUÉ se corrigió, no solo que se
    *  corrigió algo—, y `enVezDePodar` lo que la poda habría hecho con esa frase,
    *  para poder leer qué se evitó. Se llamaba `porQueNoSePodo` cuando reescribir
    *  era el plan B de podar; desde el 14-09 es al revés. */
-  | { estado: "reescrito"; texto: string; motivo: MotivoControl; frase: string | null; enVezDePodar: string; usage?: VeredictoJuez["usage"] }
+  | { estado: "reescrito"; texto: string; motivo: MotivoControl; frase: string | null; fuente: FuenteControl; enVezDePodar: string; usage?: VeredictoJuez["usage"] }
   /** No hay manera: ni podando ni reescribiendo. El caller decide el reemplazo. */
   | {
       estado: "descartado";
       motivo: MotivoControl;
       frase: string | null;
+      fuente: FuenteControl;
       poda: Exclude<ReturnType<typeof podarBorrador>, { podado: true }>["motivo"];
       reescrito: boolean;
       usage?: VeredictoJuez["usage"];
@@ -125,10 +133,11 @@ export async function controlarBorrador(
   let vuelta = 0;
   // El veredicto que disparó la reescritura: es lo que la traza tiene que
   // contar, no el silencio de la segunda vuelta.
-  let origen: { motivo: MotivoControl; frase: string | null; poda: string } | null = null;
+  let origen: { motivo: MotivoControl; frase: string | null; fuente: FuenteControl; poda: string } | null = null;
 
   while (true) {
     const vetado = vetoDeterminista(texto, opts.datosQueConstan, { citaConsta: opts.citaConsta });
+    const fuente: FuenteControl = vetado ? `veto:${vetado.regla}` : "juez";
     const veredicto: VeredictoJuez | null = vetado
       ? { infringe: true, categoria: vetado.categoria, frase: vetado.frase }
       : await juzgarBorrador({
@@ -143,7 +152,7 @@ export async function controlarBorrador(
     if (veredicto == null) return { estado: "juez_no_respondio", usage };
     if (!veredicto.infringe) {
       return reescrito && origen
-        ? { estado: "reescrito", texto, motivo: origen.motivo, frase: origen.frase, enVezDePodar: origen.poda, usage }
+        ? { estado: "reescrito", texto, motivo: origen.motivo, frase: origen.frase, fuente: origen.fuente, enVezDePodar: origen.poda, usage }
         : { estado: "pasa", texto, usage };
     }
 
@@ -179,7 +188,7 @@ export async function controlarBorrador(
       usage = sumar(usage, nueva?.usage);
       if (nueva) {
         reescrito = true;
-        origen = { motivo, frase: veredicto.frase, poda: poda.podado ? `habría podado: «${poda.quitada}»` : poda.motivo };
+        origen = { motivo, frase: veredicto.frase, fuente, poda: poda.podado ? `habría podado: «${poda.quitada}»` : poda.motivo };
         texto = nueva.texto;
         continue;
       }
@@ -188,8 +197,8 @@ export async function controlarBorrador(
     // 2 · CORTAR, ya solo como red: no hubo reescritura (sin modelo, generador
     // descarrilado, o la reescritura volvió a infringir y no hay tercera ronda).
     if (poda.podado) {
-      return { estado: "podado", texto: poda.texto, motivo, frase: poda.quitada, reescrito, usage };
+      return { estado: "podado", texto: poda.texto, motivo, frase: poda.quitada, fuente, reescrito, usage };
     }
-    return { estado: "descartado", motivo, frase: veredicto.frase, poda: poda.motivo, reescrito, usage };
+    return { estado: "descartado", motivo, frase: veredicto.frase, fuente, poda: poda.motivo, reescrito, usage };
   }
 }

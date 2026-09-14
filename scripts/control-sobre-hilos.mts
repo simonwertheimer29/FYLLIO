@@ -2,7 +2,8 @@
 // scripts/control-sobre-hilos.mts — EL CONTROL SOBRE CONVERSACIONES JUGADAS
 // (13-09-2026, encargo de Simon: «mide sobre conversaciones»).
 //
-//   npm run control:hilos [-- --decisor libre|codigo|contexto] [--solo a,b]
+//   npm run control:hilos [-- --decisor libre|codigo|contexto|alcance] [--solo a,b]
+//                         [--fixture evals/hilos-tres/fixture-241.json]
 //
 // Toma los mensajes del agente de un decisor en `evals/hilos-tres/fixture.json`
 // y los pasa por el control ENTERO de producción (`controlarBorrador`: veto
@@ -34,12 +35,17 @@ import { parseConocimiento, renderConocimiento, type ConocimientoClinica } from 
 import { controlarBorrador } from "../app/lib/agente/control-borrador";
 import { RUTA_FIXTURE, type FixtureHilos } from "../app/lib/agente/hilos-jugados";
 
-const RUTA_TRES = "evals/hilos-tres/fixture.json";
+const RUTA_TRES_POR_DEFECTO = "evals/hilos-tres/fixture.json";
 const argv = process.argv.slice(2);
 const flag = (n: string) => {
   const i = argv.indexOf(n);
   return i >= 0 ? argv[i + 1] : undefined;
 };
+// 14-09 — `--fixture`: las pasadas de medición van a SU fichero
+// (`--salida fixture-241.json`), y sin esto el control solo se podía medir
+// sobre el corpus viejo. Preguntar «¿qué pieza caza algo contra el agente de
+// AYER?» exige poder apuntar a la pasada de ayer.
+const RUTA_TRES = flag("--fixture") ?? RUTA_TRES_POR_DEFECTO;
 const decisor = flag("--decisor") ?? "libre";
 const solo = flag("--solo")?.split(",").filter(Boolean) ?? null;
 
@@ -110,7 +116,7 @@ async function publicadoDe(clinica: string | null): Promise<string> {
   return texto;
 }
 
-type Fila = { guion: string; n: number; estado: string; motivo: string; frase: string; antes: string; despues: string };
+type Fila = { guion: string; n: number; estado: string; motivo: string; fuente: string; frase: string; antes: string; despues: string };
 const filas: Fila[] = [];
 let usdIn = 0, usdOut = 0;
 
@@ -134,11 +140,15 @@ for (const h of fix.hilos) {
     usdIn += r.usage?.inputTokens ?? 0;
     usdOut += r.usage?.outputTokens ?? 0;
     const motivo = "motivo" in r ? String(r.motivo) : "";
+    // QUÉ PIEZA lo cazó. El veto determinista corre ANTES que el juez y lo
+    // cortocircuita: sin esto, «el juez ya no caza nada» y «un veto llegó
+    // primero» son la misma cifra (14-09).
+    const fuente = "fuente" in r ? String(r.fuente) : "";
     const frase = "frase" in r && r.frase ? String(r.frase) : "";
     const despues = "texto" in r ? r.texto : "";
-    filas.push({ guion: h.guion.id, n: m.n, estado: r.estado, motivo, frase, antes: m.texto, despues });
+    filas.push({ guion: h.guion.id, n: m.n, estado: r.estado, motivo, fuente, frase, antes: m.texto, despues });
     const icono = r.estado === "pasa" ? "·" : r.estado === "descartado" ? "✗" : "→";
-    console.log(`  ${icono} t${m.n} ${r.estado}${motivo ? ` (${motivo})` : ""}${frase ? ` «${frase.slice(0, 90)}»` : ""}`);
+    console.log(`  ${icono} t${m.n} ${r.estado}${motivo ? ` (${motivo})` : ""}${fuente ? ` · lo cazó ${fuente}` : ""}${frase ? ` «${frase.slice(0, 90)}»` : ""}`);
     if (r.estado === "podado" || r.estado === "reescrito") console.log(`      sale: «${despues.slice(0, 160)}»`);
     if (r.estado === "descartado") console.log(`      no sale nada del modelo: «${m.texto.slice(0, 120)}»`);
   }
@@ -153,6 +163,23 @@ console.log(`  salen SIN una frase .... ${cuenta("podado")}`);
 console.log(`  salen REESCRITOS ....... ${cuenta("reescrito")}`);
 console.log(`  NO llegan al paciente .. ${muertos}${muertos ? ` (${filas.filter((f) => f.estado === "descartado").map((f) => `${f.guion} t${f.n}`).join(", ")})` : ""}`);
 console.log(`  → el control INTERVINO en ${n - cuenta("pasa")}/${n}; MATÓ ${muertos}/${n}`);
+
+// QUÉ PIEZA TRABAJA (14-09, encargo de Simon: «no quiero quitar la que sí
+// trabaja»). Los seis vetos deterministas corren antes que el juez y lo
+// cortocircuitan, así que una pieza con 0 aquí es candidata a retirarse — y
+// una con 0 que va DESPUÉS de otra que caza mucho puede estar tapada, no
+// muerta. Por eso se listan por nombre de regla y no por familia.
+const intervinieron = filas.filter((f) => f.estado !== "pasa" && f.fuente);
+const porFuente = new Map<string, Fila[]>();
+for (const f of intervinieron) porFuente.set(f.fuente, [...(porFuente.get(f.fuente) ?? []), f]);
+console.log(`\n════ QUÉ PIEZA LO CAZÓ (${intervinieron.length} intervenciones con fuente)`);
+if (intervinieron.length === 0) console.log("  ninguna: el control no intervino, o el fixture es anterior al campo (§4: eso no es 0)");
+for (const [fu, fs] of [...porFuente.entries()].sort((a, b) => b[1].length - a[1].length)) {
+  const estados = fs.reduce<Record<string, number>>((a, f) => ({ ...a, [f.estado]: (a[f.estado] ?? 0) + 1 }), {});
+  console.log(`  ${fu.padEnd(22)} ${String(fs.length).padStart(2)} · ${Object.entries(estados).map(([e, c]) => `${e}×${c}`).join(" ")} · ${fs.map((f) => `${f.guion} t${f.n}`).join(", ")}`);
+}
+const piezasMudas = ["veto:agenda", "veto:reserva_plural", "veto:precio", "veto:servicio", "veto:valora", "veto:plazo", "veto:accion", "veto:pide_dato", "juez"].filter((x) => !porFuente.has(x));
+if (piezasMudas.length) console.log(`  sin cazar nada en esta muestra: ${piezasMudas.join(", ")}`);
 // Precio de haiku (1 M tokens): $1 in · $5 out.
 const usd = (usdIn / 1e6) * 1 + (usdOut / 1e6) * 5;
 console.log(`\n══ COSTE: $${usd.toFixed(4)} (in=${usdIn} out=${usdOut}) — apúntalo en evals/pasadas/GASTO.md`);

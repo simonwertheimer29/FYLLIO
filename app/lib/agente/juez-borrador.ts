@@ -701,21 +701,33 @@ export function falsoPositivoDelJuez(
  *  llaman aquí, y una guarda nueva entra en producción y en las pruebas a la
  *  vez (§25 — una construcción, un sitio). `null` = nada que vetar, y
  *  entonces (y solo entonces) se paga el juez. */
+/** QUÉ REGLA CAZÓ, no solo de qué familia era (14-09, pedido de Simon). La
+ *  categoría es compartida —`agenda` la ponen dos vetos distintos y también el
+ *  juez—, así que sin esto «retirar el veto» y «retirar el juez» se leen igual
+ *  en los números y se acaba quitando la pieza que sí trabaja. */
+export type ReglaVeto = "agenda" | "reserva_plural" | "precio" | "servicio" | "valora" | "plazo" | "accion" | "pide_dato";
+
 export function vetoDeterminista(
   borrador: string,
   publicado: string,
   opts?: { huecosConstan?: boolean; citaConsta?: boolean },
-): { categoria: NonNullable<VeredictoJuez["categoria"]>; frase: string } | null {
-  const agenda = vetoAgendaDeterminista(borrador, opts) ?? vetoReservaPluralDeterminista(borrador);
-  if (agenda) return { categoria: "agenda", frase: agenda };
+): { categoria: NonNullable<VeredictoJuez["categoria"]>; frase: string; regla: ReglaVeto } | null {
+  const agenda = vetoAgendaDeterminista(borrador, opts);
+  if (agenda) return { categoria: "agenda", frase: agenda, regla: "agenda" };
+  const reservaPlural = vetoReservaPluralDeterminista(borrador);
+  if (reservaPlural) return { categoria: "agenda", frase: reservaPlural, regla: "reserva_plural" };
   const precio = vetoPrecioDeterminista(borrador, publicado);
-  if (precio) return { categoria: "economica", frase: precio };
-  const servicio = vetoServicioDeterminista(borrador, publicado) ?? vetoValoraDeterminista(borrador, publicado);
-  if (servicio) return { categoria: "clinica", frase: servicio };
-  const plazo = vetoPlazoDeterminista(borrador, publicado) ?? vetoAccionDeterminista(borrador);
-  if (plazo) return { categoria: "promesa", frase: plazo };
+  if (precio) return { categoria: "economica", frase: precio, regla: "precio" };
+  const servicio = vetoServicioDeterminista(borrador, publicado);
+  if (servicio) return { categoria: "clinica", frase: servicio, regla: "servicio" };
+  const valora = vetoValoraDeterminista(borrador, publicado);
+  if (valora) return { categoria: "clinica", frase: valora, regla: "valora" };
+  const plazo = vetoPlazoDeterminista(borrador, publicado);
+  if (plazo) return { categoria: "promesa", frase: plazo, regla: "plazo" };
+  const accion = vetoAccionDeterminista(borrador);
+  if (accion) return { categoria: "promesa", frase: accion, regla: "accion" };
   const dato = vetoPideDatoDeterminista(borrador);
-  if (dato) return { categoria: "datos_sensibles", frase: dato };
+  if (dato) return { categoria: "datos_sensibles", frase: dato, regla: "pide_dato" };
   return null;
 }
 

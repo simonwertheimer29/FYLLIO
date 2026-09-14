@@ -108,10 +108,10 @@ export async function controlarMensajeDelDecisor(a: {
     return {
       texto: control.texto,
       borrador: a.mensaje,
-      control: { estado: "podado", motivo: control.motivo, frase: control.frase, reescrito: control.reescrito },
+      control: { estado: "podado", motivo: control.motivo, frase: control.frase, fuente: control.fuente, reescrito: control.reescrito },
       descartesSeguidos: 0,
       pasaAPersona: false,
-      nota: `podado (${control.motivo})${control.reescrito ? ", tras reescribir" : ""}: se fue «${control.frase}»`,
+      nota: `podado (${control.motivo} · ${control.fuente})${control.reescrito ? ", tras reescribir" : ""}: se fue «${control.frase}»`,
       usage,
     };
   }
@@ -120,10 +120,10 @@ export async function controlarMensajeDelDecisor(a: {
     return {
       texto: control.texto,
       borrador: a.mensaje,
-      control: { estado: "reescrito", motivo: control.motivo, frase: control.frase, reescrito: true },
+      control: { estado: "reescrito", motivo: control.motivo, frase: control.frase, fuente: control.fuente, reescrito: true },
       descartesSeguidos: 0,
       pasaAPersona: false,
-      nota: `reescrito (${control.motivo}): la frase que infringía ERA la respuesta — «${control.frase ?? "?"}»`,
+      nota: `reescrito (${control.motivo} · ${control.fuente}): la frase que infringía ERA la respuesta — «${control.frase ?? "?"}»`,
       usage,
     };
   }
@@ -143,6 +143,8 @@ export async function controlarMensajeDelDecisor(a: {
       estado: control.estado,
       motivo: control.estado === "descartado" ? motivo : null,
       frase,
+      // El juez que no responde es fail-closed, no una caza: no lleva fuente.
+      fuente: control.estado === "descartado" ? control.fuente : null,
       reescrito: control.estado === "descartado" ? control.reescrito : false,
     },
     descartesSeguidos,
@@ -150,7 +152,7 @@ export async function controlarMensajeDelDecisor(a: {
     nota:
       control.estado === "juez_no_respondio"
         ? `el juez no respondió: descartado (fail-closed)${pasaAPersona ? " · 2º seguido: el caso pasa a una persona" : ""}`
-        : `descartado (${motivo}): «${frase ?? "?"}» — sale plantilla${pasaAPersona ? " · 2º seguido: el caso pasa a una persona" : ""}`,
+        : `descartado (${motivo} · ${control.estado === "descartado" ? control.fuente : "?"}): «${frase ?? "?"}» — sale plantilla${pasaAPersona ? " · 2º seguido: el caso pasa a una persona" : ""}`,
     usage,
   };
 }

@@ -262,6 +262,11 @@ export type ControlDeUnMensaje = {
   motivo: string | null;
   /** La frase que infringía. */
   frase: string | null;
+  /** QUIÉN la cazó: `veto:<regla>` (determinista, corre primero) o `juez` (el
+   *  modelo). AUSENTE = hilo jugado antes del 14-09, no es «el juez» (§4). Sin
+   *  esto no se puede decidir qué pieza retirar: el veto cortocircuita al juez
+   *  y los dos caen en la misma familia (`agenda`, `clinica`…). */
+  fuente?: string | null;
   reescrito: boolean;
 };
 

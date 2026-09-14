@@ -227,6 +227,10 @@ export type EvaluacionTurno = {
      *  sola (`no_localizada` subiendo = la frase del juez dejó de ser
      *  citable y nadie se entera). */
     poda?: "no_localizada" | "era_todo" | "solo_cortesia" | "era_la_respuesta" | "sigue_vetado" | "queda_colgando" | "queda_residuo";
+    /** 14-09 — qué pieza lo cazó: `veto:<regla>` o `juez`. El veto corre
+     *  primero y cortocircuita al juez: sin esto no se sabe cuál de las dos
+     *  trabaja. Ausente en `juez_no_respondio`, que no es una caza. */
+    fuente?: string | null;
     /** 12-09 — se intentó reescribir y la reescritura TAMBIÉN infringió. Es
      *  el descarte más caro que existe (dos llamadas al juez y una al
      *  generador): si esto es frecuente, el prompt del generador es el
@@ -244,6 +248,8 @@ export type EvaluacionTurno = {
     motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "agenda" | "dato_inventado" | "sin_categoria";
     /** La oración (o las oraciones) que se fueron — es la traza. */
     frase: string;
+    /** 14-09 — qué pieza lo cazó: `veto:<regla>` o `juez`. */
+    fuente?: string | null;
   };
   /** MEJORAS 233 — descartes SEGUIDOS contando este turno (0 si este no
    *  descartó). Viaja al payload para verlo en «ver por qué» y para que el
@@ -1360,14 +1366,17 @@ export async function evaluarTurno(
 
     if (control.estado === "podado") {
       respuestaFinal = control.texto;
-      borradorPodado = { motivo: control.motivo, frase: control.frase };
-      console.warn(`[evaluador] frase podada (${control.motivo}${control.reescrito ? ", tras reescribir" : ""}): «${control.frase}»`);
+      borradorPodado = { motivo: control.motivo, frase: control.frase, fuente: control.fuente };
+      console.warn(`[evaluador] frase podada (${control.motivo} · ${control.fuente}${control.reescrito ? ", tras reescribir" : ""}): «${control.frase}»`);
     } else if (control.estado === "reescrito") {
       respuestaFinal = control.texto;
       // Contado SIEMPRE: si estas suben, el generador se está degradando
       // aunque los descartes bajen (§9).
       base.etiquetasDescartadas.push(`juez:reescrito:${control.motivo}:${control.enVezDePodar}`);
-      console.warn(`[evaluador] borrador reescrito (${control.motivo}, ${control.enVezDePodar}): «${control.frase ?? "?"}»`);
+      // La FUENTE va en su propia etiqueta: la de arriba la parsea el visor por
+      // posición y meterle un campo más rompería lo que ya está guardado.
+      base.etiquetasDescartadas.push(`juez:fuente:${control.fuente}`);
+      console.warn(`[evaluador] borrador reescrito (${control.motivo} · ${control.fuente}, ${control.enVezDePodar}): «${control.frase ?? "?"}»`);
     } else if (control.estado === "descartado" || control.estado === "juez_no_respondio") {
       descartesSeguidos = descartesSeguidosAntes + 1;
       // MEJORAS 233 — el SEGUNDO descarte seguido no repite plantilla: el
@@ -1382,7 +1391,7 @@ export async function evaluarTurno(
         borradorDescartado = { motivo: "juez_no_respondio", frase: null };
         console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
       } else {
-        borradorDescartado = { motivo: control.motivo, frase: control.frase, poda: control.poda, reescrito: control.reescrito };
+        borradorDescartado = { motivo: control.motivo, frase: control.frase, poda: control.poda, reescrito: control.reescrito, fuente: control.fuente };
         console.warn(`[evaluador] borrador descartado (${control.motivo}, poda: ${control.poda}, reescrito: ${control.reescrito}, seguidos: ${descartesSeguidos}): «${control.frase ?? "?"}»`);
       }
     }

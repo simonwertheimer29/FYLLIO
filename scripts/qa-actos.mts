@@ -160,6 +160,20 @@ console.log("\n4 · entrega tardía: el turno en que se pudo vs el turno en que 
   ok("guarda lo que el decisor escribió, para poder juzgar el texto correcto", uno.borrador === RESERVA);
   ok("el reemplazo NO recoge datos (no hereda una pregunta que el decisor no supo hacer)", !uno.texto.includes("?"));
   ok("un descarte cuenta como seguido y todavía no pasa el caso", uno.descartesSeguidos === 1 && !uno.pasaAPersona);
+  // 14-09 — QUÉ PIEZA LO CAZÓ, no de qué familia era. El veto corre antes que
+  // el juez y lo cortocircuita: sin este campo, «el juez ya no caza nada» y «un
+  // veto llega primero» son la misma cifra, y se retira la pieza equivocada.
+  ok("la traza dice QUÉ pieza lo cazó, con nombre de regla", uno.control?.fuente === "veto:agenda", uno.control?.fuente ?? "sin fuente");
+
+  // Y las DOS reglas de la familia `agenda` se distinguen entre sí: si solo
+  // constara la categoría, retirar una sería retirar la otra a ciegas.
+  const plural = await controlarMensajeDelDecisor({
+    mensaje: "Te la reservamos para el martes a las 16:00.",
+    nombre: "Lucía",
+    datosQueConstan: "",
+    reescribir: false,
+  });
+  ok("dos vetos de la MISMA familia no se confunden", plural.control?.fuente === "veto:reserva_plural" && uno.control?.motivo === plural.control?.motivo, `${plural.control?.fuente} · familia ${plural.control?.motivo}`);
 
   const dos = await controlarMensajeDelDecisor({
     mensaje: RESERVA,

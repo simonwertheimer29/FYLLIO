@@ -402,13 +402,13 @@ async function jugarHilo(h: HiloJugado, decisor: Decisor, hoy: string): Promise<
       // así que aquí es null: lo que hay es el veredicto, no el texto previo.
       const reescritoA = ev.etiquetasDescartadas.some((t) => t.startsWith("juez:reescrito:"));
       if (ev.borradorDescartado) {
-        control = { estado: ev.borradorDescartado.motivo === "juez_no_respondio" ? "juez_no_respondio" : "descartado", motivo: ev.borradorDescartado.motivo, frase: ev.borradorDescartado.frase, reescrito: ev.borradorDescartado.reescrito ?? false };
+        control = { estado: ev.borradorDescartado.motivo === "juez_no_respondio" ? "juez_no_respondio" : "descartado", motivo: ev.borradorDescartado.motivo, frase: ev.borradorDescartado.frase, fuente: ev.borradorDescartado.fuente ?? null, reescrito: ev.borradorDescartado.reescrito ?? false };
         st.control.descartados++;
       } else if (ev.borradorPodado) {
-        control = { estado: "podado", motivo: ev.borradorPodado.motivo, frase: ev.borradorPodado.frase, reescrito: reescritoA };
+        control = { estado: "podado", motivo: ev.borradorPodado.motivo, frase: ev.borradorPodado.frase, fuente: ev.borradorPodado.fuente ?? null, reescrito: reescritoA };
         st.control.podados++;
       } else if (reescritoA) {
-        control = { estado: "reescrito", motivo: null, frase: null, reescrito: true };
+        control = { estado: "reescrito", motivo: null, frase: null, fuente: ev.etiquetasDescartadas.find((t) => t.startsWith("juez:fuente:"))?.slice("juez:fuente:".length) ?? null, reescrito: true };
         st.control.reescritos++;
       }
     } else {
