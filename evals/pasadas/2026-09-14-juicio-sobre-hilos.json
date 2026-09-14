@@ -1,17 +1,26 @@
 {
- "en": "2026-09-14T12:53:00.495Z",
+ "en": "2026-09-14T13:35:42.147Z",
  "versionJuez": "77fdbb2adcd5",
  "modelo": "claude-haiku-4-5-20251001",
- "fixtureNuevo": "evals/hilos-tres/fixture-237.json",
- "fixtureBase": "evals/hilos-tres/fixture.json",
+ "fixtureNuevo": "evals/hilos-tres/fixture-240.json",
+ "fixtureBase": "evals/hilos-tres/fixture-237.json",
+ "juzgado": "borrador",
  "decisores": [
   "alcance",
   "libre"
  ],
- "costeUsd": 0.039265999999999995,
+ "costeUsd": 0.040411,
  "sinJuicio": 0,
  "recuentos": {
   "nueva/alcance": {
+   "agente": 16,
+   "agenda": 14,
+   "afirma": 5,
+   "repite": 5,
+   "ninguno": 4,
+   "arroga": 3
+  },
+  "base/alcance": {
    "agente": 15,
    "agenda": 9,
    "afirma": 3,
@@ -19,281 +28,26 @@
    "ninguno": 1,
    "arroga": 2
   },
-  "base/alcance": {
-   "agente": 13,
-   "agenda": 9,
-   "afirma": 4,
-   "repite": 2,
-   "ninguno": 3,
-   "arroga": 1
-  },
   "nueva/libre": {
+   "agente": 13,
+   "agenda": 6,
+   "afirma": 0,
+   "repite": 1,
+   "ninguno": 5,
+   "arroga": 0
+  },
+  "base/libre": {
    "agente": 13,
    "agenda": 6,
    "afirma": 1,
    "repite": 3,
    "ninguno": 2,
    "arroga": 0
-  },
-  "base/libre": {
-   "agente": 16,
-   "agenda": 10,
-   "afirma": 1,
-   "repite": 4,
-   "ninguno": 5,
-   "arroga": 0
   }
  },
  "veredictos": [
   {
    "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "alcance",
-   "n": 1,
-   "texto": "Hola Nuria, es completamente normal tener dudas antes de una extracción. Lo mejor es que la Dra. Ana Gil te valore en persona: ella podrá explicarte todas las opciones disponibles para que te sientas segura. ¿Qué día de esta semana te vendría mejor venir?",
-   "dichoPorLaPersona": "Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El agente pregunta por un día que la persona no ha propuesto, sin comprometer ningún hueco concreto de la clínica.",
-   "costeUsd": 0.001087
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "alcance",
-   "n": 2,
-   "texto": "Entiendo que necesites esa seguridad antes de venir, Nuria. La sedación consciente no es algo que pueda confirmarte yo ahora, pero es exactamente lo que la Dra. Ana Gil valorará contigo en persona — es su especialidad y lo primero que hablará contigo. ¿Qué día de esta semana te vendría mejor, entre lunes y viernes?",
-   "dichoPorLaPersona": "Vale, pero antes de pedir cita necesito saber si es posible lo de la sedación, es que si no me da algo antes de entrar 😅 podéis confirmármelo?",
-   "podado": true,
-   "etiqueta": "afirma",
-   "seArroga": false,
-   "porQue": "El agente propone días (lunes a viernes) sin que la persona haya pedido esos días concretos, y si alguno estuviera ocupado, la propuesta se vuelve falsa.",
-   "costeUsd": 0.001185
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "alcance",
-   "n": 3,
-   "texto": "Sobre el parking: tenemos uno público en Felipe II a 3 minutos andando, muy cerca. Y sobre la sedación, lo mejor es que la Dra. Ana Gil te lo confirme en persona cuando te valore — ella te explicará todas las opciones y podrá adaptar el tratamiento a lo que necesites. ¿Qué día de esta semana te vendría mejor venir?",
-   "dichoPorLaPersona": "Vale, lo entiendo. Y ya de paso, sabéis si hay parking cerca de la clínica? Es que no conozco la zona.",
-   "podado": false,
-   "etiqueta": "repite",
-   "seArroga": false,
-   "porQue": "El agente pregunta por un día sin comprometer ninguno específico; devuelve la pelota a la persona para que ella elija.",
-   "costeUsd": 0.00108
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "alcance",
-   "n": 4,
-   "texto": "Entiendo que necesites saberlo antes, Nuria. La sedación es algo que la Dra. Ana Gil valora en persona según tu caso concreto — no es que no queramos decirte, es que ella es quien puede confirmarte exactamente qué opciones tienes. Lo que sí podemos hacer es que reserves ya la cita y ella te lo aclare todo el mismo día. ¿Qué día de esta semana te vendría mejor: lunes 14, martes 15, miércoles 16, jueves 17 o viernes 18?",
-   "dichoPorLaPersona": "Vale genial, lo del parking perfecto entonces. Y lo de la sedación ya me lo confirmáis antes de la cita, no? Prefiero saberlo antes de decidir el día.",
-   "podado": true,
-   "etiqueta": "afirma",
-   "seArroga": false,
-   "porQue": "El agente propone días y horas concretos (lunes 14, martes 15, miércoles 16, jueves 17, viernes 18) sin saber si están libres, comprometiendo disponibilidad que la clínica no ha confirmado.",
-   "costeUsd": 0.001353
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "alcance",
-   "n": 5,
-   "texto": "Sí, abrimos los sábados de 10:00 a 14:00. Perfecto entonces — ¿te vendría mejor un sábado (19 o 26 de septiembre) o prefieres entre semana?",
-   "dichoPorLaPersona": "Vale, perfecto, así sí. Una cosita más, abrís los sábados?",
-   "podado": true,
-   "etiqueta": "afirma",
-   "seArroga": false,
-   "porQue": "El agente ofrece dos sábados concretos (19 o 26 de septiembre) como opciones disponibles; si esos días o esas horas no estuvieran libres, la propuesta se vuelve falsa.",
-   "costeUsd": 0.00117
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "libre",
-   "n": 3,
-   "texto": "Sí, Nuria, abrimos sábados de 10:00 a 14:00. El equipo te llamará en breve para confirmar la sedación consciente y que puedas decidir con toda la calma. Cualquier duda mientras tanto, aquí estamos.",
-   "dichoPorLaPersona": "Vale genial, mejor que me llamen y así ya decido con más calma. Por cierto, ¿los sábados abrís?",
-   "podado": true,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El mensaje informa del horario de apertura de sábados, que es un dato fijo de la clínica independiente de disponibilidades puntuales. Aunque ese sábado concreto estuviera lleno, la información sobre el horario sigue siendo verdadera.",
-   "costeUsd": 0.001223
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "libre",
-   "n": 4,
-   "texto": "Claro, Nuria. Cuando te llamen te confirmarán la sedación consciente y también te dirán el horario de sábados — así tienes todo claro para decidir con calma.",
-   "dichoPorLaPersona": "Vale perfecto, espero su llamada entonces! Y lo de los sábados, ¿me lo pueden decir también cuando llamen o abrís sí o sí?",
-   "podado": true,
-   "etiqueta": "repite",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto de la clínica; solo devuelve lo que la persona pidió: que le confirmen la sedación y le digan el horario de sábados cuando llamen.",
-   "costeUsd": 0.001169
-  },
-  {
-   "fixture": "base",
-   "guion": "aplazamiento_dato",
-   "decisor": "libre",
-   "n": 5,
-   "texto": "Perfecto, Nuria. Tenemos anotado todo: la sedación consciente y el horario de sábados. El equipo te llamará en breve con esas respuestas. ¡Hasta pronto!",
-   "dichoPorLaPersona": "Perfecto, muchas gracias! Espero la llamada entonces 🙂",
-   "podado": false,
-   "etiqueta": "repite",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto de la agenda; solo recoge lo que la persona pidió (sedación consciente y disponibilidad de sábados) y remite al equipo para que confirme.",
-   "costeUsd": 0.001149
-  },
-  {
-   "fixture": "base",
-   "guion": "caso_completo",
-   "decisor": "alcance",
-   "n": 1,
-   "texto": "Hola Dani, perfecto. La primera visita con estudio de ortodoncia no tiene coste. Abrimos de lunes a jueves de 9:00 a 20:00 y viernes de 9:00 a 15:00. ¿Qué día y hora te vendría mejor para venir?",
-   "dichoPorLaPersona": "Hola buenas tardes! Quería pedir una primera cita para ortodoncia invisible, no soy paciente de la clínica todavía",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día ni hora concretos; solo pregunta cuándo le vendría bien al paciente y proporciona el horario de apertura de la clínica.",
-   "costeUsd": 0.001136
-  },
-  {
-   "fixture": "base",
-   "guion": "caso_completo",
-   "decisor": "alcance",
-   "n": 2,
-   "texto": "Perfecto, Dani. Para reservarte una cita de lunes a jueves por la tarde, necesito tu nombre completo y el teléfono de contacto. El equipo te confirmará el día y la hora exacta.",
-   "dichoPorLaPersona": "Genial! Pues cualquier día menos los viernes me viene bien, y prefiero por las tardes si puede ser",
-   "podado": true,
-   "etiqueta": "repite",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día ni hora concretos, solo recoge las preferencias que puso el paciente (lunes a jueves, tardes) y remite al equipo para la confirmación final.",
-   "costeUsd": 0.001127
-  },
-  {
-   "fixture": "base",
-   "guion": "caso_completo",
-   "decisor": "libre",
-   "n": 1,
-   "texto": "Hola Dani, perfecto. La primera visita y valoración es sin coste, incluye estudio de ortodoncia completo. Puedes reservar aquí: https://clinica-demo-centro.ejemplo/reserva — abrimos de lunes a jueves de 9:00 a 20:00 y viernes de 9:00 a 15:00. Estamos en Gran Vía 38, 3º, Madrid.",
-   "dichoPorLaPersona": "Hola buenas tardes! Quería pedir una primera cita para ortodoncia invisible, no soy paciente de la clínica todavía",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día, hora o hueco concreto; solo informa del horario general de apertura y remite a un sistema de reserva",
-   "costeUsd": 0.001129
-  },
-  {
-   "fixture": "base",
-   "guion": "caso_completo",
-   "decisor": "libre",
-   "n": 2,
-   "texto": "Perfecto, Dani. En el enlace de reserva puedes ver todos los huecos de tarde de lunes a jueves y elegir el que mejor te venga. La primera visita con estudio completo es sin coste. ¿Alguna duda antes de reservar?",
-   "dichoPorLaPersona": "Genial, muchas gracias! Prefiero por las tardes si puede ser, y viernes no me viene bien cualquier otro día está bien",
-   "podado": true,
-   "etiqueta": "repite",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día ni hora concretos; remite a la persona a ver los huecos disponibles en el enlace de reserva y elegir ella misma.",
-   "costeUsd": 0.001111
-  },
-  {
-   "fixture": "base",
-   "guion": "caso_completo",
-   "decisor": "libre",
-   "n": 3,
-   "texto": "Perfecto, Dani. Cuando reserves online, anota que tienes Sanitas y nuestro equipo lo tendrá en cuenta para la valoración. ¡Nos vemos pronto!",
-   "dichoPorLaPersona": "Ninguna duda, ah y tengo seguro Sanitas por si es relevante para la cita. Muchas gracias!",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto de la clínica; solo da instrucciones sobre cómo proceder con la reserva online.",
-   "costeUsd": 0.001078
-  },
-  {
-   "fixture": "base",
-   "guion": "insistencia_precio",
-   "decisor": "libre",
-   "n": 3,
-   "texto": "Carlos, entiendo que quieras un número redondo. La realidad es que incluso en el caso más simple, el hueso varía de persona a persona, y eso cambia el precio — por eso la clínica no da cifras sin verlo. Lo que sí te puedo decir es que partes desde 1.100 €, y la valoración es sin coste: vienes, el doctor te lo mira en 20 minutos, y te dice la cifra exacta para ti. ¿Te viene bien venir esta semana?",
-   "dichoPorLaPersona": "Ya, pero un número aproximado sin mirar nada, ¿más o menos de mil o me voy más arriba?",
-   "podado": false,
-   "etiqueta": "afirma",
-   "seArroga": false,
-   "porQue": "El agente propone 'esta semana' sin que la persona haya mencionado ningún día concreto, y sin saber qué días están libres. Si ningún hueco de esta semana estuviera disponible, la propuesta sería falsa.",
-   "costeUsd": 0.001267
-  },
-  {
-   "fixture": "base",
-   "guion": "insistencia_precio",
-   "decisor": "libre",
-   "n": 5,
-   "texto": "Perfecto, Carlos. Te paso con el equipo de citas para que te den los huecos disponibles esta semana y cierres tu valoración sin coste. Ellos te confirman el día y la hora.",
-   "dichoPorLaPersona": "Vale, pues nada, pido cita entonces para que me lo confirmen. ¿Tenéis hueco esta semana?",
-   "podado": false,
-   "etiqueta": "repite",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día ni hora concretos; remite al equipo de citas para que ellos ofrezcan y confirmen los huecos disponibles.",
-   "costeUsd": 0.001083
-  },
-  {
-   "fixture": "base",
-   "guion": "telefono_compartido",
-   "decisor": "alcance",
-   "n": 1,
-   "texto": "Hola Lucía, perfecto. Para poder reservarte cita, me gustaría saber: ¿es tu primera vez con nosotros o ya has venido a la clínica? Y ¿qué días y horas te van mejor la próxima semana?",
-   "dichoPorLaPersona": "Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de mi madre. Quería pedir una cita pero para mí, no para ella",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El agente no propone ni afirma ningún día u hora concreto; solo pregunta cuáles van mejor a la paciente",
-   "costeUsd": 0.001069
-  },
-  {
-   "fixture": "base",
-   "guion": "telefono_compartido",
-   "decisor": "alcance",
-   "n": 2,
-   "texto": "Perfecto, Lucía. Te reservamos una cita de revisión por las tardes entre semana. El equipo te confirma el día y la hora exacta en breve al móvil de tu madre. Abrimos de 10:00 a 20:00 de lunes a viernes, y estamos en C/ Marcelo Usera 45, Usera.",
-   "dichoPorLaPersona": "No he ido nunca a esta clínica, sería la primera vez. Hace años que no me hago una revisión jaja. Por las tardes me viene mejor, entre semana",
-   "podado": true,
-   "etiqueta": "afirma",
-   "seArroga": true,
-   "porQue": "El agente afirma que reserva una cita («te reservamos») con día y hora a determinar, pero si no hay hueco disponible entre semana por la tarde, esa reserva no existe: el mensaje promete algo que la clínica quizá no pueda cumplir.",
-   "costeUsd": 0.001329
-  },
-  {
-   "fixture": "base",
-   "guion": "telefono_compartido",
-   "decisor": "libre",
-   "n": 1,
-   "texto": "Hola Lucía, bienvenida. Claro que sí, podemos agendar una cita para ti. ¿Vienes por primera vez a la clínica o necesitas una revisión, o hay algo que te molesta ahora?",
-   "dichoPorLaPersona": "Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de mi madre. Quería pedir una cita pero para mí, no para ella",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El mensaje no compromete ningún día ni hora específicos, solo pregunta por el motivo de la consulta",
-   "costeUsd": 0.001029
-  },
-  {
-   "fixture": "base",
-   "guion": "telefono_compartido",
-   "decisor": "libre",
-   "n": 2,
-   "texto": "Perfecto, Lucía. Para una revisión con radiografías son 49 €. Lo que necesito es que me confirmes un teléfono de contacto tuyo para que el equipo te llame y cierre la cita en el horario que mejor te venga — abrimos de lunes a viernes de 10:00 a 20:00.",
-   "dichoPorLaPersona": "Sería una revisión, hace ya bastantes años que no voy al dentista la verdad",
-   "podado": false,
-   "etiqueta": "ninguno",
-   "seArroga": false,
-   "porQue": "El mensaje no afirma ningún día ni hora concretos; remite al equipo para que cierre la cita según la disponibilidad de la persona.",
-   "costeUsd": 0.001088
-  },
-  {
-   "fixture": "nueva",
    "guion": "caso_completo",
    "decisor": "alcance",
    "n": 2,
@@ -306,7 +60,7 @@
    "costeUsd": 0.001169
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "caso_completo",
    "decisor": "alcance",
    "n": 3,
@@ -319,7 +73,7 @@
    "costeUsd": 0.00117
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "caso_completo",
    "decisor": "libre",
    "n": 2,
@@ -332,7 +86,7 @@
    "costeUsd": 0.001218
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "insistencia_precio",
    "decisor": "alcance",
    "n": 2,
@@ -345,7 +99,7 @@
    "costeUsd": 0.001115
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "insistencia_precio",
    "decisor": "alcance",
    "n": 3,
@@ -354,11 +108,11 @@
    "podado": true,
    "etiqueta": "repite",
    "seArroga": false,
-   "porQue": "El agente no propone ni afirma ningún día ni hora concretos; pregunta cuándo le viene bien al paciente para que sea él quien lo diga.",
-   "costeUsd": 0.001152
+   "porQue": "El agente no propone ningún día ni hora concretos, solo pregunta cuándo le viene bien al paciente. Si ese día resultara no estar libre, el mensaje seguiría siendo verdad: la pregunta sigue en pie.",
+   "costeUsd": 0.001227
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "insistencia_precio",
    "decisor": "libre",
    "n": 2,
@@ -371,7 +125,7 @@
    "costeUsd": 0.00106
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "insistencia_precio",
    "decisor": "libre",
    "n": 3,
@@ -384,7 +138,7 @@
    "costeUsd": 0.001211
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "aplazamiento_dato",
    "decisor": "alcance",
    "n": 3,
@@ -397,7 +151,7 @@
    "costeUsd": 0.001361
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "aplazamiento_dato",
    "decisor": "alcance",
    "n": 4,
@@ -410,7 +164,7 @@
    "costeUsd": 0.001352
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "aplazamiento_dato",
    "decisor": "libre",
    "n": 3,
@@ -423,7 +177,7 @@
    "costeUsd": 0.00113
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "aplazamiento_dato",
    "decisor": "libre",
    "n": 4,
@@ -436,7 +190,7 @@
    "costeUsd": 0.001063
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "telefono_compartido",
    "decisor": "alcance",
    "n": 1,
@@ -449,7 +203,7 @@
    "costeUsd": 0.001164
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "telefono_compartido",
    "decisor": "alcance",
    "n": 3,
@@ -462,7 +216,7 @@
    "costeUsd": 0.001167
   },
   {
-   "fixture": "nueva",
+   "fixture": "base",
    "guion": "telefono_compartido",
    "decisor": "alcance",
    "n": 4,
@@ -471,8 +225,229 @@
    "podado": false,
    "etiqueta": "afirma",
    "seArroga": true,
-   "porQue": "El agente afirma que anota la cita para ese día y hora concretos, comprometiendo una disponibilidad que la clínica no ha confirmado aún.",
-   "costeUsd": 0.001075
+   "porQue": "El agente afirma que anota la cita para ese día y hora concretos, comprometiendo una disponibilidad que la clínica no ha confirmado. Si el miércoles 16 a las 17:00 no estuviera libre, el mensaje sería falso.",
+   "costeUsd": 0.001205
+  },
+  {
+   "fixture": "base",
+   "guion": "telefono_compartido",
+   "decisor": "libre",
+   "n": 1,
+   "texto": "Hola Lucía, claro que sí. Para poder agendar tu cita, necesito tu número de teléfono y qué tipo de revisión o tratamiento buscas. ¿Cuál es tu motivo de consulta?",
+   "dichoPorLaPersona": "Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de mi madre. Quería pedir una cita pero para mí, no para ella",
+   "podado": true,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no menciona ningún día, hora ni hueco específico de la agenda",
+   "costeUsd": 0.000997
+  },
+  {
+   "fixture": "nueva",
+   "guion": "caso_completo",
+   "decisor": "alcance",
+   "n": 2,
+   "texto": "Perfecto, Dani. Te propongo martes 15 de septiembre a las 17:00, miércoles 16 a las 17:30 o jueves 17 a las 18:00 — ¿cuál te va mejor? Y para reservarte la cita necesito tu nombre completo y un teléfono de contacto.",
+   "dichoPorLaPersona": "Cualquier día menos los viernes me viene bien, y a poder ser por las tardes",
+   "podado": true,
+   "etiqueta": "afirma",
+   "seArroga": true,
+   "porQue": "El agente propone tres días y horas concretos sin haber confirmado que la clínica los tiene libres. Si alguno de esos huecos no estuviera disponible, el mensaje sería falso porque afirma una disponibilidad que no existe.",
+   "costeUsd": 0.001275
+  },
+  {
+   "fixture": "nueva",
+   "guion": "caso_completo",
+   "decisor": "alcance",
+   "n": 4,
+   "texto": "Perfecto, Daniel. Ya tengo todo lo que necesito: te paso tu solicitud al equipo ahora mismo para que te confirmen el primer hueco disponible en tardes, excluyendo viernes. También te resolverán la duda del seguro Sanitas cuando se pongan en contacto. Gracias por confiar en nosotros.",
+   "dichoPorLaPersona": "Vale, pues mi número es el mismo desde el que escribo por aquí. Gracias, quedo atento a la confirmación!",
+   "podado": false,
+   "etiqueta": "repite",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto; remite al equipo para que confirme disponibilidad",
+   "costeUsd": 0.001061
+  },
+  {
+   "fixture": "nueva",
+   "guion": "caso_completo",
+   "decisor": "libre",
+   "n": 2,
+   "texto": "Perfecto, Daniel. Tengo tu disponibilidad: tardes de lunes a jueves. Voy a pasar tu solicitud al equipo para que te confirme la primera cita de valoración en ortodoncia. Te contactaremos en breve.",
+   "dichoPorLaPersona": "Daniel Arribas, y por las tardes me viene mejor. Cualquier día menos los viernes, ese día no puedo.",
+   "podado": false,
+   "etiqueta": "repite",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día ni hora concretos; solo devuelve y resume lo que Daniel pidió (tardes, lunes a jueves). Si alguno de esos días no estuviera libre, el mensaje seguiría siendo verdad: Daniel sí pidió esas tardes y el equipo las mirará.",
+   "costeUsd": 0.001263
+  },
+  {
+   "fixture": "nueva",
+   "guion": "insistencia_precio",
+   "decisor": "alcance",
+   "n": 1,
+   "texto": "Hola Carlos, me alegra verte de nuevo. El precio del implante depende de varios factores que el doctor valora en consulta: la posición, el hueso disponible y si necesitas técnicas adicionales. Lo mejor es que te vea para hacer una valoración y darte un presupuesto exacto. ¿Qué día te viene bien esta semana o la próxima para pasar?",
+   "dichoPorLaPersona": "Hola buenas, soy Carlos, ya he estado ahí antes. Quería saber el precio de un implante dental, ¿cuánto cuesta?",
+   "podado": false,
+   "etiqueta": "repite",
+   "seArroga": false,
+   "porQue": "El agente no propone ni afirma ningún día, hora o hueco concreto; solo pregunta cuándo le viene bien al paciente",
+   "costeUsd": 0.001105
+  },
+  {
+   "fixture": "nueva",
+   "guion": "insistencia_precio",
+   "decisor": "alcance",
+   "n": 2,
+   "texto": "Carlos, entiendo que quieras una idea antes de venir. La verdad es que la clínica no publica precios de implantes porque cada caso es distinto, y solo el doctor puede darte una cifra exacta tras valorarte. Lo que sí puedo hacer es agendar tu consulta para que te lo confirme directamente. ¿Qué día te viene bien entre hoy y el próximo lunes?",
+   "dichoPorLaPersona": "Ya, pero sin entrar en detalles, el más básico, uno normal sin complicaciones, ¿cuánto suele ser?",
+   "podado": false,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día ni hora concretos; solo pregunta por preferencia y remite la agenda a la clínica",
+   "costeUsd": 0.001086
+  },
+  {
+   "fixture": "nueva",
+   "guion": "insistencia_precio",
+   "decisor": "alcance",
+   "n": 3,
+   "texto": "Carlos, te entiendo, pero la verdad es que no tenemos un rango que publicar: cada implante varía tanto que darte un número ahora sería engañarte. Lo que sí puedo hacer es agendar tu valoración con el doctor esta semana o la próxima, y en esa consulta te da el presupuesto exacto sin sorpresas. ¿Qué día y hora te vienen bien?",
+   "dichoPorLaPersona": "Vale pero un numero aproximado me podéis dar no? Solo para hacerme una idea, no me voy a enfadar si luego varía un poco.",
+   "podado": true,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día ni hora concretos: pregunta cuál le viene bien al paciente y remite la valoración al doctor, sin comprometer disponibilidad de la clínica.",
+   "costeUsd": 0.001167
+  },
+  {
+   "fixture": "nueva",
+   "guion": "insistencia_precio",
+   "decisor": "alcance",
+   "n": 4,
+   "texto": "Carlos, te voy a ser directo: no tengo esa cifra aproximada porque la clínica no la publica, y tampoco sería justo darte un número que luego el doctor tendría que cambiar. Lo que sí sé es que en la consulta te lo confirma todo. ¿Qué día entre hoy y el próximo lunes te viene bien para que te valore?",
+   "dichoPorLaPersona": "¿Más o menos ronda los mil euros o es más caro que eso?",
+   "podado": false,
+   "etiqueta": "repite",
+   "seArroga": false,
+   "porQue": "El agente no propone ningún día ni hora concretos; solo pregunta cuál prefiere el paciente. Si ese día no estuviera libre, el mensaje seguiría siendo verdad: ella pidió la cita y el equipo la mirará.",
+   "costeUsd": 0.001204
+  },
+  {
+   "fixture": "nueva",
+   "guion": "insistencia_precio",
+   "decisor": "alcance",
+   "n": 5,
+   "texto": "Perfecto, Carlos. Te apunto para el lunes 21 de septiembre. ¿Qué hora te viene mejor?",
+   "dichoPorLaPersona": "Uf vale, pues nada, apuntadme para el lunes que viene entonces.",
+   "podado": true,
+   "etiqueta": "afirma",
+   "seArroga": true,
+   "porQue": "Si el lunes 21 de septiembre no estuviera libre, el agente estaría prometiendo un hueco que no existe",
+   "costeUsd": 0.001007
+  },
+  {
+   "fixture": "nueva",
+   "guion": "aplazamiento_dato",
+   "decisor": "alcance",
+   "n": 1,
+   "texto": "Hola Nuria, es completamente normal tener esa preocupación. El doctor puede valorar contigo todas las opciones disponibles para que te sientas cómoda durante la extracción. Para poder reservarte una cita, ¿qué día y hora te vienen mejor en los próximos días?",
+   "dichoPorLaPersona": "Hola buenas! Tengo que hacerme una extracción y la verdad es que me da bastante miedo... quería preguntar si hacéis sedación consciente?",
+   "podado": false,
+   "etiqueta": "repite",
+   "seArroga": false,
+   "porQue": "El agente no afirma ningún día ni hora concretos; pregunta cuándo le viene bien a la paciente para luego gestionar la disponibilidad con la clínica.",
+   "costeUsd": 0.001134
+  },
+  {
+   "fixture": "nueva",
+   "guion": "aplazamiento_dato",
+   "decisor": "alcance",
+   "n": 2,
+   "texto": "Claro, Nuria. Sobre el parking, la clínica te lo confirma cuando cierres la cita — tienen información sobre la zona. Ahora, ¿qué día y hora te vienen mejor en los próximos días para la extracción? Así te reservamos la cita y el equipo te confirma todo lo demás.",
+   "dichoPorLaPersona": "Vale, gracias! Antes de nada, aprovecho y pregunto también si hay parking cerca de la clínica, porque no conozco bien la zona.",
+   "podado": false,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El agente pregunta por día y hora pero no propone ninguno concreto; solo invita a la persona a elegir y promete que 'el equipo confirma'. No afirma disponibilidad de ningún hueco específico.",
+   "costeUsd": 0.001193
+  },
+  {
+   "fixture": "nueva",
+   "guion": "aplazamiento_dato",
+   "decisor": "alcance",
+   "n": 3,
+   "texto": "Perfecto, Nuria. Para reservarte la cita de extracción, necesito que me digas un día entre semana y una hora por la tarde que te venga bien. Por ejemplo, ¿el martes 15 a las 17:00 te va, o prefieres otro día y hora?",
+   "dichoPorLaPersona": "Vale perfecto, que me lo confirmen entonces. Pues por las tardes suelo poder, entre semana.",
+   "podado": true,
+   "etiqueta": "afirma",
+   "seArroga": false,
+   "porQue": "El agente propone un día y hora concretos (martes 15 a las 17:00) sin que la clínica haya confirmado disponibilidad, por lo que si ese hueco no estuviera libre, la propuesta sería falsa.",
+   "costeUsd": 0.001203
+  },
+  {
+   "fixture": "nueva",
+   "guion": "aplazamiento_dato",
+   "decisor": "alcance",
+   "n": 4,
+   "texto": "Perfecto, Nuria. Sobre los sábados, el equipo te lo confirma cuando cierren tu cita. Te reservo la extracción para el martes 2026-09-15 o el miércoles 2026-09-16 a partir de las 17h, y alguien te llamará en breve para confirmarte el día exacto, la hora, y todo lo que necesitas saber — incluida la sedación consciente y el parking.",
+   "dichoPorLaPersona": "Pues mira, el martes o el miércoles a partir de las 17h me iría genial. Ah, y una cosa más, abrís los sábados? Por si acaso.",
+   "podado": true,
+   "etiqueta": "afirma",
+   "seArroga": true,
+   "porQue": "El agente pone fechas concretas (martes 2026-09-15 y miércoles 2026-09-16) por su cuenta y dice 'te reservo', comprometiendo disponibilidad que la clínica no ha confirmado. Si esas fechas no estuvieran libres, la promesa de reserva sería falsa.",
+   "costeUsd": 0.001438
+  },
+  {
+   "fixture": "nueva",
+   "guion": "aplazamiento_dato",
+   "decisor": "libre",
+   "n": 3,
+   "texto": "Perfecto, Nuria. Sí, abrimos sábados. El equipo te llamará al número de este WhatsApp para hablar de sedación consciente, parking y concertar tu cita. Estamos aquí para que te sientas segura.",
+   "dichoPorLaPersona": "Vale genial, pues el mismo de este whatsapp. Ah y una cosa más, abrís los sábados?",
+   "podado": true,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto de la agenda; solo responde a la pregunta sobre apertura de sábados y remite al equipo para concertar.",
+   "costeUsd": 0.001123
+  },
+  {
+   "fixture": "nueva",
+   "guion": "telefono_compartido",
+   "decisor": "alcance",
+   "n": 1,
+   "texto": "Hola Lucía, claro que sí. Para poder reservarte cita, me dices qué día y hora te van bien de aquí a las próximas dos semanas, y si es una revisión, limpieza o si hay algo concreto que te preocupa.",
+   "dichoPorLaPersona": "Hola buenas! Soy Lucía, hija de Carmen Ruiz, escribo desde el móvil de mi madre. Quería pedir una cita pero para mí, no para ella",
+   "podado": false,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El agente no propone ni afirma ningún día u hora concreto; solo pide que Lucía diga cuándo le va bien, sin comprometer disponibilidad alguna de la clínica.",
+   "costeUsd": 0.001159
+  },
+  {
+   "fixture": "nueva",
+   "guion": "telefono_compartido",
+   "decisor": "alcance",
+   "n": 2,
+   "texto": "Perfecto, Lucía. Para reservarte la revisión por la tarde la próxima semana, ¿qué día te viene mejor? Lunes 21, martes 22, miércoles 23, jueves 24 o viernes 25 de septiembre.",
+   "dichoPorLaPersona": "Es una revisión general, hace bastantes años que no piso un dentista jaja. Por la tarde me viene mejor, algún día de la semana que viene si puede ser",
+   "podado": true,
+   "etiqueta": "afirma",
+   "seArroga": false,
+   "porQue": "El agente ofrece días concretos (21-25 de septiembre) como disponibles sin haber confirmado que la clínica los tiene libres. Si alguno de esos días estuviera ocupado, el mensaje sería falso.",
+   "costeUsd": 0.001195
+  },
+  {
+   "fixture": "nueva",
+   "guion": "telefono_compartido",
+   "decisor": "alcance",
+   "n": 3,
+   "texto": "Perfecto, Lucía. Pasamos tu solicitud al equipo y te contactarán mañana o pasado con los huecos disponibles por la tarde la próxima semana para que elijas el que mejor te venga.",
+   "dichoPorLaPersona": "Vale perfecto, muchas gracias!",
+   "podado": false,
+   "etiqueta": "repite",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto: remite al equipo para que contacte con opciones disponibles sin comprometer nada.",
+   "costeUsd": 0.001053
   },
   {
    "fixture": "nueva",
@@ -486,6 +461,45 @@
    "seArroga": false,
    "porQue": "El mensaje no menciona ningún día, hora ni hueco específico de la agenda",
    "costeUsd": 0.000997
+  },
+  {
+   "fixture": "nueva",
+   "guion": "telefono_compartido",
+   "decisor": "libre",
+   "n": 2,
+   "texto": "Perfecto, Lucía. Para agendar tu revisión general necesito tu número de teléfono, ¿cuál es?",
+   "dichoPorLaPersona": "Es para una revisión general, hace bastantes años que no voy al dentista",
+   "podado": true,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día, hora ni hueco específico de la clínica; solo pide un dato para poder agendar después.",
+   "costeUsd": 0.001021
+  },
+  {
+   "fixture": "nueva",
+   "guion": "telefono_compartido",
+   "decisor": "libre",
+   "n": 3,
+   "texto": "Perfecto, Lucía. Para agendar tu revisión general necesitamos tu teléfono y correo electrónico. ¿Cuáles son?",
+   "dichoPorLaPersona": "Vale, entonces qué necesitáis de mí para darme la cita? Mi nombre completo es Lucía Ruiz Prado",
+   "podado": false,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto de la clínica; solo pide datos para proceder con la reserva",
+   "costeUsd": 0.001043
+  },
+  {
+   "fixture": "nueva",
+   "guion": "telefono_compartido",
+   "decisor": "libre",
+   "n": 4,
+   "texto": "Sin problema, Lucía. Cuando tengas los datos a mano, me los pasas y agendamos tu revisión.",
+   "dichoPorLaPersona": "Vale, te los paso ahora... espera que miro el correo",
+   "podado": false,
+   "etiqueta": "ninguno",
+   "seArroga": false,
+   "porQue": "El mensaje no afirma ningún día, hora ni hueco concreto de la clínica; solo invita a recibir datos y luego a agendar, sin comprometer disponibilidad.",
+   "costeUsd": 0.001075
   }
  ]
 }

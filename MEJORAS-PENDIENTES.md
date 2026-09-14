@@ -3604,7 +3604,16 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   no hay que evitarlo; lo que hay que evitar es contar el final de una historia que aún no ha
   ocurrido»**. · **Orden propuesto, por retorno:** (1) la regla 3 como paso; (2) MEJORAS 240; (3) si
   después sigue apareciendo, entonces sí su propia pregunta en el juicio y su vara. · **Esfuerzo:**
-  15 min + una jugada ($0,50). · 🔵 esperando OK
+  15 min + una jugada ($0,50). · 🟢 **LAS TRES HECHAS el 14-09 (`73be681`…) y MEDIDAS en una pasada.
+  El resultado NO es el que esperábamos, y la atribución sale limpia igual** porque se juzgó el
+  borrador y lo enviado por separado: · **borrador (antes del guardián): 5 daños sobre 9 mensajes de
+  agenda → 8 sobre 14. Tasa plana (0,56 → 0,57): el paso 6 no midió nada.** · **enviado: 5 daños →
+  CERO.** afirma 3→0, se arroga 2→0, repite 4→**11**, y los mensajes de agenda que llegan al paciente
+  7→14. **Todo el efecto es del guardián**, no del redactor: la hipótesis de «si escribe mejor, al
+  juez le llegan menos ambiguos» no ocurrió — el agente escribe IGUAL de ambiguo y ahora se corrige.
+  · **La pasividad NO apareció** (era el riesgo vigilado): el agente habla el doble de agenda, dice
+  más «repite» y cubre el objetivo 4/4 (antes 3/4). Lo que sí empeoró un poco es la puntualidad de la
+  entrega (a tiempo 2 · tarde 1 → a tiempo 1 · tarde 2) y hay 1 descarte en el control.
 
 ## 240. Agente · EL GUARDIÁN CON ESTA FAMILIA: deja pasar el caso más claro y poda la mitad verdadera
 - **Medido el 14-09 sobre la pasada de 237, y son dos defectos distintos en la misma secuencia.**
@@ -3633,4 +3642,21 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   ahora tiene el desacuerdo concreto que lo justifica. · **Principio:** §29 (un guardián que mejora
   un bloque hundiendo otro es un trueque) y §9 (lo que el guardián cambia se cuenta). · **Impacto:**
   ALTO — es lo único que llega al paciente. · **Esfuerzo:** 2 h + una jugada. · **Fecha:** 2026-09-14
-  · 🔵
+  · 🟢 **HECHA Y MEDIDA el 14-09, y es la que arregló el daño entera.**
+  · **(b) el orden se invirtió en `control-borrador.ts`:** juez → UNA reescritura → y la poda queda
+  como RED (sin modelo, generador descarrilado, o la reescritura vuelve a infringir). El contador lo
+  dice solo: el decisor con alcance pasó de **7 podados / 0 reescritos** a **6 reescritos / 1
+  podado**. Y la reescritura sale como la habría escrito Simon: de «¿qué día te viene mejor? Lunes
+  21, martes 22, miércoles 23, jueves 24 o viernes 25» salió *«alguien del equipo se pondrá en
+  contacto contigo con los días disponibles la próxima semana»* — el paso, no el final, y sin
+  quedarse muda.
+  · **(a) la regla 5 se fue entera:** ~1.200 palabras con nueve excepciones → 305 y UN test, el mismo
+  de `juicio-agenda.ts`. Más «lo que consta no se juzga», que el juicio en sombra no necesitaba
+  porque no ve los DATOS QUE CONSTAN. **Vara del juez 62/62 → 61/62** (FN=0 · FP=1). El FN que
+  apareció en la primera pasada era mío —la línea de «lo que consta» licenciaba convertir el horario
+  de apertura en disponibilidad, la doctrina de 236— y se arregló ESTRECHÁNDOLA, no colgándole una
+  excepción. · **El FP que queda es una decisión tuya, no un bug:** P2 = «Abrimos de lunes a viernes
+  de 9:30 a 20:00… ¿te viene bien alguna franja?», que la regla vieja perdonaba con una excepción
+  explícita y que es **exactamente la familia que tú llamaste ambigua** en 236/238 («es verdad y
+  parece prometer»). O el caso cambia de etiqueta esperada en `qa:juez`, o el juez tiene que volver a
+  perdonar el horario de apertura al lado de una pregunta de franja. No lo toco sin que lo decidas.

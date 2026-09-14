@@ -1366,8 +1366,8 @@ export async function evaluarTurno(
       respuestaFinal = control.texto;
       // Contado SIEMPRE: si estas suben, el generador se está degradando
       // aunque los descartes bajen (§9).
-      base.etiquetasDescartadas.push(`juez:reescrito:${control.motivo}:${control.porQueNoSePodo}`);
-      console.warn(`[evaluador] borrador reescrito (${control.motivo}, ${control.porQueNoSePodo}): «${control.frase ?? "?"}»`);
+      base.etiquetasDescartadas.push(`juez:reescrito:${control.motivo}:${control.enVezDePodar}`);
+      console.warn(`[evaluador] borrador reescrito (${control.motivo}, ${control.enVezDePodar}): «${control.frase ?? "?"}»`);
     } else if (control.estado === "descartado" || control.estado === "juez_no_respondio") {
       descartesSeguidos = descartesSeguidosAntes + 1;
       // MEJORAS 233 — el SEGUNDO descarte seguido no repite plantilla: el

@@ -5671,3 +5671,36 @@ correcto — **el desacuerdo concreto que faltaba para retirarla**. MEJORAS 240.
 al paciente, hay que juzgar las dos cosas por separado en la misma pasada; si no, el guardián queda
 fuera de la vara y es la mitad del daño.
 Siguiente (esperando OK): la regla 3 como paso, y después la 240.
+
+## 2026-09-14 · El guardián corrige por fin, y lo que llega al paciente baja de 5 daños a cero
+**Por qué la poda seguía mandando, que era la pregunta de Simon:** la decisión de «corregir en vez de
+descartar» (233) cambió el destino del MENSAJE ENTERO —antes un INFRINGE lo borraba del todo, después
+se le quitaba la frase— y **el sustituto de tirar el mensaje fue CORTAR, no corregir**. La
+reescritura entró como plan B de la poda: solo corría si podar era imposible. El tipo lo decía a la
+cara — el estado `reescrito` llevaba un campo `porQueNoSePodo`. Se eligió por coste cero.
+**Las tres piezas, en el orden que pidió Simon:** (1) la regla 3 sale del papel y entra como **PASO 6**
+del procedimiento —una prueba no es una regla, es un paso— con la coletilla «no lo borres» contra el
+fallo que se le veía venir; (2) el control invierte el orden: juez → UNA reescritura → poda solo como
+red; (3) la regla 5 del juez se sustituye por el test de falsabilidad (~1.200 palabras con nueve
+excepciones → 305 y un test), más una línea que el juicio en sombra no necesitaba: «lo que consta no
+se juzga».
+**LA CIFRA, y la atribución sale limpia de una sola pasada porque se juzgó borrador y enviado por
+separado:** · **borrador: 5 daños sobre 9 mensajes de agenda → 8 sobre 14; tasa plana (0,56 → 0,57).
+El paso 6 no midió nada.** · **ENVIADO: 5 daños → CERO.** afirma 3→0, se arroga 2→0, repite 4→**11**,
+mensajes de agenda que llegan al paciente 7→14. Contador del control: de **7 podados / 0 reescritos**
+a **6 reescritos / 1 podado**.
+**Y la hipótesis de Simon no ocurrió, aunque el resultado sea el que él quería:** no es que el agente
+redacte mejor y al juez le lleguen menos ambiguos — el agente redacta IGUAL de ambiguo y ahora se le
+corrige. El arreglo estaba en el filtro, no en la raíz.
+**La pasividad vigilada NO apareció:** el agente habla el DOBLE de agenda, dice más «repite» y cubre
+el objetivo 4/4 (antes 3/4). Lo que empeoró un poco es la puntualidad (a tiempo 2 · tarde 1 → a
+tiempo 1 · tarde 2) y hay 1 descarte.
+**Vara del juez 62/62 → 61/62.** El FN de la primera pasada era mío (mi línea de «lo que consta»
+licenciaba convertir el horario de apertura en disponibilidad, que es la doctrina de 236) y se
+arregló **estrechándola, no colgándole una excepción**. El FP que queda es P2 —«abrimos de 9:30 a
+20:00… ¿te viene bien alguna franja?»—, que la regla vieja perdonaba explícitamente y que es la
+familia que Simon llamó ambigua: o cambia la etiqueta esperada del caso, o vuelve el perdón. Queda
+decidido por él, no por mí.
+**Lección:** juzgar solo el borrador mide al redactor y esconde al guardián; juzgar solo lo enviado
+esconde de dónde viene la mejora. Con las dos en la misma pasada, tres cambios a la vez se pudieron
+atribuir sin gastar tres pasadas.

@@ -149,6 +149,25 @@ const PASO_4_ALCANCE =
 const CADENCIA_LIBRE = "Una pregunta como mucho.";
 const CADENCIA_ALCANCE =
   "Las preguntas que hagan falta si encajan juntas y no parece un interrogatorio — cuántas caben lo juzgas tú, como todo lo demás.";
+/** EL PASO 6: LA PRUEBA ANTES DE ENVIAR (14-09, tras medir MEJORAS 237).
+ *
+ *  Era la tercera regla del PAPEL y no se ejecutaba. No porque estuviera mal
+ *  escrita —aplicada a «paso al equipo para que te reserve la cita» da mentira
+ *  a la primera— sino por dónde estaba: un guion más en una lista de contexto,
+ *  mientras el prompt numera un procedimiento 1→5 que no la incluía. **Una
+ *  prueba no es una regla, es un paso.** Moverla no añade doctrina: es el mismo
+ *  texto, en el sitio donde el modelo hace cosas en orden.
+ *
+ *  Y LLEVA UNA COLETILLA QUE NO ESTABA, con su motivo: «no lo borres». El
+ *  fallo que se le ve venir a «reescríbelo» es que el modelo lo cumpla
+ *  CALLÁNDOSE —quitar la frase y dejar a la persona sin saber qué pasa ahora—,
+ *  que es el mismo daño con otra cara y más difícil de ver en una cifra. No es
+ *  una cuarta regla: es decir qué significa reescribir. Si la medición enseña
+ *  que el agente se vuelve mudo, esto es lo primero que hay que mirar.
+ *
+ *  Lo que NO lleva, a propósito (236): un ejemplo de cómo decirlo. */
+const PASO_6_ALCANCE =
+  "6. ANTES DE DARLO POR BUENO, pásale esta prueba: léelo como si el equipo abriera la agenda y no hubiera hueco donde ella pedía. Si algo se vuelve mentira, reescríbelo — cámbialo por lo que sí se sostiene, no lo borres: dejarla sin saber qué pasa ahora es otro fallo.";
 const REGLA_AGENDA_LIBRE =
   "- Ni huecos ni días libres de la agenda (no la ves) ni «te la reservo» (reservar lo hace el equipo). El horario publicado es apertura, no disponibilidad tuya.\n";
 
@@ -192,7 +211,9 @@ NO añadas texto fuera del JSON.`;
  *  para que la diferencia medida sea esa y no otra. */
 export const SYSTEM_PROMPT_SOMBRA_ALCANCE = SYSTEM_PROMPT_SOMBRA_LIBRE
   .replace(PASO_4_LIBRE, PASO_4_ALCANCE)
-  .replace(CADENCIA_LIBRE, CADENCIA_ALCANCE)
+  // El paso 6 entra pegado al final del 5, que es donde termina el
+  // procedimiento numerado. La cadencia es el último trozo de esa línea.
+  .replace(CADENCIA_LIBRE, `${CADENCIA_ALCANCE}\n${PASO_6_ALCANCE}`)
   .replace(REGLA_AGENDA_LIBRE, "");
 
 const PROMPT_DE: Record<VarianteSombra, string> = {

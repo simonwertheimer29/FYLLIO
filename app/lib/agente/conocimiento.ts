@@ -777,9 +777,14 @@ const PAPEL_POR_NIVEL_AGENDA: Record<NivelAgenda, string[]> = {
     // ya los ha dicho») son los que dejan que el agente AVANCE: sin el primero,
     // la regla se lee como «no hables del día» y lo vuelve mudo.
     "El día y la hora los pone la persona. Si no los ha dicho, pregúntaselos. Si ya los ha dicho, devuélveselos tal y como ella los dijo: ni más concretos, ni más amplios.",
-    // Regla 3 — la prueba antes de enviar. «Antes de enviar:» es el único
-    // añadido al literal: sin él, «léelo» no tiene antecedente en una lista.
-    "Antes de enviar: Léelo como si el equipo abriera la agenda y no hubiera hueco donde ella pedía. Si algo se vuelve mentira, reescríbelo.",
+    // La regla 3 VIVÍA AQUÍ y se fue al PASO 6 del procedimiento (14-09, tras
+    // medir la 237). No porque estuviera mal escrita —aplicada a «paso al
+    // equipo para que te reserve la cita» da mentira a la primera— sino porque
+    // **una prueba no es una regla, es un paso**: aquí era un guion más en una
+    // lista de contexto, mientras el prompt numera un procedimiento 1→5 que no
+    // la incluía, y lo que no es un paso no se ejecuta. Ver `PASO_6_ALCANCE` en
+    // sombra.ts. No se duplica: si estuviera en los dos sitios no se sabría
+    // cuál de los dos hizo efecto.
   ],
   2: ["Ves la agenda en solo lectura: puedes ofrecer los huecos que te consten, tal como te consten. Reservar sigue siendo cosa del equipo: tú recoges cuál le viene bien."],
 };

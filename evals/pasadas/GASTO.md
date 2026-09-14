@@ -226,3 +226,11 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   guardado» 1→2 («te tengo anotado para el sábado 26»). Eso es MEJORAS 238 con forma reproducible.
   La pasividad que 237 temía no apareció: objetivo cubierto 1/4 → 3/4. Detalle en
   `evals/pasadas/2026-09-14-juicio-sobre-hilos.json` · ac. **~$10,42**
+
+- **14-09 · Las tres piezas del tercer daño: paso 6, el guardián que corrige, y la regla 5 fuera**
+  (2 × `qa:juez` de 62 casos + rejugada de 4 guiones × 2 decisores + juicio de borrador y enviado) ·
+  **$0,185 + $0,189 + $0,50 + $0,062 = $0,936 medido** (anunciado ~$1,70) · **LA CIFRA: lo ENVIADO
+  pasa de 5 daños a CERO** (afirma 3→0, se arroga 2→0, repite 4→11, mensajes de agenda 7→14), con el
+  control pasando de 7 podados/0 reescritos a 6 reescritos/1 podado. **El borrador NO mejoró** (tasa
+  0,56 → 0,57): todo el efecto es del guardián, no del paso 6. Vara del juez 62/62 → 61/62 ·
+  ac. **~$11,37**

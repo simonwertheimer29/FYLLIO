@@ -13,10 +13,33 @@
 // Es el borrador duplicado otra vez: dos caminos para el mismo hueco, y el
 // que no se mira va sin las guardas del otro (§21b, y la auditoría del 05-09).
 //
-// Aquí vive la secuencia, una vez: veto determinista → juez → PODA (quitar la
-// oración, coste cero) → si la frase ERA la respuesta, UNA reescritura que
-// vuelve a entrar por arriba → si también infringe, descartado. Nunca una
-// tercera ronda.
+// Aquí vive la secuencia, una vez: veto determinista → juez → UNA REESCRITURA
+// que vuelve a entrar por arriba → si sigue infringiendo, poda (quitar la
+// oración, coste cero) → si no se puede podar, descartado. Nunca una tercera
+// ronda.
+//
+// CORREGIR, NO CORTAR — el orden cambió el 14-09 y el motivo es una medición.
+// Hasta hoy la poda iba PRIMERA y la reescritura era su plan B: solo corría si
+// podar era imposible (el tipo lo decía a la cara — el estado «reescrito»
+// llevaba un campo `porQueNoSePodo`). O sea que la decisión de MEJORAS 233
+// —«el guardián corrige en vez de descartar»— se aplicó al MENSAJE ENTERO (antes
+// un INFRINGE lo borraba del todo, ahora se le quita la frase) y **el sustituto
+// de tirar el mensaje fue cortar, no corregir**. Se eligió por coste cero.
+//
+// Lo que eso costaba, medido sobre la pasada de MEJORAS 237: la poda corta por
+// ORACIÓN, y en la familia del tercer daño el infractor es una subordinada
+// dentro de una principal verdadera. Resultado real: de «Te tengo anotado para
+// el sábado 26 por la mañana. Paso todo al equipo para que te reserve la cita»
+// quitó LA PRIMERA y dejó la segunda — se llevó lo que era verdad y dejó la
+// promesa. En otro caso quitó «Sí, abrimos sábados» y dejó dos fechas que el
+// agente se había inventado. En un tercero dejó al paciente sin paso siguiente.
+// Sobre esa pasada, el control se llevó dos mensajes de agenda enteros y CERO
+// daños: 3 «afirma» + 2 «se arroga» antes y después de pasar por él.
+//
+// La poda no se va: sigue siendo la red cuando no hay reescritura (sin modelo,
+// generador descarrilado, o la reescritura volvió a infringir). Lo que cambia
+// es quién manda. Y cuesta una llamada de modelo por mensaje señalado, que es
+// el precio de no mandar media verdad.
 //
 // Lo que NO decide este módulo: QUÉ se envía cuando el veredicto es
 // «descartado». El agente pone su plantilla (y cuenta los descartes seguidos
@@ -34,10 +57,13 @@ export type ResultadoControl =
   | { estado: "pasa"; texto: string; usage?: VeredictoJuez["usage"] }
   /** Salió sin la oración que infringía. `frase` = lo que se fue. */
   | { estado: "podado"; texto: string; motivo: MotivoControl; frase: string; reescrito: boolean; usage?: VeredictoJuez["usage"] }
-  /** La frase ERA la respuesta: el generador lo reescribió y la reescritura
-   *  pasa. `motivo` y `frase` son los del veredicto ORIGINAL — la traza tiene
-   *  que decir QUÉ se corrigió, no solo que se corrigió algo. */
-  | { estado: "reescrito"; texto: string; motivo: MotivoControl; frase: string | null; porQueNoSePodo: string; usage?: VeredictoJuez["usage"] }
+  /** El generador corrigió la frase y la corrección pasa. Es el camino NORMAL
+   *  desde el 14-09, no la excepción. `motivo` y `frase` son los del veredicto
+   *  ORIGINAL — la traza tiene que decir QUÉ se corrigió, no solo que se
+   *  corrigió algo—, y `enVezDePodar` lo que la poda habría hecho con esa frase,
+   *  para poder leer qué se evitó. Se llamaba `porQueNoSePodo` cuando reescribir
+   *  era el plan B de podar; desde el 14-09 es al revés. */
+  | { estado: "reescrito"; texto: string; motivo: MotivoControl; frase: string | null; enVezDePodar: string; usage?: VeredictoJuez["usage"] }
   /** No hay manera: ni podando ni reescribiendo. El caller decide el reemplazo. */
   | {
       estado: "descartado";
@@ -117,7 +143,7 @@ export async function controlarBorrador(
     if (veredicto == null) return { estado: "juez_no_respondio", usage };
     if (!veredicto.infringe) {
       return reescrito && origen
-        ? { estado: "reescrito", texto, motivo: origen.motivo, frase: origen.frase, porQueNoSePodo: origen.poda, usage }
+        ? { estado: "reescrito", texto, motivo: origen.motivo, frase: origen.frase, enVezDePodar: origen.poda, usage }
         : { estado: "pasa", texto, usage };
     }
 
@@ -125,18 +151,21 @@ export async function controlarBorrador(
     // sin_categoria — la traza de descartes es la métrica que detecta un
     // generador degradado y no puede mentir (barrido 17-08, B-2).
     const motivo: MotivoControl = veredicto.categoria ?? "sin_categoria";
+    // La poda se CALCULA siempre (es pura y no cuesta nada) pero ya no manda:
+    // hace falta para saber si el generador está descarrilado y como red si la
+    // reescritura no llega. Ver el comentario de la cabecera, «CORREGIR, NO
+    // CORTAR» (14-09).
     const poda = podarBorrador(texto, veredicto.frase, {
       ultimoEntrante: opts.ultimoMensaje,
       publicado: opts.datosQueConstan,
       citaConsta: opts.citaConsta,
     });
-    if (poda.podado) {
-      return { estado: "podado", texto: poda.texto, motivo, frase: poda.quitada, reescrito, usage };
-    }
+    const descarrilado = !poda.podado && poda.motivo === "sigue_vetado";
 
-    // `sigue_vetado` no se reescribe: el borrador infringe en varios sitios a
-    // la vez, y eso es un generador descarrilado, no una frase de más.
-    if (vuelta === 0 && opts.reescribir !== false && poda.motivo !== "sigue_vetado") {
+    // 1 · CORREGIR. Una sola vez (`vuelta`), y no cuando el borrador infringe
+    // en varios sitios a la vez: eso es un generador descarrilado, no una frase
+    // de más, y reescribirlo es pagar un modelo por barrer una avería.
+    if (vuelta === 0 && opts.reescribir !== false && !descarrilado) {
       vuelta++;
       const nueva = await reescribirBorrador({
         borrador: texto,
@@ -150,10 +179,16 @@ export async function controlarBorrador(
       usage = sumar(usage, nueva?.usage);
       if (nueva) {
         reescrito = true;
-        origen = { motivo, frase: veredicto.frase, poda: poda.motivo };
+        origen = { motivo, frase: veredicto.frase, poda: poda.podado ? `habría podado: «${poda.quitada}»` : poda.motivo };
         texto = nueva.texto;
         continue;
       }
+    }
+
+    // 2 · CORTAR, ya solo como red: no hubo reescritura (sin modelo, generador
+    // descarrilado, o la reescritura volvió a infringir y no hay tercera ronda).
+    if (poda.podado) {
+      return { estado: "podado", texto: poda.texto, motivo, frase: poda.quitada, reescrito, usage };
     }
     return { estado: "descartado", motivo, frase: veredicto.frase, poda: poda.motivo, reescrito, usage };
   }

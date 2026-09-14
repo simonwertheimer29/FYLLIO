@@ -593,8 +593,11 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
     /el d[íi]a y la hora los pone la persona/i.test(nivel1) && /ni m[áa]s concretos, ni m[áa]s amplios/i.test(nivel1));
   ok("237/2 · con los DOS incisos: si no lo ha dicho, PREGUNTAR (sin esto la regla lo vuelve mudo)",
     /si no los ha dicho, preg[úu]ntaselos/i.test(nivel1));
-  ok("237/3 · la prueba antes de enviar es el MISMO test de falsabilidad que usa el juez",
-    /antes de enviar/i.test(nivel1) && /no hubiera hueco donde ella ped[íi]a/i.test(nivel1) && /se vuelve mentira, reescr[íi]belo/i.test(nivel1));
+  // 237/3 · LA PRUEBA YA NO ESTÁ AQUÍ: se fue al paso 6 del procedimiento
+  // (14-09). Se afirma que NO está duplicada — con la regla en los dos sitios
+  // no se sabría cuál hizo efecto— y el paso 6 se prueba abajo, con el prompt.
+  ok("237/3 · la prueba antes de enviar ya NO está en el papel (es un paso, no una regla)",
+    !/no hubiera hueco donde ella ped[íi]a/i.test(nivel1));
   // Y lo que NO puede entrar: un ejemplo de cómo decirlo. MEJORAS 236 — un
   // ejemplo en un prompt es una regla, y saldría literal en cien conversaciones.
   ok("237 · y NINGUNA frase-modelo que copiar (un ejemplo en un prompt es una regla)",
@@ -656,8 +659,23 @@ console.log("\nH · segundo descarte seguido: plantilla distinta, cola normal, y
   // una por mensaje era lo que creaba el gota a gota, así que quitarlo de la
   // cláusula del alcance y dejarlo en el paso 5 mediría obediencia, no la idea.
   // El LIBRE no se toca: es el control, y sin él la comparación pierde su suelo.
-  const soloEsasDos = SYSTEM_PROMPT_SOMBRA_ALCANCE.split("\n").filter((l) => !SYSTEM_PROMPT_SOMBRA_LIBRE.includes(l));
-  ok("y las ÚNICAS líneas distintas son el paso 4 y la cadencia del paso 5", soloEsasDos.length === 2, `${soloEsasDos.length} líneas nuevas`);
+  // 14-09: TRES, y la tercera es el paso 6 — la prueba antes de enviar, que
+  // vino del papel y no se duplica (ver arriba).
+  const soloEsas = SYSTEM_PROMPT_SOMBRA_ALCANCE.split("\n").filter((l) => !SYSTEM_PROMPT_SOMBRA_LIBRE.includes(l));
+  ok("y las ÚNICAS líneas distintas son el paso 4, la cadencia del paso 5 y el paso 6", soloEsas.length === 3, `${soloEsas.length} líneas nuevas`);
+  // EL PASO 6 ES UN PASO, y eso es todo el cambio: va numerado, dentro del
+  // procedimiento, después del 5. Si alguien lo devuelve a una lista de
+  // contexto, esto se pone rojo.
+  ok("237/3 · la prueba vive AHORA como paso 6, numerada y después del 5",
+    /\n6\. ANTES DE DARLO POR BUENO/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE) &&
+      SYSTEM_PROMPT_SOMBRA_ALCANCE.indexOf("\n6. ANTES DE DARLO POR BUENO") > SYSTEM_PROMPT_SOMBRA_ALCANCE.indexOf("\n5. Solo entonces escribe"));
+  ok("237/3 · y es el MISMO test de falsabilidad que usa el juez de agenda",
+    /no hubiera hueco donde ella ped[íi]a/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE) && /se vuelve mentira, reescr[íi]belo/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
+  // La guarda contra el fallo que se le ve venir: cumplir «reescríbelo»
+  // callándose es el mismo daño con otra cara.
+  ok("237/3 · y dice que reescribir NO es borrar (si no, la prudencia lo vuelve mudo)",
+    /no lo borres/i.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
+  ok("el LIBRE sigue sin paso 6: es el control", !/ANTES DE DARLO POR BUENO/.test(SYSTEM_PROMPT_SOMBRA_LIBRE));
   ok("el libre conserva su tope de una pregunta (es el control)", SYSTEM_PROMPT_SOMBRA_LIBRE.includes("Una pregunta como mucho."));
   ok("y el alcance deja el número al juicio del modelo", !SYSTEM_PROMPT_SOMBRA_ALCANCE.includes("Una pregunta como mucho.")
     && /encajan juntas y no parece un interrogatorio/.test(SYSTEM_PROMPT_SOMBRA_ALCANCE));
