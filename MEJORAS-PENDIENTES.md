@@ -3395,3 +3395,18 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   que la derivación por no legible sea la única que un texto legible posterior levanta solo (evento
   `soltado` automático con causa «llegó texto»), con la ficha diciéndolo. · **Impacto:** MEDIO. ·
   **Esfuerzo:** 1-2 h. · **Fecha:** 2026-09-11 · 🟡
+
+## 231. Seguridad · `guard:rls` lleva en ROJO permanente y por eso no lo mira nadie
+- `scripts/guard-service-role.mjs` sale con código 1 de forma estable: tres scripts usan
+  `SUPABASE_DB_URL_ADMIN` fuera de su allowlist (`dev-censo-ancho.mjs`, `qa-sin-fallbacks.mjs`,
+  `db-seed-demo-rico.mjs`). Comprobado el 14-09 que ya fallaba ANTES de tocarlo (lo verifiqué con el
+  fichero original) — no es una regresión de este bloque, es un rojo viejo. · **Principio (Simon,
+  14-09):** «un control de seguridad que siempre falla es como no tenerlo: nadie lo mira, y el día
+  que se ponga rojo de verdad, tampoco». Es el mismo mecanismo por el que el veto de agenda dejó de
+  informar: una señal que grita siempre deja de ser señal. · **Propuesta:** revisar los tres uno a
+  uno —a `dev-censo-ancho` y `qa-sin-fallbacks` probablemente les basta la URL de app, y
+  `db-seed-demo-rico` es un seed legítimo que va a la allowlist con su porqué escrito—, dejarlo en
+  verde y meterlo en `prebuild` para que no vuelva a poder ponerse rojo en silencio. ·
+  **Impacto:** MEDIO-ALTO (es un control de aislamiento entre clientes). · **Esfuerzo:** 1 h. ·
+  **Fecha:** 2026-09-14 · 🟡
+
