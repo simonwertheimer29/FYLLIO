@@ -25,7 +25,7 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
-import { colaDeSeguimiento, type Cohorte } from "../seguimiento/cola";
+import { colaDeSeguimiento, type CasoDeCola, type Cohorte } from "../seguimiento/cola";
 import type { CausaDerivacion } from "../automatizacion/estado";
 import { esperasYAsumidosPorDigitos } from "../automatizacion/semaforo";
 import { esLeadActivo } from "../leads/pipeline";
@@ -76,6 +76,14 @@ export type EstadoFlujo = {
     | "automatico";
   /** Solo `espera`: hasta cuándo (YYYY-MM-DD, inclusive). */
   hasta?: string;
+  /** QUÉ ES el caso (15-09, encargo de Simon): con «Listo para cerrar» a secas
+   *  no se sabía si era un lead, un cobro o un presupuesto, y la fila no decía
+   *  de un vistazo qué trabajo es. Sale del MISMO sitio que la cohorte —la cola
+   *  de Seguimiento—, así que no es una segunda clasificación. */
+  tipo?: "lead" | "presupuesto" | "conversacion" | "cobro";
+  /** El agente ENTREGÓ este caso (hay causa de derivación). Mientras es cierto,
+   *  el caso ya NO lo lleva el agente: es trabajo de una persona. */
+  entregado?: boolean;
   /** 11-09 — en las clases de cola: por qué el agente ENTREGÓ el caso. La
    *  card marca «Urgencia» con esto (Sonia: la prisa se veía solo al abrir). */
   causa?: CausaDerivacion | null;
@@ -304,10 +312,10 @@ export async function listarConversaciones(args: {
     esperasYAsumidosPorDigitos(),
   ]);
   const dig = (t: unknown) => String(t ?? "").replace(/\D/g, "");
-  const cohortePorDigitos = new Map<string, { cohorte: Cohorte; causa: CausaDerivacion | null }>();
+  const cohortePorDigitos = new Map<string, { cohorte: Cohorte; causa: CausaDerivacion | null; tipo: CasoDeCola["tipo"] }>();
   for (const caso of cola.casos) {
     const d = dig(caso.telefono);
-    if (d) cohortePorDigitos.set(d, { cohorte: caso.cohorte, causa: caso.entregadoCausa });
+    if (d) cohortePorDigitos.set(d, { cohorte: caso.cohorte, causa: caso.entregadoCausa, tipo: caso.tipo });
   }
   // Los teléfonos llegan en formatos distintos («+34 613…» vs «34613…»):
   // el matching es por dígitos con inclusión bidireccional — la semántica
@@ -329,7 +337,8 @@ export async function listarConversaciones(args: {
   const derivarFlujo = (f: any): EstadoFlujo | null => {
     const d = dig(f.telefono);
     const enCola = buscarPorDigitos(cohortePorDigitos, d);
-    if (enCola) return { clase: COHORTE_A_CLASE[enCola.cohorte], causa: enCola.causa };
+    if (enCola)
+      return { clase: COHORTE_A_CLASE[enCola.cohorte], causa: enCola.causa, tipo: enCola.tipo, entregado: enCola.causa != null };
     const sem = buscarPorDigitos(semaforos, d);
     if (sem?.asumido) return { clase: "asumido" };
     if (sem?.espera) return { clase: "espera", hasta: sem.espera.hasta };
@@ -375,7 +384,14 @@ export async function listarConversaciones(args: {
     return {
       f,
       estadoFlujo,
-      agenteAlMando: f.sal_del_agente === true && !asumido,
+      // «Las lleva el agente» solo mientras las LLEVE (15-09, Simon). Un caso
+      // que el agente ya entregó aparecía a la vez en «Necesitan de mí» y en
+      // «Las lleva el agente», y las dos cosas juntas confunden: el trabajo ya
+      // es de una persona. El semáforo no lo tapaba porque
+      // `esperasYAsumidosPorDigitos` descarta los eventos `derivado` a
+      // propósito — «asumido» es que alguien lo COGIÓ, no que el agente lo
+      // soltara. La señal buena es la causa de entrega, que ya venía en el mapa.
+      agenteAlMando: f.sal_del_agente === true && !asumido && estadoFlujo?.entregado !== true,
       sinRespuestaDesde:
         f.direccion === "Saliente" && f.del_agente !== true
           ? new Date(f.timestamp).toISOString()

@@ -345,6 +345,15 @@ function diasDeClinica(iso: string): number {
 /** La etiqueta de estado del flujo (fase C). Las cohortes, con las MISMAS
  *  palabras que Seguimiento; el resto, lo que el semáforo o la cadencia ya
  *  saben. Tonos: rojo = te espera; ámbar = qué NO hacer; neutro = informa. */
+/** Cómo se llama cada tipo de caso en la fila. «conversacion» no entra: decir
+ *  «Conversación · listo para cerrar» dentro de una lista de conversaciones no
+ *  añade nada. */
+const ETIQUETA_TIPO_CASO: Partial<Record<NonNullable<EstadoFlujo["tipo"]>, string>> = {
+  lead: "Lead",
+  cobro: "Cobro",
+  presupuesto: "Presupuesto",
+};
+
 function MarcaFlujo({ flujo }: { flujo: EstadoFlujo }) {
   // 11-09 (Sonia): una URGENCIA se ve en la card, no al abrir. Sustituye a
   // «Necesita respuesta» / «Fuera de plazo» — es la misma cohorte con la
@@ -352,7 +361,7 @@ function MarcaFlujo({ flujo }: { flujo: EstadoFlujo }) {
   if (flujo.causa === "urgencia" && (flujo.clase === "necesita_respuesta" || flujo.clase === "fuera_de_plazo")) {
     return (
       <Marca tono="danger" Icono={AlertTriangle}>
-        {flujo.clase === "fuera_de_plazo" ? "Urgencia · fuera de plazo" : "Urgencia"}
+        {flujo.clase === "fuera_de_plazo" ? "Urgencia · fuera de plazo" : "Urgencia · te espera"}
       </Marca>
     );
   }
@@ -362,7 +371,20 @@ function MarcaFlujo({ flujo }: { flujo: EstadoFlujo }) {
     case "necesita_respuesta":
       return <Marca tono="danger" Icono={AlertTriangle}>Necesita respuesta</Marca>;
     case "listo_para_cerrar":
-      return <Marca tono="accent" Icono={UserCheck}>Listo para cerrar</Marca>;
+      // QUÉ ES + QUE ESTÁ LISTO, en una sola marca (15-09, Simon). «Listo para
+      // cerrar» a secas no decía si el trabajo era un lead, un cobro o un
+      // presupuesto, y además convivía con el filtro «Las lleva el agente» en
+      // la misma fila. El tipo viene de la cola de Seguimiento, o sea de la
+      // misma cuenta que la cohorte: no es una segunda clasificación.
+      // Sin tipo conocido se dice lo de siempre — inventar la palabra sería
+      // peor que no decirla.
+      return (
+        <Marca tono="accent" Icono={UserCheck}>
+          {flujo.tipo && ETIQUETA_TIPO_CASO[flujo.tipo]
+            ? `${ETIQUETA_TIPO_CASO[flujo.tipo]} · listo para cerrar`
+            : "Listo para cerrar"}
+        </Marca>
+      );
     case "espera":
       return (
         <Marca tono="warning">

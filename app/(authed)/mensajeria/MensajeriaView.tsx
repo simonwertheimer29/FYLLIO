@@ -197,6 +197,39 @@ export function MensajeriaView() {
     if (enLista) setConversacion(enLista);
   }, [lista, abierta]);
 
+  // ─── EL REFRESCO (15-09) ────────────────────────────────────────────────
+  //
+  // Hasta hoy esta pantalla NO se refrescaba nunca: la lista se pedía al
+  // cambiar filtro, orden o clínica, y el hilo al cambiar de conversación. Un
+  // mensaje entrante solo aparecía si cambiabas de chat, o sea si forzabas tú
+  // el efecto. Medido por Simon usándola de verdad: «tengo que salir y volver
+  // a entrar para ver si alguien me ha escrito».
+  //
+  // POR QUÉ SONDEO Y NO TIEMPO REAL, hoy: el aislamiento por cliente es un
+  // `SET LOCAL app.cliente` que pone el SERVIDOR en cada transacción, y el
+  // navegador no tiene identidad en Postgres — Supabase Realtime exigiría un
+  // segundo modelo de autorización conviviendo con el primero. La versión
+  // realista (SSE desde una ruta propia) cuesta dinero en Vercel y, sobre
+  // todo, NECESITA ESTO IGUAL: en serverless la conexión muere por tope de
+  // duración, así que el sondeo es su capa de respaldo, no un descarte.
+  //
+  // CON LA PESTAÑA OCULTA NO SE PIDE NADA, y al volver se pide de inmediato:
+  // sondear una pestaña que nadie mira es gastar servidor por nada, y volver
+  // y esperar doce segundos es justo el defecto que veníamos a quitar.
+  useEffect(() => {
+    const tic = () => {
+      if (document.visibilityState !== "visible") return;
+      void cargarLista();
+      if (abierta) void cargarHilo(abierta);
+    };
+    const id = window.setInterval(tic, 12_000);
+    document.addEventListener("visibilitychange", tic);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tic);
+    };
+  }, [cargarLista, cargarHilo, abierta]);
+
   // El caso se pide UNA vez y lo comparten las dos columnas: la derecha para
   // contar qué pasa, el compositor para el borrador y el envío. Dos peticiones
   // serían dos verdades sobre el mismo caso.

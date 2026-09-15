@@ -6196,3 +6196,24 @@ con el primero, que es la clase de «dos verdades» que llevamos semanas quitand
 es SSE desde la propia ruta de Next, que sí cuesta dinero en Vercel (la conexión abierta mantiene
 viva la invocación). **Y el polling no se tira al hacerlo: es su capa de respaldo obligatoria**, porque
 en serverless la conexión muere por tope de duración.
+
+## 2026-09-15 · La fila dice qué trabajo es, y la pantalla se refresca sola
+**#4 · «LISTO PARA CERRAR» NO DECÍA QUÉ ERA, Y CONVIVÍA CON «LAS LLEVA EL AGENTE».** Dos arreglos
+distintos que se veían como uno:
+**(a) La etiqueta dice qué es + que está listo**, con las palabras de Simon: «Lead · listo para
+cerrar», «Cobro · listo para cerrar», «Urgencia · te espera». El TIPO sale de la cola de Seguimiento
+—la misma fuente que ya da la cohorte—, así que no es una segunda clasificación (§25). Sin tipo
+conocido se dice «Listo para cerrar» a secas: inventar la palabra sería peor que no decirla. Y
+«conversacion» no lleva prefijo — decir «Conversación · listo para cerrar» dentro de una lista de
+conversaciones no añade nada.
+**(b) Un caso ENTREGADO deja de contar como «las lleva el agente».** Solo es cierto mientras las
+lleve. El semáforo no lo tapaba y la razón es interesante: `esperasYAsumidosPorDigitos` **descarta a
+propósito los eventos `derivado`**, porque «asumido» significa que alguien lo COGIÓ, no que el agente
+lo soltara. La señal correcta ya viajaba en el mapa de cohortes —la causa de entrega— y no se estaba
+usando. Ahora `agenteAlMando` la mira.
+**#1 · EL REFRESCO, opción A (sondeo cada 12 s).** Con la pestaña oculta no se pide nada, y al volver
+se pide de inmediato: sondear lo que nadie mira es gastar servidor por nada, y volver y esperar doce
+segundos es justo el defecto que veníamos a quitar. Los dos guardas del arreglo #2 hacen que esto sea
+seguro: el hilo se vacía al cambiar de conversación y la respuesta que llega tarde no pinta encima.
+**Y no se tira al pasar a tiempo real:** en serverless la conexión SSE muere por tope de duración, así
+que el sondeo es su capa de respaldo obligatoria.
