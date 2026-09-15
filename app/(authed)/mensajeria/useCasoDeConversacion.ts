@@ -23,7 +23,7 @@
 // fallos no son silenciosos). Enterarse por un log es mejor que enterarse
 // porque alguien note que la pantalla eligió uno por su cuenta.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 import type { Conversacion } from "../../lib/mensajeria/conversaciones";
@@ -45,6 +45,8 @@ export function useCasoDeConversacion(conversacion: Conversacion | null): Estado
   recargar: () => void;
 } {
   const [estado, setEstado] = useState<Estado>({ caso: null, cargando: false, error: null });
+  /** De QUÉ caso es lo que hay en pantalla, para no enseñar el anterior. */
+  const deQuien = useRef<string | null>(null);
 
   const presupuestoId = conversacion?.presupuestoId ?? null;
   const telefono = conversacion?.telefono ?? null;
@@ -54,7 +56,12 @@ export function useCasoDeConversacion(conversacion: Conversacion | null): Estado
       setEstado({ caso: null, cargando: false, error: null });
       return;
     }
-    setEstado((p) => ({ ...p, cargando: true, error: null }));
+    // El caso de OTRA conversación no se queda en pantalla mientras carga esta
+    // (15-09, el mismo bug que la ficha): conservar lo anterior solo vale
+    // cuando se refresca lo MISMO.
+    setEstado((p) => (deQuien.current === presupuestoId ? { ...p, cargando: true, error: null } : { caso: null, cargando: true, error: null }));
+    deQuien.current = presupuestoId;
+    const pedidoPara = presupuestoId;
     try {
       // Este endpoint ya existía: lo construyó el panel del kanban para pedir
       // UN caso enriquecido (días sin contacto, intención, motivo de quiebre,
@@ -62,12 +69,14 @@ export function useCasoDeConversacion(conversacion: Conversacion | null): Estado
       const d = await cargarJSON<{ item: PresupuestoIntervencion | null }>(
         `/api/presupuestos/intervencion?id=${encodeURIComponent(presupuestoId)}`,
       );
+      if (deQuien.current !== pedidoPara) return; // llegó tarde: ya hay otra abierta
       setEstado({
         caso: d.item ? { tipo: "presupuesto", item: d.item } : null,
         cargando: false,
         error: d.item ? null : "El caso de esta conversación ya no está disponible.",
       });
     } catch (e) {
+      if (deQuien.current !== pedidoPara) return;
       setEstado({ caso: null, cargando: false, error: mensajeDeError(e) });
     }
   }, [presupuestoId]);

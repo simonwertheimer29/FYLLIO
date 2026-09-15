@@ -21,7 +21,7 @@
 // explicación. Un WhatsApp Web enseña mensajes; esto enseña mensajes y dice qué
 // hacer con ellos.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { confirmarEnvio } from "../../lib/mensajeria/confirmar-envio-cliente";
 import { useClinic } from "../../lib/context/ClinicContext";
@@ -139,6 +139,9 @@ export function MensajeriaView() {
     cargarLista();
   }, [cargarLista]);
 
+  /** De qué conversación es lo que hay pintado: el hilo de una NO se queda
+   *  mientras carga el de otra (15-09). */
+  const hiloDe = useRef<string | null>(null);
   const cargarHilo = useCallback(async (telefono: string) => {
     setCargandoHilo(true);
     setErrorHilo(null);
@@ -146,8 +149,11 @@ export function MensajeriaView() {
       const d = await cargarJSON<{ mensajes: MensajeHilo[] }>(
         `/api/mensajeria/hilo?telefono=${encodeURIComponent(telefono)}`,
       );
-      setHilo(d.mensajes);
+      // Dos peticiones en vuelo: la que llega tarde no pinta encima de la que
+      // el usuario está mirando.
+      if (hiloDe.current === telefono) setHilo(d.mensajes);
     } catch (e) {
+      if (hiloDe.current !== telefono) return;
       setErrorHilo(mensajeDeError(e));
       setHilo(null);
     } finally {
@@ -156,7 +162,16 @@ export function MensajeriaView() {
   }, []);
 
   useEffect(() => {
-    if (abierta) cargarHilo(abierta);
+    if (!abierta) return;
+    // VACIAR ANTES DE PEDIR: sin esto se veía el hilo del chat anterior
+    // mientras cargaba el nuevo, que con la ficha al lado significa la
+    // conversación de una persona junto a los datos de otra.
+    if (hiloDe.current !== abierta) {
+      hiloDe.current = abierta;
+      setHilo(null);
+      setErrorHilo(null);
+    }
+    void cargarHilo(abierta);
   }, [abierta, cargarHilo]);
 
   // ─── §2 · la conversación abierta NO se deriva de la lista ───────────

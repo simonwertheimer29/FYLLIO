@@ -6166,3 +6166,33 @@ nuevo (`pedirSombra` rellena un `fallo.razon` que el caller pasa), porque si el 
 hay que saber si fue la API o el modelo.
 **EL FAIL-CLOSED FUNCIONÓ TAL Y COMO SE DISEÑÓ:** no salió ningún mensaje, el caso está en la bandeja
 y la incidencia saltó. Lo que faltaba no era la guarda: era que dijera algo útil.
+
+## 2026-09-15 · Tres arreglos de Mensajería que salieron de usarla de verdad
+**#3 · SEGUIMIENTO NO ENSEÑABA LA CONVERSACIÓN, Y MENTÍA AL DECIR POR QUÉ. Causa: un espacio.** La
+clave de un hilo es el teléfono en E.164 con «+» y sin espacios —así está en `mensajes_whatsapp` y así
+es el `caso_id` de los eventos—, pero `leads`, `pacientes` y `presupuestos` lo guardan como viene del
+mundo real («+34 613 751 409»). La cola de Seguimiento pasaba a la pantalla ese teléfono CRUDO.
+Resultado: el hilo volvía 404 —que `ChatEmbebido` traga a propósito, porque un caso puede no tener
+hilo— y salía **vacío sin error**; y la ficha, que busca los eventos por `caso_id` exacto, no
+encontraba ninguno y declaraba **«el agente no ha evaluado esta conversación»**, que era falso.
+**Lo más feo: la normalización ya existía** — la propia cola usa `dig(telefono)` para sus cuentas—
+pero no se aplicaba en el borde que importaba. Ahora hay un solo sitio (`claveDeHilo`) y la cola lo
+usa en las tres salidas hacia la UI.
+**#2 · LA FICHA DE UN PACIENTE CON LA CONVERSACIÓN DE OTRO.** `useFichaDeCaso` no vaciaba la ficha al
+cambiar de conversación: enseñaba la anterior mientras cargaba la nueva. El comentario que lo
+justificaba —«conservar lo último bueno, no vaciar por un fallo de red» (§10)— es correcto **cuando
+se refresca la MISMA conversación** y erróneo cuando se cambia de persona: ahí «lo último bueno» es
+de otra. Con datos de salud eso no es estético. Arreglado en los tres sitios que lo tenían (ficha,
+caso y el propio hilo), y de paso **la respuesta que llega tarde ya no pinta encima**: con dos
+peticiones en vuelo, la lenta se descarta si el usuario ya cambió de chat.
+**#1 · NO HAY REFRESCO NINGUNO, y el mensaje SÍ se guarda al llegar.** El webhook persiste el
+entrante ANTES de evaluar, así que el retraso no es del agente: es que `MensajeriaView` solo pide
+lista e hilo cuando cambian filtro, orden o conversación. Ni intervalo, ni SWR, ni websocket.
+**Sobre tiempo real (decisión de Simon pendiente):** Supabase Realtime NO es viable aquí sin rehacer
+la autorización — el aislamiento por cliente es `current_setting('app.cliente')` puesto por el
+SERVIDOR en cada transacción, y el navegador no tiene identidad en Postgres (no hay anon key ni
+Supabase Auth: se usa next-auth). Usarlo obligaría a un SEGUNDO modelo de políticas RLS conviviendo
+con el primero, que es la clase de «dos verdades» que llevamos semanas quitando. La versión realista
+es SSE desde la propia ruta de Next, que sí cuesta dinero en Vercel (la conexión abierta mantiene
+viva la invocación). **Y el polling no se tira al hacerlo: es su capa de respaldo obligatoria**, porque
+en serverless la conexión muere por tope de duración.

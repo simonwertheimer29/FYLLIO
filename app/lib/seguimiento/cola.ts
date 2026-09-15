@@ -42,6 +42,7 @@
 // NO se toca: LeadsView, Intervención y /red siguen sobre ella hasta P4.
 
 import { sql } from "kysely";
+import { claveDeHilo } from "../mensajeria/clave-hilo";
 import { runWithClienteDb, conTransaccionCompartida } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import type { EventoAutomatizacion } from "../automatizacion/estado";
@@ -745,7 +746,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     casos.push({
       id: `lead:${l.id}`,
       tipo: "lead",
-      telefono: l.telefono,
+      telefono: claveDeHilo(l.telefono),
       nombre: l.nombre,
       clinicaId: l.clinica_id == null ? null : String(l.clinica_id),
       cohorte: k.cohorte,
@@ -775,7 +776,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     casos.push({
       id: `conversacion:${a.telefono}`,
       tipo: "conversacion",
-      telefono: a.telefono,
+      telefono: claveDeHilo(a.telefono),
       nombre: a.telefono,
       clinicaId: null,
       cohorte: kk.cohorte,
@@ -900,7 +901,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       casos.push({
         id: `cobro:${cb.pacienteId}`,
         tipo: "cobro",
-        telefono: pac?.telefono ?? null,
+        telefono: claveDeHilo(pac?.telefono),
         nombre: pac?.nombre ?? "Paciente",
         clinicaId: cb.clinicaId,
         cohorte: r.cohorte,
