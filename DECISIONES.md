@@ -6390,3 +6390,25 @@ ADEMÁS comprueba que no queden de corridas anteriores —si quedan, sale rojo: 
 la prueba, no un apéndice—; (2) **fuera de `prebuild`**: un QA que escribe en la base de producción
 durante un despliegue no puede correr solo. Se corre a mano antes de subir, que es cuando habría
 cazado el TDZ igual.
+
+## 2026-09-15 · La guarda de horario sale del modo B: responder a las 23:00 es el caso de más valor
+**POR QUÉ NO ENVIABA, con el mensaje concreto de Simon delante:** la variable estaba bien, el modo B
+estaba desplegado, el teléfono casaba (la comparación es por DÍGITOS desde el primer día — la lección
+de Seguimiento ya estaba aplicada) y el envío SÍ corre en el camino de reactivación. Lo frenó el
+horario: Clínica Demo Centro cierra a las 20:00 y él escribió a las 23:00.
+**LA GUARDA ESTABA MAL PENSADA, Y ES MÍA.** La escribí con el argumento de que «una clínica que
+escribe a las 3:00 es una clínica que no duerme». Cierto, pero **funde dos cosas distintas**:
+ · **INICIAR** contacto de madrugada —una cadencia, un recordatorio a quien no ha escrito— es
+   intrusivo, y ahí la guarda es correcta.
+ · **RESPONDER** a quien acaba de escribirte a las 23:00 no lo es: es servicio. Y el prompt ya tiene
+   la regla fina para eso (fuera de horario no se promete «enseguida»).
+**Hoy el modo B solo RESPONDE; nunca inicia.** Así que la guarda no protegía de nada y silenciaba
+justo al paciente de más valor — el que escribe con la clínica cerrada y recibe respuesta igual, que
+como dice Simon «es media demostración del producto». **Retirada del modo B y escrita en MEJORAS 254**,
+donde vuelve a rajatabla: el «¿sigues ahí?» es el único sitio donde el agente escribirá sin que le
+hayan escrito.
+**Y EL APAGADO, OBSERVABLE.** El log callaba cuando el motivo era «apagado», así que desde fuera no
+se distinguía «el interruptor está off» de «esta versión no está desplegada» — Simon perdió una hora
+en esa diferencia. Ahora se dice SIEMPRE qué pasó, y en el apagado se dice además si la variable
+existe siquiera: eso separa «no configurado» de «configurado para otro». **Una guarda que frena en
+silencio es medio producto: hay que poder leer por qué no hizo nada.**

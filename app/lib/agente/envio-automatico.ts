@@ -18,14 +18,28 @@
 // solo y no para es la peor forma de perder a un paciente:
 //   1. OPT-OUT — quien pidió no recibir mensajes no recibe ninguno. Ya se
 //      respeta en el prompt y en el semáforo; aquí es determinista.
-//   2. FUERA DE HORARIO — el agente contesta, pero no de madrugada: un WhatsApp
-//      de la clínica a las 3:00 es una clínica que no duerme. Se usa el horario
-//      publicado de la clínica; sin horario configurado, no se envía solo.
-//   3. TOPE DE MENSAJES SEGUIDOS SIN RESPUESTA — el freno que más importa. Si
+//   2. TOPE DE MENSAJES SEGUIDOS SIN RESPUESTA — el freno que más importa. Si
 //      la clínica lleva N salientes seguidos sin que la persona conteste, el
 //      agente deja de enviar y el caso se queda para una persona. No es el
 //      número de mensajes de la conversación: son los SEGUIDOS sin respuesta,
 //      que es la forma que tiene un sistema de hablar solo.
+//
+// LA GUARDA DE HORARIO SE RETIRÓ EL 15-09, Y LA RAZÓN IMPORTA PARA CUANDO
+// VUELVA. La escribí con el argumento de que «una clínica que escribe a las
+// 3:00 es una clínica que no duerme». Es cierto, pero funde dos cosas
+// distintas: INICIAR contacto de madrugada (una cadencia, un recordatorio a
+// quien no ha escrito) es intrusivo, y RESPONDER a quien acaba de escribirte a
+// las 23:00 no lo es — es servicio, y el prompt ya tiene la regla fina para ese
+// caso (fuera de horario no se promete «enseguida»).
+//
+// **Hoy el modo B solo RESPONDE; nunca inicia.** Así que la guarda no protegía
+// de nada y silenciaba justo al paciente de más valor: el que escribe con la
+// clínica cerrada y recibe respuesta igual. Medido en vivo por Simon a las 23h.
+//
+// VUELVE, y a rajatabla, cuando exista el recordatorio de «¿sigues ahí?»
+// (MEJORAS 254): ahí el agente escribirá SIN que le hayan escrito, que es
+// exactamente el caso que la guarda sí cubre. Quien la reponga: el dato es
+// `senalesDelHilo(...).enHorario`, ya calculado para el prompt.
 //
 // Y una cosa que NO es una guarda sino el diseño: esto solo envía lo que el
 // agente ESCRIBIÓ. Un turno sin texto —urgencia, queja, audio no legible, el
@@ -43,7 +57,6 @@ export type MotivoNoEnvia =
   | "apagado"
   | "sin_texto"
   | "opt_out"
-  | "fuera_de_horario"
   | "tope_seguidos"
   | "fallo_envio";
 
@@ -88,12 +101,6 @@ export async function enviarSiTocaSolo(args: {
   evaluacion: EvaluacionTurno;
   hilo: readonly MensajeHilo[];
   optOutVigente: boolean;
-  /** Si el mensaje entra DENTRO del horario publicado de la clínica. Se
-   *  reutiliza el que ya cuenta `senalesDelHilo` para el prompt en vez de
-   *  volver a calcularlo: dos cuentas del mismo horario acabarían diciendo
-   *  cosas distintas (§25). null = no se sabe, y entonces no se envía solo —
-   *  una clínica sin horario configurado no puede escribir de madrugada. */
-  enHorario: boolean | null;
 }): Promise<ResultadoEnvio> {
   const texto = (args.evaluacion.respuesta ?? "").trim();
   if (!envioAutomaticoActivo(args.cliente, args.telefono)) return { envio: false, motivo: "apagado" };
@@ -104,7 +111,6 @@ export async function enviarSiTocaSolo(args: {
   const seguidos = salientesSeguidos(args.hilo);
   if (seguidos >= TOPE_SEGUIDOS_SIN_RESPUESTA)
     return { envio: false, motivo: "tope_seguidos", detalle: `${seguidos} salientes seguidos sin respuesta` };
-  if (args.enHorario !== true) return { envio: false, motivo: "fuera_de_horario" };
 
   try {
     const r = await getServicioMensajeria("waba").enviarMensaje({

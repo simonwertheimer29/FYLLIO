@@ -3884,6 +3884,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   4. **QUÉ DICE.** «¿Sigues ahí?» a secas es un mensaje que no aporta. Tiene que recordar DÓNDE se
      quedó («me faltaba saber qué días te vienen bien»), que es lo único que le ahorra trabajo a la
      persona y la única excusa honesta para volver a escribir.
+- **LA GUARDA DE HORARIO VIVE AQUÍ, no en el modo B** (15-09): se escribió para el envío automático
+  y se retiró de él el mismo día, porque el modo B solo RESPONDE y responder a quien te escribe a las
+  23:00 es el caso de más valor que hay, no un riesgo. **Iniciar** de madrugada sí lo es, y eso es
+  exactamente lo que hace esta pieza. Al escribirla hay que reponerla a rajatabla: el dato es
+  `senalesDelHilo(...).enHorario`, ya calculado para el prompt.
 - **La guarda que ya existe y aquí SÍ trabajará:** el tope de salientes seguidos sin respuesta del
   modo B (`TOPE_SEGUIDOS_SIN_RESPUESTA`). En el camino de respuesta ese contador vale 0 por
   construcción —el agente solo contesta a un entrante, así que el último mensaje del hilo siempre es

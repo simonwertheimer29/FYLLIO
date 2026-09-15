@@ -419,11 +419,21 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     evaluacion,
     hilo,
     optOutVigente,
-    enHorario: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario).enHorario,
   });
-  if (envio.envio) console.log(`[agente] enviado SOLO a ${e.telefono}`);
-  else if (envio.motivo !== "apagado" && envio.motivo !== "sin_texto")
-    console.warn(`[agente] NO se envió solo (${envio.motivo}${envio.detalle ? `: ${envio.detalle}` : ""}) — queda de borrador`);
+  // SIEMPRE SE DICE QUÉ PASÓ, incluido «apagado» (15-09). Sin esta línea, desde
+  // fuera no se distinguía «el interruptor está off» de «esta versión no está
+  // desplegada», y Simon perdió una hora en esa diferencia. Cuando está
+  // apagado se dice ADEMÁS si la variable existe siquiera: eso separa «no
+  // configurado» de «configurado para otro».
+  if (envio.envio) console.log(`[agente] ENVIADO SOLO a ${e.telefono}`);
+  else if (envio.motivo === "apagado")
+    console.log(
+      `[agente] envío automático APAGADO para ${e.telefono} — AGENTE_ENVIO_AUTOMATICO ${
+        (process.env["AGENTE_ENVIO_AUTOMATICO"] ?? "").trim() ? "está puesta pero no incluye este cliente/teléfono" : "no está puesta"
+      }`,
+    );
+  else if (envio.motivo === "sin_texto") console.log(`[agente] sin texto que enviar (${evaluacion.causa ?? "sin causa"}): el caso va a la bandeja`);
+  else console.warn(`[agente] NO se envió solo (${envio.motivo}${envio.detalle ? `: ${envio.detalle}` : ""}) — queda de borrador`);
 
   // 4 bis · REACTIVACIÓN (15-09): la persona insiste en un caso ya entregado.
   //     El agente le ha contestado arriba; esto es la otra mitad, la que de
