@@ -197,6 +197,21 @@ export function MensajeriaView() {
     if (enLista) setConversacion(enLista);
   }, [lista, abierta]);
 
+
+  // El caso se pide UNA vez y lo comparten las dos columnas: la derecha para
+  // contar qué pasa, el compositor para el borrador y el envío. Dos peticiones
+  // serían dos verdades sobre el mismo caso.
+  const {
+    caso,
+    cargando: cargandoCaso,
+    error: errorCaso,
+    recargar: recargarCaso,
+  } = useCasoDeConversacion(conversacion);
+
+  // MEJORAS 119: la ficha, UNA vez, repartida entre el composer (borrador del
+  // evaluador, opt-out) y la columna derecha.
+  const { ficha, recargar: recargarFicha } = useFichaDeCaso(abierta);
+
   // ─── EL REFRESCO (15-09) ────────────────────────────────────────────────
   //
   // Hasta hoy esta pantalla NO se refrescaba nunca: la lista se pedía al
@@ -220,7 +235,23 @@ export function MensajeriaView() {
     const tic = () => {
       if (document.visibilityState !== "visible") return;
       void cargarLista();
-      if (abierta) void cargarHilo(abierta);
+      if (!abierta) return;
+      void cargarHilo(abierta);
+      // LA FICHA TAMBIÉN, y esto faltaba (15-09). El mensaje entrante vive en
+      // el HILO y el borrador del agente vive en la FICHA: sin esta línea
+      // aparecía solo el mensaje y el borrador había que ir a buscarlo
+      // entrando en la conversación, que es justo el gesto que veníamos a
+      // quitar. Medido por Simon probando la reactivación.
+      //
+      // Pisar lo que se está escribiendo NO es un riesgo: la precarga del
+      // composer solo entra si la caja está vacía o contiene la sugerencia
+      // anterior sin tocar, y una sola vez por mensaje evaluado. Dejarla
+      // fuera no era prudencia: era media función.
+      //
+      // Y llegan en momentos distintos a propósito: el webhook guarda el
+      // entrante antes de evaluar, así que el mensaje se ve en el primer tic
+      // y el borrador uno o dos después, cuando el agente termina.
+      recargarFicha();
     };
     const id = window.setInterval(tic, 12_000);
     document.addEventListener("visibilitychange", tic);
@@ -228,21 +259,7 @@ export function MensajeriaView() {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", tic);
     };
-  }, [cargarLista, cargarHilo, abierta]);
-
-  // El caso se pide UNA vez y lo comparten las dos columnas: la derecha para
-  // contar qué pasa, el compositor para el borrador y el envío. Dos peticiones
-  // serían dos verdades sobre el mismo caso.
-  const {
-    caso,
-    cargando: cargandoCaso,
-    error: errorCaso,
-    recargar: recargarCaso,
-  } = useCasoDeConversacion(conversacion);
-
-  // MEJORAS 119: la ficha, UNA vez, repartida entre el composer (borrador del
-  // evaluador, opt-out) y la columna derecha.
-  const { ficha, recargar: recargarFicha } = useFichaDeCaso(abierta);
+  }, [cargarLista, cargarHilo, recargarFicha, abierta]);
 
   // 2.8 (MEJORAS 183): «ver por qué» por mensaje. Los turnos explicados se
   // recargan con el hilo; el panel SUSTITUYE a la ficha en la columna derecha

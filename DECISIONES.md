@@ -6230,3 +6230,22 @@ sigue esperando mientras lee que «el equipo te contactará».
 otros más viejos parece un orden arbitrario, y un orden que no se explica se desobedece.
 **Lo que NO se tocó, otra vez a propósito:** `entregadoEn`. La edad de la entrega sigue siendo la de
 la entrega. Una reactivación de un caso ya resuelto tampoco cuenta — eso es historia, no presión.
+
+## 2026-09-15 · El refresco traía el mensaje pero no el borrador
+**Simon, probando la reactivación: «el mensaje entrante sí lo veo, y el borrador no».** Dos hipótesis
+suyas, y la segunda era la preocupante: que «persona dentro» se activara con tener la conversación
+ABIERTA, y entonces mirar una conversación desactivaría al agente — probándolo él, siempre.
+**DESCARTADA con el código delante: `hilo_asumido` solo lo enciende un evento `asumido_manual`, y ese
+lo escribe UNA sola cosa**: el botón explícito de `FichaCasoPanel` → `/api/automatizacion/decidir`.
+Abrir, mirar o leer no escribe nada. La cabecera de esa ruta ya lo razonaba el día que se hizo: «sin
+esa elección, el agente escribiría encima de una conversación humana en curso». **La frontera entre
+mirar y responder era un acto deliberado desde el principio, no la presencia.**
+**ERA LO OTRO, Y ERA MÍO:** el tic del refresco pedía lista e hilo, **no la ficha** — y el borrador
+del agente vive en la ficha. Lo dejé fuera por miedo a pisar lo que se estuviera escribiendo, y me
+equivoqué dos veces: la precarga del composer YA está protegida (solo entra con la caja vacía o con
+la sugerencia anterior sin tocar, y una vez por mensaje evaluado), y dejarla fuera no era prudencia
+sino media función. **Lección para el bloque: cuando una pantalla tiene tres fuentes, refrescar dos
+es un bug con aspecto de cautela.**
+**Y una cosa que no es un fallo y conviene saber:** el mensaje y el borrador llegan en tics
+distintos. El webhook guarda el entrante ANTES de evaluar, así que el mensaje se ve en el primer tic
+y el borrador uno o dos después, cuando el agente termina.
