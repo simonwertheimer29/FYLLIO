@@ -6412,3 +6412,28 @@ se distinguía «el interruptor está off» de «esta versión no está desplega
 en esa diferencia. Ahora se dice SIEMPRE qué pasó, y en el apagado se dice además si la variable
 existe siquiera: eso separa «no configurado» de «configurado para otro». **Una guarda que frena en
 silencio es medio producto: hay que poder leer por qué no hizo nada.**
+
+## 2026-09-16 · Un «gracias» reabría un caso cerrado: `casoCompleto` es un hecho, no una orden de entregar
+**Medido en vivo, dos veces seguidas, con el log exacto:**
+`21:57:19 resuelto_manual` → `21:57:41 entrante «muchisimas gracias! un abrazo»` →
+`21:58:06 derivado · caso_completo` → `21:58:36 resuelto_manual`. Simon cerró el caso, dio las
+gracias, y el caso volvió a la bandeja con su botón de «marcar resuelto».
+**(a) POR QUÉ:** el contrato seguía completo —los datos se recogieron en su día— así que
+**cualquier** mensaje posterior volvía a cumplir `casoCompleto`, y el código entrega cuando el
+contrato se cumple. Un «gracias» cumplía el contrato tanto como un «quiero cita».
+**(b) NO ES LA REACTIVACIÓN.** El semáforo estaba en VERDE (resuelto), así que `reactivacion` era
+false y el turno fue por el camino normal. Tampoco es «cualquier entrante reabre»: solo el que acaba
+en `deriva` — pero con el contrato ya cubierto, eso es casi cualquiera.
+**(c) NO LO INTRODUJIMOS NOSOTROS: es anterior.** Lo que ha cambiado es que ahora el agente contesta
+—y desde hoy envía solo—, así que lo que antes pasaba en silencio y de tarde en tarde ahora se ve.
+**EL ARREGLO, y la distinción que lo ordena: `casoCompleto` es un HECHO, no una orden de entregar.**
+Sigue siendo cierto (el contrato está cubierto) y la ficha lo sigue diciendo; lo que cambia es que ya
+no entrega por sí solo cuando **la entrega anterior se resolvió** y **el mensaje no pide nada**. En
+cuanto pida algo, se entrega otra vez: eso ya es un caso nuevo y se abre solo — como el «quiero
+reservar otra cita» que Simon escribió tres minutos después.
+**Quién decide «no pide nada» es el MODELO, no el código** (`pideAccion`): distinguir «gracias» de
+«quiero otra cita» solo se puede leyendo el mensaje. Y el dato de «ya se resolvió» sale del LOG y no
+del semáforo, porque el semáforo está en verde precisamente porque se resolvió: no puede distinguir
+«nunca se entregó» de «se entregó y se cerró».
+**De paso, confirmado en el mismo log: el modo B está enviando solo** (`autor: agente` en el saliente
+de las 21:58).

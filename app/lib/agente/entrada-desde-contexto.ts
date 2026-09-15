@@ -74,6 +74,8 @@ export type PiezasEntrada = {
    *  producción sale del último turno persistido (cada turno escribe su
    *  cuenta); en el banco, de la sesión, que la avanza con la misma regla. */
   descartesSeguidosAntes: number;
+  /** 16-09 — la última entrega ya se resolvió (ver EntradaEvaluador). */
+  entregaYaResuelta?: boolean;
   hoy?: string;
 };
 
@@ -155,6 +157,7 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     cobroYaRecordado: p.hilo.some((m) => m.direccion === "Saliente" && FRASE_RECUERDO_COBRO.test(m.contenido)),
     senales: p.senales,
     descartesSeguidosAntes: p.descartesSeguidosAntes,
+    entregaYaResuelta: p.entregaYaResuelta === true,
     optOutVigente: p.optOutVigente,
     clinicasDelHilo: p.clinicasDelHilo,
     identidadAmbigua: ctx.identidadAmbigua ? { nombres: ctx.identidadAmbigua.nombres } : null,

@@ -244,7 +244,23 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
         order by created_at desc limit 1`.execute(trx);
     const nSeguidos = leerPayloadEvaluacion(ult.rows?.[0]?.json)?.descartesSeguidos;
     const descartesSeguidosAntes = typeof nSeguidos === "number" && Number.isFinite(nSeguidos) ? Math.max(0, nSeguidos) : 0;
-    return { hiloRows, eventos, proximaCita, nombresClinicas, turnos24h, descartesSeguidosAntes };
+    // ¿LA ÚLTIMA ENTREGA YA SE RESOLVIÓ? (16-09). Con el contrato completo de
+    // antes, cualquier mensaje posterior volvía a cumplir `casoCompleto` y
+    // REABRÍA el caso — un «gracias» devolvía a la bandeja algo que ya se había
+    // cerrado. Se mira aquí porque es un hecho del LOG, no del semáforo: el
+    // semáforo ya está en verde precisamente porque se resolvió, así que no
+    // puede distinguir «nunca se entregó» de «se entregó y se cerró».
+    const cierre = await trx
+      .selectFrom("eventos_automatizacion")
+      .select(["evento", "created_at"])
+      .where("caso_id", "=", e.telefono)
+      .where("tipo_caso", "=", "conversacion")
+      .where("evento", "in", ["derivado", "resuelto_manual"])
+      .orderBy("created_at", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    const entregaYaResuelta = cierre?.evento === "resuelto_manual";
+    return { hiloRows, eventos, proximaCita, nombresClinicas, turnos24h, descartesSeguidosAntes, entregaYaResuelta };
   });
 
   // MEJORAS 145 — el tope. El caso queda VISIBLE como «Sin evaluar» y con
@@ -334,6 +350,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     diasHastaProximaCita,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
     descartesSeguidosAntes: datos.descartesSeguidosAntes,
+    entregaYaResuelta: datos.entregaYaResuelta,
     optOutVigente,
     clinicasDelHilo,
     hoy: e.hoy,

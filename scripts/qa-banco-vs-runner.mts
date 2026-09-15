@@ -95,6 +95,10 @@ const DECLARADOS: Record<string, string> = {
   // Compararlo diría «divergen» por la edad del artefacto, no por el código.
   // Vuelve a COMPARABLES en cuanto se vuelva a correr `hilos:jugar`.
   reactivacion: "el banco la calcula igual, pero el fixture de comparación es anterior al campo",
+  // 16-09 — el banco NO tiene «marcar resuelto»: su sesión de prueba modela
+  // derivado y espera, no el cierre humano posterior. Va a false y se declara.
+  // Cuando la sesión modele el cierre, pasa a COMPARABLES.
+  entregaYaResuelta: "el banco no modela el cierre humano de una entrega (su sesión solo tiene derivado y espera)",
 };
 
 const corto = (v: unknown) => {

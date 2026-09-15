@@ -124,6 +124,17 @@ export type EntradaEvaluador = {
    *  volvía a escribir preguntando qué pasaba con su cita y nadie le contestaba
    *  (ver `reactivacion`). */
   yaDerivado: boolean;
+  /** 16-09 — la última entrega YA SE RESOLVIÓ: hubo un `derivado` y después
+   *  alguien pulsó «marcar resuelto». El caso está cerrado y en verde.
+   *
+   *  POR QUÉ HACE FALTA SABERLO: el contrato sigue completo —los datos se
+   *  recogieron en su día—, así que CUALQUIER mensaje posterior volvía a
+   *  cumplir `casoCompleto` y el turno REABRÍA el caso. Medido en vivo: Simon
+   *  cerró su caso, escribió «muchísimas gracias, un abrazo», y el caso volvió
+   *  a la bandeja con su botón de «marcar resuelto». Dos veces seguidas. En
+   *  una clínica real eso es una bandeja llena de casos que no piden nada y
+   *  una coordinadora cerrando lo mismo tres veces. */
+  entregaYaResuelta?: boolean;
   /** REACTIVACIÓN (15-09, decisión de Simon): el caso ya se entregó y sigue
    *  esperando a que alguien lo coja, y la persona vuelve a escribir. El agente
    *  SÍ contesta —lo que sepa contestar, del tema que sea— pero NO persigue
@@ -1402,10 +1413,22 @@ export async function evaluarTurno(
     const v = rec?.["identificar"]?.["nombre"] ?? rec?.["cita"]?.["nombre_completo"];
     return typeof v === "string" && v.trim() !== "" && v !== "no_aplica" ? v : e.nombre;
   })();
+  // ENTREGAR UN CASO QUE YA SE ENTREGÓ Y SE CERRÓ (16-09). `casoCompleto` es
+  // un HECHO —el contrato está cubierto— y sigue siéndolo; lo que cambia es si
+  // ese hecho vuelve a ENTREGAR. Si la entrega anterior ya se resolvió y este
+  // mensaje no pide nada a la clínica, el agente contesta y el caso se queda
+  // cerrado. En cuanto pida algo (`pideAccion`), vuelve a entregarse: eso ya
+  // es un caso nuevo, y se abre solo.
+  //
+  // El juicio que decide es del MODELO y no del código a propósito: «¿pide
+  // algo que exija que la clínica haga?» solo se sabe leyendo el mensaje, y
+  // «gracias» y «quiero otra cita» se distinguen ahí.
+  const cerradoYNoPideNada = e.entregaYaResuelta === true && !juicio.pideAccion;
+  const entregaPorCompleto = casoCompleto && !cerradoYNoPideNada;
   // ¿Este turno DERIVA? (la urgencia nunca llega aquí: su respuesta la
   // escribe código antes). Si deriva, el reemplazo anuncia la ENTREGA.
   const derivaEsteTurno =
-    juicio.peticionOQueja || insiste || casoCompleto || antecedenteConCita ||
+    juicio.peticionOQueja || insiste || entregaPorCompleto || antecedenteConCita ||
     (juicio.pideAccion && objetivoActivo == null);
   const plantillaOpts = { entrega: derivaEsteTurno, objetivo: objetivoActivo, idioma: juicio.idioma };
 
@@ -1440,7 +1463,7 @@ export async function evaluarTurno(
       antecedenteConCita ||
       juicio.peticionOQueja ||
       insiste ||
-      casoCompleto ||
+      entregaPorCompleto ||
       (juicio.pideAccion && objetivoActivo == null);
     // EL VETO DETERMINISTA primero (23-08): las frases-firma de agenda no
     // dependen de la obediencia de ningún prompt — código, y ni se paga el
@@ -1603,7 +1626,7 @@ export async function evaluarTurno(
     };
   }
 
-  if (casoCompleto) {
+  if (entregaPorCompleto) {
     return {
       ...base,
       decision: "deriva",
