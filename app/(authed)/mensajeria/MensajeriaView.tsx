@@ -231,6 +231,34 @@ export function MensajeriaView() {
   // CON LA PESTAÑA OCULTA NO SE PIDE NADA, y al volver se pide de inmediato:
   // sondear una pestaña que nadie mira es gastar servidor por nada, y volver
   // y esperar doce segundos es justo el defecto que veníamos a quitar.
+  // CON PRISA JUSTO DESPUÉS DE UN ENTRANTE (15-09). El mensaje y el borrador
+  // llegan en tics distintos —el webhook guarda el entrante ANTES de evaluar—,
+  // así que quien mira la pantalla esperando la respuesta del agente podía
+  // estarse hasta 24 s. Doce segundos sobran el resto del día y son muchos en
+  // ese medio minuto: el tic baja a 3 s durante 30 s y vuelve solo.
+  const [prisaHasta, setPrisaHasta] = useState(0);
+  /** El último entrante que ya habíamos visto, para no acelerar en la primera
+   *  carga ni en cada repintado. */
+  const ultimoEntranteVisto = useRef<string | null>(null);
+  useEffect(() => {
+    const ultimo = [...(hilo ?? [])].reverse().find((m) => m.direccion === "Entrante") ?? null;
+    const id = ultimo ? `${ultimo.timestamp}·${ultimo.contenido.slice(0, 40)}` : null;
+    if (id == null || ultimoEntranteVisto.current === id) return;
+    const esPrimeraCarga = ultimoEntranteVisto.current === null;
+    ultimoEntranteVisto.current = id;
+    if (!esPrimeraCarga) setPrisaHasta(Date.now() + 30_000);
+  }, [hilo]);
+  // Al cambiar de conversación no se hereda la prisa de la anterior.
+  useEffect(() => {
+    ultimoEntranteVisto.current = null;
+    setPrisaHasta(0);
+  }, [abierta]);
+  // Y se corta en cuanto llega lo que se estaba esperando: con el borrador del
+  // agente ya puesto, no hay nada que sondear a 3 s.
+  useEffect(() => {
+    if (ficha?.agente.alDia && ficha.agente.borrador) setPrisaHasta(0);
+  }, [ficha?.agente.alDia, ficha?.agente.borrador]);
+
   useEffect(() => {
     const tic = () => {
       if (document.visibilityState !== "visible") return;
@@ -253,13 +281,18 @@ export function MensajeriaView() {
       // y el borrador uno o dos después, cuando el agente termina.
       recargarFicha();
     };
-    const id = window.setInterval(tic, 12_000);
+    const conPrisa = prisaHasta > Date.now();
+    const id = window.setInterval(tic, conPrisa ? 3_000 : 12_000);
     document.addEventListener("visibilitychange", tic);
+    // Al vencer la ventana de prisa hay que volver a montar el intervalo con
+    // el periodo largo: sin esto seguiría a 3 s hasta el siguiente cambio.
+    const fin = conPrisa ? window.setTimeout(() => setPrisaHasta(0), Math.max(0, prisaHasta - Date.now())) : null;
     return () => {
       window.clearInterval(id);
+      if (fin != null) window.clearTimeout(fin);
       document.removeEventListener("visibilitychange", tic);
     };
-  }, [cargarLista, cargarHilo, recargarFicha, abierta]);
+  }, [cargarLista, cargarHilo, recargarFicha, abierta, prisaHasta]);
 
   // 2.8 (MEJORAS 183): «ver por qué» por mensaje. Los turnos explicados se
   // recargan con el hilo; el panel SUSTITUYE a la ficha en la columna derecha

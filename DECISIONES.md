@@ -6249,3 +6249,17 @@ es un bug con aspecto de cautela.**
 **Y una cosa que no es un fallo y conviene saber:** el mensaje y el borrador llegan en tics
 distintos. El webhook guarda el entrante ANTES de evaluar, así que el mensaje se ve en el primer tic
 y el borrador uno o dos después, cuando el agente termina.
+
+## 2026-09-15 · El tic con prisa: 3 s durante medio minuto, 12 el resto del día
+**El problema que quedaba tras arreglar el refresco:** el mensaje y el borrador llegan en tics
+distintos —el webhook guarda el entrante ANTES de evaluar—, así que quien mira la pantalla esperando
+la respuesta del agente podía estarse **hasta 24 s**. Doce segundos sobran el resto del día y son
+muchos en ese medio minuto concreto.
+**Lo que hace:** al detectar un entrante NUEVO (no en la primera carga, y comparando con el último
+visto para no acelerar en cada repintado), el sondeo baja a **3 s durante 30 s** y vuelve solo.
+**Y se corta antes si llega lo que se esperaba:** con el borrador del agente ya puesto, no hay nada
+que sondear deprisa. La prisa tampoco se hereda al cambiar de conversación.
+**Por qué no es el camino a SSE y sigue sin serlo:** esto no compra latencia general, compra el
+momento en que alguien está delante. La conversación sobre tiempo real sigue igual — y esta ventana
+de prisa es otra pieza que SSE heredaría tal cual, porque también hay que re-sincronizar al
+reconectar.
