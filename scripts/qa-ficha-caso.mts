@@ -174,6 +174,26 @@ await runWithCliente("DEMO", async () => {
     fq.queQuiere === "Se queja de un pago — lo tiene que ver una persona", fq.queQuiere ?? "null");
   ok("el objetivo de la ficha sigue listando lo recogido (el estado no lo borra)", fq.objetivoActivo === "cobro" && Array.isArray(fq.recogido));
   ok("escribe otra persona: la ficha lo declara", fq.hablaPor?.nombre === "Lucía" && fq.hablaPor?.relacion === "hija de QA Ficha Bravo");
+
+  // ── LO RECOGIDO SE ACUMULA (15-09) ──────────────────────────────────────
+  // El turno de REACTIVACIÓN llega sin objetivos —para no perseguir a nadie—
+  // y por tanto no extrae ningún campo. La ficha leía el ÚLTIMO turno, así que
+  // el bloque de datos DESAPARECÍA y la coordinadora llamaba a preguntar lo
+  // que la persona ya había contado. Lo mismo pasaba con una urgencia o un
+  // «gracias»: el prompt dice «este turno NO recoges nada».
+  await registrarEventoIdempotente({
+    tipoCaso: "conversacion", casoId: TEL_FICHA, evento: "evaluacion",
+    // tema «cita» y CERO campos: es la forma exacta de un turno de
+    // reactivación sobre un caso de cita, que es el que rompió en vivo.
+    evaluacionJson: JSON.stringify({ ...payload, tema: "cita", peticionOQueja: false, malestar: false, hablaPor: null, camposRecogidos: {}, respuesta: "Ya está con el equipo; les vuelvo a avisar." }),
+    actorNombre: "qa", mensajeId: "qa_ficha_reactivacion",
+  });
+  const fr = await fichaDeCaso(TEL_FICHA);
+  ok("tras un turno SIN campos (reactivación), lo recogido SIGUE estando",
+    (fr.recogido ?? []).some((c) => c.campo === "disponibilidad" && c.valor === "tardes"),
+    JSON.stringify(fr.recogido));
+  ok("y «qué quiere» se compone con lo acumulado, no con el turno vacío",
+    (fr.queQuiere ?? "").includes("tardes"), fr.queQuiere ?? "null");
   ok("la línea de la entrega lleva SU nombre, no el de la titular",
     fq.linea.paciente.startsWith("Lucía (hija de QA Ficha Bravo, escribe desde el número de QA Ficha Bravo, sin ficha)"), fq.linea.paciente);
   // Turno 3: declina la cita (Nuria). El titular lo dice y el objetivo cita

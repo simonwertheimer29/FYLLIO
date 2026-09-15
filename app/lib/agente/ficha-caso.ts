@@ -248,16 +248,44 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   // recogido no desaparece porque el último turno fuera una queja. El
   // estado manda en el TITULAR (queQuiereDe), que es donde Pablo salía
   // como «Quiere cita» mientras se quejaba de un cobro (11-09).
+  // LO RECOGIDO SE ACUMULA, NO ES LO DEL ÚLTIMO TURNO (15-09, fallo medido
+  // por Simon probando la reactivación: «ha desaparecido el bloque de datos
+  // que tiene el agente, y yo los di antes de que me entregaran el caso»).
+  //
+  // La ficha leía `camposRecogidos` de la ÚLTIMA evaluación. Normalmente da
+  // igual —con los objetivos abiertos el evaluador re-extrae del hilo entero
+  // en cada turno—, pero hay turnos que por diseño no recogen nada:
+  //   · la REACTIVACIÓN, que llega sin objetivos para no perseguir a nadie;
+  //   · una urgencia o una queja, donde el prompt dice «este turno NO recoges
+  //     nada» (la regla del estado de la persona);
+  //   · un «gracias» que no trae ningún dato.
+  // En todos ellos el bloque se vaciaba y la coordinadora llamaba a preguntar
+  // lo que la persona YA había contado, que es exactamente lo que el producto
+  // promete evitar. El comentario de abajo muestra que el problema de al lado
+  // ya se había visto (el TITULAR no cambia por una queja); faltaba aplicarlo
+  // a los campos.
+  //
+  // LA REGLA DE FUSIÓN, por ETAPA y no por campo: si un turno tuvo esa etapa
+  // abierta, su extracción MANDA sobre ella entera —así un dato que la persona
+  // corrige o retira desaparece de verdad—; si no la tuvo, se conserva lo que
+  // hubiera. Autoridad donde la hay, memoria donde no.
+  const camposAcumulados: Record<string, Record<string, string | null>> = {};
+  for (const fila of filasEvaluacion) {
+    const pj = fila?.evaluacion_json ? leerPayloadEvaluacion(fila.evaluacion_json) : null;
+    for (const [etapa, campos] of Object.entries((pj?.camposRecogidos ?? {}) as Record<string, Record<string, string | null>>)) {
+      if (campos && typeof campos === "object") camposAcumulados[etapa] = campos;
+    }
+  }
   const abiertos = ctx.objetivosAbiertos;
   const estado = payload ? estadoDeLaPersona(payload) : null;
   const objetivoActivo: EtapaObjetivo | null = payload
-    ? objetivoActivoDe({ tema: payload.tema, abiertas: abiertos, campos: payload.camposRecogidos, estado: null })
+    ? objetivoActivoDe({ tema: payload.tema, abiertas: abiertos, campos: camposAcumulados, estado: null })
     : (abiertos[0] ?? null);
   const otrosObjetivos = abiertos.filter((o) => o !== objetivoActivo);
 
-  const camposActivo = objetivoActivo ? (payload?.camposRecogidos as any)?.[objetivoActivo] : undefined;
+  const camposActivo = objetivoActivo ? camposAcumulados[objetivoActivo] : undefined;
   const queQuiere = payload
-    ? queQuiereDe({ estado, tema: payload.tema, abiertas: abiertos, campos: payload.camposRecogidos })
+    ? queQuiereDe({ estado, tema: payload.tema, abiertas: abiertos, campos: camposAcumulados })
     : null;
   // Teléfono compartido, versión barata (11-09): si el último juicio dice
   // que escribe otra persona, la entrega lo dice con su nombre y su relación

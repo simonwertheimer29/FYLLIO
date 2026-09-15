@@ -6311,3 +6311,25 @@ access 'x' before initialization», «'x' is not defined»…) y solo dentro de 
 entrecomillado, y solo si es un identificador de JavaScript estricto (sin acentos ni espacios: un
 «Simón» no pasa). **Ocultar datos de pacientes sí; ocultar nombres de variables no.** Más
 `error_donde`: dos marcos del stack sin la ruta absoluta, para saber DÓNDE sin reproducirlo.
+
+## 2026-09-15 · Lo recogido se acumula: un turno que no extrae nada ya no borra la ficha
+**Fallo medido por Simon tras la reactivación: «ha desaparecido el bloque de datos que tiene el
+agente, y yo los di antes de que me entregaran el caso».** Grave por lo que significa: la
+coordinadora abre el caso, no ve lo que la persona ya contó, y la llama a preguntar lo mismo — que es
+exactamente lo que el producto promete evitar.
+**LA CAUSA:** la ficha leía `camposRecogidos` de la ÚLTIMA evaluación. Normalmente da igual, porque
+con los objetivos abiertos el evaluador re-extrae del hilo entero en cada turno. Pero **hay turnos
+que por diseño no recogen nada**: la reactivación (llega sin objetivos para no perseguir a nadie),
+una urgencia o una queja (el prompt dice «este turno NO recoges nada») y un «gracias» que no trae
+dato. En todos ellos el bloque se vaciaba. **No lo introdujo la reactivación: lo hizo sistemático.**
+El fichero ya tenía el comentario de quien vio el problema de al lado —«lo recogido no desaparece
+porque el último turno fuera una queja»— y lo había resuelto solo para el TITULAR, no para los campos.
+**LA REGLA DE FUSIÓN, por ETAPA y no por campo:** si un turno tuvo esa etapa abierta, su extracción
+manda sobre ella entera —así un dato que la persona corrige o retira desaparece de verdad—; si no la
+tuvo, se conserva lo que hubiera. **Autoridad donde la hay, memoria donde no.** Y el titular y el
+objetivo activo se componen también con lo acumulado, no con el turno vacío.
+**Con regresión:** `qa:ficha` siembra ahora un turno de reactivación (tema «cita», cero campos) y
+exige que `disponibilidad: tardes` siga ahí y que «qué quiere» siga diciendo «· tardes».
+**Anotado y NO tocado (MEJORAS 253):** la columna derecha dice tres veces lo mismo —prosa del agente,
+titular compuesto y lista de campos—, con el ejemplo literal dentro. Se piensa junto con lo de
+Seguimiento, no sobre la marcha.

@@ -3841,3 +3841,26 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   reintrodujo el TDZ exacto y el QA se puso rojo con el mensaje entero; se quitó y volvió a verde.
   Y `redactar()` ya no tapa el identificador de un `ReferenceError` (lista cerrada de las formas que
   produce V8), más `error_donde` con dos marcos del stack sin la ruta absoluta.
+
+## 253. Ficha del caso · la columna derecha dice tres veces lo mismo con palabras distintas
+- **Anotado el 15-09 por Simon, PARA PENSARLO JUNTOS más adelante — no se rediseña sobre la marcha.**
+  Va con lo de Seguimiento que ya está pendiente: son la misma conversación sobre qué enseña cada
+  pantalla.
+- **El ejemplo real, que es lo que lo explica** (una misma ficha, tres bloques seguidos):
+  1. *«El agente terminó su parte — queda cerrarlo. Queda una cita por cerrar. Sus palabras: "Por la
+     tarde mejor, entre semana cualquier día me vale"»*
+  2. *Qué quiere: «Quiere cita — revisión general · sin prisa · entre semana, por la tarde»*
+  3. y debajo, otra vez, la lista de campos: urgencia «sin prisa» · disponibilidad «entre semana, por
+     la tarde» · tratamiento «revisión general».
+  **Lo mismo tres veces**: en prosa del agente, en titular compuesto por código, y en lista.
+- **Por qué pasó, sin culpa de nadie:** cada bloque se añadió en su momento resolviendo un problema
+  real y distinto —el estado del caso (fase C), el titular que no miente cuando el estado manda
+  (11-09, el caso de Pablo) y los campos recogidos (fase B)—, y ninguno se escribió mirando a los
+  otros dos. La repetición no es un bug: es sedimento.
+- **Lo que hay que decidir cuando se mire:** qué pregunta contesta cada bloque y cuál sobra. La
+  hipótesis a discutir es que la coordinadora solo necesita DOS cosas al abrir: **qué quiere esta
+  persona** y **qué le falta a la clínica para cerrarlo** — y que la prosa del agente sobra o se
+  convierte en una línea de estado. · **Regla de diseño que ya existe y aquí no se respetó:** «la
+  ficha es corta; cada campo nuevo le quita fuerza al primero» (cabecera de `ficha-caso.ts`). ·
+  **Impacto:** MEDIO-ALTO (es la pantalla donde se trabaja). · **Esfuerzo:** medio día de diseño +
+  medio de código. · **Fecha:** 2026-09-15
