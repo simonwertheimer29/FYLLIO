@@ -192,6 +192,25 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
   // 2 · Derivación, si la hubo — con el HECHO (causa, malestar, y desde la
   //     026 el objetivo que perseguía: sin él no se sabe qué hecho del
   //     sistema cierra el asunto); la cola se deriva al leer.
+  // REACTIVACIÓN (15-09): el caso YA estaba entregado y la persona volvió a
+  // escribir. Se anota aparte de `derivado` a propósito: la EDAD de la entrega
+  // es la presión del sistema —«nada expira solo, pero envejece a la vista de
+  // todos»— y re-derivar la reiniciaría, escondiendo precisamente los casos
+  // que llevan más tiempo esperando, que son los que más urgen. Este evento
+  // sube la prioridad sin tocar esa fecha.
+  if (ev.reactivacion) {
+    cuenta(
+      await registrarEventoIdempotente({
+        tipoCaso: "conversacion",
+        casoId: t.telefono,
+        evento: "reactivado",
+        motivoTexto: `La persona vuelve a escribir con el caso ya entregado: «${t.respuestaPaciente.trim().replace(/\s+/g, " ").slice(0, 120)}»`,
+        actorNombre: "agente",
+        mensajeId: t.mensajeId,
+      }),
+    );
+  }
+
   if (ev.decision === "deriva" && ev.causa) {
     const frase = t.respuestaPaciente.trim().replace(/\s+/g, " ").slice(0, 120);
     cuenta(

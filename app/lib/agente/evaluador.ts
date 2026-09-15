@@ -118,7 +118,23 @@ export type EntradaEvaluador = {
    *  que la no-reversión no dependa de que todos los callers se acuerden.
    *  Desde la 026 el caller lo deriva del SEMÁFORO (asunto abierto con una
    *  persona), no de un EXISTS eterno. */
+  /** El agente NO entra. Desde el 15-09 esto significa UNA cosa concreta:
+   *  hay una PERSONA dentro de la conversación (`hilo_asumido`). Antes también
+   *  cubría «entregado y esperando», y eso dejaba al paciente hablando solo:
+   *  volvía a escribir preguntando qué pasaba con su cita y nadie le contestaba
+   *  (ver `reactivacion`). */
   yaDerivado: boolean;
+  /** REACTIVACIÓN (15-09, decisión de Simon): el caso ya se entregó y sigue
+   *  esperando a que alguien lo coja, y la persona vuelve a escribir. El agente
+   *  SÍ contesta —lo que sepa contestar, del tema que sea— pero NO persigue
+   *  nada: llega con los objetivos vacíos, así que el prompt le dice «no tiene
+   *  nada pendiente de recoger: contesta y ya». El caso no deja de ser del
+   *  humano ni un segundo; el turno solo anota que hay que darse prisa.
+   *
+   *  La frontera que sí se mantiene es la otra: con alguien DENTRO escribiendo,
+   *  el agente calla — dos voces en el mismo chat con minutos de diferencia es
+   *  peor que el silencio y deja a la coordinadora en evidencia. */
+  reactivacion?: boolean;
   /** Día de clínica de HOY (YYYY-MM-DD), inyectado desde el borde (§14) para
    *  que el eval fije el instante. Default: hoyISO(). Resuelve la espera
    *  («el viernes» → fecha) y su tope. */
@@ -270,6 +286,10 @@ export type EvaluacionTurno = {
    *  se pudo evaluar el mensaje automáticamente», que no dice nada, y la causa
    *  (saldo agotado, clave mal, timeout, JSON ilegible) se quedaba en el log. */
   motivoFallback?: string | null;
+  /** 15-09 — este turno fue una REACTIVACIÓN: el caso ya estaba entregado y la
+   *  persona volvió a escribir. El caller emite el evento `reactivado` para
+   *  que el caso suba de prioridad SIN reiniciar la edad de su entrega. */
+  reactivacion?: boolean;
   /** cacheEscritura/cacheLectura (22-08): tokens del prefijo cacheado —
    *  aditivos y opcionales; los precios son distintos (1.25× / 0.1×) y sin
    *  separarlos la medición de coste del plan de negocio saldría inflada. */
@@ -583,6 +603,11 @@ export function lineasDeHechos(e: EntradaEvaluador): string[] {
   // La clínica NO entra: ya viaja en la entrada y se ANONIMIZA antes de salir
   // (`construirMapaAnonimizacion`), así que nombrarla aquí sería escribir un
   // nombre que el modelo no llega a ver.
+  if (e.reactivacion) {
+    lineas.push(
+      "OJO — ESTE CASO YA ESTÁ CON UNA PERSONA DEL EQUIPO: se le pasó y está esperando a que lo cojan. La persona vuelve a escribir. Contéstale lo que sepas contestar (una duda, un horario, una cita para otra persona: lo que traiga). Si pregunta por SU caso o por qué nadie le ha contactado, dile que ya está con el equipo y que vuelves a avisarles ahora mismo — sin prometer cuándo la llamarán, que eso no lo sabes. NO le pidas datos ni retomes lo que ya se recogió: no es tuyo. Y díselo UNA vez: si insiste otra vez, contesta a lo que pregunte y no repitas la frase.",
+    );
+  }
   const f = e.ficha;
   if (e.esPacienteConocido && f && (f.doctor || f.tratamiento)) {
     const consta =
@@ -1071,6 +1096,10 @@ export async function evaluarTurno(
   // MEJORAS 174: la latencia de la llamada (solo la llamada) viaja en el payload.
   const t0Modelo = Date.now();
   const { juicio, descartes, usage, motivoFallo } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
+  // Viaja con la evaluación entera: el caller no tiene por qué volver a
+  // derivarlo de la entrada, y así una reactivación que acaba en fallback
+  // también se anota.
+  const reactivacion = e.reactivacion === true;
   const latenciaMs = Date.now() - t0Modelo;
 
   if (!juicio) {
@@ -1092,6 +1121,7 @@ export async function evaluarTurno(
       hiloTruncado: truncado,
       fallback: true,
       motivoFallback: motivoFallo ?? null,
+      reactivacion,
       usage,
       latenciaMs,
       modelo: MODELOS[opts?.modelo ?? "haiku"].id,
@@ -1281,6 +1311,7 @@ export async function evaluarTurno(
   // > caso completo. Los aplazamientos anotados viajan igual — van a la ficha.
   const base = {
     actuar: true as const,
+    reactivacion,
     juicios: {
       tema: juicio.tema,
       peticionOQueja: juicio.peticionOQueja,

@@ -399,6 +399,25 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     }
   }
 
+  // 4 bis · REACTIVACIÓN (15-09): la persona insiste en un caso ya entregado.
+  //     El agente le ha contestado arriba; esto es la otra mitad, la que de
+  //     verdad lo resuelve — que alguien se entere y lo coja. Sin campana, la
+  //     disculpa es maquillaje.
+  if (evaluacion.reactivacion) {
+    try {
+      const { crearNotificacion } = await import("../presupuestos/notificaciones");
+      await crearNotificacion({
+        usuario: "todos",
+        tipo: "Intervencion_urgente",
+        titulo: `Vuelve a escribir y sigue esperando: ${ctx.nombre.split(" ")[0]}`,
+        mensaje: `Su caso ya estaba entregado y nadie le ha contactado. Dice: «${e.contenido.slice(0, 100)}»`,
+        link: `/mensajeria?telefono=${encodeURIComponent(e.telefono)}`,
+      });
+    } catch (err) {
+      console.error("[evaluar-entrante] notificación de reactivación:", err instanceof Error ? err.message : err);
+    }
+  }
+
   // 5 · Push SOLO cola prioritaria: urgencia, antecedente con cita próxima,
   //     petición/queja con malestar. El resto va a la bandeja, sin ruido.
   if (evaluacion.decision === "deriva" && evaluacion.cola === "prioritaria") {

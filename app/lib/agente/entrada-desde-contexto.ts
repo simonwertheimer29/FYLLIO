@@ -110,13 +110,25 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     // `mover_cita` la abre la base por tener cita futura; aquí se retira si el
     // texto no la pide (ver `pideMoverSuCita`).
     .filter((etapa) => etapa !== "mover_cita" || quiereMover)
+    // En reactivación NO hay objetivos: contestar sí, perseguir no. Es la
+    // distinción de Simon, y el prompt ya tiene el estado que la dice
+    // («ninguno… contesta y ya»), así que no hace falta una regla nueva.
+    .filter(() => !reactivacion)
     .map((etapa) => p.objetivosConfig.find((o) => o.etapa === etapa))
     .filter((o): o is ObjetivoAgente => o != null);
   const ultimoEntrante = [...p.hilo].reverse().find((m) => m.direccion === "Entrante") ?? null;
   const tipoUltimo = String(ultimoEntrante?.tipo ?? p.tipoEntrante ?? "text");
   const ultimoNoLegible = !esLegible(tipoUltimo) ? { tipo: tipoUltimo, etiqueta: etiquetaDeTipo(tipoUltimo) } : null;
   const pendientes = pendientesDeAplazados(p.aplazamientos);
-  const yaDerivado = !p.semaforo.verde && p.semaforo.motivo !== "espera";
+  // LAS DOS CARAS DEL ROJO (15-09). Hasta hoy eran la misma y el agente no
+  // entraba en ninguna: `!verde && motivo !== "espera"`. Son cosas distintas:
+  //  · `hilo_asumido` — hay una persona DENTRO escribiendo. El agente calla.
+  //  · `derivado_sin_resolver` — el caso se entregó y espera a que lo cojan.
+  //    Ahí el agente SÍ contesta (reactivación), sin objetivos y sin retomar
+  //    nada, y el caso sigue siendo del humano.
+  const personaDentro = !p.semaforo.verde && p.semaforo.motivo !== "espera" && p.semaforo.motivo !== "derivado_sin_resolver";
+  const reactivacion = !p.semaforo.verde && p.semaforo.motivo === "derivado_sin_resolver";
+  const yaDerivado = personaDentro;
   return {
     nombre: fichado ? ctx.nombre : ctx.telefono,
     nombrePerfil: ctx.origenNombre === "perfil" ? ctx.nombre : null,
@@ -133,6 +145,7 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     urgencias: p.conocimiento?.alcance.urgencias ?? undefined,
     diasHastaProximaCita: p.diasHastaProximaCita,
     yaDerivado,
+    reactivacion,
     hoy: p.hoy,
     esperaVigente:
       !p.semaforo.verde && p.semaforo.motivo === "espera" && p.semaforo.hasta

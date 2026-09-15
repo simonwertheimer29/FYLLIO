@@ -34,7 +34,7 @@ import {
   Composer,
   type PlantillaComposer,
 } from "../../components/shared/panel-accion-ui";
-import { Ban, AlertTriangle, ICON_STROKE } from "../../components/icons";
+import { Ban, AlertTriangle, UserCheck, ICON_STROKE } from "../../components/icons";
 import { cargarJSON, mensajeDeError, ErrorDeCarga } from "../../lib/fetch-json";
 import { fechaClinica } from "../../lib/time";
 import type { Conversacion } from "../../lib/mensajeria/conversaciones";
@@ -103,6 +103,13 @@ export function ComposerConversacion({
   const borrador = ficha?.agente.alDia ? ficha.agente.borrador : null;
   const relevo =
     ficha?.semaforo.motivo === "derivado_sin_resolver" || ficha?.semaforo.motivo === "hilo_asumido";
+  // QUIÉN CONTESTA AQUÍ MIENTRAS TANTO (15-09, encargo de Simon). Desde hoy el
+  // agente SÍ responde a quien vuelve a escribir en un caso entregado que
+  // espera —antes le dejaba hablando solo—, pero CALLA cuando hay una persona
+  // dentro de la conversación: dos voces escribiendo al mismo paciente con
+  // minutos de diferencia es peor que el silencio. Quien está dentro tiene que
+  // saber que depende de ella y que no va a contestar nadie más.
+  const agenteCallado = ficha?.semaforo.motivo === "hilo_asumido";
   const optOut = ficha?.optOut.activo === true;
   const bloqueadoPorOptOut = optOut && conversacion.ultimoEs !== "Entrante";
 
@@ -287,6 +294,15 @@ export function ComposerConversacion({
 
   return (
     <div className="border-t border-[var(--color-border)] pt-2">
+      {agenteCallado && (
+        <div className="mb-1.5 flex items-start gap-2 rounded-md bg-[var(--color-surface-2)] px-2.5 py-1.5 text-[12px] text-[var(--color-foreground)]">
+          <UserCheck size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)]" aria-hidden />
+          <span>
+            Esta conversación la llevas tú: <strong>el agente no va a contestar</strong> mientras
+            estés dentro. Si no escribes, no le responde nadie.
+          </span>
+        </div>
+      )}
       {optOut && (
         <div className="mb-1.5 flex items-start gap-2 rounded-md bg-[var(--color-warning-soft)] px-2.5 py-1.5 text-[12px] text-[var(--color-foreground)]">
           <Ban size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />

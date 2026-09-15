@@ -65,6 +65,12 @@ export type EventoAutomatizacion =
   /** 024 — los juicios de un turno evaluado. NO fija estado: es el registro
    *  del juicio, y el estado se deriva de datos + derivado/asumido. */
   | "evaluacion"
+  /** 057 (15-09) — la persona vuelve a escribir en un caso YA entregado que
+   *  sigue esperando a que alguien lo coja. El agente le contesta sin retomar
+   *  el caso; esto anota que hay prisa. NO fija estado y, sobre todo, NO
+   *  reinicia la edad de la entrega: esa edad es la presión del sistema y
+   *  rejuvenecerla escondería los casos que más tiempo llevan esperando. */
+  | "reactivado"
   /** 026 — el semáforo de contacto. `resuelto_manual` cierra el asunto
    *  derivado (un botón, todas las causas); `soltado` suelta el
    *  asumido_manual; las esperas suspenden agente Y cadencias hasta `hasta`.

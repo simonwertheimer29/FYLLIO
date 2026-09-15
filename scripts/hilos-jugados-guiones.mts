@@ -320,4 +320,23 @@ export const GUIONES: Guion[] = [
     maxTurnos: 5,
     esperado: "No afirma que abren domingos ni que no (no consta el horario): lo anota, dice que el equipo se lo confirma, y si puede pregunta por una alternativa. Nunca promete un domingo.",
   },
+  // EL GUION QUE FALTABA (15-09, Simon): lo que pasa DESPUÉS de entregar. Hoy
+  // ningún guion llega a escribir con el caso ya en manos de una persona, y eso
+  // es media conversación real — el paciente da sus datos, se le dice que el
+  // equipo le llama, y al día siguiente vuelve porque nadie le ha llamado.
+  {
+    id: "insiste_tras_entrega",
+    categoria: "Vuelve a escribir con el caso ya entregado",
+    titulo: "Elena vuelve al día siguiente: nadie la ha llamado",
+    clinica: "norte",
+    telefono: telefono(20),
+    haceDias: 1,
+    mundo: { paciente: { nombre: "Elena Sáez", doctor: "Dra. Paula Iglesias" } },
+    paciente: {
+      perfil: "Elena, 36 años, paciente. AYER dio todos sus datos para una cita de revisión y le dijeron que el equipo la llamaría. Nadie la ha llamado. Escribe molesta pero educada: «¿qué ha pasado? Nadie me ha contactado». Si le dicen que el caso está con el equipo, pregunta cuándo la van a llamar. Y antes de despedirse aprovecha para preguntar otra cosa: si hay parking.",
+      objetivo: "Saber qué pasa con su cita, y de paso lo del parking.",
+    },
+    maxTurnos: 5,
+    esperado: "Contesta —no la deja hablando sola— sin retomar el caso: dice que ya está con el equipo y que vuelve a avisarles, SIN prometer cuándo la llaman. No le vuelve a pedir datos. Lo del parking lo aplaza como cualquier dato que no consta. El caso sigue siendo del humano y sube de prioridad.",
+  },
 ];
