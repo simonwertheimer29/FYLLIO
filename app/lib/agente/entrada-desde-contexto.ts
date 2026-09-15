@@ -105,6 +105,15 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
   // Solo una FICHA (paciente o lead) da nombre. Sin ficha, el nombre es el
   // teléfono y el perfil de WhatsApp viaja aparte, como pista.
   const fichado = ctx.origenNombre === "paciente" || ctx.origenNombre === "lead";
+  // LAS DOS CARAS DEL ROJO (15-09). Hasta hoy eran la misma y el agente no
+  // entraba en ninguna: `!verde && motivo !== "espera"`. Son cosas distintas:
+  //  · `hilo_asumido` — hay una persona DENTRO escribiendo. El agente calla.
+  //  · `derivado_sin_resolver` — el caso se entregó y espera a que lo cojan.
+  //    Ahí el agente SÍ contesta (reactivación), sin objetivos y sin retomar
+  //    nada, y el caso sigue siendo del humano.
+  const personaDentro = !p.semaforo.verde && p.semaforo.motivo !== "espera" && p.semaforo.motivo !== "derivado_sin_resolver";
+  const reactivacion = !p.semaforo.verde && p.semaforo.motivo === "derivado_sin_resolver";
+  const yaDerivado = personaDentro;
   const quiereMover = pideMoverSuCita(p.hilo);
   const objetivosAbiertos = ctx.objetivosAbiertos
     // `mover_cita` la abre la base por tener cita futura; aquí se retira si el
@@ -120,15 +129,6 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
   const tipoUltimo = String(ultimoEntrante?.tipo ?? p.tipoEntrante ?? "text");
   const ultimoNoLegible = !esLegible(tipoUltimo) ? { tipo: tipoUltimo, etiqueta: etiquetaDeTipo(tipoUltimo) } : null;
   const pendientes = pendientesDeAplazados(p.aplazamientos);
-  // LAS DOS CARAS DEL ROJO (15-09). Hasta hoy eran la misma y el agente no
-  // entraba en ninguna: `!verde && motivo !== "espera"`. Son cosas distintas:
-  //  · `hilo_asumido` — hay una persona DENTRO escribiendo. El agente calla.
-  //  · `derivado_sin_resolver` — el caso se entregó y espera a que lo cojan.
-  //    Ahí el agente SÍ contesta (reactivación), sin objetivos y sin retomar
-  //    nada, y el caso sigue siendo del humano.
-  const personaDentro = !p.semaforo.verde && p.semaforo.motivo !== "espera" && p.semaforo.motivo !== "derivado_sin_resolver";
-  const reactivacion = !p.semaforo.verde && p.semaforo.motivo === "derivado_sin_resolver";
-  const yaDerivado = personaDentro;
   return {
     nombre: fichado ? ctx.nombre : ctx.telefono,
     nombrePerfil: ctx.origenNombre === "perfil" ? ctx.nombre : null,

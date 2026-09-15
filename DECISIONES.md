@@ -6263,3 +6263,29 @@ que sondear deprisa. La prisa tampoco se hereda al cambiar de conversación.
 momento en que alguien está delante. La conversación sobre tiempo real sigue igual — y esta ventana
 de prisa es otra pieza que SSE heredaría tal cual, porque también hay que re-sincronizar al
 reconectar.
+
+## 2026-09-15 · El borrador no llegaba porque el turno REVENTABA: un TDZ que tsc no ve
+**Simon: «no es el refresco, es que NO SE GENERA».** Tenía razón, y la causa es mía y de hace dos
+commits. Diagnóstico con la base delante:
+ · **(a) El turno no se evaluó: reventó.** Incidencias `turno_error` y `reintentos_agotados` — cuatro
+   intentos por la cola y a la DLQ. `error_nombre: ReferenceError`, `error_resumen: «Cannot access
+   '…' before initialization»`.
+ · **(b) Su caso está ENTREGADO Y ESPERANDO, no «persona dentro»:** el último evento es `derivado ·
+   caso_completo` del 14-09, y no hay ni un `asumido_manual` en todo el hilo. Su preocupación —que
+   mirar la conversación lo desactivara— queda descartada por segunda vez y ahora con el dato.
+ · **(c) Sí, dos incidencias nuevas**, las de arriba.
+**LA CAUSA, reproducida en local con su propio mensaje:** en `entrada-desde-contexto` puse el
+`.filter(() => !reactivacion)` que vacía los objetivos **antes** de declarar `const reactivacion`.
+**TypeScript no lo ve** porque la referencia vive dentro de una función flecha y no puede probar el
+orden: es un TDZ de ejecución. Movidas las tres constantes del semáforo por encima del cálculo de
+objetivos, el turno vuelve a evaluar y sale con `objetivosAbiertos: []`, que es la reactivación
+funcionando.
+**LO QUE ESTO ENSEÑA DEL INSTRUMENTAL, y es lo que más vale del episodio:**
+ 1. **`npx tsc --noEmit` en verde no prueba que el módulo ARRANQUE.** Llevo toda la sesión usándolo
+    como si lo probara. Un import circular o un TDZ dentro de un closure pasan limpios.
+ 2. **La incidencia hizo su trabajo y aun así no se pudo leer:** `redactar()` sustituyó el nombre de
+    la variable por «…», que en un `ReferenceError` es justo la única parte útil del mensaje. Redactar
+    datos personales sí; redactar un identificador de código, no.
+ 3. **El fallo solo se vio porque Simon lo probó.** Ningún QA cubre «el orquestador arranca y evalúa
+    un turno de verdad»: `qa:recorridos` lo haría, pero lo dimos por muerto ayer con el saldo agotado
+    y no se volvió a correr.

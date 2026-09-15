@@ -89,6 +89,12 @@ const DECLARADOS: Record<string, string> = {
   // como las señales. Los hilos jugados sí la llevan: `hilos:tres` la pone
   // desde la definición del guion, que es la misma que resiembra la DEMO.
   ficha: "el banco no tiene paciente real detrás; va a null (una ficha inventada sería un dato de salud inventado)",
+  // 15-09 — el banco SÍ la calcula (su semáforo usa el mismo vocabulario:
+  // «derivado_sin_resolver» cuando la sesión ya derivó), pero el FIXTURE con
+  // el que se compara se jugó antes de que el campo existiera y ahí no está.
+  // Compararlo diría «divergen» por la edad del artefacto, no por el código.
+  // Vuelve a COMPARABLES en cuanto se vuelva a correr `hilos:jugar`.
+  reactivacion: "el banco la calcula igual, pero el fixture de comparación es anterior al campo",
 };
 
 const corto = (v: unknown) => {

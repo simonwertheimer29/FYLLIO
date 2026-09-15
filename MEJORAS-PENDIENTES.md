@@ -3816,3 +3816,20 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   las varas que ya tenemos. No por intuición.»** O sea: cada retirada se prueba contra `qa:juez`
   (63 casos), `qa:conocimiento` y una pasada de los 10 guiones, y se queda solo si las varas no se
   mueven. · **Impacto:** MEDIO hoy, ALTO con volumen. · **Esfuerzo:** 1 día. · **Fecha:** 2026-09-15
+
+## 252. QA · nada comprueba que el orquestador ARRANQUE: tsc en verde y el turno revienta
+- **Medido el 15-09, y costó una tarde de pruebas de Simon.** Un `const` usado antes de declararse
+  dentro de una función flecha (`.filter(() => !reactivacion)`) pasó `npx tsc --noEmit` limpio y
+  reventó en ejecución con `ReferenceError: Cannot access 'reactivacion' before initialization`. El
+  agente dejó de contestar en producción y lo descubrimos porque Simon dijo «no me responde».
+- **El agujero:** toda la batería de QA prueba piezas (parser, cola, semáforo, render, juez) pero
+  **ninguna ejecuta el orquestador de punta a punta**. `qa:recorridos` es lo más parecido y (a) cuesta
+  modelo, (b) ayer salió rojo por saldo agotado y se dio por explicado.
+- **Propuesta, y barata:** un `qa:arranque` **sin modelo** que importe los módulos de servidor y llame
+  a `evaluarEntranteConversacion` con un teléfono de prueba y `ANTHROPIC_API_KEY` vacía — el turno
+  debe terminar en fallback declarado, NO en excepción. Cubre TDZ, imports circulares y errores de
+  arranque, que son los que `tsc` no ve. Se puede meter en `prebuild` porque no llama a ningún modelo.
+- **Y dos arreglos menores del instrumental:** (1) `redactar()` no debe tapar el identificador de un
+  `ReferenceError` —es la única parte útil— y (2) la incidencia `turno_error` debería enseñar las dos
+  primeras líneas del stack. · **Impacto:** ALTO (es la clase de fallo que deja el producto mudo). ·
+  **Esfuerzo:** 2 h. · **Fecha:** 2026-09-15
