@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts && tsx scripts/qa-campos-perdidos.mts",
+    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts && tsx scripts/qa-campos-perdidos.mts && tsx scripts/qa-arranque.mts",
     "qa:frontera": "tsx scripts/qa-frontera-cliente.mts",
     "start": "next start",
     "lint": "eslint",
@@ -87,7 +87,8 @@
     "metricas:backfill": "tsx scripts/metricas-backfill.mts",
     "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",
     "cola:programar": "tsx scripts/cola-programar.mts",
-    "qa:supresion": "tsx scripts/qa-supresion.mts"
+    "qa:supresion": "tsx scripts/qa-supresion.mts",
+    "qa:arranque": "tsx scripts/qa-arranque.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

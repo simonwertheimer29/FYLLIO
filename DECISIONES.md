@@ -6289,3 +6289,25 @@ funcionando.
  3. **El fallo solo se vio porque Simon lo probó.** Ningún QA cubre «el orquestador arranca y evalúa
     un turno de verdad»: `qa:recorridos` lo haría, pero lo dimos por muerto ayer con el saldo agotado
     y no se volvió a correr.
+
+## 2026-09-15 · `qa:arranque`: porque compilar no es arrancar
+**Orden de Simon el mismo día del fallo:** «hoy no tenemos NADA que ejecute el sistema entero. Esto
+rompió al agente para todos los casos entregados y lo descubrí yo escribiéndome por WhatsApp — con un
+cliente eso son horas de pacientes sin respuesta y nadie mirando».
+**QUÉ HACE, en tres pasos y con coste de modelo CERO** (por eso puede ir en `prebuild`):
+ 1. Importa los quince módulos de servidor que sostienen el producto — ahí salen los imports
+    circulares y los módulos que revientan al evaluarse, que `tsc` no ve.
+ 2. **Ejecuta el orquestador de punta a punta con `ANTHROPIC_API_KEY` vacía.** No mide calidad —eso
+    son los guiones y las varas—: mide que el turno TERMINE, y que termine en el fallback declarado
+    en vez de en una excepción. Limpia sus propios eventos.
+ 3. Importa las rutas del agente: una ruta que no importa es un 500 en producción.
+**PROBADO CON SONDA, que es lo que hace que el QA no sea decorativo:** se reintrodujo el TDZ exacto
+que rompió hoy y `qa:arranque` se puso **rojo con el mensaje entero**; se quitó y volvió a verde. Un
+QA que nunca se ha visto fallar no prueba nada.
+**Y EL MENSAJE DE ERROR, que era la otra mitad del encargo.** `redactar()` tapaba el nombre de la
+variable de un `ReferenceError` — la única parte útil del mensaje— porque redactaba TODO lo que fuera
+entre comillas simples. Ahora hay una lista CERRADA y anclada de las formas que produce V8 («Cannot
+access 'x' before initialization», «'x' is not defined»…) y solo dentro de ellas se conserva lo
+entrecomillado, y solo si es un identificador de JavaScript estricto (sin acentos ni espacios: un
+«Simón» no pasa). **Ocultar datos de pacientes sí; ocultar nombres de variables no.** Más
+`error_donde`: dos marcos del stack sin la ruta absoluta, para saber DÓNDE sin reproducirlo.

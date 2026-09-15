@@ -3833,3 +3833,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `ReferenceError` —es la única parte útil— y (2) la incidencia `turno_error` debería enseñar las dos
   primeras líneas del stack. · **Impacto:** ALTO (es la clase de fallo que deja el producto mudo). ·
   **Esfuerzo:** 2 h. · **Fecha:** 2026-09-15
+  · 🟢 **HECHA el 15-09, el mismo día, por orden de Simon** («que el código compile no prueba que
+  arranque, y hoy no tenemos NADA que ejecute el sistema entero»). `npm run qa:arranque`, **coste de
+  modelo CERO**, y entra en `prebuild`: importa los quince módulos de servidor, ejecuta el
+  orquestador de punta a punta con la clave del modelo VACÍA —tiene que terminar en el fallback
+  declarado, no en excepción— e importa las tres rutas del agente. **Probado con sonda:** se
+  reintrodujo el TDZ exacto y el QA se puso rojo con el mensaje entero; se quitó y volvió a verde.
+  Y `redactar()` ya no tapa el identificador de un `ReferenceError` (lista cerrada de las formas que
+  produce V8), más `error_donde` con dos marcos del stack sin la ruta absoluta.

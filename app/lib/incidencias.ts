@@ -102,7 +102,36 @@ function esClaveJson(contenido: string, anterior: string, dosPuntos: string | un
   return /^[A-Za-z_][A-Za-z0-9_.-]{0,39}$/.test(contenido);
 }
 
+/** Mensajes de EJECUCIÓN donde lo que va entre comillas simples es un
+ *  IDENTIFICADOR DE CÓDIGO, no un dato de nadie. Lista cerrada y anclada: son
+ *  las formas exactas que produce V8.
+ *
+ *  POR QUÉ EXISTE (15-09, encargo de Simon): un TDZ dejó al agente sin
+ *  contestar para TODOS los casos entregados, y la incidencia —que avisó bien y
+ *  a tiempo— decía «Cannot access '…' before initialization». Ocultar el nombre
+ *  de la variable en un ReferenceError es tapar la única parte útil del
+ *  mensaje: hubo que reproducirlo en local para saber qué variable era. De
+ *  noche y con un cliente, eso son horas.
+ *
+ *  Ocultar datos de pacientes sí; ocultar nombres de variables no. */
+const ERRORES_CON_IDENTIFICADOR: readonly RegExp[] = [
+  /^Cannot access '[^']+' before initialization$/,
+  /^'[^']+' is not defined$/,
+  /^Cannot read propert(?:y|ies) of (?:undefined|null) \(reading '[^']+'\)$/,
+  /'[^']+' is not a function$/,
+  /^Assignment to constant variable/,
+  /^Cannot set propert(?:y|ies) '[^']+'/,
+];
+/** Un identificador de JavaScript y nada más: ni acentos, ni espacios, ni
+ *  arrobas. Un nombre de persona con tilde («Simón») no pasa por aquí, y uno
+ *  sin ella solo podría colarse dentro de uno de los mensajes de arriba, que
+ *  no los escribe nadie más que el motor. */
+const esIdentificador = (s: string): boolean => /^[A-Za-z_$][A-Za-z0-9_$]{0,60}$/.test(s);
+
 export function redactar(texto: string): string {
+  // ¿Este texto es uno de esos errores? Se decide sobre el ORIGINAL, antes de
+  // tocar nada: después de redactar ya no se parecería a ninguna de las formas.
+  const conIdentificadores = ERRORES_CON_IDENTIFICADOR.some((re) => re.test(texto.trim()));
   return texto
     // Excepción de las CLAVES de un JSON (13-09-2026, MEJORAS 241). Sin ella el
     // cuerpo de error de una API —que es JSON, donde TODO está entrecomillado—
@@ -126,7 +155,9 @@ export function redactar(texto: string): string {
         return esClaveJson(contenido, anterior, dosPuntos) ? match : `"…"${dosPuntos ?? ""}`;
       },
     )
-    .replace(/'[^'\n]*'/g, "'…'")
+    .replace(/'([^'\n]*)'/g, (m: string, dentro: string) =>
+      conIdentificadores && esIdentificador(dentro) ? m : "'…'",
+    )
     .replace(/«[^»\n]*»/g, "«…»")
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "@…")
     .replace(/\d[\d\s.-]{5,}\d/g, "#…")
@@ -135,7 +166,13 @@ export function redactar(texto: string): string {
     .slice(0, TEXTO_MAX);
 }
 
-export function resumirError(err: unknown): { error_nombre: string; error_codigo: string | null; error_resumen: string } {
+export function resumirError(err: unknown): {
+  error_nombre: string;
+  error_codigo: string | null;
+  error_resumen: string;
+  /** Los dos primeros marcos del stack, sin la ruta absoluta. null si no hay. */
+  error_donde?: string | null;
+} {
   if (err instanceof Error) {
     const e = err as Error & { code?: unknown; status?: unknown; statusCode?: unknown };
     const codigo = e.code ?? e.status ?? e.statusCode;
@@ -143,6 +180,16 @@ export function resumirError(err: unknown): { error_nombre: string; error_codigo
       error_nombre: err.name || "Error",
       error_codigo: codigo == null ? null : String(codigo).slice(0, 40),
       error_resumen: redactar(err.message ?? ""),
+      // DÓNDE PASÓ, dos marcos y sin la ruta absoluta (15-09). El mensaje dice
+      // QUÉ y el stack dice DÓNDE; sin esto había que reproducirlo en local
+      // para localizar la línea. Son rutas de código, no datos de nadie: no se
+      // redactan, se recortan.
+      error_donde: (err.stack ?? "")
+        .split("\n")
+        .slice(1, 3)
+        .map((l) => l.trim().replace(process.cwd() + "/", "").slice(0, 160))
+        .filter(Boolean)
+        .join(" · ") || null,
     };
   }
   if (typeof err === "string") return { error_nombre: "texto", error_codigo: null, error_resumen: redactar(err) };
