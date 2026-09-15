@@ -298,6 +298,11 @@ export type CasoDeCola = {
   /** 11-09 — por qué el agente ENTREGÓ el caso (null si no lo entregó o ya
    *  se resolvió). La bandeja marca «Urgencia» con esto, antes de abrir. */
   entregadoCausa: CausaDerivacion | null;
+  /** 15-09 — cuándo VOLVIÓ A ESCRIBIR con el caso ya entregado, si lo hizo.
+   *  Sube el caso dentro de su cohorte: alguien que insiste no solo lleva
+   *  esperando, además lo ha dicho. La campana sola no basta — la
+   *  coordinadora que abre el producto por la mañana mira su LISTA. */
+  insistioEn: string | null;
   /** € SOLO cuando el dato existe (presupuestos). Los leads no llevan
    *  importe en datos: se cuentan, no se inventan. */
   importe: number | null;
@@ -455,7 +460,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
   };
 
   // ── El log del agente, agrupado por dígitos del hilo ──────────────────────
-  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoObjetivo: string | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; evaluado: boolean; presupuestoReferidoId: string | null; telefono: string };
+  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoObjetivo: string | null; entregadoEn: string | null; insistioEn: string | null; aplazadosVivos: number; enEspera: boolean; evaluado: boolean; presupuestoReferidoId: string | null; telefono: string };
   const agentePorDigitos = new Map<string, EstadoAgente>();
   {
     const grupos = new Map<string, typeof datos.eventos>();
@@ -505,6 +510,17 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
             } catch { /* payload ilegible: se ignora, no se inventa */ }
           }
           return null;
+        })(),
+        // HA VUELTO A ESCRIBIR con el caso ya entregado (057). Solo cuenta si
+        // la insistencia es POSTERIOR a la entrega viva: una reactivación de
+        // un caso que ya se resolvió no es presión, es historia. Y no toca
+        // `entregadoEn` a propósito — la edad de la entrega es la presión, y
+        // rejuvenecerla escondería los casos que más tiempo llevan esperando.
+        insistioEn: (() => {
+          if (!ultimo || resueltoDespues) return null;
+          const react = evs.filter((x) => x.evento === "reactivado" && x.created_at > ultimo.created_at);
+          const ult = react[react.length - 1];
+          return ult ? ult.created_at.toISOString() : null;
         })(),
         entregadoCausa: ultimo && !resueltoDespues ? ultimo.causa_derivacion : null,
         entregadoEn: ultimo && !resueltoDespues ? ultimo.created_at.toISOString() : null,
@@ -615,7 +631,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     const paradoDias = desde ? Math.max(0, diasDeClinicaEntre(new Date(desde), ahora)) : 0;
     // La CAUSA de la entrega viaja con el caso (11-09): la bandeja de
     // Mensajería marca «Urgencia» en la card sin abrir la conversación.
-    return { ...r, paradoDias, enEspera: agente?.enEspera ?? false, conversacion, entregadoCausa: agente?.entregadoCausa ?? null };
+    return { ...r, paradoDias, enEspera: agente?.enEspera ?? false, conversacion, entregadoCausa: agente?.entregadoCausa ?? null, insistioEn: agente?.insistioEn ?? null };
   };
 
   // 1 · Presupuestos abiertos, AGRUPADOS POR CONVERSACIÓN (21-08, dictado):
@@ -703,6 +719,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       cohorte: peor.k!.cohorte,
       detalle: peor.k!.detalle,
       entregadoCausa: peor.k!.entregadoCausa,
+      insistioEn: peor.k!.insistioEn,
       importe: eleccion.activo.importe,
       importeTotal: miembros.reduce((sum, m) => sum + (m.pr.importe == null ? 0 : Number(m.pr.importe)), 0),
       otrosPresupuestos: eleccion.otros.map((o) => ({ id: o.id, importe: o.importe, tratamiento: o.tratamiento })),
@@ -752,6 +769,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       cohorte: k.cohorte,
       detalle: k.detalle,
       entregadoCausa: k.entregadoCausa,
+      insistioEn: k.insistioEn,
       importe: null,
       tratamiento: l.tratamiento_interes ?? null,
       origen: l.canal_captacion ?? null,
@@ -782,6 +800,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       cohorte: kk.cohorte,
       detalle: kk.detalle,
       entregadoCausa: kk.entregadoCausa,
+      insistioEn: kk.insistioEn,
       importe: null,
       tratamiento: null,
       origen: null,
@@ -901,6 +920,9 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
       casos.push({
         id: `cobro:${cb.pacienteId}`,
         tipo: "cobro",
+        // Un cobro vencido no nace de una entrega del agente, así que no puede
+        // haber insistido sobre ella. Se declara para no dejarlo a medias.
+        insistioEn: null,
         telefono: claveDeHilo(pac?.telefono),
         nombre: pac?.nombre ?? "Paciente",
         clinicaId: cb.clinicaId,

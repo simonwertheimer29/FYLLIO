@@ -40,6 +40,9 @@ type Caso = {
   clinicaNombre: string | null;
   cohorte: Cohorte;
   detalle: string;
+  /** 15-09 — volvió a escribir con el caso ya entregado: sube dentro de su
+   *  cohorte y la fila lo dice. */
+  insistioEn: string | null;
   importe: number | null;
   tratamiento: string | null;
   origen: string | null;
@@ -225,9 +228,19 @@ export function ColaPorCohortes({
   const porCohorte = useMemo(() => {
     const m = new Map<Cohorte, Caso[]>(ORDEN.map((c) => [c, []]));
     for (const c of visibles) m.get(c.cohorte)!.push(c);
-    // Dentro de cada cohorte, lo más viejo primero: la presión real.
+    // Dentro de cada cohorte, lo más viejo primero: la presión real. Y por
+    // encima de la edad, QUIEN HA VUELTO A ESCRIBIR (15-09): alguien que
+    // insiste no solo lleva esperando — además lo ha dicho, y sigue esperando
+    // mientras lee que «el equipo te contactará». La campana avisa a quien
+    // esté mirando; esto es para quien abre el producto por la mañana y mira
+    // su lista.
     for (const lista of m.values()) {
-      lista.sort((a, b) => (b.esperandoMinLaborables ?? 0) - (a.esperandoMinLaborables ?? 0) || b.paradoDias - a.paradoDias);
+      lista.sort(
+        (a, b) =>
+          Number(b.insistioEn != null) - Number(a.insistioEn != null) ||
+          (b.esperandoMinLaborables ?? 0) - (a.esperandoMinLaborables ?? 0) ||
+          b.paradoDias - a.paradoDias,
+      );
     }
     return m;
   }, [visibles]);
@@ -330,7 +343,24 @@ export function ColaPorCohortes({
                     <div key={caso.id}>
                       <AccionCard
                         borderColor={COLOR_COHORTE[cohorte]}
-                        title={caso.nombre}
+                        title={
+                          // POR QUÉ ESTÁ ARRIBA (15-09). Si un caso sube por
+                          // encima de otros más viejos, la fila tiene que decir
+                          // por qué o el orden parece arbitrario.
+                          caso.insistioEn ? (
+                            <span className="flex items-center gap-1.5">
+                              {caso.nombre}
+                              <span
+                                title="Ha vuelto a escribir con el caso ya entregado y sigue esperando"
+                                className="rounded-sm bg-[var(--color-danger-soft)] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-[var(--color-danger)]"
+                              >
+                                Ha vuelto a escribir
+                              </span>
+                            </span>
+                          ) : (
+                            caso.nombre
+                          )
+                        }
                         titleRight={
                           // sin_senal: nadie señaló un favorito — el título
                           // lleva el TOTAL en juego, no un elegido a dedo.

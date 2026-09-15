@@ -6217,3 +6217,16 @@ segundos es justo el defecto que veníamos a quitar. Los dos guardas del arreglo
 seguro: el hilo se vacía al cambiar de conversación y la respuesta que llega tarde no pinta encima.
 **Y no se tira al pasar a tiempo real:** en serverless la conexión SSE muere por tope de duración, así
 que el sondeo es su capa de respaldo obligatoria.
+
+## 2026-09-15 · La reactivación también sube en la lista, no solo suena
+**Lo que faltaba de la pieza anterior, y Simon lo dijo con la frase exacta:** «la coordinadora que
+abre el producto por la mañana y mira su lista no vería que ese paciente lleva un día esperando y ya
+ha insistido». La campana avisa a quien esté delante; la lista es lo que mira quien llega.
+**CÓMO SUBE:** el caso lleva `insistioEn` —la última reactivación POSTERIOR a la entrega viva— y
+dentro de su cohorte ordena **por encima de la edad**: primero quien ha vuelto a escribir, luego lo
+más viejo, como hasta ahora. Alguien que insiste no solo lleva esperando: además lo ha dicho, y
+sigue esperando mientras lee que «el equipo te contactará».
+**Y LA FILA DICE POR QUÉ ESTÁ ARRIBA** — «Ha vuelto a escribir». Sin eso, un caso que adelanta a
+otros más viejos parece un orden arbitrario, y un orden que no se explica se desobedece.
+**Lo que NO se tocó, otra vez a propósito:** `entregadoEn`. La edad de la entrega sigue siendo la de
+la entrega. Una reactivación de un caso ya resuelto tampoco cuenta — eso es historia, no presión.
