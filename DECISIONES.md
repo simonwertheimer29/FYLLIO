@@ -6366,3 +6366,27 @@ de entorno, que el navegador no ve ni debe ver.
 **QA sin modelo (`qa:envio-automatico`), porque todo esto es determinista:** que apagado no envíe
 nadie, que el teléfono de otro cliente no cuele, que el formato del número no decida, y que el freno
 cuente los seguidos del final y no el total.
+
+## 2026-09-15 · Las nueve incidencias eran mi propio QA, y eso era el fallo
+**Simon: «la clave SÍ está en Vercel, y el agente me contestó hace un rato».** Las dos cosas ciertas,
+y la explicación es que **la alarma la disparaba el QA que escribí esta tarde**:
+ · **(a) La clave se lee igual en todas partes** (`process.env["ANTHROPIC_API_KEY"]`, evaluador y
+   decisor). El envío automático ni la mira: solo manda texto ya escrito.
+ · **(b) El error es LITERAL, pero es `qa:arranque` hablando de sí mismo**: borra la clave a propósito
+   para probar que el turno termina en fallback declarado y no en excepción — y como ejecuta el
+   orquestador DE VERDAD contra la base de DEMO, el orquestador hace lo que debe y levanta la
+   incidencia. Una frase verdadera sobre una situación fabricada.
+ · **(c) No cambió nada entre pruebas.** Sus mensajes lo demuestran: entrante 20:59 → **saliente
+   21:00**. Y las nueve incidencias llevan `referencia: qa-arranque-<timestamp>`, una por cada vez
+   que corrí el QA. **Ninguna conversación de la demo afectada**: los eventos del teléfono de pruebas
+   los borra el script, y los únicos mensajes de la red en esa hora eran los suyos.
+**EL FALLO DE VERDAD, QUE ES MÍO Y PEOR QUE EL SUSTO:** metí `qa:arranque` en `prebuild`. Cada build
+de Vercel habría escrito **una incidencia falsa de «el agente no responde» en la base real**. Una
+alarma que grita cuando no pasa nada enseña a la coordinadora a ignorarlas — y entonces la que
+importa también se ignora. Llevamos la semana cazando fallos silenciosos; fabricar ruido es el otro
+lado de la misma moneda.
+**ARREGLADO EN DOS SITIOS:** (1) el QA **limpia también su incidencia**, no solo sus eventos, y
+ADEMÁS comprueba que no queden de corridas anteriores —si quedan, sale rojo: la limpieza es parte de
+la prueba, no un apéndice—; (2) **fuera de `prebuild`**: un QA que escribe en la base de producción
+durante un despliegue no puede correr solo. Se corre a mano antes de subir, que es cuando habría
+cazado el TDZ igual.

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts && tsx scripts/qa-campos-perdidos.mts && tsx scripts/qa-arranque.mts",
+    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts && tsx scripts/qa-campos-perdidos.mts",
     "qa:frontera": "tsx scripts/qa-frontera-cliente.mts",
     "start": "next start",
     "lint": "eslint",

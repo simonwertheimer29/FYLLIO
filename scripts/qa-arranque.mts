@@ -90,13 +90,26 @@ try {
   // que este QA no conozca: si aparece uno nuevo, que se mire.
   if (["evaluado", "fallo", "saltado"].includes(estado)) ok(`el turno terminó en «${estado}», no en excepción`);
   else ko(`estado inesperado del orquestador: «${estado}»`);
-  // Y la limpieza: este QA escribe eventos reales (el turno se persiste).
+  // LA LIMPIEZA, Y ES PARTE DE LA PRUEBA, NO UN APÉNDICE. Este QA ejecuta el
+  // orquestador DE VERDAD contra la base, así que deja rastro real: eventos
+  // del turno y —porque el turno termina en fallback— una INCIDENCIA que dice
+  // «el agente no responde». Medido el 15-09: nueve de esas incidencias se
+  // acumularon en una tarde y Simon las vio en el producto creyendo que había
+  // pasado algo. **Una alarma que grita cuando no pasa nada enseña a
+  // ignorarlas, y entonces la que importa también se ignora.** Si esto no
+  // limpia, el QA hace más daño que el bug que previene.
   const { runWithClienteDb } = await import("../app/lib/db/context");
   const { sql } = await import("kysely");
   await runWithClienteDb("DEMO", async (trx) => {
     await sql`delete from eventos_automatizacion where mensaje_id = ${mensajeId}`.execute(trx);
+    await sql`delete from incidencias where referencia = ${mensajeId}`.execute(trx);
   });
-  ok("limpieza: los eventos del turno de prueba, borrados");
+  const quedan: any = await runWithClienteDb("DEMO", (trx) =>
+    sql`select count(*)::int as n from incidencias where referencia like 'qa-arranque-%'`.execute(trx),
+  );
+  const pendientes = Number(quedan.rows?.[0]?.n ?? 0);
+  if (pendientes === 0) ok("limpieza: ni eventos ni incidencias de la prueba");
+  else ko(`quedan ${pendientes} incidencias de ejecuciones anteriores de este QA`, "corre otra vez o bórralas: son ruido en el producto");
 } catch (e) {
   ko("el orquestador LANZÓ en vez de terminar", e);
 } finally {
