@@ -3864,3 +3864,31 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   ficha es corta; cada campo nuevo le quita fuerza al primero» (cabecera de `ficha-caso.ts`). ·
   **Impacto:** MEDIO-ALTO (es la pantalla donde se trabaja). · **Esfuerzo:** medio día de diseño +
   medio de código. · **Fecha:** 2026-09-15
+
+## 254. Agente · el recordatorio de quien deja de contestar a medias: «¿sigues ahí?»
+- **Anotado el 15-09 por Simon. NO se hace ahora**, y la razón es que es una pieza distinta de todo
+  lo construido hasta hoy: **es el agente escribiendo sin que le hayan escrito.** Todo lo que existe
+  —modo A, modo B, la reactivación— responde a un entrante. Esto no.
+- **El caso:** una persona empieza a dar sus datos, el agente le pregunta la disponibilidad, y ahí se
+  queda. No dice que no; simplemente deja de contestar. Hoy ese caso se enfría solo — existe el
+  filtro «Sin respuesta» en la bandeja, pero nadie le escribe.
+- **Lo que hay que diseñar, y es todo lo que hay que decidir antes de escribir una línea:**
+  1. **CUÁNTOS.** Simon apunta dos: uno, otro, y callar. La forma de rendirse importa tanto como la
+     de insistir.
+  2. **CADA CUÁNTO.** No es lo mismo a las 2 h que al día siguiente, y depende de dónde se cortó: a
+     quien le falta UN dato se le puede escribir antes que a quien no ha dicho ni qué quiere.
+  3. **CUÁNDO SE RINDE**, y qué pasa entonces: ¿se entrega el caso a una persona, se cierra como
+     perdido, o se deja al seguimiento comercial que ya existe? Esto último es importante: **las
+     cadencias de plantilla ya hacen algo parecido**, y dos sistemas escribiéndole a la misma persona
+     por motivos distintos es exactamente lo que no puede pasar.
+  4. **QUÉ DICE.** «¿Sigues ahí?» a secas es un mensaje que no aporta. Tiene que recordar DÓNDE se
+     quedó («me faltaba saber qué días te vienen bien»), que es lo único que le ahorra trabajo a la
+     persona y la única excusa honesta para volver a escribir.
+- **La guarda que ya existe y aquí SÍ trabajará:** el tope de salientes seguidos sin respuesta del
+  modo B (`TOPE_SEGUIDOS_SIN_RESPUESTA`). En el camino de respuesta ese contador vale 0 por
+  construcción —el agente solo contesta a un entrante, así que el último mensaje del hilo siempre es
+  de la persona—; **es aquí, escribiendo sin que le escriban, donde de verdad frena.** Conviene
+  diseñar las dos cosas sabiendo que comparten freno.
+- · **Principio:** el agente puede insistir, pero tiene que saber rendirse — y la conversación es de
+  la persona, no nuestra. · **Impacto:** ALTO (es dinero que hoy se enfría solo). · **Esfuerzo:**
+  medio día de diseño + 1 día de código y medición. · **Fecha:** 2026-09-15
