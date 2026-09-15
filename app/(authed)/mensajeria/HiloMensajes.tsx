@@ -197,11 +197,34 @@ export function HiloMensajes({
                       {porQue.abierto === clavePorQue ? "Cerrar por qué" : "Ver por qué"}
                     </button>
                   )}
-                  {m.sugeridoPorIa && (
-                    <span title="Lo redactó el agente" className="mr-1 inline-flex align-middle">
-                      <Sparkles size={10} strokeWidth={ICON_STROKE} aria-label="Lo redactó el agente" />
+                  {/* QUIÉN LE DIO A ENVIAR (15-09, encargo de Simon). Antes
+                      solo había un ✨ para «lo redactó la IA», que responde a
+                      QUIÉN ESCRIBIÓ — y con el modo automático encendido lo que
+                      el lector necesita saber es si alguien lo LEYÓ antes de
+                      salir. Un borrador aprobado y un mensaje enviado solo se
+                      veían idénticos.
+                      · autor «agente» → salió sin que nadie lo revisara.
+                      · autor «cadencia» → plantilla programada, ni una cosa ni
+                        la otra.
+                      · autor «persona» + sugeridoPorIa → modo A: lo escribió él,
+                        lo envió alguien. Sin IA no se marca nada: lo normal no
+                        necesita etiqueta. */}
+                  {m.autor === "agente" ? (
+                    <span
+                      title="Salió automáticamente: nadie lo leyó antes de enviarse"
+                      className="mr-1.5 rounded-sm border border-current/30 px-1 py-px text-[9px] font-semibold uppercase tracking-wide"
+                    >
+                      Respondió el agente
                     </span>
-                  )}
+                  ) : m.autor === "cadencia" ? (
+                    <span className="mr-1.5 rounded-sm border border-current/30 px-1 py-px text-[9px] font-semibold uppercase tracking-wide opacity-80">
+                      Automático
+                    </span>
+                  ) : m.sugeridoPorIa ? (
+                    <span title="Lo redactó el agente y lo envió una persona" className="mr-1 inline-flex align-middle">
+                      <Sparkles size={10} strokeWidth={ICON_STROKE} aria-label="Texto del agente" />
+                    </span>
+                  ) : null}
                   {multiClinica && m.clinicaId && (
                     <span className="mr-1.5 rounded-sm border border-current/30 px-1 py-px text-[9px] font-semibold uppercase tracking-wide opacity-80">
                       {nombresClinica?.[m.clinicaId] ?? "otra clínica"}

@@ -88,7 +88,8 @@
     "qa:modo-manual": "tsx scripts/qa-modo-manual.mts",
     "cola:programar": "tsx scripts/cola-programar.mts",
     "qa:supresion": "tsx scripts/qa-supresion.mts",
-    "qa:arranque": "tsx scripts/qa-arranque.mts"
+    "qa:arranque": "tsx scripts/qa-arranque.mts",
+    "qa:envio-automatico": "tsx scripts/qa-envio-automatico.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

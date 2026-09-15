@@ -6333,3 +6333,36 @@ exige que `disponibilidad: tardes` siga ahí y que «qué quiere» siga diciendo
 **Anotado y NO tocado (MEJORAS 253):** la columna derecha dice tres veces lo mismo —prosa del agente,
 titular compuesto y lista de campos—, con el ejemplo literal dentro. Se piensa junto con lo de
 Seguimiento, no sobre la marcha.
+
+## 2026-09-15 · Modo B: el agente envía solo, con el interruptor apagado
+**LO QUE CAMBIA NO ES EL AGENTE —escribe igual— sino quién le da a enviar.** Por eso la pieza nueva
+(`envio-automatico.ts`) es solo interruptor, guardas y envío.
+**EL INTERRUPTOR es por cliente Y por teléfono, y se lee en cada turno:**
+`AGENTE_ENVIO_AUTOMATICO=DEMO:+34667188097` · `DEMO:*` para el cliente entero · vacío = nadie.
+Por teléfono porque Simon lo prueba en su número antes que nadie; leído en cada turno porque apagarlo
+no puede pedir un despliegue.
+**LAS GUARDAS SON CONDICIÓN, NO EXTRA** (dictado de Simon: «un agente que envía solo y no para es la
+peor forma de perder a un paciente»): opt-out, fuera de horario, y **tope de SALIENTES SEGUIDOS sin
+respuesta (3)**. Lo que cuenta el tope no es cuántos mensajes hubo, sino cuántos van sin que la
+persona haya vuelto a decir nada — que es la forma exacta que tiene un sistema de hablar solo. El
+horario se toma del que YA cuenta `senalesDelHilo` para el prompt, en vez de calcularlo otra vez: dos
+cuentas del mismo horario acabarían diciendo cosas distintas (§25). Sin horario configurado no se
+envía solo.
+**LA ENTREGA:** se envía lo que el agente escribió, entregue o no. Lo que no tiene texto —urgencia,
+queja, audio no legible, descarte del juez— sigue sin enviarse, y el caso va a la bandeja igual en
+los dos casos.
+**EN REACTIVACIÓN TAMBIÉN SE ENVÍA, y es donde más falta hace:** un caso entregado es por definición
+uno que nadie está atendiendo, así que dejarlo de borrador sería dejar a la persona esperando dos
+veces. **El riesgo está ahí y se dijo antes de escribir**: es justo donde puede aparecer el bucle
+(«¿y ahora?» → «ya está con el equipo» → «¿y ahora?»). Lo cierran dos frenos que ya existían: el tope
+de salientes seguidos y la regla de decir «ya está con el equipo» UNA vez por entrega.
+**LAS ETIQUETAS, en palabras normales y respondiendo a QUIÉN LE DIO A ENVIAR** —que es lo único que
+cambia lo que el lector puede fiarse—: «Respondió el agente» (con el título «salió automáticamente:
+nadie lo leyó antes de enviarse»), «Automático» para las cadencias de plantilla, y el ✨ de siempre
+—ahora «lo redactó el agente y lo envió una persona»— para el modo A. Lo que uno escribe no se marca:
+lo normal no necesita etiqueta. Y la conversación avisa arriba —«El agente está respondiendo solo en
+esta conversación»— **derivado del DATO** (el último saliente lo envió el agente), no de la variable
+de entorno, que el navegador no ve ni debe ver.
+**QA sin modelo (`qa:envio-automatico`), porque todo esto es determinista:** que apagado no envíe
+nadie, que el teléfono de otro cliente no cuele, que el formato del número no decida, y que el freno
+cuente los seguidos del final y no el total.

@@ -43,6 +43,7 @@ import { hoyISO, horaClinica } from "../time";
 import { type TipoMensaje } from "../mensajeria/tipos-mensaje";
 import { avisarFalloAgente, falloReintentable, type MotivoFalloAgente } from "./avisos";
 import { aplicarDecisorAlcance } from "./decisor-produccion";
+import { enviarSiTocaSolo } from "./envio-automatico";
 import { optOutDeTelefono, marcarOptOut } from "../contacto/optout";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
 
@@ -398,6 +399,31 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       });
     }
   }
+
+  // 4 ter · MODO B: EL AGENTE ENVÍA SOLO (15-09). Apagado por defecto: sin
+  //     `AGENTE_ENVIO_AUTOMATICO` esto devuelve «apagado» y el turno es el de
+  //     siempre (el mensaje queda de borrador y lo manda una persona). Va
+  //     DESPUÉS de persistir para que el log tenga el turno aunque el envío
+  //     falle, y ANTES de las notificaciones para que un caso ya contestado no
+  //     avise como si nadie hubiera dicho nada.
+  //
+  //     EN REACTIVACIÓN TAMBIÉN SE ENVÍA, y es el caso donde más falta hace:
+  //     un caso entregado es por definición uno que nadie está atendiendo, así
+  //     que dejar la respuesta de borrador sería dejar a la persona esperando
+  //     dos veces. El bucle que eso podría abrir lo cierran dos frenos: el tope
+  //     de salientes seguidos de aquí, y la regla de la reactivación de decir
+  //     «ya está con el equipo» UNA vez por entrega.
+  const envio = await enviarSiTocaSolo({
+    cliente: requireCliente("evaluarEntrante"),
+    telefono: e.telefono,
+    evaluacion,
+    hilo,
+    optOutVigente,
+    enHorario: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario).enHorario,
+  });
+  if (envio.envio) console.log(`[agente] enviado SOLO a ${e.telefono}`);
+  else if (envio.motivo !== "apagado" && envio.motivo !== "sin_texto")
+    console.warn(`[agente] NO se envió solo (${envio.motivo}${envio.detalle ? `: ${envio.detalle}` : ""}) — queda de borrador`);
 
   // 4 bis · REACTIVACIÓN (15-09): la persona insiste en un caso ya entregado.
   //     El agente le ha contestado arriba; esto es la otra mitad, la que de

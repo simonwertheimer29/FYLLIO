@@ -34,7 +34,7 @@ import {
   Composer,
   type PlantillaComposer,
 } from "../../components/shared/panel-accion-ui";
-import { Ban, AlertTriangle, UserCheck, ICON_STROKE } from "../../components/icons";
+import { Ban, AlertTriangle, UserCheck, Sparkles, ICON_STROKE } from "../../components/icons";
 import { cargarJSON, mensajeDeError, ErrorDeCarga } from "../../lib/fetch-json";
 import { fechaClinica } from "../../lib/time";
 import type { Conversacion } from "../../lib/mensajeria/conversaciones";
@@ -294,6 +294,19 @@ export function ComposerConversacion({
 
   return (
     <div className="border-t border-[var(--color-border)] pt-2">
+      {/* EL AGENTE RESPONDE SOLO AQUÍ (15-09). Que nadie descubra por accidente
+          que lo que lee no lo ha revisado nadie. Se deriva del DATO —el último
+          saliente lo envió el agente— y no de la variable de entorno, que el
+          navegador no ve ni debe ver. */}
+      {conversacion.ultimoAutor === "agente" && (
+        <div className="mb-1.5 flex items-start gap-2 rounded-md bg-[var(--color-accent-soft)] px-2.5 py-1.5 text-[12px] text-[var(--color-foreground)]">
+          <Sparkles size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
+          <span>
+            <strong>El agente está respondiendo solo en esta conversación.</strong> Lo último que ha
+            salido no lo ha revisado nadie.
+          </span>
+        </div>
+      )}
       {agenteCallado && (
         <div className="mb-1.5 flex items-start gap-2 rounded-md bg-[var(--color-surface-2)] px-2.5 py-1.5 text-[12px] text-[var(--color-foreground)]">
           <UserCheck size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)]" aria-hidden />

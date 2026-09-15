@@ -99,6 +99,9 @@ export type Conversacion = {
   /** Texto del último mensaje. TEXTO, nunca marcado — ver nota abajo. */
   ultimoTexto: string;
   ultimoEs: "Entrante" | "Saliente";
+  /** 15-09 — quién ENVIÓ el último saliente. Con «agente» significa que salió
+   *  sin que nadie lo revisara (modo B), y la conversación lo dice arriba. */
+  ultimoAutor: string | null;
   ultimoAt: string;
   /** Entrantes posteriores a nuestra última salida. El contador tipo WhatsApp. */
   pendientes: number;
@@ -185,6 +188,12 @@ export async function listarConversaciones(args: {
       ult_sal as (
         select distinct on (telefono)
                telefono,
+               -- 15-09: el AUTOR crudo, además del booleano fundido. «agente»
+               -- significa que salió sin que nadie lo revisara (modo B), y eso
+               -- la conversación lo dice arriba; del_agente funde «lo envió
+               -- el agente» con «lo redactó el agente», que para la señal de
+               -- la lista vale y para esto no.
+               autor as ult_autor,
                (autor = 'agente' or sugerido_por_ia is true) as del_agente
           from mensajes_whatsapp
          where telefono is not null and "timestamp" is not null
@@ -280,6 +289,7 @@ export async function listarConversaciones(args: {
                   else 'telefono' end as origen,
              c.nombre as clinica_nombre,
              us.del_agente as sal_del_agente,
+             us.ult_autor,
              -- Para la etiqueta «seguimiento automático»: si el caso del
              -- hilo sigue VIVO (mismo criterio que la cola: presupuesto no
              -- cerrado / lead activo), la cadencia lo trabaja.
@@ -433,6 +443,7 @@ export async function listarConversaciones(args: {
       origenNombre: String(f.origen ?? "telefono") as Conversacion["origenNombre"],
       ultimoTexto: previsualizacion(f.contenido),
       ultimoEs: f.direccion === "Entrante" ? "Entrante" : "Saliente",
+      ultimoAutor: f.ult_autor == null ? null : String(f.ult_autor),
       ultimoAt: new Date(f.timestamp).toISOString(),
       pendientes: Number(f.pendientes) || 0,
       clinicaId: f.clinica_id ? String(f.clinica_id) : null,
