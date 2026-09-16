@@ -171,10 +171,26 @@ export async function aplicarDecisorAlcance(args: {
   const deriva = evaluacion.decision === "deriva" || entregaElDecisor || controlado.pasaAPersona;
   const causa = evaluacion.decision === "deriva" ? evaluacion.causa : deriva ? "caso_completo" : undefined;
 
+  // CORTE 1 del coste (16-09): EL NÚMERO QUE ENSEÑA EL PRODUCTO TIENE QUE
+  // SUMAR TODAS LAS LLAMADAS. Hasta hoy el turno guardaba solo el `usage` del
+  // evaluador y su control: decía $0,015 cuando el turno costaba $0,036, y de
+  // ese número sale toda la cuenta de costes por clínica. Aquí se le añade lo
+  // que cuestan el decisor y el control de SU mensaje, que es lo que faltaba.
+  const sumar = (a: EvaluacionTurno["usage"], b: EvaluacionTurno["usage"]): EvaluacionTurno["usage"] => {
+    if (!a) return b;
+    if (!b) return a;
+    return {
+      inputTokens: a.inputTokens + b.inputTokens,
+      outputTokens: a.outputTokens + b.outputTokens,
+      cacheEscritura: (a.cacheEscritura ?? 0) + (b.cacheEscritura ?? 0),
+      cacheLectura: (a.cacheLectura ?? 0) + (b.cacheLectura ?? 0),
+    };
+  };
   return {
     escritoPor: "alcance",
     evaluacion: {
       ...evaluacion,
+      usage: sumar(sumar(evaluacion.usage, s.usage), controlado.usage),
       respuesta: controlado.texto,
       decision: deriva ? "deriva" : "sigue",
       ...(causa ? { causa, cola: evaluacion.cola ?? colaDeDerivacion(causa, null) } : {}),

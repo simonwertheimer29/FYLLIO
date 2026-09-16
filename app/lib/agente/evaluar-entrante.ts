@@ -42,7 +42,7 @@ import type { ObjetivoAgente } from "../automatizacion/objetivos";
 import { hoyISO, horaClinica } from "../time";
 import { type TipoMensaje } from "../mensajeria/tipos-mensaje";
 import { avisarFalloAgente, falloReintentable, type MotivoFalloAgente } from "./avisos";
-import { aplicarDecisorAlcance } from "./decisor-produccion";
+import { aplicarDecisorAlcance, decisorAlcanceActivo } from "./decisor-produccion";
 import { enviarSiTocaSolo } from "./envio-automatico";
 import { optOutDeTelefono, marcarOptOut } from "../contacto/optout";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
@@ -355,7 +355,11 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     clinicasDelHilo,
     hoy: e.hoy,
   });
-  const evaluacionBase = await evaluarTurno(entrada);
+  // CORTE 3 del coste (16-09): si el mensaje lo va a escribir el decisor
+  // nuevo, no se paga el control del borrador del evaluador — ese texto se
+  // tira. Medido: 3 llamadas y el 40 % del turno revisando lo que nadie envía.
+  const decisorManda = decisorAlcanceActivo(requireCliente("evaluarEntrante"));
+  const evaluacionBase = await evaluarTurno(entrada, { sinControlDelBorrador: decisorManda });
 
   if (!evaluacionBase.actuar) return { estado: "saltado", motivo: "sin_actuar" };
 

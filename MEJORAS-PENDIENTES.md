@@ -3843,6 +3843,27 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   clínica sale de ahí.
 - **El suelo alcanzable, con las mismas llamadas medidas:** decisor + su juez = **$0,0101**. Unos
   **$10 por 1.000 mensajes** en vez de los $36 de hoy.
+- 🟢 **HECHA Y MEDIDA EL 16-09. De 8-10 llamadas y $0,036-0,050 a TRES llamadas y $0,0231**, medido
+  con el mismo contador de `fetch` antes y después. Los tres cortes:
+  1. **El contador honesto, PRIMERO.** El turno guardaba solo el `usage` del evaluador y su control.
+     Ahora suma también el decisor y el control de su mensaje: el número que enseña el producto —del
+     que sale toda la cuenta por clínica— dice lo que costó. Sin esto, recortar habría sido optimizar
+     contra un contador roto.
+  2. **La sombra, APAGADA por defecto** (`AGENTE_SOMBRA=off`). Eran dos llamadas por turno, $0,0114,
+     el 31 %, para comparar decisores — comparación que ya se hizo y que ganó «alcance», que está en
+     producción. Se enciende cuando haya otra comparación que hacer.
+  3. **El borrador descartado deja de pagar su revisión.** Con el decisor escribiendo, el borrador
+     del evaluador se tira; su juez, su reescritura y el segundo juez eran 3 llamadas y el 40 % del
+     turno gastadas en revisar un texto que nadie envía. **No se pierde ninguna guarda:** el mensaje
+     que SÍ sale pasa por el mismo control en su propio camino. Se deja de revisar dos veces.
+- **EL CACHÉ: la directiva ya estaba en los cuatro prompts; lo que falla es el TAMAÑO.** Medido, solo
+  el system del evaluador cachea (6.543 tokens). El del juez y el de la reescritura salen con lectura
+  Y escritura a cero en las dos corridas: el de la reescritura son ~312 tokens, muy por debajo del
+  mínimo cacheable. **Queda pendiente** comprobar el del juez, que está en el límite — se mide con el
+  mismo contador y cuesta un turno.
+- **EN RÉGIMEN sale aún más barato:** la corrida medida pagó la ESCRITURA del caché (1,25×) porque
+  estaba frío. Con tráfico seguido esa llamada la lee (0,1×) y el turno queda en **~$0,0156**, o sea
+  **~$16 por 1.000 mensajes** frente a los $36 del lunes.
 - **Condición de Simon, literal: «el desglose y qué se puede quitar sin tocar calidad, medido contra
   las varas que ya tenemos. No por intuición.»** O sea: cada retirada se prueba contra `qa:juez`
   (63 casos), `qa:conocimiento` y una pasada de los 10 guiones, y se queda solo si las varas no se

@@ -28,9 +28,12 @@
 // modelo NO pasa por el juez (no se envía): los vetos deterministas se le
 // pasan por encima solo para ENSEÑAR si lo cazarían.
 //
-// Dónde corre: AGENTE_SOMBRA = «demo» (por defecto: solo el cliente DEMO),
-// «todos» (todos los clientes; ~$0,008 por turno, dos llamadas en haiku) u
-// «off». Quién la ve: esVisorSombra.
+// Dónde corre: AGENTE_SOMBRA = «off» (POR DEFECTO desde el 16-09), «demo»
+// (solo el cliente DEMO) o «todos». Son DOS llamadas por turno —medido:
+// $0,0114, el 31 % del coste de un turno— y no deciden nada: la comparación
+// de decisores para la que nacieron ya está hecha y ganó «alcance», que está
+// en producción. Se enciende cuando haya otra comparación que hacer.
+// Quién la ve: esVisorSombra.
 
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
@@ -77,7 +80,12 @@ import {
 // ─── Interruptores ─────────────────────────────────────────────────────────
 
 export function sombraActiva(cliente: Cliente): boolean {
-  const v = (process.env.AGENTE_SOMBRA ?? "demo").trim().toLowerCase();
+  // APAGADA POR DEFECTO desde el 16-09. Nació para COMPARAR decisores en la
+  // fase 1 y esa comparación ya se hizo: el decisor «alcance» está en
+  // producción. Medido con un turno real, seguía costando DOS llamadas por
+  // mensaje —$0,0114, el 31 % del turno— para observar algo ya decidido. Se
+  // enciende cuando haya otra comparación que hacer: `AGENTE_SOMBRA=demo`.
+  const v = (process.env.AGENTE_SOMBRA ?? "off").trim().toLowerCase();
   if (v === "off" || v === "0" || v === "false" || v === "no") return false;
   if (v === "todos") return true;
   return cliente === "DEMO";

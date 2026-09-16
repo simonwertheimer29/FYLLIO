@@ -6462,3 +6462,26 @@ sospecha de 251 y ya tiene dato.
 paciente. Lección para mí: **una estimación derivada de otra medida no es una medida.** El banco
 incluía un paciente simulado y yo resté eso creyendo que el resto era producción; producción tenía
 cuatro llamadas más que el banco no hace.
+
+## 2026-09-16 · El coste por turno: de 8-10 llamadas a TRES, y el contador dice la verdad
+**Medido con el mismo contador de `fetch` antes y después, no estimado: $0,036-0,050 → $0,0231.**
+**1 · EL CONTADOR HONESTO VA PRIMERO.** El turno guardaba solo el `usage` del evaluador y su control:
+decía $0,015 cuando costaba $0,036. Ahora suma el decisor y el control de su mensaje. **Recortar
+antes de arreglar esto habría sido optimizar contra un contador roto** — y de ese número sale toda la
+cuenta de costes por clínica.
+**2 · LA SOMBRA, APAGADA POR DEFECTO.** Dos llamadas por turno, $0,0114, el 31 %, para comparar
+decisores. Esa comparación ya se hizo y la ganó «alcance», que está en producción: seguía pagándose
+por observar algo ya decidido. `AGENTE_SOMBRA=demo` la enciende cuando haya otra comparación.
+**3 · EL BORRADOR DESCARTADO DEJA DE PAGAR SU REVISIÓN.** Con el decisor escribiendo, el borrador del
+evaluador se tira — y su juez, su reescritura y el segundo juez eran 3 llamadas y el 40 % del turno
+revisando un texto que nadie envía. **Ninguna guarda se pierde:** el mensaje que SÍ sale pasa por el
+MISMO control en su propio camino. Lo que se deja de hacer es revisar dos veces.
+**EL CACHÉ, y la respuesta no era la que yo esperaba:** la directiva `cache_control` YA estaba en los
+cuatro prompts. Lo que falla es el TAMAÑO — solo el system del evaluador (5.394 tokens) supera el
+mínimo y cachea de verdad (6.543 medidos); el de la reescritura son ~312 tokens y no puede. El del
+juez está en el límite y queda por comprobar: se mide con el mismo contador y cuesta un turno.
+**LA CUENTA:** $36 por 1.000 el lunes → **$23 medido hoy en frío → ~$16 en régimen** (la corrida pagó
+la ESCRITURA del caché a 1,25×; con tráfico seguido esa llamada la LEE a 0,1×).
+**Lo que NO se tocó, a propósito:** ni una regla del prompt, ni el juez, ni lo que sale al paciente.
+Los tres cortes son trabajo duplicado o descartado, así que **no hay vara que pueda moverse** — por
+eso esta vez no hacía falta pagar `qa:juez` para probarlo.

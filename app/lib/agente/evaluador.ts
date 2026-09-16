@@ -1057,7 +1057,22 @@ export function parsearJuicio(
 
 export async function evaluarTurno(
   e: EntradaEvaluador,
-  opts?: { _promptOverride?: string; modelo?: ModeloEvaluador },
+  opts?: {
+    _promptOverride?: string;
+    modelo?: ModeloEvaluador;
+    /** CORTE 3 del coste (16-09): con el decisor nuevo en producción, el
+     *  mensaje que sale lo escribe ÉL — el borrador de este evaluador se tira.
+     *  Pasarlo a `true` salta el control de ese borrador (juez, reescritura y
+     *  el segundo juez), que medido eran **3 llamadas y el 40 % del turno**
+     *  gastadas en revisar un texto que nadie envía. Los JUICIOS de este
+     *  evaluador siguen intactos: urgencia, queja, campos recogidos, espera —
+     *  eso es lo que el sistema necesita de él.
+     *
+     *  Fail-closed: quien no lo pida, conserva el control de siempre. Y el
+     *  mensaje del decisor pasa por el MISMO control en su propio camino, así
+     *  que no se pierde ninguna guarda: se deja de revisar dos veces. */
+    sinControlDelBorrador?: boolean;
+  },
 ): Promise<EvaluacionTurno> {
   // No-reversión: el caso es de la persona. Ni se llama al modelo.
   if (e.yaDerivado) {
@@ -1443,7 +1458,7 @@ export async function evaluarTurno(
     // juez ni coletillas: se acusa recibo y se calla. El caller marca el
     // opt-out en su fuente única.
     respuestaFinal = RESPUESTA_OPT_OUT[juicio.idioma] ?? RESPUESTA_OPT_OUT.es;
-  } else if (respuestaFinal.trim() !== "") {
+  } else if (respuestaFinal.trim() !== "" && opts?.sinControlDelBorrador !== true) {
     // La regla 3 del juez (datos sensibles NO PEDIDOS) necesita saber qué
     // pidió la persona; la 4 (promesa sin entrega), si ESTE turno entrega.
     // «Entrega» = deriva por cualquier causa o anota un pendiente que
