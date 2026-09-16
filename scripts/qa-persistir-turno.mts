@@ -106,6 +106,8 @@ const evalBase: EvaluacionTurno = {
   hiloTruncado: true,
   fallback: false,
   borradorDescartado: { motivo: "clinica", frase: "[QA] no duele nada" },
+  // MEJORAS 255: el rastro del mensaje que SALE (el del decisor).
+  controlSalida: { tocado: true, borrador: "[QA] Te cierro la cita el martes a las 10.", estado: "reescrito", motivo: "agenda", frase: "[QA] Te cierro la cita el martes a las 10.", fuente: "juez", reescrito: true, nota: "[QA] reescrito (agenda · juez)" },
 };
 
 await runWithCliente("DEMO", async () => {
@@ -120,6 +122,9 @@ await runWithCliente("DEMO", async () => {
   ok("payload: juicios íntegros", payload?.tema === "presupuesto" && payload?.malestar === true && payload?.hiloTruncado === true);
   ok("payload: campos recogidos y borrador descartado viajan", payload?.camposRecogidos?.presupuesto?.decision === "se lo piensa" && payload?.borradorDescartado?.motivo === "clinica");
   ok("payload: la respuesta (borrador) viaja — la necesita la fase C", payload?.respuesta?.includes("asesor"));
+  ok("payload: el rastro del mensaje que SALE viaja entero (MEJORAS 255: antes, qué hizo el control y por qué)",
+    payload?.controlSalida?.tocado === true && payload.controlSalida.estado === "reescrito" && payload.controlSalida.borrador?.includes("martes") === true && payload.controlSalida.fuente === "juez",
+    JSON.stringify(payload?.controlSalida));
   // MEJORAS 243: sin esta pareja, la entrega tardía no se puede medir sobre
   // conversaciones reales. `=== false` y no `!payload.casoCompleto`: lo que se
   // comprueba es que la CLAVE está, porque ausente significa «no medido».

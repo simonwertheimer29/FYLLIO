@@ -353,3 +353,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   la del verbo: «anotamos tu revisión para esta semana», «nos encantaría atenderte el 12 de octubre».
   Montar el mundo de un guion nuevo desde su definición ahorró ~$0,45 de `hilos:jugar` y lo deja
   gratis para siempre · ac. **~$16,07**
+- **16-09 · EL JUEZ NO CACHEA POR TAMAÑO + EL TURNO 1 REPRODUCIDO + AG14 EN LA VARA** (`count_tokens`
+  de los cuatro systems, gratis; un turno real en DEMO sin envío para capturar el antes/después de la
+  reescritura, $0,028; `qa:juez` con 64 casos, $0,22) · **$0,25 medido** · ac. **~$16,32**

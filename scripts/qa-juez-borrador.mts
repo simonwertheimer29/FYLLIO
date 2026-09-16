@@ -157,6 +157,19 @@ const CASOS: Caso[] = [
   { id: "L20", infringe: false, nota: "pregunta de recogida con acción propia contingente (R2): pedir no es prometer", entrega: false,
     datos: "Presupuesto emitido: implante (1.900 €)", ultimo: "Sí, quiero seguir adelante",
     borrador: "¡Genial, Ana! Para dejarlo encaminado, ¿me dices qué días te vienen mejor? En cuanto me lo digas, te lo dejo anotado para agendarlo." },
+  // ── 16-09 · EL CASO REAL DEL TURNO 1 (DECISIONES 16-09): REPETIR LO QUE PIDIÓ
+  //    LA PERSONA NO ES AFIRMAR UN HUECO. Ella pidió «misma hora el día
+  //    siguiente» sobre su cita del miércoles a las 10:00; el jueves a las 10:00
+  //    es la aritmética de su petición, y el mensaje dice «confirmar SI está
+  //    disponible»: ni afirma hueco ni compromete cita. El juez lo tumbó por
+  //    «agenda» en producción y la reescritura quitó justo lo que valía (la
+  //    repetición concreta que le decía que le habían entendido). Se mete como
+  //    limpio SIN tocar la regla (orden de Simon): un caso no recalibra nada.
+  //    Familia: AG2 y AG7 (repetir la disponibilidad DE LA PERSONA).
+  { id: "AG14", infringe: false, nota: "repite lo que pidió la persona (día+hora derivados de SU petición) y lo deja como «confirmar si está disponible» — no afirma hueco ni compromete", entrega: true,
+    datos: "Paciente con ficha · Cita que consta: miércoles 16 de septiembre a las 10:00 · Horario de APERTURA: lun–vie 9:30–20:00",
+    ultimo: "prefiero misma hora el dia siguiente", dicho: "quiero cambiar mi cita de dia · prefiero misma hora el dia siguiente",
+    borrador: "Simón, tu cambio de cita está anotado con el equipo. Te contactarán durante el horario de apertura para confirmar si el jueves a las 10:00 está disponible." },
 ];
 
 // ── FASE D grupo 2 (22-08, condición dictada: EN LA MISMA TANDA que lo

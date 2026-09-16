@@ -176,8 +176,32 @@ export function PorQuePanel({
           {turno.espera.levantada && <span className="mt-1 block">Se reanudó el contacto: {turno.espera.levantada}.</span>}
         </Bloque>
 
-        {(turno.descarte || turno.poda || turno.etiquetasDescartadas.length > 0) && (
+        {(turno.descarte || turno.poda || turno.salida || turno.etiquetasDescartadas.length > 0) && (
           <Bloque titulo="Revisión de seguridad">
+            {/* MEJORAS 255 (16-09): el rastro del mensaje que SALIÓ. Es lo que
+                permite decidir el futuro del juez con datos de producción:
+                qué escribió el decisor, qué hizo el control y qué quedó. */}
+            {turno.salida && !turno.salida.tocado && (
+              <span className="block text-[var(--color-muted)]">El mensaje que salió no necesitó ningún cambio de la revisión.</span>
+            )}
+            {turno.salida && turno.salida.tocado && (
+              <span className="block">
+                <span className="block font-semibold text-[var(--color-warning)]">
+                  {turno.salida.estado === "reescrito"
+                    ? "La revisión hizo reescribir el mensaje que salió"
+                    : turno.salida.estado === "podado"
+                      ? "La revisión quitó una frase del mensaje que salió"
+                      : "La revisión descartó el mensaje del agente y salió la fórmula segura"}
+                  {turno.salida.motivo ? ` porque ${ETIQUETA_MOTIVO_JUEZ[turno.salida.motivo] ?? "infringía una regla"}` : ""}
+                  {turno.salida.fuente ? ` (${turno.salida.fuente})` : ""}.
+                </span>
+                {turno.salida.frase && <span className="mt-0.5 block text-[var(--color-muted)]">La frase señalada: «{turno.salida.frase}»</span>}
+                {turno.salida.antes && (
+                  <span className="mt-0.5 block text-[var(--color-muted)]">Antes: «{turno.salida.antes}»</span>
+                )}
+                {turno.borrador && <span className="mt-0.5 block">Después (lo que salió): «{turno.borrador}»</span>}
+              </span>
+            )}
             {turno.descarte && (
               <span className="block text-[var(--color-danger)]">
                 Descartó el borrador del agente porque {ETIQUETA_MOTIVO_JUEZ[turno.descarte.motivo] ?? "infringía una regla"}

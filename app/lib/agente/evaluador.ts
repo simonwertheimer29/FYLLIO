@@ -289,6 +289,14 @@ export type EvaluacionTurno = {
    *  descartó). Viaja al payload para verlo en «ver por qué» y para que el
    *  turno siguiente sepa que viene de un callejón. */
   descartesSeguidos?: number;
+  /** MEJORAS 255 (16-09) — EL RASTRO DEL MENSAJE QUE SALE. Con el decisor
+   *  escribiendo, `borradorPodado`/`borradorDescartado` cuentan el control
+   *  del borrador del EVALUADOR (que ya no se revisa); esto cuenta el del
+   *  mensaje del decisor, que es el que el paciente lee. `tocado=false` = salió
+   *  tal cual. Con `tocado=true`: lo que escribió el decisor (`borrador`), qué
+   *  hizo el control y por qué; lo que quedó es `respuesta`. Sin esto no se
+   *  puede decidir el futuro del juez con datos de producción. */
+  controlSalida?: ControlSalida;
   /** El modelo no contestó o contestó ilegible: fail-closed compat
    *  (requiere_persona + MOTIVO_FALLBACK en el caller), SIN eventos. */
   fallback: boolean;
@@ -843,6 +851,24 @@ const ETAPAS_VALIDAS: readonly EtapaObjetivo[] = PRECEDENCIA_OBJETIVOS;
  *  la comparación (pasada 3, 2026-08-14) — Sonnet corre con su comportamiento
  *  por defecto (thinking adaptativo) y techo de tokens con holgura, porque la
  *  pregunta es qué da el modelo tal cual, no recortado. */
+/** MEJORAS 255 — ver `EvaluacionTurno.controlSalida`. */
+export type ControlSalida =
+  | { tocado: false }
+  | {
+      tocado: true;
+      /** Lo que escribió el decisor, antes del control. */
+      borrador: string | null;
+      estado: "podado" | "reescrito" | "descartado" | "juez_no_respondio";
+      motivo: string | null;
+      /** La frase que el juez o el veto señalaron. */
+      frase: string | null;
+      /** `veto:<regla>` o `juez`. */
+      fuente: string | null;
+      reescrito: boolean;
+      /** Una línea legible, la misma del log. */
+      nota: string | null;
+    };
+
 export const MODELOS = {
   haiku: { id: "claude-haiku-4-5-20251001", maxTokens: 900 },
   sonnet: { id: "claude-sonnet-5", maxTokens: 2500 },

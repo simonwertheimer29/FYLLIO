@@ -71,6 +71,14 @@ export type TurnoExplicado = {
   /** 12-09 — el juez infringió, se quitó SU frase y el resto SÍ se envió.
    *  No es un descarte: el mensaje salió. */
   poda: { motivo: string; frase: string } | null;
+  /** MEJORAS 255 (16-09) — el control sobre el mensaje que SALIÓ (el del
+   *  decisor): null = turno sin ese rastro (anterior al 16-09 o sin decisor);
+   *  `tocado=false` = salió tal cual; con `tocado=true`, el antes y el porqué
+   *  (el después es `borrador`, que es lo que salió). */
+  salida:
+    | { tocado: false }
+    | { tocado: true; antes: string | null; estado: string; motivo: string | null; frase: string | null; fuente: string | null; nota: string | null }
+    | null;
   etiquetasDescartadas: string[];
   /** El borrador que propuso (payload `respuesta`). */
   borrador: string | null;
@@ -251,6 +259,19 @@ export async function porQueDeHilo(telefono: string): Promise<TurnoExplicado[]> 
       poda: payload?.borradorPodado
         ? { motivo: String(payload.borradorPodado.motivo), frase: String(payload.borradorPodado.frase) }
         : null,
+      salida: !payload?.controlSalida
+        ? null
+        : payload.controlSalida.tocado
+          ? {
+              tocado: true,
+              antes: payload.controlSalida.borrador ?? null,
+              estado: String(payload.controlSalida.estado),
+              motivo: payload.controlSalida.motivo ?? null,
+              frase: payload.controlSalida.frase ?? null,
+              fuente: payload.controlSalida.fuente ?? null,
+              nota: payload.controlSalida.nota ?? null,
+            }
+          : { tocado: false },
       etiquetasDescartadas: payload?.etiquetasDescartadas ?? [],
       borrador: payload?.respuesta?.trim() ? payload.respuesta : null,
       tecnico: {

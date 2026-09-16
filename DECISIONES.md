@@ -6537,3 +6537,20 @@ turno lo ENTREGUE otra vez como caso completo en vez de mover nada. **Va en el a
 (+2 h): abrir `mover_cita` también para el lead con cita futura, y una señal determinista barata
 que no dependa de la firma —el saliente anterior fue la confirmación de la reserva que envía el
 botón, y la respuesta es negativa— para que «no me viene bien» reabra el flujo sobre ESA cita.
+
+## 2026-09-16 · El rastro del mensaje que sale (MEJORAS 255), y el caso del turno 1 entra en la vara del juez sin tocar la regla
+**255, HECHA el mismo día por orden de Simon** («sin eso no puedo decidir el futuro del juez con
+datos de producción, que es la condición que puse»): `controlSalida` en el payload —qué escribió el
+decisor, si el control lo tocó, qué hizo y por qué; lo que quedó ya estaba— y en «ver por qué».
+Aditivo, cero llamadas. Tiene que estar ANTES de que RB genere tráfico, y está.
+**EL CASO DEL TURNO 1 EN `qa:juez` COMO «NO INFRINGE» (AG14), y la regla NO se toca** — un caso no
+recalibra nada. Pasada de 64 casos ($0,22): falsos negativos **0/26**; falsos positivos **2/38**:
+AG14 (el nuevo, como se esperaba: es exactamente lo que pasó en producción) y L12 (el FP que ya
+estaba pendiente de Simon). **La familia «el agente repite lo que pidió la persona» son TRES casos
+en el banco:** AG2 («lo dejo anotado: martes y jueves desde las 17:00»), AG7 («para cerrar tu cita
+por las tardes…») y AG14. **Los dos primeros pasan; el tercero no.** La diferencia es que en AG14 el
+día y la hora no son las palabras de la persona sino la ARITMÉTICA de su petición («misma hora el
+día siguiente» → jueves 10:00), y el juez lee «jueves a las 10:00» como un hueco. Con tres casos de
+la familia y uno que falla, es Simon quien dice si se estrecha la regla DESCRIBIENDO la situación
+(«repetir o derivar lo que pidió la persona no es afirmar un hueco») o se espera a producción — que
+ahora, con 255, sí deja rastro para contarlo.

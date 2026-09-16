@@ -4015,3 +4015,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   que ya se escribe. Con eso, `qa:juez` puede alimentarse de casos reales en vez de guiones.
   · **Impacto:** MEDIO hoy, ALTO para decidir el futuro del juez. · **Esfuerzo:** 2 h. ·
   **Fecha:** 2026-09-16
+- 🟢 **HECHA el 16-09, el mismo día (Simon: alta prioridad, antes del paso 2 y antes de que RB
+  genere tráfico).** `controlSalida` en el payload de la evaluación, aditivo: `{tocado:false}` si
+  salió tal cual; si no, lo que escribió el decisor (`borrador`), `estado` (reescrito / podado /
+  descartado / juez sin respuesta), `motivo`, `frase`, `fuente` (`veto:<regla>` o `juez`) y la
+  `nota` del log; lo que quedó ya era `respuesta`. Se enseña en «ver por qué» (bloque «Revisión de
+  seguridad»: antes, qué hizo y por qué, después). Cero llamadas. `qa:persistir-turno` afirma el
+  viaje de ida y vuelta; `qa:arranque` y `qa:frontera` en verde. Escribir 0,75 h · medir 0,25 h · $0.

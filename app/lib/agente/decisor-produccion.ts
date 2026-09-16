@@ -47,7 +47,7 @@
 // Se lee en cada turno a propósito: encender o apagar no debe pedir un deploy.
 
 import { controlarMensajeDelDecisor } from "./control-decisor";
-import { renderDatosQueConstan, type EntradaEvaluador, type EvaluacionTurno } from "./evaluador";
+import { renderDatosQueConstan, type ControlSalida, type EntradaEvaluador, type EvaluacionTurno } from "./evaluador";
 import { pedirSombra } from "./sombra";
 import { estadoDelContrato } from "../automatizacion/objetivos";
 import { canonizarActo, type Acto } from "./actos";
@@ -186,12 +186,29 @@ export async function aplicarDecisorAlcance(args: {
       cacheLectura: (a.cacheLectura ?? 0) + (b.cacheLectura ?? 0),
     };
   };
+  // MEJORAS 255 (16-09): EL RASTRO DEL MENSAJE QUE SALE. Hasta hoy se tiraban
+  // `borrador`, `control` y `nota` y en producción no había forma de saber qué
+  // cambió el juez ni por qué — y es la condición de Simon para decidir su
+  // futuro con datos. Va al payload de la evaluación, aditivo, cero llamadas.
+  const controlSalida: ControlSalida = controlado.control && controlado.control.estado !== "pasa"
+    ? {
+        tocado: true,
+        borrador: controlado.borrador,
+        estado: controlado.control.estado,
+        motivo: controlado.control.motivo ?? null,
+        frase: controlado.control.frase ?? null,
+        fuente: controlado.control.fuente ?? null,
+        reescrito: controlado.control.reescrito,
+        nota: controlado.nota,
+      }
+    : { tocado: false };
   return {
     escritoPor: "alcance",
     evaluacion: {
       ...evaluacion,
       usage: sumar(sumar(evaluacion.usage, s.usage), controlado.usage),
       respuesta: controlado.texto,
+      controlSalida,
       decision: deriva ? "deriva" : "sigue",
       ...(causa ? { causa, cola: evaluacion.cola ?? colaDeDerivacion(causa, null) } : {}),
     },
