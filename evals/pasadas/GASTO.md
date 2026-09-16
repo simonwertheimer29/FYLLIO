@@ -364,3 +364,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   `qa:evals-evaluador --solo-juicios` completa $0,162) · **$0,28 medido** · ac. **~$17,61**
 - **17-09 · PASO 3a DE LA FICHA** (un entrante simulado evaluado por el agente para el e2e de DEMO,
   ~$0,01; el resto sin modelo) · **$0,01 medido** · ac. **~$17,62**
+- **17-09 · PASO 3b (no me viene bien)** (`qa:evals-evaluador --solo-juicios` completa $0,162 · 4 sondas del
+  caso 6 $0,02 · `qa:hueco-rechazado` ×2 $0,02 · tres e2e con entrante evaluado ~$0,02) · **$0,22 medido** ·
+  ac. **~$17,84**

@@ -5,11 +5,11 @@
   "casos": 45,
   "turnos": 73,
   "decision": {
-    "aciertos": 66,
+    "aciertos": 65,
     "total": 67
   },
   "listo": {
-    "aciertos": 20,
+    "aciertos": 21,
     "total": 21
   },
   "descartesJuez": {
@@ -20,14 +20,15 @@
     "n": 1,
     "turnos": 1
   },
-  "costePorTurnoUsd": 0.00222,
-  "costeUsd": 0.1621,
+  "costePorTurnoUsd": 0.00228,
+  "costeUsd": 0.1667,
   "version": {
-    "evaluador": "6e83ff2d2d52",
+    "evaluador": "531b56fadd06",
     "juez": "4e22128909eb"
   },
   "fallos": [
-    "35:A→S"
+    "35:A→S",
+    "6:D→S"
   ],
   "salida": null
 }

@@ -254,3 +254,60 @@ export function HuecosDelCasoPanel({
     </div>
   );
 }
+
+/** LA CONFIRMACIÓN PENDIENTE (17-09, paso 3b). La cita del lead existe pero no
+ *  se le confirmó al paciente —porque se acaba de MOVER (moverla borra la
+ *  confirmación anterior) o porque se anotó sin agenda en Fyllio y ahora sí la
+ *  hay—. Mismo criterio que reservar: el texto entero antes de pulsar, y solo
+ *  si la agenda garantiza la reserva. */
+export function ConfirmarCitaPendiente({ telefono, leadId, onHecho }: { telefono: string; leadId: string; onHecho: () => void }) {
+  const [texto, setTexto] = useState<string | null>(null);
+  const [cargado, setCargado] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      try {
+        const qs = new URLSearchParams({ telefono, pendiente: "1" });
+        const d = await cargarJSON<{ pendiente: { texto: string } | null; agendaEnFyllio?: boolean }>(`/api/agente/huecos?${qs.toString()}`);
+        if (vivo) setTexto(d.pendiente && d.agendaEnFyllio ? d.pendiente.texto : null);
+      } catch {
+        // caída-declarada: sin texto no se ofrece confirmar; la ficha ya dice que está sin confirmar
+        if (vivo) setTexto(null);
+      } finally {
+        if (vivo) setCargado(true);
+      }
+    })();
+    return () => { vivo = false; };
+  }, [telefono]);
+  if (!cargado || !texto) return null;
+  return (
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2.5">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">Sin confirmar al paciente · lo que recibirá por WhatsApp</p>
+      <p className="mt-1 whitespace-pre-wrap text-[12.5px] text-[var(--color-foreground)]">{texto}</p>
+      <button
+        type="button"
+        disabled={guardando}
+        onClick={async () => {
+          setGuardando(true);
+          try {
+            await cargarJSON(`/api/agente/confirmar-cita`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ telefono, leadId, texto }),
+            });
+            toast.success("Confirmación enviada");
+            onHecho();
+          } catch (e) {
+            toast.error(mensajeDeError(e));
+          } finally {
+            setGuardando(false);
+          }
+        }}
+        className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+      >
+        {guardando ? "Enviando…" : "Enviar la confirmación"}
+      </button>
+    </div>
+  );
+}

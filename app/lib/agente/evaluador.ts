@@ -27,6 +27,7 @@ import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaP
 import { controlarBorrador } from "./control-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
+import { plantillaHuecoRechazado } from "./plantillas-hueco";
 import { citaDeclinadaCubre, estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
 import { FRASE_RECUERDO_COBRO } from "./entrada-desde-contexto";
 import {
@@ -110,6 +111,10 @@ export type EntradaEvaluador = {
    *  persona, contados por CÓDIGO (§13). null = sin cita conocida. Alimenta
    *  la regla del antecedente médico (023): mención + cita próxima → deriva. */
   diasHastaProximaCita?: number | null;
+  /** 17-09 (paso 3b) — la cita que se le CONFIRMÓ por WhatsApp desde la ficha
+   *  (citas.confirmada_en). Solo con esto tiene sentido el juicio
+   *  `respuestaACita`: la persona está contestando a esa confirmación. */
+  citaConfirmada?: { fecha: string; hora: string; doctor: string | null } | null;
   /** Umbral de «cita próxima» en días. Default 7; configurable con tope en
    *  fase D. */
   umbralCitaProximaDias?: number;
@@ -236,6 +241,8 @@ export type EvaluacionTurno = {
    *  letra, resuelto a id por código). null = no identificado. Es lo que
    *  mata el proxy del «activo» en la cola/ficha (21-08). */
   presupuestoReferidoId?: string | null;
+  /** 17-09 (paso 3b) — qué dijo sobre la cita confirmada (null sin cita confirmada o si no habla de ella). */
+  respuestaACita?: "acepta" | "rechaza" | "contrapropone" | null;
   camposRecogidos: CamposRecogidos;
   /** Paso 2 de la ficha (16-09) — ver `PreferenciaCita`. Aditivo: los turnos
    *  anteriores no lo llevan. */
@@ -512,6 +519,8 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 
 ━━ JUICIO "idioma" — el idioma en que escribe la persona en su ÚLTIMO mensaje: "es" (español), "ca" (catalán), "en" (inglés) u "otro". Un «ok» o un emoji solos no cambian el idioma: usa el de la conversación.
 
+━━ JUICIO "respuestaACita" — SOLO aplica si el contexto trae una «Cita CONFIRMADA a la persona por WhatsApp»; sin eso, null. Qué dice el último mensaje sobre ESA hora: "acepta" si confirma que le va bien («perfecto», «allí estaré», «ok gracias»); "rechaza" si dice que ese día u hora NO le viene bien o que no puede, sin pedir otra concreta («no me viene bien», «ese día no puedo», «tendría que ser otro día»); "contrapropone" si pide o pregunta por OTRA fecha, hora o franja concreta, aunque además rechace («¿y el viernes?», «¿podría ser por la tarde?», «mejor la semana que viene»). Si el mensaje no habla de la cita, null. Un «gracias» a secas tras la confirmación es "acepta".
+
 ━━ JUICIO "pideNoContacto" — true SOLO si la persona pide de forma explícita que no se le escriba más o que se la dé de baja («no me escribáis más», «dejad de mandarme mensajes», «baja», «STOP», «no quiero recibir más mensajes»). Un «ahora no puedo», «dejadlo estar» o «ya os diré» NO es pedir no contacto: es una decisión o una espera.
 
 ━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
@@ -558,6 +567,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema d
   "esperaSolicitada": <"YYYY-MM-DD"|null>,
   "idioma": "<es|ca|en|otro>",
   "pideNoContacto": <true|false>,
+  "respuestaACita": <"acepta"|"rechaza"|"contrapropone"|null>,
   "presupuestoReferido": "<letra del presupuesto|ninguno>",
   "camposRecogidos": {<"etapa_abierta": {"clave_campo": "valor extraído del hilo" | null | "no_aplica"}...>},
   "preferenciaCita": <{"franja": "manana"|"tarde"|"indiferente"|null, "dias": ["lun"|"mar"|"mie"|"jue"|"vie"|"sab"|"dom"...], "urgencia": "cuanto_antes"|"esta_semana"|"sin_prisa"|null}|null>,
@@ -746,6 +756,9 @@ export function renderDatosQueConstan(e: EntradaEvaluador): string {
     // sin que lo pidan es la regla 3 del juez, no esta lista.
     e.ficha?.doctor ? `Doctor que la atiende: ${e.ficha.doctor}` : null,
     e.ficha?.tratamiento ? `Tratamiento en curso: ${e.ficha.tratamiento}` : null,
+    e.citaConfirmada
+      ? `Cita CONFIRMADA a la persona por WhatsApp: ${e.citaConfirmada.fecha} a las ${e.citaConfirmada.hora}${e.citaConfirmada.doctor ? ` con ${e.citaConfirmada.doctor}` : ""}`
+      : null,
     e.diasHastaProximaCita != null
       ? `Cita ya programada: ${e.diasHastaProximaCita === 0 ? "HOY" : e.diasHastaProximaCita === 1 ? "MAÑANA" : `dentro de ${e.diasHastaProximaCita} días`}`
       : null,
@@ -840,6 +853,8 @@ type JuicioModelo = {
   idioma: "es" | "ca" | "en" | "otro";
   /** MEJORAS 135 — pide explícitamente no recibir más mensajes. */
   pideNoContacto: boolean;
+  /** 17-09 (paso 3b) — solo con `citaConfirmada` en la entrada. */
+  respuestaACita?: "acepta" | "rechaza" | "contrapropone" | null;
   camposRecogidos: CamposRecogidos;
   /** Paso 2 de la ficha (16-09): la preferencia de cita ESTRUCTURADA, para la
    *  máquina; el texto libre de `disponibilidad`/`dia_franja_nuevos` sigue
@@ -848,6 +863,7 @@ type JuicioModelo = {
   respuesta: string;
 };
 
+const RESPUESTAS_CITA = ["acepta", "rechaza", "contrapropone"] as const;
 const IDIOMAS_VALIDOS = ["es", "ca", "en", "otro"] as const;
 
 // LA LISTA BLANCA de etapas cuyos campos se aceptan del juicio del modelo.
@@ -1178,6 +1194,7 @@ export function parsearJuicio(
       idioma: etiquetaDelModelo(p.idioma, IDIOMAS_VALIDOS, "idioma", descartes) ?? "es",
       // Lado seguro asimétrico: un opt-out solo se marca con un true explícito.
       pideNoContacto: p.pideNoContacto === true,
+      respuestaACita: etiquetaDelModelo(p.respuestaACita, RESPUESTAS_CITA, "respuestaACita", descartes),
       camposRecogidos: campos,
       preferenciaCita: canonizarPreferenciaCita(p.preferenciaCita, descartes),
       respuesta: mapa ? desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200) : String(p.respuesta ?? "").slice(0, 1200),
@@ -1500,6 +1517,7 @@ export async function evaluarTurno(
     esperaLevantar: e.esperaVigente != null && juicio.respondeAlMotivoDeEspera,
     etiquetasDescartadas: descartes ?? [],
     preferenciaCita: juicio.preferenciaCita,
+    respuestaACita: juicio.respuestaACita,
     // Letra → id, en código (el modelo nunca ve ids). Letra fuera de rango
     // = ilegible → null, contable como toda etiqueta fuera de vocabulario.
     presupuestoReferidoId: (() => {
@@ -1558,6 +1576,27 @@ export async function evaluarTurno(
   // Todo borrador del modelo pasa por el juez ANTES de salir. Si infringe
   // (clínica o económica) o el juez no responde → FAIL-CLOSED: plantilla
   // neutra + traza. La regla vive en código, no en la obediencia del prompt.
+  // NO LE VA LA HORA QUE SE LE CONFIRMÓ (17-09, paso 3b). El juicio es del
+  // modelo (rechaza / contrapropone, no una lista de frases); la respuesta es
+  // de CÓDIGO (plantillas-hueco.ts) y no pasa por el juez: lo que dice —que
+  // la cita sigue reservada, que una persona le propone otra— solo el código
+  // lo garantiza. El hueco NO se libera aquí: lo suelta la coordinadora, y
+  // el caso le llega prioritario con esta causa.
+  const huecoRechazado =
+    e.citaConfirmada != null && (juicio.respuestaACita === "rechaza" || juicio.respuestaACita === "contrapropone")
+      ? juicio.respuestaACita
+      : null;
+  if (huecoRechazado) {
+    return {
+      ...base,
+      decision: "deriva",
+      causa: "hueco_rechazado",
+      cola: colaDeDerivacion("hueco_rechazado", null),
+      esperaLevantar: e.esperaVigente != null,
+      respuesta: plantillaHuecoRechazado({ nombre: e.nombre, tipo: huecoRechazado, cita: e.citaConfirmada!, idioma: juicio.idioma }),
+    };
+  }
+
   const datosQueConstan = renderDatosQueConstan(e);
 
   // El nombre para la plantilla: el que la PERSONA ha dicho (extraído por

@@ -332,6 +332,7 @@ export const ETIQUETA_CAUSA: Record<CausaDerivacion, string> = {
   antecedente_medico: "antecedente médico",
   no_legible: "mensaje no legible",
   sin_respuesta_valida: "dos descartes seguidos",
+  hueco_rechazado: "no le va la hora que se le confirmó",
 };
 
 const ETIQUETA_FIN: Record<FinMotivo, string> = {

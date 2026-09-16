@@ -10,6 +10,11 @@
 //        antes de nada registra ese entrante como SIMULADO y lo evalúa el
 //        agente (el mismo camino que demo:entrante, ~$0,005): así hay una
 //        preferencia real que filtrar y el hilo queda marcado como simulación.
+//   npm run qa:reserva-demo -- "+34 663 478 802" --rechazo "uy, ese día no puedo"
+//        tras confirmar, la persona contesta eso (simulado, evaluado por el
+//        agente, ~$0,005): se mide que deriva con hueco_rechazado, prioritaria,
+//        con la plantilla de código, que la cita SIGUE reservada y que la
+//        ficha lo dice. Se revierte todo (cita, lead, mensajes y eventos).
 //   npm run qa:reserva-demo -- "+34 663 478 802" --agenda-fuera
 //        mide el escalón sin agenda: desactiva el ajuste, comprueba que
 //        NO se confirma, y lo vuelve a activar.
@@ -38,11 +43,14 @@ import { upsertCitaDeLead, cancelarCitaDeLead } from "../app/lib/agenda/cita-de-
 import { getServicioMensajeria } from "../app/lib/presupuestos/mensajeria";
 import { evaluarEntranteConversacion } from "../app/lib/agente/evaluar-entrante";
 import { FUENTE_SIMULACION } from "../app/lib/mensajeria/hilo-jugado";
+import { borradorAgenteDe } from "../app/lib/agente/borrador-agente";
 
 const args = process.argv.slice(2);
 const telefono = args.find((a) => !a.startsWith("--"));
 const DEJAR = args.includes("--dejar");
 const AGENDA_FUERA = args.includes("--agenda-fuera");
+const rechazoIdx = args.indexOf("--rechazo");
+const RECHAZO = rechazoIdx >= 0 ? args[rechazoIdx + 1] ?? null : null;
 const entranteIdx = args.indexOf("--entrante");
 const ENTRANTE = entranteIdx >= 0 ? args[entranteIdx + 1] ?? null : null;
 if (!telefono) {
@@ -144,24 +152,56 @@ await runWithCliente("DEMO", async () => {
     ok(otra.ok && "yaConfirmada" in otra, "segunda vez: ya confirmada, no se manda dos veces");
   }
 
+  let desdeRechazo: Date | null = null;
+  if (RECHAZO && !AGENDA_FUERA) {
+    console.log(`══ la persona contesta: «${RECHAZO}»`);
+    desdeRechazo = new Date();
+    const mensajeId = `qa-rechazo-${Date.now()}`;
+    await getServicioMensajeria("manual").recibirMensaje({ telefono, contenido: RECHAZO, leadId: f0.lead.id, wabaMessageId: mensajeId, clinicaId: f0.clinicaId, fuente: FUENTE_SIMULACION as any });
+    await evaluarEntranteConversacion({ telefono, mensajeId, contenido: RECHAZO, presupuestoId: null, clinicaId: f0.clinicaId } as any);
+    // Lo que dejó el turno: el derivado (con su causa) en el log y el borrador del agente.
+    const evs: any = await runWithClienteDb("DEMO", (trx) =>
+      sql`select evento, causa_derivacion from eventos_automatizacion where tipo_caso = 'conversacion' and caso_id = ${telefono} and created_at >= ${desdeRechazo} order by created_at`.execute(trx));
+    const derivado = (evs.rows ?? []).find((x: any) => x.evento === "derivado");
+    const borrador = (await borradorAgenteDe(telefono)) ?? "";
+    console.log(`  eventos: ${(evs.rows ?? []).map((x: any) => `${x.evento}${x.causa_derivacion ? `(${x.causa_derivacion})` : ""}`).join(" · ")}`);
+    console.log(`  respuesta del agente: «${borrador}»`);
+    ok(derivado?.causa_derivacion === "hueco_rechazado", "deriva con hueco_rechazado");
+    ok(/sigue reservada|Se lo paso al equipo/.test(borrador), "la respuesta es la plantilla de código (no del modelo)");
+    const fr = await fichaDeCaso(telefono);
+    console.log(`  estado: ${fr.estado.texto} · cita: ${fr.cita ? `${fr.cita.fecha} ${fr.cita.hora}` : "ninguna"} · semáforo verde=${fr.semaforo.verde} motivo=${fr.semaforo.motivo ?? "—"}`);
+    ok(fr.estado.texto.startsWith("No le va la hora reservada"), "la ficha dice que no le va la hora");
+    ok(fr.cita?.fecha === elegido.fecha && fr.cita?.hora === elegido.hora, "el hueco SIGUE reservado (lo suelta la coordinadora)");
+    ok(!fr.semaforo.verde && fr.semaforo.motivo === "derivado_sin_resolver", "el caso está entregado y esperando a una persona");
+    // La coordinadora lo suelta por el camino de siempre (PATCH del lead fuera
+    // de Citado → la cita se cancela): ese hecho cierra el derivado solo.
+    await updateLead(f0.lead.id, { estado: "Contactado", fechaCita: null, horaCita: null });
+    await cancelarCitaDeLead({ cliente: "DEMO", leadId: f0.lead.id });
+    const fr2 = await fichaDeCaso(telefono);
+    ok(fr2.semaforo.verde, `al anular la cita el derivado se cierra solo (verde=${fr2.semaforo.verde})`);
+  }
+
   console.log("══ ficha después");
   const f1 = await fichaDeCaso(telefono);
   console.log(`  estado: ${f1.estado.texto} · cita: ${f1.cita ? `${f1.cita.fecha} ${f1.cita.hora} ${f1.cita.doctor ?? ""} (${f1.cita.fuente}) confirmada=${f1.cita.confirmadaEn ?? "no"}` : "ninguna"}`);
   console.log(`  descripción: ${f1.descripcion.map((d) => d.texto).join(" ")}`);
-  ok(f1.cita?.fecha === elegido.fecha && f1.cita?.hora === elegido.hora, "la ficha enseña la cita reservada");
-  ok(f1.estado.texto.startsWith(AGENDA_FUERA ? "Cita anotada" : "Cita reservada") && f1.objetivoActivo !== "cita", `el estado es la cita (${AGENDA_FUERA ? "anotada" : "reservada"}), no «Quiere cita» (es «${f1.estado.texto}», objetivo ${f1.objetivoActivo ?? "—"})`);
-  ok(AGENDA_FUERA ? f1.cita?.confirmadaEn == null : f1.cita?.confirmadaEn != null, AGENDA_FUERA ? "la ficha dice que NO se confirmó" : "la ficha dice que se confirmó por WhatsApp");
+  if (!desdeRechazo) ok(f1.cita?.fecha === elegido.fecha && f1.cita?.hora === elegido.hora, "la ficha enseña la cita reservada");
+  if (!desdeRechazo) ok(f1.estado.texto.startsWith(AGENDA_FUERA ? "Cita anotada" : "Cita reservada") && f1.objetivoActivo !== "cita", `el estado es la cita (${AGENDA_FUERA ? "anotada" : "reservada"}), no «Quiere cita» (es «${f1.estado.texto}», objetivo ${f1.objetivoActivo ?? "—"})`);
+  if (!desdeRechazo) ok(AGENDA_FUERA ? f1.cita?.confirmadaEn == null : f1.cita?.confirmadaEn != null, AGENDA_FUERA ? "la ficha dice que NO se confirmó" : "la ficha dice que se confirmó por WhatsApp");
   const m: any = await runWithClienteDb("DEMO", (trx) =>
     sql`select contenido, autor, fuente from mensajes_whatsapp where telefono = ${telefono} and direccion = 'Saliente' order by "timestamp" desc limit 1`.execute(trx));
   const ult = m.rows?.[0];
-  if (!AGENDA_FUERA) ok(ult?.contenido === texto && ult?.autor === "persona" && ult?.fuente === "Simulacion", "el último saliente del hilo es la confirmación, autor persona, fuente simulación");
+  if (!AGENDA_FUERA && !desdeRechazo) ok(ult?.contenido === texto && ult?.autor === "persona" && ult?.fuente === "Simulacion", "el último saliente del hilo es la confirmación, autor persona, fuente simulación");
 
   if (!DEJAR) {
     console.log("══ revertir");
     await cancelarCitaDeLead({ cliente: "DEMO", leadId: f0.lead.id });
     await updateLead(f0.lead.id, { estado: lead?.estado ?? "Nuevo", fechaCita: null, horaCita: null, doctorAsignadoId: lead?.doctorAsignadoId ?? null });
-    if (ult?.contenido === texto) {
-      await runWithClienteDb("DEMO", (trx) => sql`delete from mensajes_whatsapp where telefono = ${telefono} and direccion = 'Saliente' and contenido = ${texto}`.execute(trx));
+    await runWithClienteDb("DEMO", (trx) => sql`delete from mensajes_whatsapp where telefono = ${telefono} and direccion = 'Saliente' and contenido = ${texto}`.execute(trx));
+    if (desdeRechazo) {
+      // El rechazo simulado y todo lo que dejó (mensajes, evaluación, derivado): fuera.
+      await runWithClienteDb("DEMO", (trx) => sql`delete from mensajes_whatsapp where telefono = ${telefono} and "timestamp" >= ${desdeRechazo}`.execute(trx));
+      await runWithClienteDb("DEMO", (trx) => sql`delete from eventos_automatizacion where tipo_caso = 'conversacion' and caso_id = ${telefono} and created_at >= ${desdeRechazo}`.execute(trx));
     }
     const f2 = await fichaDeCaso(telefono);
     ok(f2.cita == null, "revertido: sin cita");

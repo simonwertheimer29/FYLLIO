@@ -106,12 +106,17 @@ export type CausaDerivacion =
    *  segundo descarte seguido es raro: esto es el freno de emergencia, no la
    *  salida habitual. Cola normal — es un callejón del agente, no una
    *  urgencia de la paciente. */
-  | "sin_respuesta_valida";
+  | "sin_respuesta_valida"
+  /** 059 (17-09, paso 3b) — la persona rechaza o contrapropone la hora que se
+   *  le confirmó desde la ficha. Prioritaria: es la ventana en la que llama a
+   *  otra clínica. El hueco lo libera la coordinadora, no el sistema. */
+  | "hueco_rechazado";
 
 /** La cola se DERIVA del hecho, no se persiste: si mañana cambia la política,
  *  el histórico (causa + malestar) no se pierde. */
 export function colaDeDerivacion(causa: CausaDerivacion, malestar: boolean | null): "prioritaria" | "normal" {
   return causa === "urgencia" ||
+    causa === "hueco_rechazado" ||
     causa === "antecedente_medico" ||
     (causa === "peticion_queja" && malestar === true)
     ? "prioritaria"

@@ -70,6 +70,9 @@ export type FichaCaso = {
   /** La cita del caso: la próxima del paciente (misma verdad que el
    *  `citaFutura` del contexto) o la del lead. */
   cita: CitaDelCaso | null;
+  /** 058 — la agenda vive en Fyllio (en_vivo). El panel decide con esto si
+   *  ofrece confirmar al paciente. */
+  agendaEnFyllio: boolean;
   /** Paso 2 (16-09): la preferencia de cita ESTRUCTURADA, acumulada del log
    *  (la última que el modelo dio). Para el buscador de huecos del paso 3;
    *  la coordinadora sigue leyendo el texto. null = no la ha dicho. */
@@ -214,6 +217,8 @@ export function etiquetaEstadoDe(a: {
         return { texto: "Envió un audio o archivo — ábrelo en WhatsApp", tono: "warning" };
       case "sin_respuesta_valida":
         return { texto: "Lo contesta mejor una persona", tono: "warning" };
+      case "hueco_rechazado":
+        return { texto: "No le va la hora reservada — proponer otra", tono: "danger" };
       case "caso_completo": {
         const obj = s.objetivo ?? a.objetivoActivo;
         return { texto: obj ? `${ESTADO_POR_OBJETIVO[obj]} · listo para cerrar` : "Listo para cerrar", tono: "accent" };
@@ -226,13 +231,16 @@ export function etiquetaEstadoDe(a: {
   if (!s.verde && s.motivo === "espera") {
     return { texto: s.hasta ? `En espera hasta el ${fechaClinica(s.hasta)}` : "En espera", tono: "warning" };
   }
-  if (!a.evaluado) return { texto: "Sin evaluar por el agente", tono: "neutro" };
-  if (a.pendientes > 0) return { texto: "Tiene dudas sin responder", tono: "warning" };
-  if (a.objetivoActivo) return { texto: ESTADO_POR_OBJETIVO[a.objetivoActivo], tono: "accent" };
-  if (a.cita) {
+  // La cita reservada desde la ficha es un HECHO y va antes que el estado del
+  // agente (17-09): con cita y nada abierto, el estado es la cita — haya o no
+  // evaluación, y sin tapar dudas pendientes (van justo debajo).
+  if (a.cita && !a.objetivoActivo && a.pendientes === 0) {
     if (a.cita.fuente === "lead" && a.agendaEnFyllio === false) return { texto: "Cita anotada · confirmar en tu software", tono: "warning" };
     return { texto: a.cita.confirmadaEn ? "Cita reservada · confirmada al paciente" : "Cita reservada", tono: "accent" };
   }
+  if (!a.evaluado) return { texto: "Sin evaluar por el agente", tono: "neutro" };
+  if (a.pendientes > 0) return { texto: "Tiene dudas sin responder", tono: "warning" };
+  if (a.objetivoActivo) return { texto: ESTADO_POR_OBJETIVO[a.objetivoActivo], tono: "accent" };
   return { texto: "Solo conversación", tono: "neutro" };
 }
 
@@ -627,6 +635,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     descripcion,
     cita,
     preferenciaCita,
+    agendaEnFyllio: datos.agendaEnFyllio,
     espera:
       !sem.verde && sem.motivo === "espera" && sem.hasta
         ? { hasta: sem.hasta, frase: sem.esperaMotivo ?? null }

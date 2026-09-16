@@ -30,7 +30,7 @@ import { fechaClinica, hoyISO } from "../../lib/time";
 import { AlertTriangle, CalendarDays, PauseCircle, UserCheck, Ban, ICON_STROKE } from "../icons";
 import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { AgendarPanel } from "../agenda/AgendarPanel";
-import { HuecosDelCasoPanel } from "./HuecosDelCasoPanel";
+import { HuecosDelCasoPanel, ConfirmarCitaPendiente } from "./HuecosDelCasoPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 
@@ -321,6 +321,9 @@ export function FichaCasoPanel({
           convertido se agenda desde la agenda). Mover no es crear. */}
       {ficha.lead && !ficha.lead.fechaCita && (
         <HuecosDelCasoPanel telefono={ficha.telefono} onHecho={alCambiar} onVerAgenda={() => setAgendando(true)} />
+      )}
+      {ficha.lead && ficha.lead.fechaCita && ficha.cita?.fuente === "lead" && !ficha.cita.confirmadaEn && ficha.agendaEnFyllio && (
+        <ConfirmarCitaPendiente telefono={ficha.telefono} leadId={ficha.lead.id} onHecho={alCambiar} />
       )}
       {ficha.lead && ficha.lead.fechaCita && (
         <button

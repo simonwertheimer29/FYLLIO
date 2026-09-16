@@ -13,6 +13,9 @@ import { fichaDeCaso } from "../../../lib/agente/ficha-caso";
 import { puedeVerHiloSesion } from "../../../lib/agente/acceso-hilo-sesion";
 import { huecosDelCaso } from "../../../lib/agenda/huecos-del-caso";
 import { textoConfirmacionCita } from "../../../lib/agenda/confirmacion-cita";
+import { runWithClienteDb } from "../../../lib/db/context";
+import { sql } from "kysely";
+import { hoyISO, horaClinica } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +37,29 @@ export const GET = withAuth(async (session, req) => {
       const ficha = await fichaDeCaso(telefono);
       if (!ficha.lead) {
         return NextResponse.json({ error: "Este caso no tiene un lead abierto: la cita se agenda desde la agenda." }, { status: 409 });
+      }
+      // ?pendiente=1 — la cita YA está reservada (o se acaba de mover) y no se
+      // ha confirmado al paciente: solo el texto exacto que saldría, para que
+      // la coordinadora lo vea antes de pulsar.
+      if (url.searchParams.get("pendiente") === "1") {
+        const fila: any = await runWithClienteDb(session.cliente!, (trx) =>
+          sql`select c.hora_inicio, c.confirmada_en, s.nombre as doctor, cl.nombre as clinica
+              from citas c
+              left join staff s on s.cliente = c.cliente and s.id = c.profesional_id
+              left join clinicas cl on cl.cliente = c.cliente and cl.id = c.clinica_id
+             where c.lead_id = ${ficha.lead!.id} and c.hora_inicio >= now() and c.estado in ('Programada', 'Confirmada')
+             order by c.hora_inicio asc limit 1`.execute(trx),
+        );
+        const c = fila.rows?.[0] ?? null;
+        if (!c) return NextResponse.json({ pendiente: null });
+        if (c.confirmada_en) return NextResponse.json({ pendiente: null, confirmadaEnISO: new Date(c.confirmada_en).toISOString() });
+        const d = new Date(c.hora_inicio);
+        return NextResponse.json({
+          pendiente: {
+            texto: textoConfirmacionCita({ nombre: ficha.lead!.nombre, fecha: hoyISO(d), hora: horaClinica(d), doctor: c.doctor ?? null, clinica: c.clinica ?? null }),
+          },
+          agendaEnFyllio: ficha.agendaEnFyllio,
+        });
       }
       const tratamientoTexto =
         ficha.recogido?.find((c) => c.campo === "tratamiento_o_molestia")?.valor ?? null;

@@ -99,6 +99,10 @@ export type DetalleCohorte =
   | "cierre_pendiente"
   | "agotado"
   | "nuevo_sin_contactar"
+  /** 059 (17-09) — rechazó o contrapropuso la hora que se le confirmó: el
+   *  hueco sigue reservado hasta que la coordinadora lo mueva. SLA de
+   *  respuesta (2 h de clínica abierta), no de urgencia. */
+  | "hueco_rechazado"
   | "cobro_vencido";
 
 /** Los detalles de CONVERSACIÓN — los únicos que mide el reloj laborable.
@@ -131,6 +135,7 @@ export const OBLIGACION_DE_DETALLE: Record<DetalleConversacion, ObligacionPlazo>
   cierre_pendiente: "cierre",
   agotado: "llamada",
   nuevo_sin_contactar: "lead_nuevo",
+  hueco_rechazado: "respuesta",
 };
 
 // ─── La función pura: un caso → una de las tres, o null (no es cola) ───────
@@ -189,6 +194,7 @@ function desdeDeObligacion(detalle: DetalleConversacion, e: EntradaCohorte): str
       return e.ultimoEntranteISO ?? e.ultimoSalienteISO ?? e.creadoISO ?? null;
     case "entregado_urgente":
     case "entregado_listo":
+    case "hueco_rechazado":
       return e.entregadoEnISO ?? null;
     case "agotado":
       return e.ultimoSalienteISO ?? e.creadoISO ?? null;
@@ -216,6 +222,9 @@ export function cohorteDeCaso(e: EntradaCohorte, reloj?: RelojDePlazos): Resulta
 function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_plazo">; detalle: DetalleConversacion } | null {
   // 1 · NECESITA RESPUESTA — hay una persona esperando una acción humana.
   if (e.automatizacion === "quebrado") return { cohorte: "necesita_respuesta", detalle: "quebrado" };
+  if (e.agente?.entregadoCausa === "hueco_rechazado") {
+    return { cohorte: "necesita_respuesta", detalle: "hueco_rechazado" };
+  }
   if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo") {
     return { cohorte: "necesita_respuesta", detalle: "entregado_urgente" };
   }

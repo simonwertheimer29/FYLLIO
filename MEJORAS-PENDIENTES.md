@@ -3910,6 +3910,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 
 ## 253. Ficha del caso · la columna derecha dice tres veces lo mismo con palabras distintas
 - **Paso 3a HECHO el 17-09 (DECISIONES 17-09):** huecos del caso con garantía, reservar + confirmación al paciente, estado en la ficha, ajuste «la agenda vive en Fyllio». Falta 3b («no me viene bien» tras reservar).
+- **Paso 3b HECHO el 17-09:** `respuestaACita`, causa `hueco_rechazado` prioritaria, cohorte «No le va su hora» (SLA 2 h), cierre por hecho al mover/anular, confirmación pendiente tras mover. Las dos plantillas al paciente esperan el OK de Simon (DECISIONES 17-09).
 - **Anotado el 15-09 por Simon, PARA PENSARLO JUNTOS más adelante — no se rediseña sobre la marcha.**
   Va con lo de Seguimiento que ya está pendiente: son la misma conversación sobre qué enseña cada
   pantalla.

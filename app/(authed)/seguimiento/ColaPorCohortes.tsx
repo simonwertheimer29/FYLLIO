@@ -79,6 +79,7 @@ const ETIQUETA_DETALLE: Record<string, string> = {
   paciente_escribio: "Te escribió",
   entregado_urgente: "Urgente del agente",
   entregado_listo: "Caso listo",
+  hueco_rechazado: "No le va su hora",
   cierre_pendiente: "Cierre pendiente",
   agotado: "Toca llamar",
   nuevo_sin_contactar: "Nuevo sin contactar",

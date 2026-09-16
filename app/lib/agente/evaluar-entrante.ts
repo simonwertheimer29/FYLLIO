@@ -224,10 +224,23 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       .execute();
 
     let proximaCita: Date | null = null;
-    if (ctx.pacienteId) {
-      const c = await sql<{ prox: Date | null }>`select min(hora_inicio) as prox from citas
-          where paciente_id = ${ctx.pacienteId} and hora_inicio >= now()`.execute(trx);
-      proximaCita = c.rows?.[0]?.prox ?? null;
+    let citaConfirmada: { fecha: string; hora: string; doctor: string | null } | null = null;
+    if (ctx.pacienteId || ctx.leadActivo) {
+      // La próxima cita de la persona: la del paciente o la del lead (única
+      // por lead_id). Y si se le CONFIRMÓ por WhatsApp desde la ficha (058),
+      // viaja al evaluador: el juicio `respuestaACita` solo aplica con ella.
+      const c = await sql<{ hora_inicio: Date; doctor: string | null; confirmada_en: Date | null }>`select c.hora_inicio, s.nombre as doctor, c.confirmada_en
+          from citas c left join staff s on s.cliente = c.cliente and s.id = c.profesional_id
+          where c.hora_inicio >= now() and c.estado in ('Programada', 'Confirmada')
+            and (${ctx.pacienteId ? sql`c.paciente_id = ${ctx.pacienteId}` : sql`false`}
+                 or ${ctx.leadActivo ? sql`c.lead_id = ${ctx.leadActivo.id}` : sql`false`})
+          order by c.hora_inicio asc limit 1`.execute(trx);
+      const fila = c.rows?.[0] ?? null;
+      proximaCita = fila?.hora_inicio ? new Date(fila.hora_inicio) : null;
+      if (fila?.confirmada_en && fila.hora_inicio) {
+        const d = new Date(fila.hora_inicio);
+        citaConfirmada = { fecha: hoyISO(d), hora: horaClinica(d), doctor: fila.doctor ?? null };
+      }
     }
     // MEJORAS 145 — cuántos turnos ha consumido ESTA conversación en las
     // últimas 24 h (rodante a propósito: guarda técnica, no umbral de negocio).
@@ -260,7 +273,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       .limit(1)
       .executeTakeFirst();
     const entregaYaResuelta = cierre?.evento === "resuelto_manual";
-    return { hiloRows, eventos, proximaCita, nombresClinicas, turnos24h, descartesSeguidosAntes, entregaYaResuelta };
+    return { hiloRows, eventos, proximaCita, citaConfirmada, nombresClinicas, turnos24h, descartesSeguidosAntes, entregaYaResuelta };
   });
 
   // MEJORAS 145 — el tope. El caso queda VISIBLE como «Sin evaluar» y con
@@ -348,6 +361,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     aplazamientos: evsAplazamiento,
     semaforo: sem,
     diasHastaProximaCita,
+    citaConfirmada: datos.citaConfirmada,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
     descartesSeguidosAntes: datos.descartesSeguidosAntes,
     entregaYaResuelta: datos.entregaYaResuelta,

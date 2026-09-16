@@ -6623,3 +6623,29 @@ ya no vale (dos intentos, parado por el rate-limit); queda para Simon con su PIN
 **Deuda declarada:** la CARGA de ocupación (bloqueos, citas, externas) se repite entre
 `/api/agenda/semana` y `huecos-del-caso.ts`; el motor es el mismo. La puerta multi-fuente: `FuenteAgenda`
 admite `gesden`, el registro `CONECTORES` es la única línea a tocar; sin lector, cuesta 0 dejarlo así.
+
+## 2026-09-17 · Paso 3b: «no me viene bien» tras reservar — juicio del modelo, respuesta de código, hueco que suelta la coordinadora
+**HECHO con las tres condiciones de Simon (16-09).** (a) «Respuesta negativa» es un JUICIO del modelo,
+`respuestaACita` ∈ acepta / rechaza / contrapropone / null, que SOLO aplica cuando el contexto trae la
+cita CONFIRMADA por WhatsApp desde la ficha (`citas.confirmada_en` viaja al evaluador; sin ella, el
+código ignora el juicio aunque el modelo lo dé). (b) Cubre la contrapropuesta («¿y el viernes?»):
+deriva igual, con una respuesta que NO suena a confirmación. (c) El hueco NO se libera solo: la cita
+sigue reservada, el caso pasa a una persona con causa `hueco_rechazado` (059), cola PRIORITARIA, en la
+bandeja como «necesita respuesta · No le va su hora» con el SLA de respuesta (2 h de clínica abierta),
+y el derivado se cierra por HECHO cuando la coordinadora mueve o anula la cita (moverla borra la
+confirmación y la ficha ofrece «Enviar la confirmación» de la hora nueva, texto entero antes de pulsar).
+**Las dos respuestas al paciente son PLANTILLAS DE CÓDIGO (`plantillas-hueco.ts`), sin juez, y quedan
+PENDIENTES DE LA APROBACIÓN DE SIMON antes de producción** (en DEMO ya salen):
+- rechaza: «Entendido, Samuel: vie 18 sept a las 15:00 no te viene bien. Se lo paso al equipo para que
+  te propongan otra hora en cuanto abra la clínica. Si nos dices qué días o franjas te encajan mejor,
+  lo tienen en cuenta.»
+- contrapropone: «Gracias, Samuel. Le paso tu propuesta al equipo para que la comprueben en la agenda y
+  te confirmen en cuanto abra la clínica. Hasta entonces, tu cita del vie 18 sept a las 15:00 sigue
+  reservada.»
+**MEDIDO:** `qa:hueco-rechazado` (5 turnos sintéticos con modelo, $0,01): 5/5 juicios y decisiones; un
+hallazgo: si el hilo ENSEÑA una confirmación pero el contexto no la trae, el modelo dice «rechaza»
+igual — por eso la guarda es del código, no del prompt. `qa:reserva-demo --rechazo` en DEMO: 15/15
+(deriva, plantilla, ficha, cita intacta, cierre por hecho al soltar). **Vara recalculada** (el prompt
+cambió, qa:vara obliga): **65/67 · 21/21**; el que cae es el 6 (D→S), sondeado 4 veces 2/4 → es la
+moneda al aire ya conocida del 5-09, no el párrafo nuevo. C2 pasó esta vez (21/21).
+**Coste del paso 3 entero:** 3a ~3,5 h + 3b ~2 h (escribir) · medir ~1 h · $0,24 de modelo.

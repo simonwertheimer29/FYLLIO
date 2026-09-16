@@ -247,6 +247,20 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
   const { contextoDeConversacion } = await import("../agente/contexto-conversacion");
   const ctx = await contextoDeConversacion(derivado.caso_id);
 
+  if (causa === "hueco_rechazado") {
+    // 059 — se cierra cuando la coordinadora SUELTA el hueco: la cita de la
+    // persona se reagendó (agendada_en posterior) o se anuló. Hasta entonces
+    // el paciente sigue teniendo una hora que dijo que no le va.
+    const r: any = await runWithClienteDb(cliente, (trx) =>
+      sql`select 1 from citas
+          where (${ctx.pacienteId ? sql`paciente_id = ${ctx.pacienteId}` : sql`false`}
+                 or ${ctx.leadActivo ? sql`lead_id = ${ctx.leadActivo.id}` : sql`false`})
+            and hora_inicio >= ${derivado.created_at}
+            and (agendada_en > ${derivado.created_at} or estado in ('Cancelado', 'Cancelada'))
+          limit 1`.execute(trx),
+    );
+    return Boolean(r.rows?.length);
+  }
   if (causa === "urgencia" || (causa === "caso_completo" && derivado.objetivo_activo === "cita")) {
     // La clínica ACTUÓ: existe una cita creada después de la entrega.
     if (ctx.pacienteId) {

@@ -66,6 +66,8 @@ export type PiezasEntrada = {
   aplazamientos: readonly EventoAplazamiento[];
   semaforo: SemaforoParaEntrada;
   diasHastaProximaCita: number | null;
+  /** 17-09 (paso 3b) — la cita confirmada por WhatsApp desde la ficha, si la hay. */
+  citaConfirmada?: EntradaEvaluador["citaConfirmada"];
   /** Contadas por código sobre marcas de tiempo REALES; el banco no las tiene. */
   senales: SenalesHilo | null;
   optOutVigente: boolean;
@@ -146,6 +148,7 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     umbralInsistencia: p.conocimiento?.alcance.umbralInsistencia ?? undefined,
     urgencias: p.conocimiento?.alcance.urgencias ?? undefined,
     diasHastaProximaCita: p.diasHastaProximaCita,
+    citaConfirmada: p.citaConfirmada ?? null,
     yaDerivado,
     reactivacion,
     hoy: p.hoy,
