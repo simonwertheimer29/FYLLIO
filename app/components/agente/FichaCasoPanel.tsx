@@ -6,9 +6,13 @@
 // versiones se desincronizan y la coordinadora acaba viendo cosas distintas
 // del mismo caso.
 //
-// EL ORDEN ES EL DICTADO y no se reordena: (0) la espera —lo único que dice
-// qué NO hacer— y qué se ha intentado ya; (1) qué quiere; (2) qué falta
-// resolver; (3) qué recogió; (4) la conversación, accesible y no desplegada.
+// CUATRO BLOQUES (16-09, MEJORAS 253 — antes eran siete que decían tres
+// veces lo mismo): (1) el ESTADO como etiqueta, debajo del contacto; luego
+// lo que dice qué NO hacer (espera, opt-out, quien escribe no es la titular);
+// (2) la DESCRIPCIÓN en dos o tres frases compuestas por código, con lo
+// pendiente dentro; (3) los datos recogidos, SOLO los que tienen valor;
+// (4) la acción principal. «Marcar resuelto» y la salida al hilo, pequeños
+// y al final.
 //
 // REGLA DE DISEÑO (dictada): la ficha es corta. Si algo no cambia lo que la
 // coordinadora hará en el próximo minuto, NO entra — los «y ya que estamos»
@@ -23,41 +27,23 @@ import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica, hoyISO } from "../../lib/time";
-import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, Ban, ICON_STROKE } from "../icons";
+import { AlertTriangle, CalendarDays, PauseCircle, UserCheck, Ban, ICON_STROKE } from "../icons";
 import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { AgendarPanel } from "../agenda/AgendarPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
-import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
-import type { CausaDerivacion } from "../../lib/automatizacion/estado";
 
 const ETIQUETA_OTRO: Record<string, string> = {
   cobro: "un pago pendiente",
   presupuesto: "un presupuesto por decidir",
   cita: "una cita por cerrar",
+  mover_cita: "mover su cita",
   identificar: "identificar a la persona",
 };
 
-// ── El asunto derivado, en lenguaje de coordinadora (fase C) ──────────────
-// Hasta hoy la ficha solo enseñaba la causa cuando era una queja: nadie
-// sabía POR QUÉ le llegó un caso. El título dice la causa; la frase del
-// paciente, cuando existe, dice el resto.
-const TITULO_DERIVADO: Record<CausaDerivacion, string> = {
-  peticion_queja: "Pidió hablar con una persona",
-  urgencia: "Urgencia — no puede esperar",
-  antecedente_medico: "Mencionó una medicación o condición médica",
-  caso_completo: "El agente terminó su parte — queda cerrarlo",
-  insistencia: "Insistió varias veces — el agente no le resuelve",
-  no_legible: "Envió un audio, foto o archivo que el agente no puede leer — ábrelo en WhatsApp",
-  sin_respuesta_valida: "El agente no puede contestar esto sin arriesgarse — lo contesta mejor una persona",
-};
-/** Rojo para lo que exige atención inmediata (el mismo criterio que la cola
- *  prioritaria de la derivación); el resto informa sin alarmar. */
-const CAUSA_PRIORITARIA: ReadonlySet<CausaDerivacion> = new Set([
-  "peticion_queja",
-  "urgencia",
-  "antecedente_medico",
-]);
+// La causa de la entrega, en lenguaje de coordinadora, vive desde el 16-09 en
+// `etiquetaEstadoDe` (ficha-caso.ts): es el ESTADO del caso (bloque 1), y el
+// mismo dato alimenta la marca de la bandeja. Aquí solo se pinta.
 
 export function FichaCasoPanel({
   telefono,
@@ -135,51 +121,20 @@ export function FichaCasoPanel({
 
   return (
     <div className="space-y-3">
-      {/* ── 0 · ANTES DE TODO: el asunto derivado (21-08 la queja; fase C,
-          todas las causas). Un tag y un pendiente en una lista no bastan —
-          si la coordinadora no sabe por qué le llegó el caso, le escribe
-          «como si nada» a alguien enfadado o cierra sin cerrar lo que el
-          agente entregó. Arriba, con la frase del paciente, y el botón que
-          lo cierra: «Marcar resuelto» es UNO para todas las causas (026) —
-          la causa ya está en el log. */}
-      {ficha.semaforo.motivo === "derivado_sin_resolver" && (
-        <div
-          className={`flex gap-2 rounded-xl border px-3 py-2.5 ${
-            !ficha.semaforo.causa || CAUSA_PRIORITARIA.has(ficha.semaforo.causa)
-              ? "border-rose-200 bg-rose-50 dark:border-rose-500/25 dark:bg-rose-500/10"
-              : "border-[var(--color-border)] bg-[var(--color-surface-muted)]"
-          }`}
-        >
-          {!ficha.semaforo.causa || CAUSA_PRIORITARIA.has(ficha.semaforo.causa) ? (
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-danger)]" aria-hidden />
-          ) : (
-            <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" aria-hidden />
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="text-[12.5px] leading-snug text-[var(--color-foreground)]">
-              <span className="font-semibold">
-                {ficha.semaforo.causa
-                  ? TITULO_DERIVADO[ficha.semaforo.causa]
-                  : "Derivado al equipo"}
-                {ficha.semaforo.desde ? ` — ${fechaClinica(ficha.semaforo.desde)}${edadLegible(ficha.semaforo.desde)}` : ""}.
-              </span>
-              {ficha.semaforo.causa === "caso_completo" && ficha.semaforo.objetivo
-                ? ` Queda ${ETIQUETA_OTRO[ficha.semaforo.objetivo] ?? ficha.semaforo.objetivo}.`
-                : ""}
-              {ficha.semaforo.frase ? ` Sus palabras: ${ficha.semaforo.frase}` : ""}
-              {ficha.semaforo.causa === "peticion_queja" ? " Resuélvelo antes de cerrar nada." : ""}
-            </p>
-            <BotonSemaforo
-              telefono={ficha.telefono}
-              evento="resuelto_manual"
-              etiqueta="Marcar resuelto"
-              hecho="Asunto marcado como resuelto"
-              onHecho={alCambiar}
-            />
-          </div>
-        </div>
-      )}
-      {/* ── La espera (qué NO hacer) y lo intentado ── */}
+      {/* ── 1 · EL ESTADO, como etiqueta (16-09, MEJORAS 253). Debajo del
+          contacto en Mensajería; la primera línea en Seguimiento. Sale del
+          semáforo, de la causa de entrega y del objetivo — lo mismo que la
+          marca de la bandeja. La edad del derivado va al lado: nada caduca
+          solo, pero envejece a la vista (MEJORAS 125). */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <MarcaEstado tono={ficha.estado.tono}>{ficha.estado.texto}</MarcaEstado>
+        {ficha.semaforo.motivo === "derivado_sin_resolver" && ficha.semaforo.desde && (
+          <span className="text-[11px] text-[var(--color-muted)]">
+            desde el {fechaClinica(ficha.semaforo.desde)}{edadLegible(ficha.semaforo.desde)}
+          </span>
+        )}
+      </div>
+      {/* ── La espera (qué NO hacer) ── */}
       {ficha.espera && (
         <div className="flex gap-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2.5">
           <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
@@ -258,12 +213,6 @@ export function FichaCasoPanel({
           </div>
         </div>
       )}
-      <p className="flex items-center gap-1.5 text-[12px] text-[var(--color-muted)]">
-        <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        {ficha.intentos.salientes === 0
-          ? "Aún no se le ha escrito."
-          : `${ficha.intentos.salientes} ${ficha.intentos.salientes === 1 ? "mensaje enviado" : "mensajes enviados"} · último el ${fechaClinica(ficha.intentos.ultimo!)}`}
-      </p>
       {ficha.semaforo.motivo === "hilo_asumido" && (
         <div className="flex items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-foreground)]">
@@ -280,80 +229,54 @@ export function FichaCasoPanel({
           />
         </div>
       )}
-      {ficha.cierrePorPaciente && (
-        <p className="flex items-center gap-1.5 text-[12px] text-[var(--color-foreground)]">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[var(--color-success)]" aria-hidden />
-          {ficha.cierrePorPaciente.accion === "aceptado"
-            ? "Aceptó su presupuesto desde el portal"
-            : "Rechazó su presupuesto desde el portal"}
-          {" · "}
-          {fechaClinica(ficha.cierrePorPaciente.fecha)}
-        </p>
-      )}
-
-      {/* ── 1 · Qué quiere ── */}
+      {/* ── 2 · LA DESCRIPCIÓN: en qué anda esta persona y qué ha pasado, en
+          dos o tres frases compuestas por CÓDIGO (ficha-caso.ts). Lo que
+          preguntó sin respuesta va DENTRO, como una frase más, con su botón
+          de «Respondido» (MEJORAS 121: resolver una clave resuelve todas sus
+          frases; una vez por clave). Sin evaluación, se dice. */}
       {ficha.evaluado ? (
         <div className="rounded-xl border border-[var(--color-border)] p-3.5">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Qué quiere
-          </p>
-          <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-[var(--color-foreground)]">
-            {ficha.queQuiere ?? "Solo conversación — no hay nada que recoger."}
-          </p>
+          {ficha.descripcion.length === 0 ? (
+            <p className="text-[13px] leading-relaxed text-[var(--color-foreground)]">
+              Solo conversación — no hay nada que recoger.
+            </p>
+          ) : (
+            <p className="text-[13px] leading-relaxed text-[var(--color-foreground)]">
+              {ficha.descripcion.map((f, i) => (
+                <span key={i}>
+                  {i > 0 ? " " : ""}
+                  {f.texto}
+                  {f.pendiente && (
+                    <>
+                      {" "}
+                      <BotonSemaforo
+                        telefono={ficha.telefono}
+                        evento="aplazado_resuelto"
+                        claveAplazado={f.pendiente}
+                        etiqueta="Respondido"
+                        hecho="Marcado como respondido"
+                        onHecho={alCambiar}
+                        sinMargen
+                        compacto
+                      />
+                    </>
+                  )}
+                </span>
+              ))}
+            </p>
+          )}
           {/* MEJORAS 119/128: si el ÚLTIMO mensaje no tiene evaluación, lo de
               arriba es del anterior — se dice, no se enseña como actual. */}
           {!ficha.agente.alDia && (
-            <p className="mt-1 flex items-start gap-1.5 text-[12px] leading-snug text-[var(--color-warning)]">
+            <p className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-snug text-[var(--color-warning)]">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
               El último mensaje de la persona no tiene evaluación del agente: esto es de un mensaje anterior.
             </p>
           )}
           {ficha.otrosObjetivos.length > 0 && (
-            <p className="mt-1 text-[12px] text-[var(--color-muted)]">
+            <p className="mt-1.5 text-[12px] text-[var(--color-muted)]">
               Además: {ficha.otrosObjetivos.map((o) => ETIQUETA_OTRO[o] ?? o).join(" · ")}
             </p>
-          )}
-          {/* 21-08: con varios presupuestos vivos, se DECLARA de cuál se
-              habla y de dónde salió la elección — un activo en silencio es
-              peor que dos cards. Los demás, nombrados. */}
-          {ficha.presupuestos && ficha.presupuestos.otros.length > 0 && (
-            <div className="mt-2 border-t border-[var(--color-border)] pt-2">
-              {ficha.presupuestos.fuente === "sin_senal" ? (
-                <>
-                  {/* 21-08: sin señal de la conversación NO se elige — decir
-                      «se habla de X» cuando no se habla de ninguno era mentir
-                      con aviso en letra pequeña. */}
-                  <p className="text-[12px] font-semibold text-[var(--color-foreground)]">
-                    {1 + ficha.presupuestos.otros.length} presupuestos vivos — la conversación no señala cuál.
-                  </p>
-                  {[ficha.presupuestos.activo, ...ficha.presupuestos.otros].map((o) => (
-                    <p key={o.id} className="mt-0.5 text-[12px] text-[var(--color-muted)]">
-                      · {o.tratamiento ?? "tratamiento"}
-                      {o.importe != null ? ` (${eurUI(o.importe)})` : ""}
-                    </p>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <p className="text-[12px] text-[var(--color-foreground)]">
-                    Se habla del presupuesto de{" "}
-                    <span className="font-semibold">
-                      {ficha.presupuestos.activo.tratamiento ?? "tratamiento"}
-                      {ficha.presupuestos.activo.importe != null ? ` (${eurUI(ficha.presupuestos.activo.importe)})` : ""}
-                    </span>
-                    {ficha.presupuestos.fuente === "proxy" && (
-                      <span className="text-[var(--color-muted)]"> — elegido por la señal más reciente; compruébalo en la conversación</span>
-                    )}
-                  </p>
-                  {ficha.presupuestos.otros.map((o) => (
-                    <p key={o.id} className="mt-0.5 text-[12px] text-[var(--color-muted)]">
-                      También vivo: {o.tratamiento ?? "tratamiento"}
-                      {o.importe != null ? ` (${eurUI(o.importe)})` : ""}
-                    </p>
-                  ))}
-                </>
-              )}
-            </div>
           )}
         </div>
       ) : (
@@ -367,9 +290,33 @@ export function FichaCasoPanel({
         </div>
       )}
 
-      {/* ── G3 · Cerrar la cita SIN salir de aquí. Solo con lead activo: la
-          cita del caso es la cita del lead (un paciente convertido se agenda
-          desde la agenda). El botón dice lo que ya hay — mover no es crear. */}
+      {/* ── 3 · Datos que tiene el agente — SOLO los que tienen valor. Las
+          filas con «—» o «sin recoger» no se pintan (16-09): una fila vacía
+          no cambia lo que la coordinadora hará y le quita fuerza a la llena. */}
+      {(() => {
+        const conValor = (ficha.recogido ?? []).filter((c) => c.valor != null && c.valor !== "no_aplica" && c.valor.trim() !== "");
+        return conValor.length > 0 ? (
+          <div className="rounded-xl border border-[var(--color-border)] p-3.5">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+              Datos que tiene el agente
+            </p>
+            <dl className="mt-1.5 space-y-1">
+              {conValor.map((c) => (
+                <div key={c.campo} className="flex items-baseline justify-between gap-2">
+                  <dt className="text-[12px] text-[var(--color-muted)]">{legibleCampo(c.campo)}</dt>
+                  <dd className="text-right text-[12.5px] font-medium text-[var(--color-foreground)]">{c.valor}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null;
+      })()}
+
+      {/* ── 4 · LA ACCIÓN. Hoy (paso 1): cerrar o mover la cita del lead sin
+          salir de aquí (G3). El paso 3 la convierte en el botón que ya sabe
+          qué hacer (la agenda filtrada por lo que recogió el agente). Solo
+          con lead activo: la cita del caso es la cita del lead (un paciente
+          convertido se agenda desde la agenda). Mover no es crear. */}
       {ficha.lead && (
         <button
           type="button"
@@ -390,75 +337,54 @@ export function FichaCasoPanel({
         />
       )}
 
-      {/* ── 2 · Qué falta resolver (vacío = nada, sin relleno) ── */}
-      {ficha.pendientes.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-border)] p-3.5">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Qué falta resolver
-          </p>
-          <ol className="mt-1.5 space-y-1.5">
-            {ficha.pendientes.map((p, i) => (
-              <li key={`${p.clave}-${i}`} className="flex items-start justify-between gap-2 text-[12.5px] leading-snug text-[var(--color-foreground)]">
-                <span className="min-w-0">
-                  <span className="tabular-nums text-[var(--color-muted)]">{i + 1}.</span>{" "}
-                  <span className="font-medium">{p.etiqueta}</span>
-                  <span className="text-[var(--color-muted)]"> — «{p.frase}»</span>
-                </span>
-                {/* MEJORAS 121: el emisor de `aplazado_resuelto` que faltaba.
-                    Resolver una clave resuelve TODAS sus frases (regla de
-                    pendientes de la 021). Solo se enseña una vez por clave. */}
-                {ficha.pendientes.findIndex((q) => q.clave === p.clave) === i && (
-                  <BotonSemaforo
-                    telefono={ficha.telefono}
-                    evento="aplazado_resuelto"
-                    claveAplazado={p.clave}
-                    etiqueta="Respondido"
-                    hecho={`«${p.etiqueta}» marcado como respondido`}
-                    onHecho={alCambiar}
-                    sinMargen
-                  />
-                )}
-              </li>
-            ))}
-          </ol>
+      {/* ── Secundario, pequeño: cerrar lo entregado y salir al hilo.
+          «Marcar resuelto» es UNO para todas las causas (026) — la causa ya
+          está en el log. */}
+      {(ficha.semaforo.motivo === "derivado_sin_resolver" || modo === "seguimiento") && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {ficha.semaforo.motivo === "derivado_sin_resolver" ? (
+            <BotonSemaforo
+              telefono={ficha.telefono}
+              evento="resuelto_manual"
+              etiqueta="Marcar resuelto"
+              hecho="Asunto marcado como resuelto"
+              onHecho={alCambiar}
+              sinMargen
+            />
+          ) : (
+            <span />
+          )}
+          {modo === "seguimiento" && (
+            <Link
+              href={`/mensajeria?telefono=${encodeURIComponent(ficha.telefono)}`}
+              className="text-[12.5px] font-semibold text-[var(--color-accent)] hover:underline"
+            >
+              Ver la conversación
+            </Link>
+          )}
         </div>
-      )}
-
-      {/* ── 3 · Datos que tiene el agente ── */}
-      {ficha.recogido && ficha.recogido.length > 0 && (
-        <div className="rounded-xl border border-[var(--color-border)] p-3.5">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            Datos que tiene el agente
-          </p>
-          <dl className="mt-1.5 space-y-1">
-            {ficha.recogido.map((c) => (
-              <div key={c.campo} className="flex items-baseline justify-between gap-2">
-                <dt className="text-[12px] text-[var(--color-muted)]">{legibleCampo(c.campo)}</dt>
-                <dd className="text-right text-[12.5px] font-medium text-[var(--color-foreground)]">
-                  {c.valor == null ? (
-                    <span className="font-normal text-[var(--color-muted)]">sin recoger</span>
-                  ) : c.valor === "no_aplica" ? (
-                    <span className="font-normal text-[var(--color-muted)]">—</span>
-                  ) : (
-                    c.valor
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      )}
-
-      {/* ── 4 · La conversación: accesible, no desplegada ── */}
-      {modo === "seguimiento" && (
-        <Link
-          href={`/mensajeria?telefono=${encodeURIComponent(ficha.telefono)}`}
-          className="block rounded-lg border border-[var(--color-border)] px-3 py-2 text-center text-[13px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
-        >
-          Ver la conversación
-        </Link>
       )}
     </div>
+  );
+}
+
+/** La etiqueta de estado del caso (bloque 1) — el mismo aspecto que la marca
+ *  de la bandeja, para que el estado se lea igual en la lista y en la ficha. */
+function MarcaEstado({ tono, children }: { tono: "danger" | "accent" | "warning" | "neutro"; children: React.ReactNode }) {
+  const cls =
+    tono === "danger"
+      ? "border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+      : tono === "accent"
+        ? "border-transparent bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+        : tono === "warning"
+          ? "border-transparent bg-[var(--color-warning-soft)] text-[var(--color-warning)]"
+          : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
+  return (
+    <span className={`inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${cls}`}>
+      {tono === "danger" && <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />}
+      {tono === "accent" && <UserCheck className="h-3 w-3 shrink-0" aria-hidden />}
+      <span className="truncate">{children}</span>
+    </span>
   );
 }
 
@@ -474,6 +400,7 @@ function BotonSemaforo({
   hecho,
   onHecho,
   sinMargen = false,
+  compacto = false,
   claveAplazado,
 }: {
   telefono: string;
@@ -485,6 +412,8 @@ function BotonSemaforo({
   hecho: string;
   onHecho: () => void;
   sinMargen?: boolean;
+  /** Dentro de una frase (la descripción): más pequeño, alineado al texto. */
+  compacto?: boolean;
 }) {
   const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState(false);
@@ -523,7 +452,7 @@ function BotonSemaforo({
       type="button"
       onClick={pulsar}
       disabled={enviando}
-      className={`${sinMargen ? "" : "mt-2 "}inline-flex shrink-0 items-center rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition-colors disabled:opacity-50 ${
+      className={`${sinMargen ? "" : "mt-2 "}inline-flex shrink-0 items-center rounded-lg border font-semibold transition-colors disabled:opacity-50 ${compacto ? "align-baseline px-1.5 py-0 text-[11px]" : "px-2.5 py-1 text-[12px]"} ${
         confirmando
           ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white hover:opacity-90"
           : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
@@ -557,6 +486,12 @@ export function legibleCampo(clave: string): string {
     nombre: "Nombre",
     es_paciente: "¿Ya es paciente?",
     que_necesita: "Qué necesita",
+    // mover_cita (15-09) y la cita declinada: faltaban y salían como enum.
+    mover_o_anular: "Mover o anular",
+    dia_franja_nuevos: "Nuevos días y franjas",
+    cual_cita: "Qué cita",
+    motivo: "Motivo",
+    motivo_no_cita: "Por qué no quiere cita",
   };
   return MAPA[clave] ?? clave.replace(/_/g, " ");
 }

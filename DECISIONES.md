@@ -6485,3 +6485,55 @@ la ESCRITURA del caché a 1,25×; con tráfico seguido esa llamada la LEE a 0,1�
 **Lo que NO se tocó, a propósito:** ni una regla del prompt, ni el juez, ni lo que sale al paciente.
 Los tres cortes son trabajo duplicado o descartado, así que **no hay vara que pueda moverse** — por
 eso esta vez no hacía falta pagar `qa:juez` para probarlo.
+
+## 2026-09-16 · El juez no cachea por TAMAÑO (3.100 < 4.096), y la reescritura del turno 1 ensució un mensaje que estaba bien
+**EL CACHÉ, con el dato exacto y no estimado** (`count_tokens`, gratis): system del juez **3.100
+tokens**, reescritura 367, entrada del decisor 532, evaluador 6.550. **El mínimo cacheable de Haiku
+4.5 es 4.096, no 2.048** — 2.048 es el de Haiku 3.5, y ayer comparé contra el mínimo equivocado. La
+marca `cache_control` está donde tiene que estar (bloque `system`, fijo; lo variable va en
+`messages`), y las dos caras lo confirman: el evaluador (6.550) escribe y lee; el juez (3.100) ni
+escribe. **Es tamaño.** No se engorda un prompt para que cachee y no se funde con el decisor (orden
+de Simon: el juez es revisión independiente hasta tener producción). **Para la hoja de precios
+manda $28 por 1.000, no $15:** el $15 exige que el siguiente mensaje llegue dentro de la ventana de
+5 minutos, y un paciente de WhatsApp no contesta en 5 minutos de forma fiable. Con tráfico real se
+mide la fracción de turnos con caché caliente y se ajusta (MEJORAS 251, cerrada).
+**LA REESCRITURA DEL TURNO 1, reproducida ($0,028; la de ayer no quedó guardada — ver abajo).**
+Decisor: *«Simón, tu cambio de cita está anotado con el equipo. Te contactarán durante el horario de
+apertura para confirmar si el jueves a las 10:00 está disponible.»* Juez: `agenda`, tumba la segunda
+frase. Reescrito: *«… Te contactarán para confirmar la nueva fecha y hora que prefieres.»*
+**Veredicto: no hacía falta.** Por la letra de la regla («un día y una hora que no constan») es
+caza; por la intención no lo es: el mensaje no afirma hueco ni compromete cita — dice «confirmar SI
+está disponible», y el jueves a las 10:00 es la aritmética de lo que el paciente pidió («misma hora
+el día siguiente» sobre su cita del miércoles). La reescritura **quitó justo lo que valía**: la
+repetición concreta que le decía al paciente que le habían entendido. El juez se queda (criterio del
+15-09: mientras no reste), pero este es un candidato claro para `qa:juez` como «no infringe» —
+lo decide Simon. **Y el hallazgo de al lado:** el antes/después del mensaje que SALE no se guarda en
+ningún sitio — `decisor-produccion.ts` se queda con `texto` y tira `borrador` y `nota`; la sombra,
+que sí lo guardaba, está apagada. Sin ese rastro no se puede auditar lo que el juez cambia en
+producción, que es exactamente lo que hay que vigilar para decidir su futuro. MEJORAS 255.
+
+## 2026-09-16 · La ficha pasa a cuatro bloques, y «no me viene bien» NO reabre mover la cita
+**PASO 1 de MEJORAS 253, hecho y medido (`qa:ficha` en verde, $0).** Contacto + **estado como
+etiqueta** (`etiquetaEstadoDe`: semáforo > causa de entrega > objetivo, el mismo dato que la marca
+de la bandeja) · **descripción en frases compuestas por código** (`componerDescripcion`: la cita
+que tiene → qué quiere → lo que preguntó sin respuesta, con el contador de vueltas en palabras y su
+botón «Respondido» dentro → portal → cuánto se le ha escrito; cada frase sale de UN dato y si el dato
+no está la frase no se escribe) · **datos recogidos solo con valor** · la acción. Desaparecen el
+asunto derivado en prosa, «Qué quiere», «Qué falta resolver» y la línea de intentos: eran el mismo
+dato tres veces. El ejemplo literal de Simon sale de la función pura y está en el QA: *«Tiene cita el
+Mié 16 sept a las 10:00 con Dra. Villalba. Quiere cambiarla: prioridad jueves por la mañana; si no,
+cualquier mañana, cuanto antes. Ha preguntado dos veces por el día u hora de su cita sin respuesta:
+«…». 3 mensajes enviados, el último el 16 sept.»* La ficha lleva ahora **la cita del caso** (la
+próxima del paciente, con su doctor, misma consulta que el `citaFutura` del contexto; o la del lead
+mientras no haya pasado), que el paso 3 necesita para el botón.
+**LA PREGUNTA DE SIMON ANTES DEL PASO 3 —«si el botón reserva y el paciente contesta "no me viene
+bien", ¿se reactiva mover la cita sobre esa cita?»— HOY NO, por dos sitios:** (1) `FIRMAS_MOVER_CITA`
+no casa «no me viene bien» ni «no me va bien» ni «no puedo ese día»: falla hacia HOY a propósito
+(un falso positivo haría pedir días nuevos a quien no los pidió). (2) **Un LEAD con cita nunca abre
+`mover_cita`**: el contexto lo abre solo con `paciente && citaFutura`, y la cita del lead va por
+`lead_id`, con `paciente_id` vacío. Así que un lead recién citado que dice «no me viene bien» se
+queda con «cita» abierta y sus campos ya recogidos —contrato cubierto— y lo más probable es que el
+turno lo ENTREGUE otra vez como caso completo en vez de mover nada. **Va en el alcance del paso 3**
+(+2 h): abrir `mover_cita` también para el lead con cita futura, y una señal determinista barata
+que no dependa de la firma —el saliente anterior fue la confirmación de la reserva que envía el
+botón, y la respuesta es negativa— para que «no me viene bien» reabra el flujo sobre ESA cita.

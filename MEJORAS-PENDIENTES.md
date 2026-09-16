@@ -3859,8 +3859,13 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - **EL CACHÉ: la directiva ya estaba en los cuatro prompts; lo que falla es el TAMAÑO.** Medido, solo
   el system del evaluador cachea (6.543 tokens). El del juez y el de la reescritura salen con lectura
   Y escritura a cero en las dos corridas: el de la reescritura son ~312 tokens, muy por debajo del
-  mínimo cacheable. **Queda pendiente** comprobar el del juez, que está en el límite — se mide con el
-  mismo contador y cuesta un turno.
+  mínimo cacheable. **El del juez, MEDIDO el 16-09 con `count_tokens` (exacto, no estimado): 3.100
+  tokens. El mínimo cacheable de Haiku 4.5 es 4.096 (no 2.048: ese es el de Haiku 3.5).** La marca
+  `cache_control` está donde tiene que estar —en el bloque `system`, `juez-borrador.ts`— y el system
+  es fijo; la entrada variable va en `messages`. Es cuestión de TAMAÑO, confirmado por las dos caras:
+  el evaluador (6.550) escribe y lee caché; el juez (3.100) y la entrada del decisor (532) ni escriben.
+  No se engorda un prompt para que cachee, y no se funde con el decisor (criterio de Simon: el juez
+  es revisión independiente hasta tener producción).
 - **EN RÉGIMEN sale aún más barato:** la corrida medida pagó la ESCRITURA del caché (1,25×) porque
   estaba frío. Con tráfico seguido esa llamada la lee (0,1×) y el turno queda en **~$0,0156**, o sea
   **~$16 por 1.000 mensajes** frente a los $36 del lunes.
@@ -3868,6 +3873,15 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   las varas que ya tenemos. No por intuición.»** O sea: cada retirada se prueba contra `qa:juez`
   (63 casos), `qa:conocimiento` y una pasada de los 10 guiones, y se queda solo si las varas no se
   mueven. · **Impacto:** MEDIO hoy, ALTO con volumen. · **Esfuerzo:** 1 día. · **Fecha:** 2026-09-15
+- 🟢 **CERRADA el 16-09 (orden de Simon). EL NÚMERO DE PLANIFICACIÓN ES $28 POR 1.000 MENSAJES, NO
+  $15.** Medido sobre 4 turnos reales seguidos: $0,0283 el primero (paga la escritura del caché del
+  evaluador, 6.543 tokens, y llevó reescritura) y $0,0154 los tres siguientes (leen la caché). El
+  rango honesto es **$15-28 por 1.000**: $15 solo vale cuando el siguiente mensaje llega dentro de la
+  ventana de 5 minutos de la caché, y **los pacientes de WhatsApp no contestan dentro de 5 minutos de
+  forma fiable** — cada mensaje suelto es un «turno 1». Se planifica con $28. **Cuando haya tráfico
+  real se mide qué fracción de turnos cae con la caché caliente y se ajusta el número.** Lo que queda
+  de esta ficha (grasa del prompt, vetos que no cazan, juez en turnos sin nada que cazar) se mira con
+  producción, como estaba dicho.
 
 ## 252. QA · nada comprueba que el orquestador ARRANQUE: tsc en verde y el turno revienta
 - **Medido el 15-09, y costó una tarde de pruebas de Simon.** Un `const` usado antes de declararse
@@ -3933,6 +3947,25 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   de aceptación ·10 h + diseño, ~$0,65·. El 1 vale solo y no depende de nada. **El 4 es el único con
   diseño de verdad pendiente:** para saber que ACEPTÓ hay que haber registrado qué se le OFRECIÓ, y
   hoy la propuesta sale en un mensaje libre y no queda en ningún sitio estructurado.
+- 🟢 **PASO 1 HECHO Y MEDIDO el 16-09** (`qa:ficha` en verde, $0; escribir ~2 h, medir ~0,5 h):
+  estado como etiqueta (`etiquetaEstadoDe`), descripción por código (`componerDescripcion`, con lo
+  pendiente dentro y su «Respondido»), datos solo con valor, la acción; y la ficha lleva `cita` (la
+  del caso). Ver DECISIONES 16-09. **Orden de Simon: 1 → 2 → 3; el 4 se aplaza** a cuando el agente
+  vea la agenda (con la coordinadora en medio, ella lee la respuesta).
+- **ANTES DEL PASO 2 (preferencias estructuradas), a enseñar a Simon:** la lista cerrada de valores
+  de `franja`, `dias` y `urgencia`, y si `dias` son días de la semana o fechas. Al medir con
+  `qa:evals`: cuántos casos del corpus rellenan `preferenciaCita` y cuántos valores se descartan. Va
+  en la MISMA pasada que quitar `respuesta` del esquema del evaluador cuando manda el decisor (no por
+  coste: mientras el esquema le pida redactar, el evaluador gasta atención en un mensaje que nadie
+  envía). Si los juicios de siempre se mueven, se separan los dos cambios y se mide otra vez.
+- **ANTES DEL PASO 3 (botón), a enseñar a Simon:** el flujo completo en cuatro frases —qué pasa al
+  elegir el hueco: se reserva, qué mensaje le llega al paciente y por qué servicio (`mensajeria.ts`,
+  no `wa.me`), qué estado enseña la ficha y qué confirmación ve ella. La búsqueda de huecos en una
+  función de servidor (caso + preferencias → huecos ordenados); si no hay en los días preferidos
+  amplía sola (primero franja, luego cualquiera) y el panel dice que amplió — nunca una lista vacía
+  sin explicación. **Y lo medido el 16-09: «no me viene bien» tras reservar HOY NO reabre mover la
+  cita** (la firma no casa, y el lead con cita nunca abre `mover_cita`) — entra en el alcance del
+  paso 3, +2 h. Ver DECISIONES 16-09.
 
 ## 254. Agente · el recordatorio de quien deja de contestar a medias: «¿sigues ahí?»
 - **Anotado el 15-09 por Simon. NO se hace ahora**, y la razón es que es una pieza distinta de todo
@@ -3966,3 +3999,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - · **Principio:** el agente puede insistir, pero tiene que saber rendirse — y la conversación es de
   la persona, no nuestra. · **Impacto:** ALTO (es dinero que hoy se enfría solo). · **Esfuerzo:**
   medio día de diseño + 1 día de código y medición. · **Fecha:** 2026-09-15
+
+## 255. Agente · lo que el juez CAMBIA en el mensaje que sale no deja rastro
+- **Medido el 16-09 al intentar contestar «pégame el antes y el después del turno 1»: no se pudo,
+  hubo que reproducir el turno ($0,028).** `decisor-produccion.ts` recibe de `controlarMensajeDelDecisor`
+  el `borrador` original, el `control` (estado, motivo, frase, fuente) y la `nota` legible, y se queda
+  solo con `texto`. La sombra —que sí guardaba la traza del control— está apagada por coste desde hoy.
+  Resultado: en producción no hay forma de saber qué reescribió o podó el juez, ni con qué motivo.
+- **Por qué importa más de lo que parece:** el criterio del 15-09 es «el juez se queda mientras no
+  RESTE, y se decide con producción». Sin rastro de lo que cambia, esa decisión no se puede tomar
+  con datos: la reproducción de hoy ya dio un falso positivo por intención (DECISIONES 16-09).
+- **Propuesta, barata:** guardar en el payload de la evaluación (`evaluacion_json`, aditivo) el
+  `control` del mensaje del decisor —`{estado, motivo, frase, fuente, borrador}` solo cuando
+  `estado ≠ pasa`— y enseñarlo en «ver por qué». Cero llamadas nuevas; es un campo más en un JSON
+  que ya se escribe. Con eso, `qa:juez` puede alimentarse de casos reales en vez de guiones.
+  · **Impacto:** MEDIO hoy, ALTO para decidir el futuro del juez. · **Esfuerzo:** 2 h. ·
+  **Fecha:** 2026-09-16

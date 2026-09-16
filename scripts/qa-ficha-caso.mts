@@ -25,9 +25,10 @@ process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "
 import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
 import { registrarEventoIdempotente, registrarEvento } from "../app/lib/automatizacion/pg";
-import { fichaDeCaso, type FichaCaso } from "../app/lib/agente/ficha-caso";
+import { fichaDeCaso, componerDescripcion, etiquetaEstadoDe, type FichaCaso } from "../app/lib/agente/ficha-caso";
 import { contextoParaEntrada, repreguntaPendiente } from "../app/lib/agente/borrador-entrada";
 import { hoyISO } from "../app/lib/time";
+import { fechaCorta } from "../app/lib/agenda/fechas";
 
 const TEL_SIN_EVAL = "+34611999002"; // huérfana del seed (Mónica): mensajes, cero evaluación
 const TEL_FICHA = "+34611998021"; // mini-mundo propio de este QA
@@ -156,6 +157,19 @@ await runWithCliente("DEMO", async () => {
   ok("recogido: los campos del activo, no_aplica incluido", (fb.recogido ?? []).some((c) => c.campo === "disponibilidad" && c.valor === "tardes") && (fb.recogido ?? []).some((c) => c.valor === "no_aplica"));
   ok("pendiente con la FRASE del paciente", fb.pendientes.length === 1 && fb.pendientes[0].frase.includes("seguro cubre"));
 
+  // ── LA FICHA DE CUATRO BLOQUES (16-09, MEJORAS 253 paso 1) ────────────
+  // Bloque 1: el estado como etiqueta — aquí manda la espera (semáforo).
+  ok("estado (bloque 1): la espera manda sobre el objetivo", fb.estado.texto.startsWith("En espera hasta el") && fb.estado.tono === "warning", fb.estado.texto);
+  // Bloque 2: la descripción, compuesta por código, frase a frase.
+  const textos = fb.descripcion.map((f) => f.texto);
+  ok("descripción: sin cita futura no hay frase de cita", !textos.some((t) => t.startsWith("Tiene cita")), textos.join(" | "));
+  ok("descripción: qué quiere, la misma frase del titular", textos.includes("Quiere cita — empezar su tratamiento · sin prisa · tardes."), textos.join(" | "));
+  ok("descripción: lo pendiente va DENTRO, con su clave para marcarlo respondido",
+    fb.descripcion.some((f) => f.pendiente === "cobertura_seguro" && f.texto === "Ha preguntado por la cobertura de su seguro sin respuesta: «pregunta si su seguro cubre parte»."),
+    textos.join(" | "));
+  ok("descripción: cuánto se le ha escrito, al final", textos[textos.length - 1]?.startsWith("2 mensajes enviados, el último el ") === true, textos[textos.length - 1] ?? "");
+  ok("cita del caso = null (ni paciente con cita futura ni lead)", fb.cita === null);
+
   // ── La regla del estado de la persona (11-09) en la ficha ────────────────
   // Turno 2: se queja de un cobro (Pablo) y escribe su hija (Lucía). El
   // titular sale del estado, no del objetivo de relleno; la entrega lleva
@@ -172,6 +186,8 @@ await runWithCliente("DEMO", async () => {
   const fq = await fichaDeCaso(TEL_FICHA);
   ok("QUEJA de un cobro → «Se queja de un pago — lo tiene que ver una persona» (no «Quiere cita»)",
     fq.queQuiere === "Se queja de un pago — lo tiene que ver una persona", fq.queQuiere ?? "null");
+  ok("sin evaluación (caso a): estado «Sin evaluar por el agente» y descripción vacía",
+    fa.estado.texto === "Sin evaluar por el agente" && fa.descripcion.length === 0, fa.estado.texto);
   ok("el objetivo de la ficha sigue listando lo recogido (el estado no lo borra)", fq.objetivoActivo === "cobro" && Array.isArray(fq.recogido));
   ok("escribe otra persona: la ficha lo declara", fq.hablaPor?.nombre === "Lucía" && fq.hablaPor?.relacion === "hija de QA Ficha Bravo");
 
@@ -311,6 +327,56 @@ console.log("\nd · contextoParaEntrada: lo recogido consta, lo pendiente con su
     sugerirMotivoLead("no le cuadra el horario") === "Horarios" &&
     sugerirMotivoLead("ya se lo hizo en verano") === "Ya_No_Necesita" &&
     sugerirMotivoLead("no contesta bien") === null);
+}
+
+// ── e · Los dos bloques nuevos, PUROS (16-09): el ejemplo literal de Simon ──
+// «Tiene cita el miércoles 16 a las 10:00. Quiere cambiarla: prioridad jueves
+// por la mañana; si no, cualquier mañana, cuanto antes. Ha preguntado dos
+// veces por el día nuevo sin respuesta.» Cada frase sale de UN dato.
+console.log("\ne · Estado y descripción compuestos por código (sin base)");
+{
+  const derivado = { verde: false, motivo: "derivado_sin_resolver" as const, causa: "caso_completo" as const, objetivo: "mover_cita" as const, desde: "2026-09-16T08:00:00Z" };
+  const cita = { fecha: "2026-09-16", hora: "10:00", doctor: "Dra. Villalba", fuente: "paciente" as const };
+  const pend = [
+    { clave: "dato_cita" as const, frase: "¿me podéis decir qué día entonces?" },
+    { clave: "dato_cita" as const, frase: "sigo sin saber el día" },
+  ];
+  const d = componerDescripcion({
+    evaluado: true, cita, objetivoActivo: "mover_cita",
+    campos: { mover_o_anular: "otra fecha", dia_franja_nuevos: "prioridad jueves por la mañana; si no, cualquier mañana, cuanto antes", cual_cita: "no_aplica", motivo: null },
+    queQuiere: "Quiere mover su cita — otra fecha · prioridad jueves por la mañana", pendientes: pend,
+    semaforo: derivado, cierrePorPaciente: null, presupuestos: null, intentos: { salientes: 3, ultimo: "2026-09-16T09:30:00Z" },
+  }).map((f) => f.texto);
+  // El mes lo escribe Intl («sept» en unos runtimes, «sep» en otros): se
+  // compara con el MISMO helper que usa la ficha, no con una literal.
+  ok("frase 1: la cita que tiene, con día, hora y doctor", d[0] === `Tiene cita el ${fechaCorta("2026-09-16")} a las 10:00 con Dra. Villalba.`, d[0]);
+  ok("frase 2: qué quiere, en prosa sobre la cita («Quiere cambiarla: …»)", d[1] === "Quiere cambiarla: prioridad jueves por la mañana; si no, cualquier mañana, cuanto antes.", d[1]);
+  ok("frase 3: el contador de vueltas en palabras, con la ÚLTIMA frase", d[2] === "Ha preguntado dos veces por el día u hora de su cita sin respuesta: «sigo sin saber el día».", d[2]);
+  ok("frase 4: cuánto se le ha escrito", d[3]?.startsWith("3 mensajes enviados, el último el ") === true, d[3]);
+  ok("y nada más: cuatro frases, cero relleno", d.length === 4, String(d.length));
+  const dAnula = componerDescripcion({
+    evaluado: true, cita, objetivoActivo: "mover_cita", campos: { mover_o_anular: "anular", dia_franja_nuevos: null, motivo: "le ha salido un viaje" },
+    queQuiere: null, pendientes: [], semaforo: { verde: true }, cierrePorPaciente: null, presupuestos: null, intentos: { salientes: 0, ultimo: null },
+  }).map((f) => f.texto);
+  ok("anular: «Quiere anularla — motivo»", dAnula[1] === "Quiere anularla — le ha salido un viaje.", dAnula[1]);
+  ok("sin haber dicho cuándo: se dice que falta, no se inventa", componerDescripcion({
+    evaluado: true, cita, objetivoActivo: "mover_cita", campos: { mover_o_anular: "otra fecha" },
+    queQuiere: null, pendientes: [], semaforo: { verde: true }, cierrePorPaciente: null, presupuestos: null, intentos: { salientes: 0, ultimo: null },
+  })[1]?.texto === "Quiere cambiarla, pero aún no ha dicho cuándo le viene bien.");
+  ok("sin evaluación: solo la cita (dato de la base), nada del agente",
+    componerDescripcion({ evaluado: false, cita, objetivoActivo: null, campos: undefined, queQuiere: null, pendientes: [], semaforo: { verde: true }, cierrePorPaciente: null, presupuestos: null, intentos: { salientes: 0, ultimo: null } }).length === 1);
+
+  const et = (semaforo: Parameters<typeof etiquetaEstadoDe>[0]["semaforo"], extra: Partial<Parameters<typeof etiquetaEstadoDe>[0]> = {}) =>
+    etiquetaEstadoDe({ semaforo, estadoPersona: null, objetivoActivo: "cita", pendientes: 0, evaluado: true, ...extra });
+  ok("estado: entregado por caso completo → «Quiere cambiar su cita · listo para cerrar»", et(derivado).texto === "Quiere cambiar su cita · listo para cerrar" && et(derivado).tono === "accent", et(derivado).texto);
+  ok("estado: queja → rojo, y se distingue de la petición", et({ verde: false, motivo: "derivado_sin_resolver", causa: "peticion_queja" }, { estadoPersona: "queja" }).texto === "Se queja — lo tiene que ver una persona"
+    && et({ verde: false, motivo: "derivado_sin_resolver", causa: "peticion_queja" }, { estadoPersona: "peticion" }).texto === "Pide hablar con una persona");
+  ok("estado: urgencia → rojo", et({ verde: false, motivo: "derivado_sin_resolver", causa: "urgencia" }).tono === "danger");
+  ok("estado: lo lleva una persona gana a lo que el agente persigue", et({ verde: false, motivo: "hilo_asumido" }).texto === "Lo lleva una persona");
+  ok("estado: en verde, dudas sin responder antes que el objetivo", et({ verde: true }, { pendientes: 2 }).texto === "Tiene dudas sin responder");
+  ok("estado: en verde con objetivo → el objetivo («Quiere cita»)", et({ verde: true }).texto === "Quiere cita");
+  ok("estado: en verde sin objetivo → «Solo conversación»", et({ verde: true }, { objetivoActivo: null }).texto === "Solo conversación");
+  ok("estado: sin evaluación se dice", et({ verde: true }, { evaluado: false }).texto === "Sin evaluar por el agente");
 }
 
 await limpiar();
