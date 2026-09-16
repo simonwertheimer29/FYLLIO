@@ -158,7 +158,7 @@ try {
     // DEMO y se regeneran (metricas: backfill al final). configuracion_historial
     // es append-only para la app: se limpia con la conexión admin, abajo.
     "metricas_diarias", "incidencias", "casos_candidatos_eval",
-    "objetivos_mensuales", "reglas_automatizacion", "configuracion_automatizaciones", "doctores_presupuestos",
+    "objetivos_mensuales", "reglas_automatizacion", "configuracion_automatizaciones", "agenda_ajustes", "doctores_presupuestos",
     "usuarios_presupuestos", "plantillas_mensaje", "plantillas_lead", "leads", "pacientes"];
   let borradas = 0;
   for (const t of WIPE) { const r = await db.query(`delete from ${t} where cliente='DEMO'`); borradas += r.rowCount; }
@@ -1456,6 +1456,9 @@ try {
       conocimiento: JSON.stringify(conocimiento),
     });
   }
+  // 058 (17-09): en la DEMO la agenda vive en Fyllio — es el escalón ideal, el
+  // que se enseña: huecos reales, reservar reserva, confirmación al paciente.
+  await ins("agenda_ajustes", { agenda_en_fyllio: true, activado_por: "seed demo", activado_en: dISO(-30) });
   // El HITO de la demo (2.6, MEJORAS 181): el agente se encendió hace tres
   // semanas en cada clínica — la marca que Analíticas › Antes y después ofrece.
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) await ins("configuracion_historial", {

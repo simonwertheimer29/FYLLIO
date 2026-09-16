@@ -30,6 +30,7 @@ import { fechaClinica, hoyISO } from "../../lib/time";
 import { AlertTriangle, CalendarDays, PauseCircle, UserCheck, Ban, ICON_STROKE } from "../icons";
 import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { AgendarPanel } from "../agenda/AgendarPanel";
+import { HuecosDelCasoPanel } from "./HuecosDelCasoPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 
@@ -312,21 +313,23 @@ export function FichaCasoPanel({
         ) : null;
       })()}
 
-      {/* ── 4 · LA ACCIÓN. Hoy (paso 1): cerrar o mover la cita del lead sin
-          salir de aquí (G3). El paso 3 la convierte en el botón que ya sabe
-          qué hacer (la agenda filtrada por lo que recogió el agente). Solo
+      {/* ── 4 · LA ACCIÓN (paso 3, 17-09): el botón que ya sabe qué hacer.
+          Sin cita: tres huecos del servidor que cumplen lo que recogió el
+          agente, con su garantía y el mensaje entero antes de pulsar
+          (HuecosDelCasoPanel). Con cita: moverla abre la agenda (G3). Solo
           con lead activo: la cita del caso es la cita del lead (un paciente
           convertido se agenda desde la agenda). Mover no es crear. */}
-      {ficha.lead && (
+      {ficha.lead && !ficha.lead.fechaCita && (
+        <HuecosDelCasoPanel telefono={ficha.telefono} onHecho={alCambiar} onVerAgenda={() => setAgendando(true)} />
+      )}
+      {ficha.lead && ficha.lead.fechaCita && (
         <button
           type="button"
           onClick={() => setAgendando(true)}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)]"
         >
           <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
-          {ficha.lead.fechaCita
-            ? `Mover su cita del ${fechaCorta(ficha.lead.fechaCita)}${ficha.lead.horaCita ? ` (${ficha.lead.horaCita})` : ""}`
-            : "Agendar cita"}
+          {`Mover su cita del ${fechaCorta(ficha.lead.fechaCita)}${ficha.lead.horaCita ? ` (${ficha.lead.horaCita})` : ""}`}
         </button>
       )}
       {agendando && ficha.lead && (

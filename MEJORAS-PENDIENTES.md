@@ -3909,6 +3909,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   produce V8), más `error_donde` con dos marcos del stack sin la ruta absoluta.
 
 ## 253. Ficha del caso · la columna derecha dice tres veces lo mismo con palabras distintas
+- **Paso 3a HECHO el 17-09 (DECISIONES 17-09):** huecos del caso con garantía, reservar + confirmación al paciente, estado en la ficha, ajuste «la agenda vive en Fyllio». Falta 3b («no me viene bien» tras reservar).
 - **Anotado el 15-09 por Simon, PARA PENSARLO JUNTOS más adelante — no se rediseña sobre la marcha.**
   Va con lo de Seguimiento que ya está pendiente: son la misma conversación sobre qué enseña cada
   pantalla.
@@ -4109,3 +4110,30 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   aparece en la fuente pasada su fecha de gracia se marca «no consta en el ERP» y sale en la bandeja.
   Sin lectura no hay nada contra lo que reconciliar; mientras tanto, el único rastro es el clic.
   · **Impacto:** MEDIO. · **Esfuerzo:** 2 h cuando exista la lectura. · **Fecha:** 2026-09-16
+
+## 259. Evaluador · inestabilidad conocida de extracción: el nombre que sí está en el hilo sale null
+- **Medido el 17-09 al recalcular la vara tras MEJORAS 257.** C2 («Hola, soy Lucía. Quería pedir cita
+  para una limpieza…», cinco mensajes) dejó `nombre_completo` en null en 1 de 4 sondas con el mismo
+  prompt: el caso no completa y la coordinadora no sabe a quién llama. Las otras tres extraen «Lucía».
+  Todo lo demás (tratamiento, urgencia, disponibilidad, no_aplica de las ramas) sale igual en las cuatro.
+- **Qué hacer:** no perseguirlo ahora (decisión de Simon). En la PRÓXIMA pasada completa decir si sigue
+  igual (1/4) o cambió. Si se repite, la guarda es de código: el nombre que la persona dice con «soy X»
+  / «me llamo X» en un entrante no puede quedar null (la guarda 225 ya mira el hilo para lo contrario).
+  · **Impacto:** MEDIO (el dato que decide a quién se llama). · **Esfuerzo:** 1 h si se confirma. ·
+  **Fecha:** 2026-09-17
+
+## 260. Agenda · la carga de ocupación está dos veces (semana y huecos del caso)
+- **Anotado el 17-09 al escribir el paso 3.** `/api/agenda/semana` y `lib/agenda/huecos-del-caso.ts`
+  cargan lo mismo (horarios, bloqueos, citas con hora final, agendas externas y ocupaciones) y lo
+  proyectan al día con el MISMO motor (`disponibilidad.ts`). Si un día se añade una fuente de ocupación
+  (sillones, festivos) y solo se toca una, la rejilla y la ficha enseñarán huecos distintos.
+- **Qué hacer:** extraer `cargarOcupacion(trx, { fechas, doctores })` y que las dos compongan encima.
+  · **Impacto:** MEDIO. · **Esfuerzo:** 1,5 h. · **Fecha:** 2026-09-17
+
+## 261. Ficha · el panel de huecos no se ha visto en el navegador
+- **17-09.** El paso 3a se midió por código (qa:huecos, qa:reserva-demo) y no en pantalla: el PIN de
+  demo@fyllio.com que constaba ya no vale y no se resetea una cuenta de demo sin Simon. Pendiente:
+  abrir `/mensajeria?telefono=+34 663 478 802` (lead Samuel Arias, evaluado con «jueves por la mañana»)
+  y `Ajustes → Agenda` y mirar el panel con el estándar visual. · **Esfuerzo:** 15 min con el PIN.
+  · **Fecha:** 2026-09-17
+

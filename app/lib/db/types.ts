@@ -535,6 +535,11 @@ type ExtraCitas = {
   /** 032 — lead del que nació la cita (única por lead: re-agendar actualiza).
    *  NULL = no vino de un lead. */
   lead_id: string | null;
+  /** 058 — cuándo se le confirmó al paciente por WhatsApp desde la ficha
+   *  (plantilla de código al clic de la coordinadora) y con qué mensaje.
+   *  NULL = no se confirmó desde Fyllio. */
+  confirmada_en: Date | null;
+  confirmacion_mensaje_id: string | null;
   /** 032 — nivel 1: cuándo se marcó como pasada al software clínico.
    *  NULL = pendiente (si origen_sistema='fyllio'). */
   trasladada_en: Date | null;
@@ -597,7 +602,7 @@ export interface Tabla_agendas_externas {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
   staff_id: string;
-  fuente: "google_calendar";
+  fuente: "google_calendar" | "gesden";
   referencia_externa: string;
   activa: Generated<boolean>;
   sync_cursor: string | null;
@@ -610,6 +615,17 @@ export interface Tabla_agendas_externas {
 /** 033 — Nivel 2: intervalos OPACOS leídos de la agenda externa. Cuentan
  *  como ocupado en el motor; paciente/tratamiento/sillón son opcionales del
  *  contrato del conector (para el PMS futuro), jamás adivinados. */
+/** 058 — ajustes de agenda por cliente. `agenda_en_fyllio` lo declara el
+ *  admin sabiendo lo que implica: los huecos son reales y reservar es
+ *  reservar (frescura en_vivo). Sin fila = no vive aquí. */
+export interface Tabla_agenda_ajustes {
+  cliente: "RB" | "INDEP" | "DEMO";
+  agenda_en_fyllio: Generated<boolean>;
+  activado_por: string | null;
+  activado_en: Date | null;
+  actualizado_en: Generated<Date>;
+}
+
 export interface Tabla_ocupaciones_externas {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
@@ -682,6 +698,7 @@ export interface DB
   bloqueos_staff: Tabla_bloqueos_staff;
   agendas_externas: Tabla_agendas_externas;
   ocupaciones_externas: Tabla_ocupaciones_externas;
+  agenda_ajustes: Tabla_agenda_ajustes;
   inicio_snapshots: Tabla_inicio_snapshots;
   casos_candidatos_eval: Tabla_casos_candidatos_eval;
   agente_sombra: Tabla_agente_sombra;

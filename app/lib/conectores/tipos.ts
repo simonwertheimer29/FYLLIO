@@ -44,8 +44,16 @@ export type ResultadoPull =
       reintentarConPullCompleto?: boolean;
     };
 
+/** LAS FUENTES QUE ENTRAN POR ESTA PUERTA (17-09). Google Calendar hoy; el
+ *  lector del PMS (Gesden) mañana, registrado en `CONECTORES` de
+ *  agenda-externa.ts y NADA más: la sync, la edad del dato, la garantía de
+ *  los huecos y la ventana ya no saben de Google. Añadir una fuente es
+ *  escribir su `pull` y una línea en el registro. `gesden` está aquí para
+ *  que el tipo de `agendas_externas.fuente` ya la admita; no hay lector. */
+export type FuenteAgenda = "google_calendar" | "gesden";
+
 export interface ConectorAgenda {
-  fuente: "google_calendar";
+  fuente: FuenteAgenda;
   pull(p: {
     /** Qué agenda en el sistema externo (Calendar: calendarId). */
     referenciaExterna: string;

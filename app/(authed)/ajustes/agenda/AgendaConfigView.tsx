@@ -38,6 +38,7 @@ type Tratamiento = {
   duracionMin: number | null; bufferAntesMin: number | null; bufferDespuesMin: number | null;
 };
 type Config = {
+  agendaEnFyllio: { activa: boolean; activadoPor: string | null; activadoEnISO: string | null };
   doctores: Doctor[];
   especialidades: Especialidad[];
   horarios: Franja[];
@@ -125,12 +126,84 @@ export default function AgendaConfigView() {
         </p>
       </header>
 
+      <SeccionAgendaEnFyllio config={config} guardar={guardar} />
       <SeccionEspecialidades config={config} guardar={guardar} />
       <SeccionHorarios config={config} guardar={guardar} />
       <SeccionBloqueos config={config} guardar={guardar} />
       <SeccionDuraciones config={config} guardar={guardar} />
       <SeccionAgendaExterna doctores={config.doctores} />
     </div>
+  );
+}
+
+// ── 0 · La agenda vive en Fyllio (058, 17-09) ─────────────────────────────────
+// Lo declara el admin sabiendo lo que implica: desde ese momento los huecos
+// que Fyllio enseña son reales y reservar desde la ficha reserva y confirma al
+// paciente. NO es un check suelto (decisión de Simon): activar pide leer qué
+// implica y confirmarlo; desactivar es un clic.
+
+function SeccionAgendaEnFyllio({ config, guardar }: { config: Config; guardar: (b: Record<string, unknown>, ok: string) => Promise<boolean> }) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [leido, setLeido] = useState(false);
+  const a = config.agendaEnFyllio;
+  return (
+    <Card padding="lg" className="2xl:col-span-2">
+      <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">¿Dónde vive la agenda de la clínica?</h2>
+      {a.activa ? (
+        <>
+          <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+            <strong className="text-[var(--color-foreground)]">En Fyllio.</strong> Los huecos que enseña son reales y reservar desde la ficha reserva la cita y la confirma al paciente por WhatsApp.
+            {a.activadoPor ? ` Activado por ${a.activadoPor}${a.activadoEnISO ? ` el ${new Date(a.activadoEnISO).toLocaleDateString("es-ES")}` : ""}.` : ""}
+          </p>
+          <button
+            type="button"
+            onClick={() => void guardar({ seccion: "agenda_en_fyllio", activa: false }, "La agenda vuelve a tratarse como copia: los huecos llevarán su aviso.")}
+            className="mt-3 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+          >
+            La agenda real está en otro software
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+            <strong className="text-[var(--color-foreground)]">En otro software.</strong> Fyllio calcula huecos sobre su configuración y lo dice en cada pantalla; la cita se confirma en tu software.
+          </p>
+          {!confirmando ? (
+            <button
+              type="button"
+              onClick={() => { setLeido(false); setConfirmando(true); }}
+              className="mt-3 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[12.5px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+            >
+              La agenda real vive en Fyllio…
+            </button>
+          ) : (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/25 dark:bg-amber-500/10">
+              <p className="text-[12.5px] text-amber-800 dark:text-amber-200">
+                Al activarlo, <strong>Fyllio propondrá y reservará huecos como si fuera tu agenda real</strong>: los huecos se calculan con los horarios, ausencias y citas que hay aquí, y al reservar desde la ficha se le confirma la cita al paciente por WhatsApp. Si la clínica sigue apuntando citas en otro sitio, Fyllio ofrecerá huecos que allí ya están ocupados.
+              </p>
+              <label className="mt-2 flex items-start gap-2 text-[12.5px] text-[var(--color-foreground)]">
+                <input type="checkbox" checked={leido} onChange={(e) => setLeido(e.target.checked)} className="mt-0.5" />
+                Entiendo que desde ahora la agenda de esta clínica es la de Fyllio.
+              </label>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  disabled={!leido}
+                  onClick={async () => {
+                    const ok = await guardar({ seccion: "agenda_en_fyllio", activa: true, confirmo: true }, "La agenda vive en Fyllio: los huecos son reales.");
+                    if (ok) setConfirmando(false);
+                  }}
+                  className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--color-on-accent)] disabled:opacity-50"
+                >
+                  Activar
+                </button>
+                <button type="button" onClick={() => setConfirmando(false)} className="px-3 py-1.5 text-[12.5px] text-[var(--color-muted)]">Cancelar</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Card>
   );
 }
 

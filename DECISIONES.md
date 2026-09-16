@@ -6598,3 +6598,28 @@ y falla el build si el prompt cambió sin pasar la vara. Probado en rojo (la var
 d22613192bd3, que además era el hash del prompt CON redacción: el script guardaba el hash de un
 prompt que no era el que corría; corregido) y en verde. Lo que NO vigila, a sabiendas: un cambio de
 canonización en código mueve la vara sin mover el hash; ese caso sigue siendo criterio.
+
+## 2026-09-17 · Paso 3a de la ficha: el botón que ya sabe qué hacer, de punta a punta en DEMO
+**HECHO (escalón IDEAL, decisión de Simon).** `huecosDelCaso` (servidor) convierte la preferencia que
+recogió el agente (días en su orden, franja) en tres huecos con su GARANTÍA (`garantia.ts`: en_vivo /
+copia con fecha / sin_agenda, un solo camino, siempre a la vista). Amplía sola y lo dice (franja →
+días → todo). El tratamiento se casa con el catálogo por nombre; si no casa, se pide elegir. La
+coordinadora ve el MENSAJE ENTERO antes de pulsar; reservar va por el PATCH del lead de siempre y
+confirmar por `/api/agente/confirmar-cita` (lógica en `lib/agenda/confirmar-cita.ts`: plantilla de
+código, autor persona, sin juez; el servidor recompone el texto de la cita real y rechaza si no
+coincide; hilo simulado = se registra, no se envía; solo con la agenda en Fyllio). Ajuste por cliente
+`agenda_ajustes.agenda_en_fyllio` (058) con texto explícito y confirmación, quién y cuándo; DEMO lo
+lleva activado (seed). La cita guarda `confirmada_en`; moverla o reagendar una cancelada lo borra.
+**Tres cosas que salieron al medir, y arreglos:** (1) tras reservar, la ficha decía «Quiere cita» al
+lado de «Tiene cita»: el contexto abría `cita` para un lead ya citado — ahora abre `mover_cita`, como
+al paciente; (2) toda ficha con cita futura decía «Quiere cambiar su cita» (bug previo): la ficha
+aplica el mismo filtro que el agente (`pideMoverSuCita`); (3) el reagendado de una cita cancelada
+heredaba la confirmación anterior. Con copia o sin agenda el botón ANOTA y no escribe al paciente;
+la etiqueta dice «Cita anotada · confirmar en tu software» (nunca más de lo que la fuente garantiza).
+**MEDIDO:** `qa:huecos` (25 aserciones puras, $0) · `qa:reserva-demo` en vivo y con `--agenda-fuera`
+(10 y 9 aserciones, recorre las MISMAS funciones que el clic; un entrante evaluado, $0,01) · qa:ficha 69
+· prebuild verde. **NO medido:** la pantalla en el navegador — el PIN de la cuenta demo de la memoria
+ya no vale (dos intentos, parado por el rate-limit); queda para Simon con su PIN.
+**Deuda declarada:** la CARGA de ocupación (bloqueos, citas, externas) se repite entre
+`/api/agenda/semana` y `huecos-del-caso.ts`; el motor es el mismo. La puerta multi-fuente: `FuenteAgenda`
+admite `gesden`, el registro `CONECTORES` es la única línea a tocar; sin lector, cuesta 0 dejarlo así.

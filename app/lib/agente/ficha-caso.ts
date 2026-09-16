@@ -42,6 +42,8 @@ import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
 import { optOutDeTelefono, type EstadoOptOut } from "../contacto/optout";
 import { consentimientoDeTelefono, type EstadoConsentimiento } from "../contacto/consentimiento";
 import { hiloJugado } from "../mensajeria/hilo-jugado";
+import { pideMoverSuCita } from "./entrada-desde-contexto";
+import { leerAgendaEnFyllio } from "../agenda/garantia";
 
 export type FichaCaso = {
   telefono: string;
@@ -164,6 +166,9 @@ export type CitaDelCaso = {
   hora: string | null;
   doctor: string | null;
   fuente: "paciente" | "lead";
+  /** 058 — ISO de cuándo se le confirmó por WhatsApp desde la ficha; null =
+   *  no se confirmó desde Fyllio. */
+  confirmadaEn: string | null;
 };
 
 /** El objetivo, como estado del caso (bloque 1). Distinto de ETIQUETA_OBJETIVO
@@ -185,6 +190,12 @@ export function etiquetaEstadoDe(a: {
   objetivoActivo: EtapaObjetivo | null;
   pendientes: number;
   evaluado: boolean;
+  /** 17-09 (paso 3): con cita puesta y nada abierto, el estado es la cita. */
+  cita?: CitaDelCaso | null;
+  /** 058: si la agenda vive en Fyllio la cita está RESERVADA; si no, está
+   *  ANOTADA y se confirma en el software de la clínica. La etiqueta no
+   *  afirma más de lo que la fuente garantiza. */
+  agendaEnFyllio?: boolean;
 }): EtiquetaEstado {
   const s = a.semaforo;
   if (!s.verde && s.motivo === "derivado_sin_resolver") {
@@ -218,6 +229,10 @@ export function etiquetaEstadoDe(a: {
   if (!a.evaluado) return { texto: "Sin evaluar por el agente", tono: "neutro" };
   if (a.pendientes > 0) return { texto: "Tiene dudas sin responder", tono: "warning" };
   if (a.objetivoActivo) return { texto: ESTADO_POR_OBJETIVO[a.objetivoActivo], tono: "accent" };
+  if (a.cita) {
+    if (a.cita.fuente === "lead" && a.agendaEnFyllio === false) return { texto: "Cita anotada · confirmar en tu software", tono: "warning" };
+    return { texto: a.cita.confirmadaEn ? "Cita reservada · confirmada al paciente" : "Cita reservada", tono: "accent" };
+  }
   return { texto: "Solo conversación", tono: "neutro" };
 }
 
@@ -259,7 +274,12 @@ export function componerDescripcion(a: {
 }): FraseDescripcion[] {
   const out: FraseDescripcion[] = [];
   const cuando = (c: CitaDelCaso) => `${fechaCorta(c.fecha)}${c.hora ? ` a las ${c.hora}` : ""}`;
-  if (a.cita) out.push({ texto: `Tiene cita el ${cuando(a.cita)}${a.cita.doctor ? ` con ${a.cita.doctor}` : ""}.` });
+  if (a.cita) {
+    // 058 — si se le confirmó por WhatsApp desde aquí, se dice; si no, también
+    // (la coordinadora sabe si le debe un mensaje).
+    const conf = a.cita.confirmadaEn ? " Confirmada por WhatsApp." : a.cita.fuente === "lead" ? " Sin confirmar al paciente desde aquí." : "";
+    out.push({ texto: `Tiene cita el ${cuando(a.cita)}${a.cita.doctor ? ` con ${a.cita.doctor}` : ""}.${conf}` });
+  }
 
   if (!a.evaluado) return out;
 
@@ -356,11 +376,13 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   })();
 
   const datos = await runWithClienteDb(cliente, async (trx) => {
+    const agendaEnFyllio = await leerAgendaEnFyllio(trx);
     // Intentos: salientes contados del hilo, y el último de cada dirección.
     const m: any = await sql`select
         count(*) filter (where direccion = 'Saliente' and coalesce(fuente, '') <> 'Modo_A_manual_pendiente')::int as salientes,
         max("timestamp") filter (where direccion = 'Saliente' and coalesce(fuente, '') <> 'Modo_A_manual_pendiente') as ultimo_saliente,
-        max("timestamp") filter (where direccion = 'Entrante') as ultimo_entrante
+        max("timestamp") filter (where direccion = 'Entrante') as ultimo_entrante,
+        (select contenido from mensajes_whatsapp where telefono = ${telefono} and direccion = 'Entrante' order by "timestamp" desc limit 1) as ultimo_entrante_texto
       from mensajes_whatsapp where telefono = ${telefono}`.execute(trx);
 
     const eventos = await trx
@@ -388,9 +410,17 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     // mismo «>= now()», sin filtrar estado): si el agente cree que hay cita,
     // la ficha la enseña; si no, tampoco. Sin paciente no hay consulta.
     const cita = ctx.pacienteId
-      ? await sql<{ hora_inicio: Date | string; doctor: string | null }>`select c.hora_inicio, s.nombre as doctor
+      ? await sql<{ hora_inicio: Date | string; doctor: string | null; confirmada_en: Date | string | null }>`select c.hora_inicio, s.nombre as doctor, c.confirmada_en
           from citas c left join staff s on s.id = c.profesional_id
           where c.paciente_id = ${ctx.pacienteId} and c.hora_inicio >= now()
+          order by c.hora_inicio asc limit 1`.execute(trx)
+      : null;
+    // 058 — la cita REAL del lead (única por lead_id), con su doctor y si se
+    // confirmó: el lead solo guarda fecha/hora de texto.
+    const citaLead = lead
+      ? await sql<{ hora_inicio: Date | string; doctor: string | null; confirmada_en: Date | string | null }>`select c.hora_inicio, s.nombre as doctor, c.confirmada_en
+          from citas c left join staff s on s.id = c.profesional_id
+          where c.lead_id = ${lead.id} and c.hora_inicio >= now() and c.estado in ('Programada', 'Confirmada')
           order by c.hora_inicio asc limit 1`.execute(trx)
       : null;
 
@@ -398,9 +428,12 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
       salientes: Number(m.rows?.[0]?.salientes ?? 0),
       ultimoSaliente: m.rows?.[0]?.ultimo_saliente ?? null,
       ultimoEntrante: m.rows?.[0]?.ultimo_entrante ?? null,
+      ultimoEntranteTexto: (m.rows?.[0]?.ultimo_entrante_texto as string | null) ?? null,
       eventos,
       portal: portal.rows?.[0] ?? null,
       cita: cita?.rows?.[0] ?? null,
+      citaLead: citaLead?.rows?.[0] ?? null,
+      agendaEnFyllio,
     };
   });
 
@@ -487,7 +520,14 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
       if (campos && typeof campos === "object") camposAcumulados[etapa] = campos;
     }
   }
-  const abiertos = ctx.objetivosAbiertos;
+  // `mover_cita` la abre la base por haber cita futura; cuenta solo si el
+  // último mensaje de la persona lo PIDE — el mismo filtro que el agente
+  // (`entradaDesdeContexto`). Sin esto, toda ficha con cita decía «Quiere
+  // cambiar su cita» (17-09, visto al reservar desde la ficha).
+  const quiereMover = datos.ultimoEntranteTexto
+    ? pideMoverSuCita([{ direccion: "Entrante", contenido: datos.ultimoEntranteTexto, timestamp: datos.ultimoEntrante ? new Date(datos.ultimoEntrante).toISOString() : new Date().toISOString() }])
+    : false;
+  const abiertos = ctx.objetivosAbiertos.filter((e) => e !== "mover_cita" || quiereMover);
   const estado = payload ? estadoDeLaPersona(payload) : null;
   const objetivoActivo: EtapaObjetivo | null = payload
     ? objetivoActivoDe({ tema: payload.tema, abiertas: abiertos, campos: camposAcumulados, estado: null })
@@ -526,14 +566,20 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
 
   // La cita del caso: la del paciente si la hay; si no, la del lead mientras
   // no haya pasado (una cita de ayer no es «tiene cita»).
+  const isoDe = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);
   const cita: CitaDelCaso | null = datos.cita
     ? (() => {
         const d = new Date(datos.cita.hora_inicio);
-        return { fecha: hoyISO(d), hora: horaClinica(d), doctor: datos.cita.doctor ?? null, fuente: "paciente" as const };
+        return { fecha: hoyISO(d), hora: horaClinica(d), doctor: datos.cita.doctor ?? null, fuente: "paciente" as const, confirmadaEn: isoDe(datos.cita.confirmada_en) };
       })()
-    : lead?.fechaCita && lead.fechaCita >= hoyISO()
-      ? { fecha: lead.fechaCita, hora: lead.horaCita, doctor: null, fuente: "lead" as const }
-      : null;
+    : datos.citaLead
+      ? (() => {
+          const d = new Date(datos.citaLead.hora_inicio);
+          return { fecha: hoyISO(d), hora: horaClinica(d), doctor: datos.citaLead.doctor ?? null, fuente: "lead" as const, confirmadaEn: isoDe(datos.citaLead.confirmada_en) };
+        })()
+      : lead?.fechaCita && lead.fechaCita >= hoyISO()
+        ? { fecha: lead.fechaCita, hora: lead.horaCita, doctor: null, fuente: "lead" as const, confirmadaEn: null }
+        : null;
   const intentos = { salientes: datos.salientes, ultimo: ultSaliente };
   const cierrePorPaciente = datos.portal
     ? {
@@ -554,6 +600,8 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     objetivoActivo,
     pendientes: pendientes.length,
     evaluado,
+    cita,
+    agendaEnFyllio: datos.agendaEnFyllio,
   });
   const descripcion = componerDescripcion({
     evaluado,

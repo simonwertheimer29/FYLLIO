@@ -145,6 +145,8 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     perfil: { nombre_perfil: string | null; clinica_id: string | null } | null;
     /** Fase B, punto 1: el paciente tiene una cita futura registrada. */
     citaFutura: boolean;
+    /** 17-09 — ids de los leads del teléfono que tienen cita futura en `citas`. */
+    leadsConCita: string[];
   };
 
   const filas: Filas = await runWithClienteDb(cliente, async (trx) => {
@@ -205,6 +207,18 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     // ella, el objetivo «cita» se abre también para pacientes — el ciclo de
     // vida no se acaba en el embudo. El recorrido R3 lo destapó: «ya pagué,
     // dadme cita» moría en el hilo porque cita era solo de leads.
+    // 17-09 (paso 3): la cita REAL de cada lead (citas.lead_id, única por
+    // lead). Un lead ya citado no tiene «cita» que cerrar: tiene una que
+    // podría mover — igual que el paciente con cita futura.
+    const leadsConCita: string[] = leads.length
+      ? (await trx
+          .selectFrom("citas")
+          .select("lead_id")
+          .where("lead_id", "in", leads.map((l: any) => l.id))
+          .where("hora_inicio", ">=", sql<Date>`now()`)
+          .where("estado", "in", ["Programada", "Confirmada"])
+          .execute()).map((c: any) => String(c.lead_id))
+      : [];
     const citaFutura = paciente
       ? ((await trx
           .selectFrom("citas")
@@ -254,6 +268,7 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
       vivos,
       perfil,
       citaFutura: citaFutura != null,
+      leadsConCita,
       doctorNombre: doctor?.nombre ?? null,
       tratamientoAceptado: aceptado?.tratamiento_nombre ?? null,
     };
@@ -319,7 +334,11 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   // (pedir cita, volver semanas después) no estaba modelado y el agente
   // conversaba indefinidamente sin entregar. Un paciente CON cita futura no
   // la tiene abierta: no hay nada que cerrar.
-  if (leadActivo) abiertos.add("cita");
+  // 17-09 (paso 3): un lead CON cita futura ya no «quiere cita» — la tiene.
+  // Lo que puede querer es moverla, y eso lo dice el texto (mismo filtro que
+  // el paciente, en `entradaDesdeContexto`).
+  const leadConCita = leadActivo != null && filas.leadsConCita.includes(leadActivo.id);
+  if (leadActivo && !leadConCita) abiertos.add("cita");
   if (paciente && !filas.citaFutura) abiertos.add("cita");
   // MOVER LA CITA (15-09). Lo que la BASE puede decir es que hay una cita que
   // se podría mover; que la persona QUIERA moverla lo dice el texto, y eso no
@@ -327,7 +346,7 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   // aquí y el constructor de la entrada la retira si el último mensaje no lo
   // pide (`entradaDesdeContexto`). Sin ese filtro, quien escribe preguntando
   // por el parking con una cita puesta recibiría «¿qué días te vienen bien?».
-  if (paciente && filas.citaFutura) abiertos.add("mover_cita");
+  if ((paciente && filas.citaFutura) || leadConCita) abiertos.add("mover_cita");
   // «identificar» = no hay NINGUNA fila que diga quién es — ni paciente ni
   // lead en ningún estado. Un lead cerrado («No interesado») no abre cita,
   // pero sabemos su nombre: preguntárselo sería absurdo. Lo destapó el censo

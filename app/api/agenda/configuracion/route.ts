@@ -62,9 +62,16 @@ export const GET = withAuth(async (session) => {
           .select(["id", "nombre", "duracion_min", "buffer_antes_min", "buffer_despues_min", "clinica_id"])
           .orderBy("nombre", "asc")
           .execute();
-        return { doctores, especialidades, asignaciones, horarios, bloqueos: bloqueos.rows ?? [], tratamientos };
+        // 058 — el ajuste «la agenda vive en Fyllio», con quién y cuándo.
+        const ajustes: any = await sql`select agenda_en_fyllio, activado_por, activado_en from agenda_ajustes limit 1`.execute(trx);
+        return { doctores, especialidades, asignaciones, horarios, bloqueos: bloqueos.rows ?? [], tratamientos, ajustes: ajustes.rows?.[0] ?? null };
       });
       return NextResponse.json({
+        agendaEnFyllio: {
+          activa: d.ajustes?.agenda_en_fyllio === true,
+          activadoPor: d.ajustes?.activado_por ?? null,
+          activadoEnISO: d.ajustes?.activado_en ? new Date(d.ajustes.activado_en).toISOString() : null,
+        },
         doctores: d.doctores
           .filter((r: any) => (r.rol ?? "") === "Dentista" && r.activo !== false)
           .map((r: any) => ({ id: r.id, nombre: r.nombre ?? "", clinicaId: r.clinica_id ?? null, clinicaNombre: r.clinica_nombre ?? null })),
@@ -110,6 +117,20 @@ export const PUT = withAuth(async (session, req) => {
     return await runWithCliente(session.cliente, async () => {
       const cliente = session.cliente!;
       switch (body.seccion) {
+        // 058 — «la agenda vive en Fyllio». Solo admin (como toda la ruta) y
+        // con confirmación explícita del cuerpo: activar exige `confirmo === true`
+        // porque cambia lo que Fyllio afirma al paciente. Queda quién y cuándo.
+        case "agenda_en_fyllio": {
+          if (typeof body.activa !== "boolean") return err422("Falta activa.");
+          if (body.activa && body.confirmo !== true) return err422("Activar la agenda en Fyllio exige confirmarlo.");
+          const quien = session.nombre ?? session.userId ?? null;
+          await runWithClienteDb(cliente, (trx) =>
+            sql`insert into agenda_ajustes (cliente, agenda_en_fyllio, activado_por, activado_en, actualizado_en)
+                values (${cliente}, ${body.activa}, ${body.activa ? quien : null}, ${body.activa ? sql`now()` : null}, now())
+                on conflict (cliente) do update set agenda_en_fyllio = excluded.agenda_en_fyllio,
+                  activado_por = excluded.activado_por, activado_en = excluded.activado_en, actualizado_en = now()`.execute(trx));
+          return NextResponse.json({ ok: true });
+        }
         case "especialidad_crear": {
           const nombre = typeof body.nombre === "string" ? body.nombre.trim() : "";
           if (!nombre || nombre.length > 60) return err422("El nombre de la especialidad es obligatorio (máx. 60).");

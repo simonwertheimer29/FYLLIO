@@ -336,7 +336,7 @@ console.log("\nd · contextoParaEntrada: lo recogido consta, lo pendiente con su
 console.log("\ne · Estado y descripción compuestos por código (sin base)");
 {
   const derivado = { verde: false, motivo: "derivado_sin_resolver" as const, causa: "caso_completo" as const, objetivo: "mover_cita" as const, desde: "2026-09-16T08:00:00Z" };
-  const cita = { fecha: "2026-09-16", hora: "10:00", doctor: "Dra. Villalba", fuente: "paciente" as const };
+  const cita = { fecha: "2026-09-16", hora: "10:00", doctor: "Dra. Villalba", fuente: "paciente" as const, confirmadaEn: null };
   const pend = [
     { clave: "dato_cita" as const, frase: "¿me podéis decir qué día entonces?" },
     { clave: "dato_cita" as const, frase: "sigo sin saber el día" },

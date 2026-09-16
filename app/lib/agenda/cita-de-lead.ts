@@ -88,9 +88,18 @@ export async function upsertCitaDeLead(p: {
       trasladada_en: null,
     };
 
-    const existente = await trx.selectFrom("citas").select("id").where("lead_id", "=", p.lead.id).executeTakeFirst();
+    const existente = await trx.selectFrom("citas").select(["id", "hora_inicio", "profesional_id", "estado"]).where("lead_id", "=", p.lead.id).executeTakeFirst();
     if (existente) {
-      await trx.updateTable("citas").set(valores as any).where("id", "=", existente.id).execute();
+      // 058 (17-09): una cita MOVIDA (otra hora u otro doctor) ya no está
+      // confirmada al paciente — lo que se le confirmó fue la anterior. La
+      // ficha volverá a decir «sin confirmar» y el panel a ofrecer confirmar.
+      const mismaCita =
+        ["Programada", "Confirmada"].includes(String(existente.estado)) && // una cancelada que se reagenda es OTRA cita
+        existente.hora_inicio != null &&
+        new Date(existente.hora_inicio as any).getTime() === inicio.getTime() &&
+        (existente.profesional_id ?? null) === (p.lead.doctorAsignadoId ?? null);
+      const reset = mismaCita ? {} : { confirmada_en: null, confirmacion_mensaje_id: null };
+      await trx.updateTable("citas").set({ ...valores, ...reset } as any).where("id", "=", existente.id).execute();
       return { citaId: existente.id };
     }
     const r = await trx
