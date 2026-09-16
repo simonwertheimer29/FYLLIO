@@ -46,6 +46,9 @@ export type PayloadEvaluacion = {
    *  que SALE (el del decisor): si se tocó, qué escribió y por qué. Ausente
    *  en turnos anteriores al 16-09 y en los que no escribió el decisor. */
   controlSalida?: EvaluacionTurno["controlSalida"];
+  /** Paso 2 de la ficha (aditivo, 16-09) — la preferencia de cita
+   *  estructurada del turno, para el buscador de huecos. */
+  preferenciaCita?: EvaluacionTurno["preferenciaCita"];
   /** MEJORAS 233 — descartes SEGUIDOS contando este turno. El turno siguiente
    *  lo lee de aquí: es la memoria del callejón entre una llamada y otra. */
   descartesSeguidos: number;
@@ -282,6 +285,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     borradorDescartado: ev.borradorDescartado ?? null,
     borradorPodado: ev.borradorPodado ?? null,
     controlSalida: ev.controlSalida ?? undefined,
+    preferenciaCita: ev.preferenciaCita ?? undefined,
     descartesSeguidos: ev.descartesSeguidos ?? 0,
     respuesta: ev.respuesta,
     esperaHasta: ev.esperaHasta ?? null,

@@ -31,6 +31,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   evaluarTurno,
+  SYSTEM_PROMPT_EVALUADOR,
+  SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS,
   type EntradaEvaluador,
   type EvaluacionTurno,
   type MensajeHilo,
@@ -38,6 +40,21 @@ import {
 import { OBJETIVOS_POR_DEFECTO, type ObjetivoAgente } from "../app/lib/automatizacion/objetivos";
 
 const DIR = join(process.cwd(), "evals");
+// --solo-juicios (16-09, paso 2 de la ficha): el modo de PRODUCCIÓN con el
+// decisor escribiendo — el evaluador no redacta. Se mide contra la vara de
+// siempre para saber si quitar «respuesta» del esquema mueve los juicios.
+const SOLO_JUICIOS = process.argv.includes("--solo-juicios");
+// --sin-preferencia: el MISMO prompt sin el juicio preferenciaCita (párrafo y
+// línea del esquema), para saber si un fallo lo trae el paso 2 o venía de
+// antes — la vara no se recalcula sola y el prompt ha cambiado desde el 11-09.
+const SIN_PREFERENCIA = process.argv.includes("--sin-preferencia");
+function sinPreferencia(prompt: string): string {
+  const reParrafo = /━━ JUICIO "preferenciaCita"[^\n]*\n\n/;
+  const reEsquema = /\n  "preferenciaCita": [^\n]*/;
+  if (!reParrafo.test(prompt) || !reEsquema.test(prompt)) throw new Error("--sin-preferencia: no encuentro el juicio preferenciaCita en el prompt");
+  return prompt.replace(reParrafo, "").replace(reEsquema, "");
+}
+const PROMPT_OVERRIDE = SIN_PREFERENCIA ? sinPreferencia(SOLO_JUICIOS ? SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS : SYSTEM_PROMPT_EVALUADOR) : undefined;
 const soloIdx = process.argv.indexOf("--solo");
 const solo = soloIdx >= 0 ? process.argv[soloIdx + 1] : null;
 const modeloIdx = process.argv.indexOf("--modelo");
@@ -503,7 +520,7 @@ await Promise.all(
   Array.from({ length: 4 }, async () => {
     while (i < trabajos.length) {
       const t = trabajos[i++];
-      const r = await evaluarTurno(t.entrada, { modelo: MODELO });
+      const r = await evaluarTurno(t.entrada, { modelo: MODELO, sinControlDelBorrador: SOLO_JUICIOS, _promptOverride: PROMPT_OVERRIDE });
       const letra = letraDe(r);
       const puntuable = ["S", "A", "D", "R"].includes(t.esperado);
       // «Sin objetivo abierto» no es «listo» cuando queda algo por responder
@@ -523,6 +540,12 @@ await Promise.all(
             ? (t.esperadoListo === "L") === listoActual
             : undefined,
       });
+      // --ver: el juicio entero de cada caso, para leer POR QUÉ falla uno
+      // (con --casos, que es cuando se mira uno a uno).
+      if (process.argv.includes("--ver")) {
+        console.log(`  [${t.id}] letra=${letra} esperado=${t.esperado}${t.esperadoListo ? `/${t.esperadoListo}` : ""} decision=${r.decision} casoCompleto=${r.casoCompleto} objetivo=${r.objetivoActivo ?? "—"} faltan=[${r.camposFaltantes.join(",")}] aplaza=[${r.aplazamientos.map((a) => a.clave).join(",")}]`);
+        console.log(`       campos=${JSON.stringify(r.camposRecogidos)} pref=${JSON.stringify(r.preferenciaCita ?? null)}`);
+      }
       hechos++;
       if (hechos % 15 === 0) console.log(`  … ${hechos}/${trabajos.length}`);
     }
@@ -594,6 +617,29 @@ console.log(`\n══ ETIQUETAS fuera de vocabulario (descartadas en el borde): 
 for (const x of conEtiquetasMalas) console.log(`  [${x.id}] ${x.r.etiquetasDescartadas!.join(" · ")}`);
 if (totalEtiquetas === 0) console.log("  (ninguna — el modelo se mantiene en vocabulario)");
 
+// ─── Preferencia de cita estructurada (paso 2 de la ficha, 16-09) ──────────
+// Lo que Simon pidió ver al medir: cuántos casos del corpus la rellenan,
+// cuántos valores se descartan en el borde, y —para decidir si hace falta
+// desde_hora/hasta_hora— cuántos casos expresan una restricción de HORA que
+// no cabe en manana/tarde. Esto último es determinista sobre el texto de la
+// persona: no depende del modelo.
+{
+  const conPref = resultados.filter((x) => x.r.preferenciaCita);
+  const conFranja = conPref.filter((x) => x.r.preferenciaCita!.franja).length;
+  const conDias = conPref.filter((x) => x.r.preferenciaCita!.dias.length > 0).length;
+  const conUrgencia = conPref.filter((x) => x.r.preferenciaCita!.urgencia).length;
+  const descartadosPref = resultados.flatMap((x) => (x.r.etiquetasDescartadas ?? []).filter((e) => e.startsWith("preferenciaCita")));
+  console.log(`\n══ PREFERENCIA DE CITA (estructurada): ${conPref.length}/${resultados.length} turnos la rellenan · franja ${conFranja} · días ${conDias} · urgencia ${conUrgencia}`);
+  for (const x of conPref) {
+    const p = x.r.preferenciaCita!;
+    console.log(`  [${x.id}] franja=${p.franja ?? "—"} dias=[${p.dias.join(",")}] urgencia=${p.urgencia ?? "—"}`);
+  }
+  console.log(`  valores descartados en el borde: ${descartadosPref.length}${descartadosPref.length ? " → " + descartadosPref.join(" · ") : ""}`);
+  const RE_HORA = /\b(despu[eé]s|antes|a partir|m[aá]s tarde|no m[aá]s tarde)\s+de\s+las?\s+\d{1,2}\b|\b(sobre|hacia|entre)\s+las?\s+\d{1,2}(:\d{2})?\b|\bde\s+\d{1,2}(:\d{2})?\s+a\s+\d{1,2}(:\d{2})?\b|\b\d{1,2}(:\d{2})?\s?h\b|\ba las\s+\d{1,2}(:\d{2})?\b/i;
+  const conHora = trabajos.filter((t) => t.entrada.hilo.some((m) => m.direccion === "Entrante" && RE_HORA.test(m.contenido)));
+  console.log(`  restricción de HORA que no cabe en manana/tarde (regex sobre lo que escribió la persona): ${conHora.length}/${trabajos.length} casos${conHora.length ? " → " + conHora.map((t) => t.id).join(", ") : ""}`);
+}
+
 // ─── Coste medido ──────────────────────────────────────────────────────────
 
 const conUso = resultados.filter((x) => x.r.usage);
@@ -613,7 +659,8 @@ console.log(`\n✓ medido. El número es el dato — no se ajusta nada antes de 
 // (--solo) o unos casos (--casos) medirían otra cosa y pisarían la vara. El
 // producto la enseña al lado del hash del prompt que corre hoy (168): por
 // eso viaja la versión medida, no un nombre que alguien tenga que subir.
-if (!solo && !SOLO_CASOS) {
+// Una pasada de CONTRASTE (--sin-preferencia) no es la vara: no la escribe.
+if (!solo && !SOLO_CASOS && !SIN_PREFERENCIA) {
   const { writeFileSync } = await import("node:fs");
   const { hashVersion } = await import("../app/lib/agente/version");
   const { SYSTEM_PROMPT_EVALUADOR } = await import("../app/lib/agente/evaluador");
@@ -637,6 +684,9 @@ if (!solo && !SOLO_CASOS) {
     fallos: puntuados.filter((x) => !x.okDecision).map((x) => `${x.id}:${x.esperado}→${x.letra}`),
     salida: null,
   };
-  writeFileSync(join(DIR, "ultima-pasada.json"), JSON.stringify(vara, null, 2) + "\n");
-  console.log(`  vara escrita en evals/ultima-pasada.json (versión ${vara.version.evaluador} / ${vara.version.juez})`);
+  // El modo solo-juicios escribe SU fichero: la línea base con redacción se
+  // conserva para poder comparar las dos (paso 2, 16-09).
+  const fichero = SOLO_JUICIOS ? "ultima-pasada-solo-juicios.json" : "ultima-pasada.json";
+  writeFileSync(join(DIR, fichero), JSON.stringify(vara, null, 2) + "\n");
+  console.log(`  vara escrita en evals/${fichero} (versión ${vara.version.evaluador} / ${vara.version.juez})`);
 }

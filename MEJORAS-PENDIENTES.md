@@ -3958,6 +3958,25 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   en la MISMA pasada que quitar `respuesta` del esquema del evaluador cuando manda el decisor (no por
   coste: mientras el esquema le pida redactar, el evaluador gasta atención en un mensaje que nadie
   envía). Si los juicios de siempre se mueven, se separan los dos cambios y se mide otra vez.
+- 🟢 **PASO 2 HECHO Y MEDIDO el 16-09** (escribir ~1,25 h · medir ~0,75 h · $1,01, tres veces lo
+  estimado porque hubo que separar). `preferenciaCita` en el juicio del evaluador con la lista
+  cerrada de Simon: `franja` manana/tarde/indiferente · `dias` lun..dom EN ORDEN DE PREFERENCIA
+  (`entre_semana` se guarda expandido a lun-vie) · `urgencia` cuanto_antes/esta_semana/sin_prisa.
+  Canonizado en el borde (`canonizarPreferenciaCita`), lo que no cabe se descarta Y SE CUENTA, viaja
+  al payload y la ficha lo acumula (`preferenciaCita`, la última que dio el modelo) para el buscador
+  de huecos del paso 3. El texto libre sigue siendo lo que lee la coordinadora. **Y el evaluador va a
+  SOLO JUICIOS cuando escribe el decisor** (`SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS`: el mismo prompt
+  con «respuesta» vacía; el resto de reglas se queda porque gobiernan también los juicios).
+  **LOS NÚMEROS QUE PIDIÓ SIMON, sobre los 73 turnos de la vara:** rellenan `preferenciaCita`
+  **9/73** (franja 8, días 4, urgencia 4) · valores descartados en el borde **0** · casos con una
+  restricción de HORA que no cabe en manana/tarde: **1/73 (C10)**, y es «¿la cita del viernes sigue
+  en pie a las 10:00?» —una pregunta por una cita que existe, no una preferencia— o sea **cero
+  reales: no se añade `desde_hora/hasta_hora`**. **LA VARA NO SE MUEVE:** modo producción (solo
+  juicios) **65/67 decisión · 20/21 listo, con y sin preferenciaCita (pasada de contraste
+  `--sin-preferencia`, idéntica)**. Los dos fallos (C1, C9) **venían de antes** —la vara no se
+  recalculaba desde el 11-09 (66/67 · 21/21) y el prompt cambió 25 veces— y son deterministas
+  (4/4 sondas): MEJORAS 257. Con redacción el mismo prompt dio 63/67 (I4 y 6 además): solo juicios
+  no empeora nada; si acaso mejora, y cuesta la mitad por turno ($0,0023 frente a $0,0048).
 - **ANTES DEL PASO 3 (botón), a enseñar a Simon:** el flujo completo en cuatro frases —qué pasa al
   elegir el hueco: se reserva, qué mensaje le llega al paciente y por qué servicio (`mensajeria.ts`,
   no `wa.me`), qué estado enseña la ficha y qué confirmación ve ella. La búsqueda de huecos en una
@@ -4022,3 +4041,39 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `nota` del log; lo que quedó ya era `respuesta`. Se enseña en «ver por qué» (bloque «Revisión de
   seguridad»: antes, qué hizo y por qué, después). Cero llamadas. `qa:persistir-turno` afirma el
   viaje de ida y vuelta; `qa:arranque` y `qa:frontera` en verde. Escribir 0,75 h · medir 0,25 h · $0.
+- **AG14 queda como FALSO POSITIVO CONOCIDO, documentado (Simon, 16-09): la regla NO se toca.** Tres
+  casos de la familia y uno que falla no es un patrón: falla por un motivo distinto de los otros dos
+  (deriva un día y una hora con una cuenta sobre la agenda, y una cuenta mal hecha es la promesa
+  falsa que ya costó ocho mensajes). Se revisa cuando `controlSalida` traiga casos reales de RB.
+
+## 256. Juez · la regla de «no afirmes huecos» depende de la FRESCURA de la agenda, no de si hay agenda conectada
+- **Anotado el 16-09 por Simon, PARA FASE 4, no ahora.** Hoy la regla está escrita como prohibición
+  absoluta y es correcto, porque hoy el agente no ve ninguna agenda. El día que haya LECTURA EN VIVO
+  (lector del ERP o agenda 100 % en Fyllio), el agente sí podrá decir una hora concreta — porque la
+  estará leyendo, no inventando. Entre medias, con una COPIA CON DESFASE, sigue sin poder: un hueco
+  de una foto de ayer es una promesa falsa con otro nombre.
+- **Cómo se hará:** la función de servidor de huecos (paso 3 de la ficha) devuelve con cada hueco lo
+  que GARANTIZA sobre él (frescura de la fuente, si se puede reservar). El juez recibirá esa
+  garantía en los DATOS QUE CONSTAN y la regla pasará de «nunca» a «solo lo que consta con lectura
+  en vivo». El caso AG3 del banco («NIVEL 2 (futuro): los huecos CONSTAN → afirmarlos es leer, no
+  inventar») ya está escrito para ese día. · **Impacto:** ALTO en Fase 4. · **Esfuerzo:** 2 h
+  cuando toque. · **Fecha:** 2026-09-16
+
+## 257. Evaluador · dos fallos de la vara que nadie vio porque la vara no se recalcula sola
+- **Medido el 16-09 al medir el paso 2 de la ficha.** La última pasada de `qa:evals-evaluador` era
+  del 11-09 (66/67 · 21/21). Desde entonces el prompt del evaluador cambió 25 veces sin volver a
+  pasar la vara, y hoy da **65/67 · 20/21** — con y sin el cambio del paso 2, así que los dos fallos
+  son de alguno de esos 25 commits. Deterministas (4/4 sondas cada uno):
+  1. **C1** — «¿hacéis ortodoncia invisible? ¿qué precios manejáis?» (lead nuevo, objetivo cita).
+     Esperado S (lo contesta solo: el precio publicado consta); hoy **anota un aplazado `otro`** y
+     deja `nombre_completo`, `urgencia` y `disponibilidad` en null.
+  2. **C9** — «al final no vamos a hacerlo, gracias» (presupuesto vivo). Esperado LISTO: rechaza con
+     motivo. Hoy extrae `decision: rechaza` y `motivo_rechazo`, pero deja **`cuando_retomar` en null
+     en vez de `no_aplica`** («solo si se lo piensa» no aplica a quien rechaza) → el caso no se
+     completa y no se entrega. Es exactamente la regla del no_aplica que el prompt ya lleva escrita.
+- **Qué hacer:** bisecar con `--casos C1,C9` (cuesta $0,005 por sonda) sobre los commits del 12 al
+  16-09 hasta dar con el que los rompió, y corregir la regla —no el caso—. Y la lección: **una
+  vara que no se recalcula no es una vara**; `qa:evals-evaluador` debería correr (o al menos
+  `--casos` de la familia tocada) en cada commit que toque el prompt. · **Impacto:** MEDIO (C9 es
+  un caso que no llega a la clínica). · **Esfuerzo:** 1 h de bisección + el arreglo. ·
+  **Fecha:** 2026-09-16

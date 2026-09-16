@@ -6554,3 +6554,23 @@ día siguiente» → jueves 10:00), y el juez lee «jueves a las 10:00» como un
 la familia y uno que falla, es Simon quien dice si se estrecha la regla DESCRIBIENDO la situación
 («repetir o derivar lo que pidió la persona no es afirmar un hueco») o se espera a producción — que
 ahora, con 255, sí deja rastro para contarlo.
+
+## 2026-09-16 · Paso 2 de la ficha: la preferencia de cita estructurada no mueve la vara — y la vara tenía dos fallos de antes
+**HECHO:** `preferenciaCita` en el juicio del evaluador con la lista cerrada de Simon (franja
+manana/tarde/indiferente · dias lun..dom EN ORDEN DE PREFERENCIA, «entre semana» guardado
+expandido · urgencia cuanto_antes/esta_semana/sin_prisa), canonizada en el borde con descartes
+contados, en el payload y acumulada en la ficha. Y el evaluador a **solo juicios** cuando escribe el
+decisor: el mismo prompt con «respuesta» vacía — no por coste, sino porque mientras el esquema le
+pida redactar, los juicios salen como subproducto.
+**MEDIDO, y con la separación que pidió Simon.** Solo juicios + preferencia: **65/67 · 20/21**.
+Con redacción + preferencia: 63/67 · 20/21. Solo juicios SIN preferencia (contraste): **65/67 ·
+20/21, idéntico.** Conclusión: (1) la preferencia no mueve ningún juicio; (2) quitar la redacción
+tampoco, y cuesta la mitad por turno; (3) **los dos fallos (C1: aplaza en vez de contestar; C9:
+`cuando_retomar` en null en vez de no_aplica tras rechazar) venían de antes** — la vara era del
+11-09 (66/67 · 21/21) y el prompt ha cambiado 25 veces sin volver a pasarla. Deterministas, 4/4
+sondas. MEJORAS 257, con la lección: **una vara que no se recalcula no es una vara.**
+**LOS TRES NÚMEROS QUE PIDIÓ SIMON:** rellenan la preferencia 9/73 turnos · descartes en el borde
+0 · restricciones de hora que no caben en manana/tarde: 1/73 y es una pregunta por una cita
+existente, no una preferencia → **cero reales; no se añade desde_hora/hasta_hora.**
+**Un intento que no sirvió, para no repetirlo:** mover el párrafo del juicio nuevo de detrás de
+camposRecogidos a delante no cambió nada — porque el fallo no era del párrafo.

@@ -237,6 +237,9 @@ export type EvaluacionTurno = {
    *  mata el proxy del «activo» en la cola/ficha (21-08). */
   presupuestoReferidoId?: string | null;
   camposRecogidos: CamposRecogidos;
+  /** Paso 2 de la ficha (16-09) — ver `PreferenciaCita`. Aditivo: los turnos
+   *  anteriores no lo llevan. */
+  preferenciaCita?: PreferenciaCita | null;
   /** Claves del objetivo activo sin valor ni no_aplica. */
   camposFaltantes: string[];
   casoCompleto: boolean;
@@ -513,6 +516,8 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 
 ━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
 
+━━ JUICIO "preferenciaCita" — la preferencia de cita en forma ESTRUCTURADA, ADEMÁS de los campos de texto de camposRecogidos (disponibilidad / dia_franja_nuevos), que se rellenan igual que siempre. Solo tiene valor si en el hilo la persona ha dicho cuándo le viene bien una cita (objetivo cita o mover_cita); en cualquier otro caso es null. Forma: {"franja": "manana"|"tarde"|"indiferente"|null, "dias": [...], "urgencia": "cuanto_antes"|"esta_semana"|"sin_prisa"|null}. "dias" son días de la semana, en minúsculas y sin tilde (lun, mar, mie, jue, vie, sab, dom), EN EL ORDEN DE PREFERENCIA que expresó («prioridad jueves; si no, cualquier mañana» → "dias": ["jue"] y "franja": "manana"); «entre semana» → ["lun","mar","mie","jue","vie"]; sin día concreto → []. Una hora concreta («solo después de las 18») no cabe aquí: se queda en el texto, sin forzarla. Este juicio no cambia lo que preguntas ni cómo conversas.
+
 ━━ JUICIO "camposRecogidos" — para CADA objetivo abierto del contexto, extrae del HILO ENTERO (no solo del último mensaje) el valor de cada campo: {"<etapa>": {"<clave_campo>": valor}}. Valor: el dato en pocas palabras si la persona lo ha dado · null si falta de verdad · "no_aplica" si la condición del campo no se cumple. LAS REGLAS DEL no_aplica, que es donde más se falla:
 - Un campo condicional JAMÁS se queda en null cuando su rama no aplica: si la decisión es «acepta», los campos de «solo si se lo piensa» y «solo si rechaza» son "no_aplica" (y al revés).
 - «Solo si la menciona»: si se le preguntó y dijo que no tiene preferencia, el valor es «sin preferencia» (dato recogido, no null); si nadie lo mencionó, "no_aplica".
@@ -555,6 +560,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema d
   "pideNoContacto": <true|false>,
   "presupuestoReferido": "<letra del presupuesto|ninguno>",
   "camposRecogidos": {<"etapa_abierta": {"clave_campo": "valor extraído del hilo" | null | "no_aplica"}...>},
+  "preferenciaCita": <{"franja": "manana"|"tarde"|"indiferente"|null, "dias": ["lun"|"mar"|"mie"|"jue"|"vie"|"sab"|"dom"...], "urgencia": "cuanto_antes"|"esta_semana"|"sin_prisa"|null}|null>,
   "respuesta": "<el borrador>"
 }
 camposRecogidos NUNCA se deja vacío si hay objetivos abiertos: cada campo de cada objetivo abierto aparece con su valor, null o "no_aplica".
@@ -835,6 +841,10 @@ type JuicioModelo = {
   /** MEJORAS 135 — pide explícitamente no recibir más mensajes. */
   pideNoContacto: boolean;
   camposRecogidos: CamposRecogidos;
+  /** Paso 2 de la ficha (16-09): la preferencia de cita ESTRUCTURADA, para la
+   *  máquina; el texto libre de `disponibilidad`/`dia_franja_nuevos` sigue
+   *  siendo lo que lee la coordinadora. null = no la ha dicho. */
+  preferenciaCita: PreferenciaCita | null;
   respuesta: string;
 };
 
@@ -851,6 +861,102 @@ const ETAPAS_VALIDAS: readonly EtapaObjetivo[] = PRECEDENCIA_OBJETIVOS;
  *  la comparación (pasada 3, 2026-08-14) — Sonnet corre con su comportamiento
  *  por defecto (thinking adaptativo) y techo de tokens con holgura, porque la
  *  pregunta es qué da el modelo tal cual, no recortado. */
+// ─── LA PREFERENCIA DE CITA, ESTRUCTURADA (paso 2 de la ficha, 16-09) ──────
+// Lo que el modelo ya extrae en texto («por las mañanas, cuanto antes») no
+// sirve para filtrar una agenda. Esto es la versión para la MÁQUINA, con
+// lista cerrada (acordada con Simon el 16-09): franja manana/tarde/
+// indiferente · dias como días de la semana EN ORDEN DE PREFERENCIA (el
+// texto expresa prioridad, «prioridad jueves; si no, cualquier mañana») ·
+// urgencia cuanto_antes/esta_semana/sin_prisa. «entre semana» se guarda
+// EXPANDIDO a lun-vie: una sola representación. No cambia cómo conversa el
+// agente: es un juicio más sobre lo mismo que ya lee. Lo que no cabe (una
+// hora concreta, «solo después de las 18») no se inventa: queda en el texto,
+// y la vara cuenta cuántas veces pasa para decidir si hace falta desde/hasta.
+
+export type FranjaCita = "manana" | "tarde" | "indiferente";
+export type DiaSemana = "lun" | "mar" | "mie" | "jue" | "vie" | "sab" | "dom";
+export type UrgenciaCita = "cuanto_antes" | "esta_semana" | "sin_prisa";
+export type PreferenciaCita = {
+  franja: FranjaCita | null;
+  /** En orden de preferencia; [] = sin día concreto. */
+  dias: DiaSemana[];
+  urgencia: UrgenciaCita | null;
+};
+
+const DIAS_SEMANA: readonly DiaSemana[] = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"];
+const ENTRE_SEMANA: readonly DiaSemana[] = ["lun", "mar", "mie", "jue", "vie"];
+const sinTildes = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+/** Canoniza lo que devuelve el modelo a la lista cerrada. Cada valor que no
+ *  cabe se DESCARTA Y SE CUENTA (`preferenciaCita.<campo>:<valor>`), como
+ *  toda etiqueta fuera de vocabulario. Objeto ausente o vacío → null. */
+export function canonizarPreferenciaCita(raw: unknown, descartes: string[]): PreferenciaCita | null {
+  if (raw == null || typeof raw !== "object") {
+    if (raw != null) descartes.push(`preferenciaCita:${String(raw).slice(0, 40)}`);
+    return null;
+  }
+  const p = raw as { franja?: unknown; dias?: unknown; urgencia?: unknown };
+
+  let franja: FranjaCita | null = null;
+  if (p.franja != null && p.franja !== "") {
+    const f = sinTildes(String(p.franja));
+    if (/^manana(s)?$/.test(f)) franja = "manana";
+    else if (/^tarde(s)?$/.test(f)) franja = "tarde";
+    else if (/^(indiferente|cualquiera|cualquier(a)?)$/.test(f)) franja = "indiferente";
+    else descartes.push(`preferenciaCita.franja:${String(p.franja).slice(0, 40)}`);
+  }
+
+  const dias: DiaSemana[] = [];
+  const meter = (d: DiaSemana) => {
+    if (!dias.includes(d)) dias.push(d);
+  };
+  const diasCrudos = Array.isArray(p.dias) ? p.dias : p.dias == null || p.dias === "" ? [] : [p.dias];
+  for (const dRaw of diasCrudos) {
+    const d = sinTildes(String(dRaw)).replace(/[_-]/g, " ");
+    if (/^(entre semana|laborables?|de lunes a viernes|lun a vie)$/.test(d)) {
+      for (const x of ENTRE_SEMANA) meter(x);
+      continue;
+    }
+    const tres = d.slice(0, 3) as DiaSemana;
+    if (DIAS_SEMANA.includes(tres) && /^(lun|mar|mie|jue|vie|sab|dom)/.test(d)) meter(tres);
+    else descartes.push(`preferenciaCita.dias:${String(dRaw).slice(0, 40)}`);
+  }
+
+  let urgencia: UrgenciaCita | null = null;
+  if (p.urgencia != null && p.urgencia !== "") {
+    const u = sinTildes(String(p.urgencia)).replace(/[_-]/g, " ");
+    if (/^(cuanto antes|urgente|ya|lo antes posible)$/.test(u)) urgencia = "cuanto_antes";
+    else if (/^esta semana$/.test(u)) urgencia = "esta_semana";
+    else if (/^(sin prisa|no urgente|mas adelante)$/.test(u)) urgencia = "sin_prisa";
+    else descartes.push(`preferenciaCita.urgencia:${String(p.urgencia).slice(0, 40)}`);
+  }
+
+  if (franja == null && dias.length === 0 && urgencia == null) return null;
+  return { franja, dias, urgencia };
+}
+
+/** SOLO JUICIOS (paso 2, 16-09): cuando el mensaje lo escribe el decisor, el
+ *  evaluador no redacta. No es por coste (~250 tokens de salida): mientras el
+ *  esquema le pida un borrador, el modelo gasta atención en un mensaje que
+ *  nadie envía y los juicios salen como subproducto. El resto del prompt se
+ *  queda IGUAL —varias de sus reglas gobiernan también los juicios («este
+ *  turno NO recoges nada»)— para que la vara mida solo este cambio. Se
+ *  construye por sustitución con marcas exactas: si el prompt cambia y la
+ *  marca desaparece, esto revienta al arrancar (y `qa:arranque` lo ve). */
+const MARCA_JUICIO_RESPUESTA = '━━ JUICIO "respuesta" — el borrador del mensaje de este turno.';
+const MARCA_ESQUEMA_RESPUESTA = '"respuesta": "<el borrador>"';
+export const SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS: string = (() => {
+  if (!SYSTEM_PROMPT_EVALUADOR.includes(MARCA_JUICIO_RESPUESTA) || !SYSTEM_PROMPT_EVALUADOR.includes(MARCA_ESQUEMA_RESPUESTA)) {
+    throw new Error("SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS: no encuentro las marcas de «respuesta» en el prompt del evaluador");
+  }
+  return SYSTEM_PROMPT_EVALUADOR
+    .replace(
+      MARCA_JUICIO_RESPUESTA,
+      '━━ "respuesta" — el mensaje de este turno lo escribe OTRO sistema con tus juicios delante: deja "respuesta" como cadena vacía y no redactes nada. Las reglas de abajo sobre qué se puede afirmar y qué no siguen valiendo para tus juicios.',
+    )
+    .replace(MARCA_ESQUEMA_RESPUESTA, '"respuesta": ""');
+})();
+
 /** MEJORAS 255 — ver `EvaluacionTurno.controlSalida`. */
 export type ControlSalida =
   | { tocado: false }
@@ -1073,6 +1179,7 @@ export function parsearJuicio(
       // Lado seguro asimétrico: un opt-out solo se marca con un true explícito.
       pideNoContacto: p.pideNoContacto === true,
       camposRecogidos: campos,
+      preferenciaCita: canonizarPreferenciaCita(p.preferenciaCita, descartes),
       respuesta: mapa ? desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200) : String(p.respuesta ?? "").slice(0, 1200),
     },
     descartes,
@@ -1147,7 +1254,10 @@ export async function evaluarTurno(
   const { texto: entradaRenderizada, truncado } = renderEntrada(e);
   // MEJORAS 174: la latencia de la llamada (solo la llamada) viaja en el payload.
   const t0Modelo = Date.now();
-  const { juicio, descartes, usage, motivoFallo } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
+  // Paso 2 (16-09): con el decisor escribiendo, el evaluador va a SOLO JUICIOS
+  // — mismo prompt sin la redacción. Un override explícito manda siempre.
+  const promptDelTurno = opts?._promptOverride ?? (opts?.sinControlDelBorrador ? SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS : undefined);
+  const { juicio, descartes, usage, motivoFallo } = await juzgar(e, promptDelTurno, opts?.modelo ?? "haiku");
   // Viaja con la evaluación entera: el caller no tiene por qué volver a
   // derivarlo de la entrada, y así una reactivación que acaba en fallback
   // también se anota.
@@ -1381,6 +1491,7 @@ export async function evaluarTurno(
     // manda la persona) se aplica en cada retorno de derivación, explícita.
     esperaLevantar: e.esperaVigente != null && juicio.respondeAlMotivoDeEspera,
     etiquetasDescartadas: descartes ?? [],
+    preferenciaCita: juicio.preferenciaCita,
     // Letra → id, en código (el modelo nunca ve ids). Letra fuera de rango
     // = ilegible → null, contable como toda etiqueta fuera de vocabulario.
     presupuestoReferidoId: (() => {
@@ -1404,7 +1515,7 @@ export async function evaluarTurno(
     // el juicio: sin ellas ningún turno del histórico se puede explicar ni
     // reproducir, y no admiten backfill.
     version: {
-      evaluador: hashVersion(opts?._promptOverride ?? SYSTEM_PROMPT_EVALUADOR),
+      evaluador: hashVersion(promptDelTurno ?? SYSTEM_PROMPT_EVALUADOR),
       juez: hashVersion(SYSTEM_PROMPT_JUEZ),
       conocimiento: (() => {
         const lineas = renderConocimiento(e.conocimiento);

@@ -356,3 +356,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - **16-09 · EL JUEZ NO CACHEA POR TAMAÑO + EL TURNO 1 REPRODUCIDO + AG14 EN LA VARA** (`count_tokens`
   de los cuatro systems, gratis; un turno real en DEMO sin envío para capturar el antes/después de la
   reescritura, $0,028; `qa:juez` con 64 casos, $0,22) · **$0,25 medido** · ac. **~$16,32**
+- **16-09 · PASO 2 DE LA FICHA: preferenciaCita + el evaluador a solo juicios** (`qa:evals-evaluador`
+  cuatro veces: solo-juicios $0,165 · con redacción $0,481 · solo-juicios otra vez $0,165 · contraste
+  sin preferencia $0,166 · siete sondas de C1/C9 ~$0,035) · **$1,01 medido** · ac. **~$17,33**

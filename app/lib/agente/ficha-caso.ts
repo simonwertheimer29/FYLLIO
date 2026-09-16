@@ -36,6 +36,7 @@ import { estadoDeLaPersona, objetivoActivoDe, queQuiereDe, type EstadoPersona } 
 import { fechaCorta } from "../agenda/fechas";
 import { fechaClinica, horaClinica, hoyISO } from "../time";
 import { leerPayloadEvaluacion, type PayloadEvaluacion } from "./persistir-turno";
+import type { PreferenciaCita } from "./evaluador";
 import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
 import { estadoBorradorDe, type EstadoBorrador } from "./borrador-agente";
 import { optOutDeTelefono, type EstadoOptOut } from "../contacto/optout";
@@ -67,6 +68,10 @@ export type FichaCaso = {
   /** La cita del caso: la próxima del paciente (misma verdad que el
    *  `citaFutura` del contexto) o la del lead. */
   cita: CitaDelCaso | null;
+  /** Paso 2 (16-09): la preferencia de cita ESTRUCTURADA, acumulada del log
+   *  (la última que el modelo dio). Para el buscador de huecos del paso 3;
+   *  la coordinadora sigue leyendo el texto. null = no la ha dicho. */
+  preferenciaCita: PreferenciaCita | null;
 
   // ── Arriba del todo, antes de nada ──
   /** Lo único de la ficha que dice qué NO hacer: si hay espera vigente,
@@ -472,8 +477,12 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   // corrige o retira desaparece de verdad—; si no la tuvo, se conserva lo que
   // hubiera. Autoridad donde la hay, memoria donde no.
   const camposAcumulados: Record<string, Record<string, string | null>> = {};
+  let preferenciaCita: PreferenciaCita | null = null;
   for (const fila of filasEvaluacion) {
     const pj = fila?.evaluacion_json ? leerPayloadEvaluacion(fila.evaluacion_json) : null;
+    // La preferencia estructurada: la ÚLTIMA que el modelo dio (un turno que
+    // no habla de cuándo no la borra; uno que la corrige la sustituye).
+    if (pj?.preferenciaCita) preferenciaCita = pj.preferenciaCita;
     for (const [etapa, campos] of Object.entries((pj?.camposRecogidos ?? {}) as Record<string, Record<string, string | null>>)) {
       if (campos && typeof campos === "object") camposAcumulados[etapa] = campos;
     }
@@ -569,6 +578,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     estado: estadoEtiqueta,
     descripcion,
     cita,
+    preferenciaCita,
     espera:
       !sem.verde && sem.motivo === "espera" && sem.hasta
         ? { hasta: sem.hasta, frase: sem.esperaMotivo ?? null }
