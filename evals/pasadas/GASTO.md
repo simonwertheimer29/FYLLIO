@@ -359,3 +359,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - **16-09 · PASO 2 DE LA FICHA: preferenciaCita + el evaluador a solo juicios** (`qa:evals-evaluador`
   cuatro veces: solo-juicios $0,165 · con redacción $0,481 · solo-juicios otra vez $0,165 · contraste
   sin preferencia $0,166 · siete sondas de C1/C9 ~$0,035) · **$1,01 medido** · ac. **~$17,33**
+- **17-09 · MEJORAS 257 BISECADA + VARA RECALCULADA + qa:vara** (16 sondas de C1/C9 sobre 14 commits
+  en worktrees, ~$0,08 · 4 sondas de C9 con el arreglo + 4 de C2 para el ruido, ~$0,04 ·
+  `qa:evals-evaluador --solo-juicios` completa $0,162) · **$0,28 medido** · ac. **~$17,61**
