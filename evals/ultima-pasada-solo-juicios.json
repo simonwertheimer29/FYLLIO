@@ -5,7 +5,7 @@
   "casos": 45,
   "turnos": 73,
   "decision": {
-    "aciertos": 65,
+    "aciertos": 66,
     "total": 67
   },
   "listo": {
@@ -20,14 +20,13 @@
     "n": 1,
     "turnos": 1
   },
-  "costePorTurnoUsd": 0.00226,
-  "costeUsd": 0.1647,
+  "costePorTurnoUsd": 0.00222,
+  "costeUsd": 0.1621,
   "version": {
-    "evaluador": "d22613192bd3",
+    "evaluador": "6e83ff2d2d52",
     "juez": "4e22128909eb"
   },
   "fallos": [
-    "C1:S→A",
     "35:A→S"
   ],
   "salida": null

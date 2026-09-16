@@ -200,6 +200,39 @@ export function camposFaltantes(
     });
 }
 
+/** LA CONDICIÓN ES DE LA RAMA, NO DEL CAMPO (17-09, MEJORAS 257 · C9).
+ *
+ *  Dos campos con la MISMA condición («solo si se lo piensa») aplican o no
+ *  aplican JUNTOS: la condición habla de la decisión de la persona, no de cada
+ *  dato. Medido: desde 1a034de (14-09, un párrafo más en el prompt sobre la
+ *  ficha) Haiku pone `que_le_frena = no_aplica` y deja `cuando_retomar = null`
+ *  ante un rechazo — mismo condicional, dos valores — y con ese null el caso
+ *  de quien RECHAZA un presupuesto no completaba y no se entregaba a nadie.
+ *  El prompt ya lleva la regla escrita; esto es la guarda en código: si el
+ *  modelo ha dicho que una rama no aplica, todos los campos de esa rama que
+ *  dejó en null pasan a "no_aplica". No inventa nada —solo extiende un juicio
+ *  que el modelo ya dio— y el texto de la condición no se interpreta: basta
+ *  con que sea el MISMO. Devuelve las claves corregidas (para el log). */
+export function propagarNoAplicaPorRama(
+  campos: readonly CampoObjetivo[],
+  valores: Record<string, string | null> | undefined,
+): string[] {
+  if (!valores) return [];
+  const ramasQueNoAplican = new Set(
+    campos.filter((c) => c.condicion && valores[c.clave] === "no_aplica").map((c) => c.condicion!),
+  );
+  const corregidas: string[] = [];
+  for (const c of campos) {
+    if (!c.condicion || !ramasQueNoAplican.has(c.condicion)) continue;
+    const v = valores[c.clave];
+    if (v == null || String(v).trim() === "") {
+      valores[c.clave] = "no_aplica";
+      corregidas.push(c.clave);
+    }
+  }
+  return corregidas;
+}
+
 /** La pregunta del campo, dicha como LO QUE HAY QUE SABER y no como la frase
  *  con la que preguntarlo: «¿Qué días y franjas le vienen bien?» → «qué días y
  *  franjas le vienen bien». Quitarle los signos no es cosmético — un texto con

@@ -419,6 +419,13 @@ const REMAPEO_DECISION: Record<string, string> = {
   "49": "A",
   "1": "A", "18": "S", "39": "S",
   C9: "S", C10: "A", C16: "A", C18: "A",
+  //  · C1 → A (17-09, MEJORAS 257 bisecada): la anotación S («ortodoncia
+  //    invisible» se contesta sola) es anterior a la regla 229 aprobada por
+  //    Simon el 11-09 (commit 27bf49f): la lista de lo que se confirma es
+  //    CERRADA y «ortodoncia invisible» no está en ella ni consta publicado,
+  //    así que se anota y se le dice que la clínica lo confirma. Aquí caducó
+  //    la VARA, no el agente: se remapea, y el prompt no se toca.
+  C1: "A",
   //  · 16 → A por RETEST de Simon (2026-08-14), no anotación original: la
   //    pareja 3-vs-16 (objeción de precio con un tercero de por medio) se
   //    reanotó y LOS DOS aplazan. Una objeción de precio no deriva por quién
@@ -675,8 +682,11 @@ console.log(`\n✓ medido. El número es el dato — no se ajusta nada antes de 
 if (!solo && !SOLO_CASOS && !SIN_PREFERENCIA) {
   const { writeFileSync } = await import("node:fs");
   const { hashVersion } = await import("../app/lib/agente/version");
-  const { SYSTEM_PROMPT_EVALUADOR } = await import("../app/lib/agente/evaluador");
   const { SYSTEM_PROMPT_JUEZ } = await import("../app/lib/agente/juez-borrador");
+  // La versión es la del prompt QUE CORRIÓ (17-09, MEJORAS 257): el fichero de
+  // solo-juicios llevaba el hash del prompt con redacción, y `qa:vara` (prebuild)
+  // compara contra el de producción. Un hash de otro texto no es una versión.
+  const promptMedido = SOLO_JUICIOS ? SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS : SYSTEM_PROMPT_EVALUADOR;
   const okL = listos.filter((x) => x.okListo).length;
   const vara = {
     fecha: new Date().toISOString().slice(0, 10),
@@ -692,7 +702,7 @@ if (!solo && !SOLO_CASOS && !SIN_PREFERENCIA) {
     etiquetasFueraVocabulario: { n: totalEtiquetas, turnos: conEtiquetasMalas.length },
     costePorTurnoUsd: Math.round(porTurno * 1e5) / 1e5,
     costeUsd: Math.round(usd * 1e4) / 1e4,
-    version: { evaluador: hashVersion(SYSTEM_PROMPT_EVALUADOR), juez: hashVersion(SYSTEM_PROMPT_JUEZ) },
+    version: { evaluador: hashVersion(promptMedido), juez: hashVersion(SYSTEM_PROMPT_JUEZ) },
     fallos: puntuados.filter((x) => !x.okDecision).map((x) => `${x.id}:${x.esperado}→${x.letra}`),
     salida: null,
   };

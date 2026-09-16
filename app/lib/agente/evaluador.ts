@@ -37,7 +37,7 @@ import {
   colaDeDerivacion,
   type CausaDerivacion,
 } from "../automatizacion/estado";
-import { camposFaltantes as calcularCamposFaltantes, PRECEDENCIA_OBJETIVOS } from "../automatizacion/objetivos";
+import { camposFaltantes as calcularCamposFaltantes, PRECEDENCIA_OBJETIVOS, propagarNoAplicaPorRama } from "../automatizacion/objetivos";
 import type { EtapaObjetivo, ObjetivoAgente } from "../automatizacion/objetivos";
 import { renderConocimiento, type ConocimientoClinica } from "./conocimiento";
 import { hoyISO } from "../time";
@@ -1332,6 +1332,14 @@ export async function evaluarTurno(
     }
   }
   const abiertas = e.objetivosAbiertos.map((o) => o.etapa);
+  // LA CONDICIÓN ES DE LA RAMA (17-09, MEJORAS 257): si el modelo dijo que
+  // «solo si se lo piensa» no aplica en un campo, aplica en todos los de esa
+  // rama. Sin esto, un `cuando_retomar` en null tras un rechazo dejaba el caso
+  // sin completar y sin entregar. Guarda en código; el prompt lo dice igual.
+  for (const o of e.objetivosAbiertos) {
+    const corregidas = propagarNoAplicaPorRama(o.campos, juicio.camposRecogidos[o.etapa]);
+    if (corregidas.length) console.warn(`[evaluador] ${o.etapa}: ${corregidas.join(",")} → no_aplica por la rama que el modelo ya descartó (257)`);
+  }
   // Campos faltantes de UNA etapa: contado, no opinado.
   const faltantesDe = (etapa: EtapaObjetivo): string[] =>
     calcularCamposFaltantes(etapa, e.objetivosAbiertos.find((o) => o.etapa === etapa)?.campos ?? [], juicio.camposRecogidos[etapa], {

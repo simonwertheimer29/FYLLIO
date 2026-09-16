@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts && tsx scripts/qa-campos-perdidos.mts",
+    "prebuild": "node scripts/qa-sin-fallbacks.mjs && tsx scripts/qa-frontera-cliente.mts && tsx scripts/qa-campos-perdidos.mts && tsx scripts/qa-vara-vigente.mts",
     "qa:frontera": "tsx scripts/qa-frontera-cliente.mts",
     "start": "next start",
     "lint": "eslint",
@@ -44,6 +44,7 @@
     "medir:linea-base": "tsx scripts/medir-linea-base.mts",
     "qa:evals:acuerdo": "tsx scripts/qa-evals-acuerdo.mts",
     "qa:evals-evaluador": "tsx scripts/qa-evals-evaluador.mts",
+    "qa:vara": "tsx scripts/qa-vara-vigente.mts",
     "qa:juez": "tsx scripts/qa-juez-borrador.mts",
     "qa:turno": "tsx scripts/qa-persistir-turno.mts",
     "qa:entrante": "tsx scripts/qa-evaluador-entrante.mts",

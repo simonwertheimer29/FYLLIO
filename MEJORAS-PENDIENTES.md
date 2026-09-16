@@ -4060,6 +4060,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   cuando toque. · **Fecha:** 2026-09-16
 
 ## 257. Evaluador · dos fallos de la vara que nadie vio porque la vara no se recalcula sola
+- **HECHA el 17-09 (DECISIONES 17-09).** Bisecado: **C1 = vara caducada** (regla 229 del 11-09; remapeo
+  C1 → A, prompt intacto) · **C9 = agente** (cae en 1a034de por un párrafo ajeno; arreglo en código:
+  `propagarNoAplicaPorRama`, la condición es de la rama). Vara recalculada 66/67 · 20/21 (C2 es moneda
+  al aire, 3/4). Política: `qa:vara` en `prebuild` falla si el hash del prompt de producción no es el
+  de la última pasada completa.
 - **Medido el 16-09 al medir el paso 2 de la ficha.** La última pasada de `qa:evals-evaluador` era
   del 11-09 (66/67 · 21/21). Desde entonces el prompt del evaluador cambió 25 veces sin volver a
   pasar la vara, y hoy da **65/67 · 20/21** — con y sin el cambio del paso 2, así que los dos fallos

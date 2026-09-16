@@ -6574,3 +6574,27 @@ sondas. MEJORAS 257, con la lección: **una vara que no se recalcula no es una v
 existente, no una preferencia → **cero reales; no se añade desde_hora/hasta_hora.**
 **Un intento que no sirvió, para no repetirlo:** mover el párrafo del juicio nuevo de detrás de
 camposRecogidos a delante no cambió nada — porque el fallo no era del párrafo.
+
+## 2026-09-17 · MEJORAS 257 bisecada: C1 era la vara, C9 era el agente — y la vara ya no puede caducar en silencio
+**BISECCIÓN** con `--casos C1,C9` sobre los 30 commits entre la vara verde del 11-09 (a387c57) y HEAD,
+16 sondas ($0,08). Dos roturas distintas, las dos deterministas (3/3 a cada lado):
+- **C1 → vara caducada.** Cae en 27bf49f (11-09, MEJORAS 229 aprobada por Simon): la lista de lo que
+  el agente confirma es CERRADA y «ortodoncia invisible» no está en ella ni consta publicado, así
+  que anota y dice que la clínica lo confirma. La anotación S es anterior a esa regla. Arreglo:
+  remapeo C1 → A en el script, documentado; el prompt no se toca.
+- **C9 → agente.** Cae en 1a034de (14-09, la ficha llega al agente): el ÚNICO cambio de prompt es el
+  párrafo «no nombres doctor ni tratamiento», y con él Haiku deja `cuando_retomar` en null ante un
+  rechazo mientras pone `que_le_frena` —misma condición «solo si se lo piensa»— en no_aplica. Un
+  rechazo de presupuesto que no completaba y no llegaba a nadie. Arreglo EN CÓDIGO, no en el prompt:
+  `propagarNoAplicaPorRama` (objetivos.ts) — la condición es de la RAMA, no del campo: si el modelo
+  ya dijo que una rama no aplica, todos sus campos en null pasan a no_aplica. No interpreta texto ni
+  inventa: extiende un juicio que el modelo ya dio. 4/4 sondas verdes.
+**MEDIDO** (vara completa, solo juicios, $0,16): **66/67 · 20/21**. El 35 es el conocido. El de ¿listo?
+es ahora C2, que pasaba: sondeado 4 veces, 3/4 pasa; el fallo deja `nombre_completo` en null con «soy
+Lucía» en el hilo → moneda al aire de Haiku, no regresión. Queda como está: el número es el dato.
+**LA VARA YA NO CADUCA SOLA:** `qa:vara` (scripts/qa-vara-vigente.mts) corre en `prebuild`, $0: compara
+`hashVersion(SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS)` con la versión de `evals/ultima-pasada-solo-juicios.json`
+y falla el build si el prompt cambió sin pasar la vara. Probado en rojo (la vara vieja llevaba
+d22613192bd3, que además era el hash del prompt CON redacción: el script guardaba el hash de un
+prompt que no era el que corría; corregido) y en verde. Lo que NO vigila, a sabiendas: un cambio de
+canonización en código mueve la vara sin mover el hash; ese caso sigue siendo criterio.
