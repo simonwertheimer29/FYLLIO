@@ -3896,6 +3896,23 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   **Impacto:** MEDIO-ALTO (es la pantalla donde se trabaja). · **Esfuerzo:** medio día de diseño +
   medio de código. · **Fecha:** 2026-09-15
 
+- **DOS DECISIONES YA CONFIRMADAS POR SIMON (16-09), para que no se pierdan al retomarlo:**
+  1. **La descripción la compone CÓDIGO, no el modelo.** Un resumen generado habría que juzgarlo
+     antes de enseñarlo —otra llamada y otra vara—, y la frase que Simon puso de ejemplo sale ENTERA
+     de datos que ya existen: la cita del caso, los campos de `mover_cita` y el contador de vueltas
+     de `aplazadosPorClave`. Determinista, gratis y nunca miente. Respeta además la regla que la
+     cabecera de `ficha-caso.ts` ya llevaba escrita: «nunca un resumen generado que habría que
+     verificar».
+  2. **La búsqueda de huecos vive en una FUNCIÓN DE SERVIDOR, no en el componente** — «dame los
+     huecos para este caso, con estas preferencias, ordenados». Hoy la llama el botón; mañana la
+     llama el agente cuando vea la agenda. **Misma función, dos clientes.** En el componente habría
+     que reescribirla el día que la use el agente.
+- **EL ORDEN ACORDADO:** (1) ficha limpia de 4 bloques ·6 h, $0· (2) preferencias estructuradas ·4 h,
+  ~$0,35· (3) botón inteligente = `AgendarPanel` con filtros ·8 h, $0· (4) hueco propuesto + juicio
+  de aceptación ·10 h + diseño, ~$0,65·. El 1 vale solo y no depende de nada. **El 4 es el único con
+  diseño de verdad pendiente:** para saber que ACEPTÓ hay que haber registrado qué se le OFRECIÓ, y
+  hoy la propuesta sale en un mensaje libre y no queda en ningún sitio estructurado.
+
 ## 254. Agente · el recordatorio de quien deja de contestar a medias: «¿sigues ahí?»
 - **Anotado el 15-09 por Simon. NO se hace ahora**, y la razón es que es una pieza distinta de todo
   lo construido hasta hoy: **es el agente escribiendo sin que le hayan escrito.** Todo lo que existe
