@@ -4077,3 +4077,30 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `--casos` de la familia tocada) en cada commit que toque el prompt. · **Impacto:** MEDIO (C9 es
   un caso que no llega a la clínica). · **Esfuerzo:** 1 h de bisección + el arreglo. ·
   **Fecha:** 2026-09-16
+- **APROBADA por Simon el 16-09 con una duda de fondo que va PRIMERO:** ¿el agente empeoró o la
+  vara caducó? Hace tres días el agente «funcionaba perfecto». Al bisecar hay que decir
+  explícitamente cuál de las dos; si es la vara, el arreglo es recalcularla, no tocar el prompt.
+  **Sobre la contaminación del corpus (duda a):** los casos NO los generó ningún agente — R1 son
+  «último mensaje + contexto mínimo» sintéticos del 5-ago y C1 son hilos escritos a mano (los
+  salientes son fixtures), así que no hay conversaciones de un agente viejo dentro. Lo que sí
+  puede haber caducado es la ANOTACIÓN (lo que Simon esperaba del producto de agosto). **Política
+  propuesta:** una comprobación de coste cero en `prebuild` que compare
+  `hashVersion(SYSTEM_PROMPT_EVALUADOR_SOLO_JUICIOS)` con la versión guardada en
+  `evals/ultima-pasada-solo-juicios.json` y falle con «la vara no es de este prompt: pásala
+  ($0,17)». Así el recálculo no depende de acordarse: cada cambio de prompt obliga a medir.
+- **EL CENSO que pidió Simon (16-09, `--censo`, sin modelo):** de los 73 turnos, **13** tienen
+  abierto cita o mover_cita y **5** de esos dicen algo de cuándo (5, C2, C3, C4, C13). Los cinco
+  rellenan `preferenciaCita`: **5/5 donde hay algo que extraer**. Los otros cuatro de los nueve
+  (C6, C7, C14, 50) la rellenan con la cita cerrada o sin objetivo de cita abierto, porque la
+  persona habló de cuándo igualmente. El 9 es correcto; el paso 3 no abrirá sin filtros por falta
+  de extracción.
+
+## 258. Agenda · «anotar cita» da por hecho que la coordinadora la mete en su software
+- **Anotado el 16-09 por Simon, PARA CUANDO HAYA LECTOR DE ERP, no ahora.** En el escalón sin
+  agenda, «anotar cita» crea la fila en `citas` con `trasladada_en = ahora`: es la coordinadora
+  diciendo «ya está en Gesden». Si no lo hace, Fyllio cree en una cita que no existe — y el agente
+  la enseñará como «tiene cita el jueves» (la ficha lee `citas`).
+- **Se resuelve con RECONCILIACIÓN cuando haya lectura** (copia o en vivo): la cita anotada que no
+  aparece en la fuente pasada su fecha de gracia se marca «no consta en el ERP» y sale en la bandeja.
+  Sin lectura no hay nada contra lo que reconciliar; mientras tanto, el único rastro es el clic.
+  · **Impacto:** MEDIO. · **Esfuerzo:** 2 h cuando exista la lectura. · **Fecha:** 2026-09-16

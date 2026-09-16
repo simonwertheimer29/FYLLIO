@@ -513,6 +513,18 @@ if (trabajos.length === 0) {
   process.exit(2);
 }
 
+// --censo (16-09, sin modelo): cuántos turnos del corpus son casos de pedir o
+// mover cita — el denominador de «cuántos rellenan preferenciaCita».
+if (process.argv.includes("--censo")) {
+  const deCita = trabajos.filter((t) => t.entrada.objetivosAbiertos.some((o) => o.etapa === "cita" || o.etapa === "mover_cita"));
+  const dicenCuando = deCita.filter((t) =>
+    t.entrada.hilo.some((m) => m.direccion === "Entrante" && /\b(ma[ñn]ana|tarde|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|entre semana|cuanto antes|sin prisa|esta semana|cualquier d[ií]a)/i.test(m.contenido)),
+  );
+  console.log(`censo: ${trabajos.length} turnos · con objetivo cita/mover_cita abierto: ${deCita.length} → ${deCita.map((t) => t.id).join(", ")}`);
+  console.log(`  de esos, la persona ha dicho ALGO de cuándo (regex sobre sus mensajes): ${dicenCuando.length} → ${dicenCuando.map((t) => t.id).join(", ")}`);
+  process.exit(0);
+}
+
 const resultados: Resultado[] = [];
 let i = 0;
 let hechos = 0;
