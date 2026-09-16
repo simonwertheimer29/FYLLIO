@@ -6437,3 +6437,28 @@ del semáforo, porque el semáforo está en verde precisamente porque se resolvi
 «nunca se entregó» de «se entregó y se cerró».
 **De paso, confirmado en el mismo log: el modo B está enviando solo** (`autor: agente` en el saliente
 de las 21:58).
+
+## 2026-09-16 · El coste por turno es 7× lo que yo dije, y el producto enseña menos de la mitad
+**Simon: «el producto dice $0,0150 y mi saldo bajó $0,04».** Medido con DOS turnos reales,
+envolviendo `fetch` para contar cada llamada: **8-10 llamadas por turno, $0,036-0,050.** Su saldo
+tenía razón; mi estimación de $0,005-0,007 estaba mal **por un factor de siete**, y estaba mal porque
+la hice restando el paciente simulado del coste del banco en vez de medir un turno de producción.
+**LAS 8 LLAMADAS:** evaluador ($0,0052) · juez de su borrador ($0,0042) · reescritura ($0,0012) ·
+juez otra vez ($0,0041) · **decisor «alcance» ($0,0060)** · **juez del decisor ($0,0041)** · sombra
+«producción» ($0,0056) · sombra «libre» ($0,0058).
+**EL 70 % ES TRABAJO QUE NO SALE POR NINGUNA PARTE:**
+ · **La sombra son 2 llamadas (31 %) y no decide nada** — es el visor de la fase 1, que existía para
+   comparar decisores. Con el agente nuevo ya en producción, paga por observar algo ya decidido.
+ · **El evaluador escribe un borrador que se tira (40 %)** — sus JUICIOS siguen haciendo falta, su
+   `respuesta` y su control no, desde que el mensaje lo escribe el decisor.
+ · Lo que el turno necesita de verdad son **las llamadas 5 y 6: $0,0101**.
+**Y EL NÚMERO QUE ENSEÑAMOS CUENTA SOLO LAS LLAMADAS 1-4** (el `usage` del evaluador y su control).
+Por eso dice $0,015. **Toda la cuenta de costes por clínica sale de ese número**, así que arreglarlo
+es lo primero de MEJORAS 251, por delante de cualquier recorte.
+**EL CACHÉ, de propina:** solo la llamada 1 tiene `cache_read` (6.543 tokens). Las otras siete van a
+cero — el system del juez, el del decisor y el de la sombra se pagan enteros cada vez. Era la cuarta
+sospecha de 251 y ya tiene dato.
+**LA CUENTA REAL: $36 por cada 1.000 mensajes hoy; ~$10 alcanzables** sin tocar lo que sale al
+paciente. Lección para mí: **una estimación derivada de otra medida no es una medida.** El banco
+incluía un paciente simulado y yo resté eso creyendo que el resto era producción; producción tenía
+cuatro llamadas más que el banco no hace.

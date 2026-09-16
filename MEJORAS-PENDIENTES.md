@@ -3812,6 +3812,37 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   4. **El caché.** El system del evaluador va con `cache_control` desde el 22-08; el del decisor y el
      del juez hay que comprobar si también, y qué parte del prompt se paga entera cada vez (la
      ENTRADA —hechos, calendario, conversación— no se cachea porque cambia en cada turno).
+- 🔴 **MEDIDO EL 16-09 CON DOS TURNOS REALES, y la cifra de arriba estaba MAL por 7×.** Un turno de
+  producción hace **8-10 llamadas** y cuesta **$0,036-0,050**, no $0,005-0,007. El desglose, contado
+  envolviendo `fetch` en un turno de verdad:
+  | # | llamada | $ |
+  |---|---|---|
+  | 1 | evaluador (juicios + SU borrador) | 0,0052 |
+  | 2 | juez de ese borrador | 0,0042 |
+  | 3 | reescritura de ese borrador | 0,0012 |
+  | 4 | juez otra vez (2ª vuelta del control) | 0,0041 |
+  | 5 | **decisor «alcance» — el mensaje que SALE** | 0,0060 |
+  | 6 | **juez del mensaje del decisor** | 0,0041 |
+  | 7 | sombra, variante «producción» | 0,0056 |
+  | 8 | sombra, variante «libre» | 0,0058 |
+- **LAS TRES GRASAS, ya localizadas y con su precio:**
+  1. **La SOMBRA son 2 llamadas (31 %) y no decide nada.** Es el visor de la fase 1, que existía para
+     comparar decisores. Con el agente nuevo YA en producción, paga por observar algo ya decidido.
+     Retirarla —o dejarla bajo interruptor, encendida solo cuando se quiera comparar— es el corte más
+     grande y el más barato de hacer.
+  2. **El evaluador escribe un borrador que se TIRA (40 %, llamadas 1-4).** Sus JUICIOS siguen
+     haciendo falta (urgencia, queja, campos recogidos); su `respuesta` y todo el control que la
+     acompaña son trabajo descartado desde que el mensaje lo escribe el decisor. Hay que separar
+     «juzga» de «redacta» en `evaluarTurno`.
+  3. **El caché solo funciona en la llamada 1.** Las otras siete van con `cache_read` a CERO: el
+     system del juez, el del decisor y el de la sombra se pagan enteros cada vez. Es la sospecha 4 de
+     esta ficha, ya confirmada con dato.
+- **Y EL NÚMERO QUE ENSEÑA EL PRODUCTO CUENTA MENOS DE LA MITAD:** el turno guarda solo el `usage` del
+  evaluador y su control (llamadas 1-4) — dice $0,015 cuando el turno costó $0,036. **Lo primero de
+  la tarea es que ese número sume todas las llamadas**, porque hoy toda la cuenta de costes por
+  clínica sale de ahí.
+- **El suelo alcanzable, con las mismas llamadas medidas:** decisor + su juez = **$0,0101**. Unos
+  **$10 por 1.000 mensajes** en vez de los $36 de hoy.
 - **Condición de Simon, literal: «el desglose y qué se puede quitar sin tocar calidad, medido contra
   las varas que ya tenemos. No por intuición.»** O sea: cada retirada se prueba contra `qa:juez`
   (63 casos), `qa:conocimiento` y una pasada de los 10 guiones, y se queda solo si las varas no se
