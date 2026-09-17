@@ -6721,3 +6721,9 @@ gris: ahora dice lo que hace («Reservar mar 29 a las 14:00 y confirmar») y una
 «en marcha» viejo. La oferta la manda el SCRIPT del e2e, nunca el producto solo; el estado «esperando que
 la coordinadora elija» es el de `--limpiar`. Producción tiene el token de la cola (Simon lo comprobó en
 Ajustes → Incidencias): el retardo de 10 min en horario aplica.
+**Tercera mirada (tras `--limpiar`):** el bucle SÍ estaba conectado (OfertaPanel en la ficha con agenda en
+Fyllio) pero no se veía: los huecos eran botones sin casilla, y la lista y «Enviar la propuesta» solo
+aparecían tras marcar uno — para la coordinadora era «dos huecos sueltos, como antes». Y el punto 5 no
+estaba hecho. Ahora: botón «Proponer horas» que despliega el selector; casillas en cada hueco; la lista de
+la propuesta y el botón de enviar siempre a la vista (vacíos dicen «marca alguna hora»). «Urgencia» no
+faltaba: no estaba recogida (el agente aún la pregunta) — de ahí MEJORAS 264.

@@ -54,12 +54,16 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
   const [reofertando, setReofertando] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [indiceManual, setIndiceManual] = useState<number | null>(null);
+  // Punto 5 del encargo: los huecos NO van fijos en la ficha; se despliegan al
+  // pulsar «Proponer horas».
+  const [proponiendo, setProponiendo] = useState(false);
 
   useEffect(() => {
     setCorregido(null);
     setReofertando(false);
     setIndiceManual(null);
     setGuardando(false); // una ficha recargada no hereda un «en marcha» viejo
+    setProponiendo(false);
   }, [oferta?.id, oferta?.estado, oferta?.eleccion]);
 
   async function reservar(indice: number | null) {
@@ -142,6 +146,14 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
 
   // ── Sin propuesta (o ya cerrada) → el selector ──
   const cerrada = !oferta || oferta.estado === "reservada" || oferta.estado === "reemplazada";
+  if (cerrada && !reofertando && !proponiendo) {
+    return (
+      <button type="button" onClick={() => setProponiendo(true)} className={btnPrimario}>
+        <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
+        Proponer horas
+      </button>
+    );
+  }
   if (cerrada || reofertando) {
     return (
       <Selector
@@ -150,7 +162,7 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
         variante={{ tipo: "oferta" }}
         aviso={reofertando && oferta ? "Propuesta nueva: sustituye a la anterior. Las horas de la lista se vuelven a comprobar al enviar." : null}
         onEnviado={onHecho}
-        onCancelar={reofertando ? () => setReofertando(false) : null}
+        onCancelar={() => { setReofertando(false); setProponiendo(false); }}
       />
     );
   }
@@ -392,6 +404,9 @@ function Selector({
       </div>
 
       {datos.nota && <p className="text-[12px] text-[var(--color-muted)]">{datos.nota}</p>}
+      {datos.huecos.length > 0 && (
+        <p className="text-[12px] text-[var(--color-muted)]">Marca las horas que quieras proponerle (hasta {MAX}); el mensaje se compone solo.</p>
+      )}
       {datos.doctorFueraDeClinica && <p className="text-[12px] text-[var(--color-muted)]">El doctor asignado ({nombreCortoDoctor(datos.doctorFueraDeClinica)}) es de otra clínica: se ofrecen los de esta.</p>}
 
       {/* Las que cumplen lo que pidió. */}
@@ -399,7 +414,7 @@ function Selector({
         <ul className="grid gap-1.5">
           {datos.huecos.map((h) => (
             <li key={clave(h)}>
-              <Opcion activa={seleccionadas.has(clave(h))} ocupada={ocupadasSet.has(clave(h))} onClick={() => alternar(h)} h={h} />
+              <Opcion casilla activa={seleccionadas.has(clave(h))} ocupada={ocupadasSet.has(clave(h))} onClick={() => alternar(h)} h={h} />
             </li>
           ))}
         </ul>
@@ -453,11 +468,13 @@ function Selector({
         </div>
       )}
 
-      {/* La lista que va en el mensaje, y el mensaje ENTERO antes del clic. */}
-      {seleccion.length > 0 && (
+      {/* La lista que va en el mensaje, y el mensaje ENTERO antes del clic.
+          Siempre a la vista, también vacía: es el sitio donde se ve qué se va a
+          mandar y el botón que lo manda. */}
+      {(
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2.5">
           <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            {seleccion.length} de {MAX} · lo que recibirá {nombre} por WhatsApp
+            {seleccion.length === 0 ? `Propuesta para ${nombre}: ninguna hora marcada` : `${seleccion.length} de ${MAX} · lo que recibirá ${nombre} por WhatsApp`}
           </p>
           <ul className="mt-1 space-y-0.5">
             {seleccion.map((h, i) => (
@@ -467,9 +484,9 @@ function Selector({
               </li>
             ))}
           </ul>
-          {texto ? <Mensaje texto={texto} /> : <div className="fyllio-skeleton mt-1.5 h-10" />}
-          <button type="button" disabled={guardando || !texto || !g.puedeReservar} onClick={() => void enviar()} className={`${btnPrimario} mt-2`}>
-            {guardando ? "Enviando…" : "Enviar la propuesta"}
+          {seleccion.length > 0 && (texto ? <Mensaje texto={texto} /> : <div className="fyllio-skeleton mt-1.5 h-10" />)}
+          <button type="button" disabled={guardando || seleccion.length === 0 || !texto || !g.puedeReservar} onClick={() => void enviar()} className={`${btnPrimario} mt-2`}>
+            {guardando ? "Enviando…" : seleccion.length === 0 ? "Enviar la propuesta (marca alguna hora)" : `Enviar la propuesta con ${seleccion.length} ${seleccion.length === 1 ? "hora" : "horas"}`}
           </button>
           {!g.puedeReservar && <p className="mt-1 text-[11.5px] text-amber-700 dark:text-amber-300">Sin la agenda en Fyllio no se proponen horas como reales.</p>}
         </div>
@@ -483,19 +500,31 @@ function Selector({
 
 // ─── Piezas ─────────────────────────────────────────────────────────────────
 
-function Opcion({ h, n, activa, ocupada, onClick }: { h: HuecoDelCaso; n?: number; activa: boolean; ocupada?: boolean; onClick: () => void }) {
+function Opcion({ h, n, activa, ocupada, casilla, onClick }: { h: HuecoDelCaso; n?: number; activa: boolean; ocupada?: boolean; casilla?: boolean; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={ocupada}
+      role={casilla ? "checkbox" : undefined}
+      aria-checked={casilla ? activa : undefined}
       className={`flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-left text-[12.5px] transition-colors disabled:opacity-50 ${
         activa
           ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]"
           : "border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
       }`}
     >
-      <span className="font-medium">
+      <span className="flex items-center gap-2 font-medium">
+        {casilla && (
+          <span
+            aria-hidden
+            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] leading-none ${
+              activa ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"
+            }`}
+          >
+            {activa ? "✓" : ""}
+          </span>
+        )}
         {n != null ? `${n}) ` : ""}{fechaCorta(h.fecha)} · {h.hora}
       </span>
       <span className="text-[var(--color-muted)]">{ocupada ? "se ocupó" : nombreCortoDoctor(h.doctorNombre)}</span>

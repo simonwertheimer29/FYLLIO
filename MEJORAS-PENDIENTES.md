@@ -4171,3 +4171,12 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   siempre en español; en Madrid eso pasa. · **Impacto:** ALTO. · **Esfuerzo:** ~1 h de código (columna `idioma`
   en `ofertas_hueco`, el juicio `idioma` viaja en `ofertaRespuesta`, la oferta toma el último idioma del hilo,
   seis textos × ca/en) + su OK a 12 textos. · **Fecha:** 2026-09-17
+
+## 264. Agente · pregunta la urgencia cuando la coordinadora ya puede ofrecer horas
+- **Visto por Simon el 17-09 (noche) en la ficha de Verónica:** el borrador dice «¿Es algo urgente o sin prisa?»
+  con dos huecos concretos al lado en la pantalla. Cuando hay agenda en Fyllio y huecos que cumplen lo que
+  pidió, preguntar la urgencia sobra: la respuesta útil son las horas. Hoy el agente no ve la agenda
+  (condición 6 del bucle: el motor está preparado para cuando la vea).
+- **Qué hacer:** cuando el agente vea la agenda, el campo `urgencia` del objetivo cita pasa a no_aplica si ya
+  hay huecos que ofrecer; mientras tanto, valorar quitarlo del contrato cuando la clínica tiene agenda en
+  Fyllio. · **Impacto:** MEDIO (una pregunta de más antes de la cita). · **Esfuerzo:** 1 h + vara. · **Fecha:** 2026-09-17
