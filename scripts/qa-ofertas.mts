@@ -66,7 +66,7 @@ console.log("══ textos (plantillas aprobadas)");
   ok(/por orden de confirmación/.test(oferta) && !/sujeto a cambios/i.test(oferta), "el aviso va del derecho (orden de confirmación), no como excusa");
   const seOcupo = textoSeOcupo({ nombre: "Samuel", ocupada: alts[0]!, restantes: [alts[1]!] });
   console.log(`  «${seOcupo.replace(/\n/g, " ⏎ ")}»`);
-  ok(seOcupo.startsWith("Samuel, la del jueves a las 10:00 se acaba de ocupar. Te quedan estas:") && !/Vaya/.test(seOcupo), "«se acaba de ocupar» sin «Vaya» (es fallo nuestro)");
+  ok(seOcupo.startsWith("Samuel, la del jueves 24 de septiembre a las 10:00 se acaba de ocupar. Te quedan estas:") && !/Vaya/.test(seOcupo), "«se acaba de ocupar» con la fecha entera y sin «Vaya» (es fallo nuestro)");
   const todas = textoTodasOcupadas({ nombre: "Samuel", nuevas: alts });
   ok(todas.startsWith("Samuel, las horas que te propusimos se han ocupado mientras tanto. Te paso otras:") && todas.endsWith("Dinos cuál y queda reservada para ti."), "todas ocupadas con horas nuevas (aprobado)");
   const sin = textoSinHuecos({ nombre: "Samuel" });
@@ -80,11 +80,11 @@ console.log("══ textos (plantillas aprobadas)");
   const fuera = textoAcuse({ nombre: "Samuel Arias", alternativa: alts[0]!, abierta: false });
   const sinHora = textoAcuse({ nombre: "Samuel", alternativa: null, abierta: false });
   console.log(`  «${dentro}»\n  «${fuera}»\n  «${sinHora}»`);
-  ok(dentro === "Recibido, Samuel. Compruebo que la del jueves a las 10:00 siga libre y te lo confirmamos en un momento.", "acuse dentro de horario (aprobado)");
-  ok(fuera === "Recibido, Samuel. Compruebo que la del jueves a las 10:00 siga libre y te lo confirmamos en cuanto abra la clínica.", "acuse fuera de horario (aprobado)");
+  ok(dentro === "Recibido, Samuel. Compruebo que la del jueves 24 de septiembre a las 10:00 siga libre y te lo confirmamos en un momento.", "acuse dentro de horario, con la fecha entera (dos martes a las 14:00 no se distinguen sin ella)");
+  ok(fuera === "Recibido, Samuel. Compruebo que la del jueves 24 de septiembre a las 10:00 siga libre y te lo confirmamos en cuanto abra la clínica.", "acuse fuera de horario (aprobado)");
   ok(sinHora === "Recibido, Samuel. Lo comprobamos en la agenda y te lo confirmamos en cuanto abra la clínica.", "acuse sin hora conocida (no se entendió cuál / hilo asumido)");
   ok(!/\b\d{1,2}:\d{2}\b.*confirm/.test(sinHora) && !/reservad/.test(dentro), "el acuse no promete hora ni confirma nada");
-  ok(alternativaCorta(alt("2026-09-26", "16:00")) === "la del sábado a las 16:00", "alternativa corta con el día de la semana entero");
+  ok(alternativaCorta(alt("2026-09-26", "16:00")) === "la del sábado 26 de septiembre a las 16:00", "alternativa corta con día de la semana, número y mes");
 }
 
 console.log("══ horario de clínica");

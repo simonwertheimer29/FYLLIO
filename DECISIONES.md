@@ -6714,3 +6714,10 @@ cola está activa en local) — y exige el worker desplegado: hasta que este com
 trabajo `acuse_oferta` llega «malformado» y no se envía. (4) «Necesita respuesta» en rojo con la cita
 reservada: la cola no consulta el semáforo (doctrina) y no veía el cierre por hecho; ahora ve la última
 oferta reservada/reemplazada (`ofertaCerradaEnISO`) y no marca. La descripción repetida es el punto 9.
+**Segunda mirada de Simon a la pantalla parada:** el acuse decía «la del martes a las 14:00» con dos martes
+a las 14:00 en la oferta: ahora toda hora nombrada al paciente lleva la FECHA ENTERA («la del martes 29 de
+septiembre a las 14:00»), también en «se acaba de ocupar». El botón de reservar decía «Comprobando…» en
+gris: ahora dice lo que hace («Reservar mar 29 a las 14:00 y confirmar») y una ficha recargada no hereda un
+«en marcha» viejo. La oferta la manda el SCRIPT del e2e, nunca el producto solo; el estado «esperando que
+la coordinadora elija» es el de `--limpiar`. Producción tiene el token de la cola (Simon lo comprobó en
+Ajustes → Incidencias): el retardo de 10 min en horario aplica.

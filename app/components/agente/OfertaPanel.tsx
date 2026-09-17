@@ -59,6 +59,7 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
     setCorregido(null);
     setReofertando(false);
     setIndiceManual(null);
+    setGuardando(false); // una ficha recargada no hereda un «en marcha» viejo
   }, [oferta?.id, oferta?.estado, oferta?.eleccion]);
 
   async function reservar(indice: number | null) {
@@ -206,7 +207,15 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
         className={`${btnPrimario} mt-2`}
       >
         <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
-        {guardando ? "Comprobando…" : tardia ? "Comprobar, reservar y confirmar" : "Reservar y enviar la confirmación"}
+        {(() => {
+          // El botón dice lo que HACE, con la hora (visto por Simon el 17-09:
+          // un «Comprobando…» gris le dice que espere, y lo que tiene que
+          // hacer es actuar). Solo mientras la petición está en vuelo cambia.
+          const cual = elegida ?? (indiceManual != null ? oferta.alternativas[indiceManual] ?? null : null);
+          const hora = cual ? `${fechaCorta(cual.fecha)} a las ${cual.hora}` : "la hora elegida";
+          if (guardando) return `Reservando ${hora}…`;
+          return tardia ? `Comprobar y reservar ${hora}` : `Reservar ${hora} y confirmar`;
+        })()}
       </button>
       <button type="button" onClick={() => setReofertando(true)} className={`${btnEnlace} mt-2`}>Proponer otras horas</button>
     </Caja>

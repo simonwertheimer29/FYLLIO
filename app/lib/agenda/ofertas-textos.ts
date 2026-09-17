@@ -28,12 +28,11 @@ export function alternativaLegible(a: Pick<Alternativa, "fecha" | "hora" | "doct
   return `${dia} a las ${a.hora}${a.doctorNombre ? ` con ${a.doctorNombre}` : ""}`;
 }
 
-/** «la del jueves a las 10:00» */
+/** «la del martes 29 de septiembre a las 14:00» — con la FECHA ENTERA (visto
+ *  por Simon el 17-09: con dos martes a las 14:00, «la del martes a las
+ *  14:00» no identifica nada). */
 export function alternativaCorta(a: Pick<Alternativa, "fecha" | "hora">): string {
-  const dia = fechaClinica(a.fecha, { diaSemana: true, mesLargo: true }).split(" ")[0] ?? "";
-  const nombreDia: Record<string, string> = { lunes: "lunes", martes: "martes", miércoles: "miércoles", jueves: "jueves", viernes: "viernes", sábado: "sábado", domingo: "domingo" };
-  const d = nombreDia[dia] ?? fechaClinica(a.fecha, { diaSemana: true });
-  return `la del ${d} a las ${a.hora}`;
+  return `la del ${fechaClinica(a.fecha, { diaSemana: true, mesLargo: true })} a las ${a.hora}`;
 }
 
 const lista = (alts: readonly Alternativa[]) => alts.map((a, i) => `${i + 1}) ${alternativaLegible(a)}`).join("\n");
