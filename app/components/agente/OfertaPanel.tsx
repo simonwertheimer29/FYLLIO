@@ -492,7 +492,7 @@ function Selector({
         </div>
       )}
       {onCancelar && (
-        <button type="button" onClick={onCancelar} className={btnEnlace}>Cancelar</button>
+        <button type="button" onClick={onCancelar} className={btnEnlace}>Cerrar sin enviar</button>
       )}
     </div>
   );
