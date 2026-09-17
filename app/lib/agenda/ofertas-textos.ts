@@ -6,9 +6,9 @@
 // solo el código garantiza (qué se ofreció, qué se ocupó, que alguien lo
 // mira), por eso no las redacta el modelo ni pasan por el juez.
 //
-// Aprobados por Simon el 17-09: «se acaba de ocupar», «todas ocupadas» (con
-// y sin horas nuevas), el acuse con sus dos ramas. PENDIENTES de su OK: la
-// oferta en sí (la línea del orden de confirmación) y la desambiguación.
+// Aprobados por Simon el 17-09, todos: la oferta («te la reservamos» + orden
+// de confirmación), «se acaba de ocupar», «todas ocupadas» (con y sin horas
+// nuevas), la desambiguación por horas y el acuse con sus dos ramas.
 
 import { fechaClinica } from "../time";
 import type { HuecoDelCaso } from "./huecos-del-caso";
@@ -44,7 +44,7 @@ const lista = (alts: readonly Alternativa[]) => alts.map((a, i) => `${i + 1}) ${
  *  «Dinos cuál te va y queda reservada para ti», es el aprobado). */
 export function textoOferta(p: { nombre: string; alternativas: readonly Alternativa[]; tratamiento: string | null }): string {
   const que = p.tratamiento ? ` para ${enMinuscula(p.tratamiento)}` : "";
-  return `${nombreDe(p.nombre)}estas son las horas que tenemos${que}:\n${lista(p.alternativas)}\nDinos cuál te va y queda reservada para ti. Las horas se asignan por orden de confirmación, así que cuanto antes nos digas, antes la tienes.`;
+  return `${nombreDe(p.nombre)}estas son las horas que tenemos${que}:\n${lista(p.alternativas)}\nDinos cuál te va y te la reservamos. Las horas se asignan por orden de confirmación, así que cuanto antes nos digas, antes la tienes.`;
 }
 
 /** «Se acaba de ocupar» — SIN «Vaya» (es fallo nuestro). Aprobado. */
@@ -63,9 +63,27 @@ export function textoSinHuecos(p: { nombre: string }): string {
   return `${nombreDe(p.nombre)}las horas que te propusimos se han ocupado y ahora mismo no tenemos otras en los próximos días. El equipo revisa la agenda y te escribe en cuanto abra la clínica.`;
 }
 
-/** El agente pide aclarar cuál: SOLO repite lo que ya salió (correa corta). */
+/** «la del jueves 24 a las 10:00 con la Dra. Villalba» — con el número del
+ *  día y el artículo del doctor, para nombrar la hora sin números de lista. */
+export function alternativaNombrada(a: Pick<Alternativa, "fecha" | "hora" | "doctorNombre">): string {
+  const dia = fechaClinica(a.fecha, { diaSemana: true, mesLargo: true }); // «jueves 24 de septiembre»
+  const diaNum = dia.replace(/ de .*$/, "");
+  const doc = a.doctorNombre ? ` con ${/^dra\.?\s/i.test(a.doctorNombre) ? "la " : /^dr\.?\s/i.test(a.doctorNombre) ? "el " : ""}${a.doctorNombre}` : "";
+  return `la del ${diaNum} a las ${a.hora}${doc}`;
+}
+
+/** El agente pide aclarar cuál: SOLO repite lo que ya salió (correa corta),
+ *  por sus HORAS y no por números (aprobado por Simon el 17-09: si el primer
+ *  mensaje decía 1, 2 y 3 y aquí se repiten dos como 1 y 2, el «2» ya no es
+ *  el mismo), y sin prometer que queda reservada (entre que contesta y la
+ *  coordinadora reserva, el hueco puede ocuparse). */
 export function textoDesambiguacion(p: { nombre: string; alternativas: readonly Alternativa[] }): string {
-  return `${nombreDe(p.nombre)}¿cuál de estas dices?\n${lista(p.alternativas)}\nContéstanos con el número y queda reservada.`;
+  const n = p.alternativas.length;
+  const cuantas = n === 2 ? "de las dos" : n === 3 ? "de las tres" : n === 4 ? "de las cuatro" : "de estas";
+  const nombradas = p.alternativas.map(alternativaNombrada);
+  const enumeradas = nombradas.length > 1 ? `${nombradas.slice(0, -1).join(", ")} o ${nombradas[nombradas.length - 1]}` : nombradas[0] ?? "";
+  const cap = enumeradas.charAt(0).toUpperCase() + enumeradas.slice(1);
+  return `${nombreDe(p.nombre)}¿cuál ${cuantas} dices? ${cap}.`;
 }
 
 /** EL ACUSE (aprobado con dos ramas por horario). No promete hora ni

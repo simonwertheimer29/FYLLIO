@@ -4166,5 +4166,8 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   huecos», desambiguación, acuse) solo en español. La oferta la manda la coordinadora (ve el texto), pero la
   desambiguación y el acuse los manda el agente: a quien escribe en catalán o inglés le llega en español.
 - **Qué hacer:** llevar `idioma` a `registrarRespuestaAOferta` (el juicio ya lo trae) y a la oferta (el último
-  idioma del hilo), y traducir con Simon delante: son plantillas aprobadas. · **Impacto:** BAJO hasta que haya
-  clínica con pacientes en catalán/inglés. · **Esfuerzo:** 45 min + OK de textos. · **Fecha:** 2026-09-17
+  idioma del hilo), y traducir con Simon delante: son plantillas aprobadas.
+- **Simon la SUBE de prioridad (17-09 noche):** el agente responde en el idioma del paciente y estos saldrían
+  siempre en español; en Madrid eso pasa. · **Impacto:** ALTO. · **Esfuerzo:** ~1 h de código (columna `idioma`
+  en `ofertas_hueco`, el juicio `idioma` viaja en `ofertaRespuesta`, la oferta toma el último idioma del hilo,
+  seis textos × ca/en) + su OK a 12 textos. · **Fecha:** 2026-09-17

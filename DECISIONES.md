@@ -6699,3 +6699,6 @@ en el navegador.
 cuanto antes nos digas, antes la tienes») y a la desambiguación; luego el punto 7 (lo que se cae del 3b) y la
 ficha (8, 9, 11, 12, 13); MEJORAS 262 (cohorte «esperando hueco») al cerrar el bucle; 263 (idiomas).
 **Coste:** ~5 h escribir · ~1,5 h medir · $0,23 de modelo.
+**Textos cerrados con Simon esa noche:** la oferta dice «te la reservamos» (no «queda reservada para ti», que
+contradecía el orden de confirmación); la desambiguación nombra las HORAS y no números de lista (dos como
+«1 y 2» ya no son el «2» del primer mensaje) y no promete reserva. MEJORAS 263 sube a prioridad alta.

@@ -131,7 +131,7 @@ await runWithCliente("DEMO", async () => {
 
     if (AMBIGUO) {
       ok(of?.desambiguaciones === 1 && of.eleccion == null, "el agente pidió aclarar (una vez) y no marcó elección");
-      ok(/¿cuál de estas dices\?/.test(borrador), "la respuesta es la plantilla de desambiguación (solo repite lo que salió)");
+      ok(/¿cuál de las (dos|tres|cuatro) dices\?/.test(borrador), "la respuesta es la plantilla de desambiguación (solo repite lo que salió)");
       ok(!derivado, "no deriva a la primera ambigüedad");
       console.log(`══ el paciente vuelve a contestar igual de ambiguo: «${fraseAmbigua}»`);
       await entrante(fraseAmbigua!, f0.lead.id, f0.clinicaId);
