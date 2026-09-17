@@ -4138,3 +4138,24 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   y `Ajustes → Agenda` y mirar el panel con el estándar visual. · **Esfuerzo:** 15 min con el PIN.
   · **Fecha:** 2026-09-17
 
+
+## 262. Agenda · cohorte «esperando hueco» con detector de huecos liberados (opción a del «todas ocupadas»)
+- **Decidido por Simon el 17-09 (noche).** Cuando se ocupan TODAS las alternativas de una oferta y no
+  hay horas nuevas, el caso vuelve a la coordinadora con plazo (opción b, causa `sin_huecos`, SLA «al
+  abrir la clínica»; es la que se escribe con el bucle). La opción a) NO se descarta: **es lo siguiente
+  del bloque de agenda, en cuanto el bucle ofrecer→elegir esté cerrado y probado.** Recordárselo a Simon
+  al cerrar el bucle.
+- **Qué es:** el caso queda en una cohorte «esperando hueco» que ella ve, y algo avisa cuando se libera
+  uno que encaje con sus preferencias. Se pone ENCIMA de b): el plazo sigue valiendo (si ella no entra,
+  la bandeja no avisa a nadie), el detector solo adelanta el momento.
+- **Cómo:** (1) un hueco se libera en CUATRO puntos de escritura: anular cita (`cancelarCitaDeLead` y el
+  PATCH de `/api/agenda/citas`), mover cita (`upsertCitaDeLead`), quitar un bloqueo
+  (`/api/agenda/configuracion`) y el sync de agenda externa (`sincronizarAgendasExternas`). En cada uno,
+  rejugar `huecosDelCaso` para los casos en espera de ESA clínica. (2) En **modo estricto, sin la
+  ampliación automática** (franja → días → todo): con ampliación cualquier hueco «encaja» y el aviso no
+  vale nada. (3) Comparar con la foto anterior (las alternativas ya ofrecidas, en `ofertas_hueco`) y
+  marcar el caso «hay hueco · reofertar» en bandeja y ficha. (4) **Solo con agenda en Fyllio o copia**;
+  sin agenda no hay nada que detectar y el caso se queda en b).
+- **Depende de:** MEJORAS 260 (la carga de ocupación dos veces: el detector la haría una tercera).
+  · **Impacto:** ALTO (es la promesa «te escribimos en cuanto haya hueco» vigilada por algo).
+  · **Esfuerzo:** ~5 h escribir + 1 h medir. · **Fecha:** 2026-09-17
