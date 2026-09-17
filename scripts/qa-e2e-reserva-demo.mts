@@ -105,12 +105,14 @@ await runWithCliente("DEMO", async () => {
 
   console.log("══ huecos");
   const tratamientoTexto = f0.recogido?.find((c) => c.campo === "tratamiento_o_molestia")?.valor ?? null;
-  let h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: null, doctorId: f0.lead.doctorAsignadoId });
+  let h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: null, doctorId: f0.lead.doctorAsignadoId, clinicaId: f0.clinicaId });
   if (!h.tratamiento) {
     // Sin casar: la coordinadora elegiría en el panel; aquí el primero del catálogo.
     console.log(`  (no casó tratamiento: «${h.nota}» → se elige ${h.catalogo[0]?.nombre})`);
-    h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.catalogo[0]?.id ?? null, doctorId: f0.lead.doctorAsignadoId });
+    h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.catalogo[0]?.id ?? null, doctorId: f0.lead.doctorAsignadoId, clinicaId: f0.clinicaId });
   }
+  if (h.doctorFueraDeClinica) console.log(`  (doctor asignado ${h.doctorFueraDeClinica} es de otra clínica: se ignora)`);
+  ok(h.huecos.every((x) => !f0.clinicaId || x.clinicaId === f0.clinicaId), "todos los huecos son de la clínica del caso");
   console.log(`  garantía: ${h.garantia.frescura} · reserva=${h.garantia.puedeReservar} · «${h.garantia.texto}»`);
   console.log(`  ampliado: ${h.ampliado ?? "no"} · nota: ${h.nota ?? "—"} · tratamiento: ${h.tratamiento?.nombre} (${h.tratamiento?.duracionMin} min)`);
   for (const x of h.huecos) console.log(`  · ${x.fecha} ${x.hora}-${x.fin} ${x.doctorNombre} (${x.clinicaNombre ?? "—"})`);
@@ -137,7 +139,7 @@ await runWithCliente("DEMO", async () => {
     lead: { id: updated.id, nombre: updated.nombre, clinicaId: updated.clinicaId ?? null, pacienteId: updated.pacienteId ?? null, fechaCita: elegido.fecha, horaCita: elegido.hora, doctorAsignadoId: elegido.doctorId },
     tratamientoId: h.tratamiento!.id,
   });
-  const h2 = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.tratamiento!.id, doctorId: elegido.doctorId });
+  const h2 = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.tratamiento!.id, doctorId: elegido.doctorId, clinicaId: f0.clinicaId });
   ok(!h2.huecos.some((x) => x.fecha === elegido.fecha && x.hora === elegido.hora && x.doctorId === elegido.doctorId), "el hueco reservado ya no se ofrece (la cita ocupa)");
 
   // ── Confirmar: lo mismo que POST /api/agente/confirmar-cita ──

@@ -6649,3 +6649,15 @@ igual — por eso la guarda es del código, no del prompt. `qa:reserva-demo --re
 cambió, qa:vara obliga): **65/67 · 21/21**; el que cae es el 6 (D→S), sondeado 4 veces 2/4 → es la
 moneda al aire ya conocida del 5-09, no el párrafo nuevo. C2 pasó esta vez (21/21).
 **Coste del paso 3 entero:** 3a ~3,5 h + 3b ~2 h (escribir) · medir ~1 h · $0,24 de modelo.
+
+## 2026-09-17 · Bug grave de la pantalla: la confirmación nombraba otra clínica
+**Visto por Simon en DEMO:** el hilo era de Clínica Demo Centro y el mensaje decía «tu cita en Clínica
+Demo Norte». **Causa:** el lead tenía asignado un doctor de OTRA clínica (el seed reparte doctores sin
+mirarlo) y `huecosDelCaso` respetaba el doctor asignado sin mirar la clínica del caso; la clínica del
+mensaje es la del doctor, así que era coherente con el hueco y falsa para el paciente. **Arreglo:** los
+doctores se filtran SIEMPRE por la clínica del caso (`clinicaId`); un asignado de otra clínica se
+ignora y se dice (`doctorFueraDeClinica`); «ver todos» son los de esa clínica. Medido en el e2e con
+otro lead (Verónica, Este): todos los huecos y la confirmación son de la clínica del hilo.
+**Simon cambia el flujo del paso 3 (ofrecer y que el paciente elija; nada reservado hasta que acepta):**
+13 puntos guardados en memoria (`agente-paso3-flujo-ofrecer-elegir`); se escribe en sesión nueva, con
+la pregunta del agente en caso entregado respondida y los textos aprobados antes.

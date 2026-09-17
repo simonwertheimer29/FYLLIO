@@ -79,6 +79,8 @@ export type RespuestaHuecos = {
   catalogo: { id: string; nombre: string; duracionMin: number }[];
   preferencia: PreferenciaCita | null;
   doctorFiltrado: { id: string; nombre: string } | null;
+  /** El doctor asignado al lead no es de la clínica del caso: se ignoró. */
+  doctorFueraDeClinica: string | null;
 };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -160,6 +162,11 @@ export async function huecosDelCaso(p: {
   tratamientoId: string | null;
   /** Doctor asignado al lead; null = todos los que tienen horario. */
   doctorId: string | null;
+  /** LA CLÍNICA DEL CASO (17-09, bug grave visto por Simon): solo se ofrecen
+   *  doctores de ESTA clínica. El lead de Centro tenía asignado un doctor de
+   *  Norte y la confirmación decía «tu cita en Clínica Demo Norte». null =
+   *  sin clínica conocida: todas (se dice en la nota). */
+  clinicaId: string | null;
   hoy?: string;
   ahora?: Date;
 }): Promise<RespuestaHuecos> {
@@ -209,8 +216,17 @@ export async function huecosDelCaso(p: {
     .map((t: any) => ({ id: t.id as string, nombre: (t.nombre ?? "") as string, duracionMin: t.duracion_min as number, antes: t.buffer_antes_min ?? 0, despues: t.buffer_despues_min ?? 0 }));
   const tratamiento = p.tratamientoId ? catalogo.find((t) => t.id === p.tratamientoId) ?? null : casarTratamiento(p.tratamientoTexto, catalogo);
 
-  const doctores = d.staff.filter((s: any) => (s.rol ?? "") === "Dentista" && s.activo !== false && (!p.doctorId || s.id === p.doctorId));
-  const doctorFiltrado = p.doctorId ? (doctores.find((s: any) => s.id === p.doctorId) ?? null) : null;
+  const dentistasDeLaClinica = d.staff.filter(
+    (s: any) => (s.rol ?? "") === "Dentista" && s.activo !== false && (!p.clinicaId || s.clinica_id === p.clinicaId),
+  );
+  // Un doctor asignado de OTRA clínica no filtra: se ofrecen los de la clínica
+  // del caso y se avisa (`doctorFueraDeClinica`).
+  const asignadoEnClinica = p.doctorId ? dentistasDeLaClinica.find((s: any) => s.id === p.doctorId) ?? null : null;
+  const doctorFueraDeClinica = p.doctorId != null && asignadoEnClinica == null
+    ? (d.staff.find((s: any) => s.id === p.doctorId)?.nombre ?? p.doctorId)
+    : null;
+  const doctores = asignadoEnClinica ? [asignadoEnClinica] : dentistasDeLaClinica;
+  const doctorFiltrado = asignadoEnClinica;
   const horariosDe = new Map<string, Array<{ dia_semana: number; inicio: string; fin: string }>>();
   for (const h of d.horarios) horariosDe.set(h.staff_id, [...(horariosDe.get(h.staff_id) ?? []), h]);
 
@@ -233,6 +249,7 @@ export async function huecosDelCaso(p: {
     catalogo: catalogo.map(({ id, nombre, duracionMin }) => ({ id, nombre, duracionMin })),
     preferencia: p.preferencia,
     doctorFiltrado: doctorFiltrado ? { id: doctorFiltrado.id, nombre: doctorFiltrado.nombre ?? "" } : null,
+    doctorFueraDeClinica,
   });
 
   if (!tratamiento) return salida([], null, catalogo.length ? "Elige el tipo de cita: su duración define los huecos." : "Ningún tratamiento tiene duración configurada — sin ella no se calculan huecos (Ajustes → Agenda).");

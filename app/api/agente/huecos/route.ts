@@ -71,6 +71,7 @@ export const GET = withAuth(async (session, req) => {
         tratamientoTexto,
         tratamientoId,
         doctorId,
+        clinicaId: ficha.clinicaId,
       });
       return NextResponse.json({
         ...r,
