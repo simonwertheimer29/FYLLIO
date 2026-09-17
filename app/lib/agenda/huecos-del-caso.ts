@@ -150,17 +150,18 @@ const SEPARACION_MIN = 60;
 
 /** PURA: de una lista ya ordenada por preferencia, elige hasta `max` que se
  *  parezcan lo menos posible entre sí: primero un hueco por día; si faltan,
- *  del mismo día pero a ≥ 60 min; si aún faltan, lo que haya. El orden de
+ *  del mismo día pero a ≥ 60 min. Si aún faltan, se devuelven MENOS (visto
+ *  por Simon el 17-09: «14:00 y 14:20» rellenando la tercera no son
+ *  alternativas; la coordinadora añade de la agenda si quiere). El orden de
  *  la lista (la preferencia) manda dentro de cada pasada. */
 export function espaciar(lista: readonly SlotDia[], max: number): SlotDia[] {
   const out: SlotDia[] = [];
-  const cabe = (x: SlotDia, pasada: 0 | 1 | 2) => {
+  const cabe = (x: SlotDia, pasada: 0 | 1) => {
     if (out.some((o) => o.fecha === x.fecha && o.slot.inicio === x.slot.inicio && o.doctorId === x.doctorId)) return false;
     if (pasada === 0) return !out.some((o) => o.fecha === x.fecha);
-    if (pasada === 1) return !out.some((o) => o.fecha === x.fecha && Math.abs(o.slot.inicio - x.slot.inicio) < SEPARACION_MIN);
-    return true;
+    return !out.some((o) => o.fecha === x.fecha && Math.abs(o.slot.inicio - x.slot.inicio) < SEPARACION_MIN);
   };
-  for (const pasada of [0, 1, 2] as const) {
+  for (const pasada of [0, 1] as const) {
     for (const x of lista) {
       if (out.length >= max) break;
       if (cabe(x, pasada)) out.push(x);

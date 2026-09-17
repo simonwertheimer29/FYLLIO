@@ -178,6 +178,10 @@ export type EntradaCohorte = {
   /** 060 — una oferta de horas VENCIÓ sin respuesta (calculado al leer):
    *  desde cuándo. Cohorte «necesita respuesta · oferta caducada». */
   ofertaCaducadaEnISO?: string | null;
+  /** 060 — la última oferta del hilo se RESERVÓ o fue sustituida por otra:
+   *  cuándo. Cierra por hecho una entrega `oferta_elegida` / `sin_huecos`
+   *  anterior (la cola no consulta el semáforo; este hecho sí lo ve). */
+  ofertaCerradaEnISO?: string | null;
   creadoISO?: string | null;
 };
 
@@ -242,10 +246,11 @@ function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_p
   if (e.agente?.entregadoCausa === "hueco_rechazado") {
     return { cohorte: "necesita_respuesta", detalle: "hueco_rechazado" };
   }
-  if (e.agente?.entregadoCausa === "oferta_elegida") {
+  const ofertaCerradaDespues = Boolean(e.ofertaCerradaEnISO && e.entregadoEnISO && e.ofertaCerradaEnISO > e.entregadoEnISO);
+  if (e.agente?.entregadoCausa === "oferta_elegida" && !ofertaCerradaDespues) {
     return { cohorte: "necesita_respuesta", detalle: "oferta_elegida" };
   }
-  if (e.agente?.entregadoCausa === "sin_huecos") {
+  if (e.agente?.entregadoCausa === "sin_huecos" && !ofertaCerradaDespues) {
     return { cohorte: "necesita_respuesta", detalle: "sin_huecos" };
   }
   // 060 — una oferta de horas que venció sin respuesta: hay que reofertar.
@@ -254,7 +259,7 @@ function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_p
   if (e.ofertaCaducadaEnISO) {
     return { cohorte: "necesita_respuesta", detalle: "oferta_caducada" };
   }
-  if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo") {
+  if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo" && !(ofertaCerradaDespues && (e.agente.entregadoCausa === "oferta_elegida" || e.agente.entregadoCausa === "sin_huecos"))) {
     return { cohorte: "necesita_respuesta", detalle: "entregado_urgente" };
   }
   if (e.conversacion === "pendiente_responder") {
@@ -452,7 +457,10 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
         (select json_agg(c) from (select clinica_id, conocimiento from configuracion_automatizaciones) c) as configs,
         (select json_agg(o) from (
            select telefono, caduca_en from ofertas_hueco
-           where estado = 'abierta' and caduca_en < now()) o) as ofertas_caducadas
+           where estado = 'abierta' and caduca_en < now()) o) as ofertas_caducadas,
+        (select json_agg(o) from (
+           select distinct on (telefono) telefono, updated_at from ofertas_hueco
+           where estado in ('reservada', 'reemplazada') order by telefono, updated_at desc) o) as ofertas_cerradas
       `.execute(trx);
       return (r.rows?.[0] ?? {}) as {
         toques: unknown;
@@ -463,6 +471,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
         eventos: any[] | null;
         configs: Array<{ clinica_id: string | null; conocimiento: string | null }> | null;
         ofertas_caducadas: Array<{ telefono: string; caduca_en: string }> | null;
+        ofertas_cerradas: Array<{ telefono: string; updated_at: string }> | null;
       };
     }),
   ]);
@@ -595,6 +604,15 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     const d = String(telefono ?? "").replace(/\D/g, "");
     return d ? ofertasCaducadas.get(d) ?? null : null;
   };
+  const ofertasCerradas = new Map<string, string>();
+  for (const o of crudo.ofertas_cerradas ?? []) {
+    const d = String(o.telefono ?? "").replace(/\D/g, "");
+    if (d) ofertasCerradas.set(d, new Date(o.updated_at).toISOString());
+  }
+  const ofertaCerradaDe = (telefono: string | null | undefined): string | null => {
+    const d = String(telefono ?? "").replace(/\D/g, "");
+    return d ? ofertasCerradas.get(d) ?? null : null;
+  };
   const buscarAgente = (tel: string | null | undefined): EstadoAgente | null => {
     const d = dig(tel);
     if (!d) return null;
@@ -667,6 +685,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
         ultimoSalienteISO: men.saliente,
         entregadoEnISO: agente?.entregadoEn ?? null,
         ofertaCaducadaEnISO: ofertaCaducadaDe(args.telefono),
+        ofertaCerradaEnISO: ofertaCerradaDe(args.telefono),
         creadoISO: args.creadoAt ? new Date(args.creadoAt).toISOString() : null,
       },
       relojDe(args.clinicaId ?? null),

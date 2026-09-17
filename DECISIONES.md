@@ -6702,3 +6702,15 @@ ficha (8, 9, 11, 12, 13); MEJORAS 262 (cohorte «esperando hueco») al cerrar el
 **Textos cerrados con Simon esa noche:** la oferta dice «te la reservamos» (no «queda reservada para ti», que
 contradecía el orden de confirmación); la desambiguación nombra las HORAS y no números de lista (dos como
 «1 y 2» ya no son el «2» del primer mensaje) y no promete reserva. MEJORAS 263 sube a prioridad alta.
+**Lo que vio Simon en pantalla (17-09, noche) y qué era:** (1) el `--dejar` del e2e hacía el camino entero
+(reservaba y confirmaba solo): ahora `--dejar` PARA donde para el producto (elegida, esperando el clic),
+`--dejar-reservado` hace el camino entero y `--limpiar` revierte. (2) «14:00, 14:20 y 29 a las 14:00»: el
+espaciado había entrado, pero rellenaba la tercera con la vecina cuando no había otra separada; ahora se
+devuelven MENOS (dos) y la coordinadora añade de la agenda si quiere. El mismo doctor en todas es por diseño
+(doctor asignado al lead; «ver todos» lo quita). (3) Acuse y confirmación seguidos: la condición «nadie
+reservó ni se le escribió» SÍ se evaluaba (y era cierta en ese instante); lo que faltó fue el retardo, porque
+el SCRIPT entregaba el acuse a mano y luego reservaba. Con `--dejar` ya no se fuerza: lo entrega QStash (la
+cola está activa en local) — y exige el worker desplegado: hasta que este commit llegue a producción, el
+trabajo `acuse_oferta` llega «malformado» y no se envía. (4) «Necesita respuesta» en rojo con la cita
+reservada: la cola no consulta el semáforo (doctrina) y no veía el cierre por hecho; ahora ve la última
+oferta reservada/reemplazada (`ofertaCerradaEnISO`) y no marca. La descripción repetida es el punto 9.

@@ -8,7 +8,9 @@
 //   npm run qa:oferta-demo -- "+34 663 478 802" --ambiguo "la del {dia}"  (dos del mismo día → el agente pregunta; {dia} = el ofrecido)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --ocupar                  (alguien ocupa la elegida antes del clic)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --tarde                   (contesta a una oferta caducada)
-//   npm run qa:oferta-demo -- "+34 663 478 802" --dejar                   (no revertir, para mirarlo en pantalla)
+//   npm run qa:oferta-demo -- "+34 663 478 802" --eleccion "la 2" --dejar (PARA donde para el producto: elegida, sin clic; no revierte)
+//   npm run qa:oferta-demo -- "+34 663 478 802" --eleccion "la 2" --dejar-reservado (camino entero sin revertir)
+//   npm run qa:oferta-demo -- "+34 663 478 802" --limpiar                 (revierte lo que dejó --dejar*)
 //
 // Gasto: un turno del modelo por elección ($0,01). Sin --eleccion ni --ambiguo
 // ni --tarde, solo la oferta y su comprobación ($0).
@@ -32,7 +34,15 @@ import { borradorAgenteDe } from "../app/lib/agente/borrador-agente";
 
 const args = process.argv.slice(2);
 const telefono = args.find((a) => !a.startsWith("--"));
+// --dejar: PARA DONDE PARA EL PRODUCTO (elección hecha, caso esperando el clic
+// de la coordinadora) y no revierte, para mirarlo en pantalla. El acuse NO se
+// fuerza: lo entrega la cola con su retardo (o sale inmediato si la cola no
+// está activa en este entorno; se imprime cuál de las dos).
+// --dejar-reservado: el camino entero (clic incluido) sin revertir.
+// --limpiar: revierte lo que dejó una ejecución anterior con --dejar*.
 const DEJAR = args.includes("--dejar");
+const DEJAR_RESERVADO = args.includes("--dejar-reservado");
+const LIMPIAR = args.includes("--limpiar");
 const OCUPAR = args.includes("--ocupar");
 const TARDE = args.includes("--tarde");
 const arg = (k: string) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] ?? null : null; };
@@ -55,6 +65,25 @@ await runWithCliente("DEMO", async () => {
   await runWithClienteDb("DEMO", (trx) =>
     sql`insert into agenda_ajustes (cliente, agenda_en_fyllio, activado_por, activado_en) values ('DEMO', true, 'qa:oferta-demo', now())
         on conflict (cliente) do update set agenda_en_fyllio = true, actualizado_en = now()`.execute(trx));
+
+  if (LIMPIAR) {
+    console.log(`══ limpiar lo que dejó una ejecución anterior en ${telefono}`);
+    const ult: any = await runWithClienteDb("DEMO", (trx) => sql`select created_at, lead_id from ofertas_hueco where telefono = ${telefono} order by created_at asc limit 1`.execute(trx));
+    const desde = ult.rows?.[0]?.created_at ? new Date(new Date(ult.rows[0].created_at).getTime() - 60_000) : null;
+    if (!desde) { console.log("  nada que limpiar (sin ofertas)"); process.exit(0); }
+    const leadId = String(ult.rows[0].lead_id);
+    await cancelarCitaDeLead({ cliente: "DEMO", leadId });
+    await updateLead(leadId, { estado: "Nuevo", fechaCita: null, horaCita: null });
+    await runWithClienteDb("DEMO", async (trx) => {
+      await sql`delete from ofertas_hueco where telefono = ${telefono}`.execute(trx);
+      await sql`delete from mensajes_whatsapp where telefono = ${telefono} and "timestamp" >= ${desde}`.execute(trx);
+      await sql`delete from eventos_automatizacion where tipo_caso = 'conversacion' and caso_id = ${telefono} and created_at >= ${desde}`.execute(trx);
+      await sql`delete from bloqueos_staff where motivo = 'qa:oferta-demo'`.execute(trx);
+    });
+    const f = await fichaDeCaso(telefono!);
+    console.log(`  limpio: cita=${f.cita ? "SÍ" : "no"} · oferta=${f.oferta?.estado ?? "ninguna"} · estado «${f.estado.texto}»`);
+    process.exit(0);
+  }
 
   console.log(`══ ficha de ${telefono}`);
   const f0 = await fichaDeCaso(telefono!);
@@ -151,6 +180,17 @@ await runWithCliente("DEMO", async () => {
       ok(!fe.semaforo.verde && fe.semaforo.motivo === "derivado_sin_resolver", "el caso está entregado a una persona");
       ok(fe.cita == null, "NADA reservado todavía");
 
+      if (DEJAR) {
+        const { estadoCola } = await import("../app/lib/cola/qstash");
+        const ec = estadoCola();
+        const ofD = await ofertaDelCaso(telefono!);
+        console.log(`══ PARADO donde para el producto: elección hecha, esperando el clic de la coordinadora`);
+        console.log(`  cola: ${ec.activa ? "ACTIVA → el acuse lo entrega QStash con su retardo (10 min en horario, 0 fuera)" : `inactiva (${(ec as any).motivo}) → el acuse salió inmediato al registrar la elección`}`);
+        console.log(`  acuse enviado: ${ofD?.acuseEnviadoEn ? ofD.acuseEnviadoEn.toISOString() : "todavía no"}`);
+        console.log(`  mira /mensajeria?telefono=${encodeURIComponent(telefono!)} · para revertir: npm run qa:oferta-demo -- "${telefono}" --limpiar`);
+        process.exit(rojos ? 1 : 0);
+      }
+
       console.log("══ el acuse (lo que la cola entregaría)");
       const acuseAntes = await acuseDeEleccion({ ofertaId: o.oferta.id });
       // Sin QSTASH_TOKEN el acuse ya salió inmediato al registrar la elección.
@@ -201,6 +241,13 @@ await runWithCliente("DEMO", async () => {
           ok(fr.oferta?.estado === "reservada", "la oferta consta reservada");
           ok(fr.semaforo.verde, `el derivado oferta_elegida se cierra por hecho (verde=${fr.semaforo.verde})`);
           ok(fr.estado.texto.startsWith("Cita reservada"), `la etiqueta es «${fr.estado.texto}»`);
+          // Visto por Simon (17-09): la BANDEJA decía «Necesita respuesta» con la cita ya
+          // reservada — la cola no consulta el semáforo; ahora ve el cierre de la oferta.
+          const { colaDeSeguimiento } = await import("../app/lib/seguimiento/cola");
+          const cola = await colaDeSeguimiento();
+          const dig = telefono!.replace(/\D/g, "");
+          const enCola = cola.casos.find((c: any) => String(c.telefono ?? "").replace(/\D/g, "") === dig);
+          ok(!enCola || enCola.cohorte !== "necesita_respuesta", `la bandeja NO lo marca «necesita respuesta» tras reservar (${enCola ? enCola.cohorte : "no está en la cola"})`);
           const otra2 = await reservarEleccion({ telefono: telefono!, preferencia: f0.preferenciaCita });
           ok(!otra2.ok && otra2.motivo === "ya_reservada", "un segundo clic no reserva dos veces");
         }
@@ -208,7 +255,7 @@ await runWithCliente("DEMO", async () => {
     }
   }
 
-  if (!DEJAR) {
+  if (!DEJAR && !DEJAR_RESERVADO) {
     console.log("══ revertir");
     await cancelarCitaDeLead({ cliente: "DEMO", leadId: f0.lead.id });
     await updateLead(f0.lead.id, { estado: leadAntes?.estado ?? "Nuevo", fechaCita: null, horaCita: null, doctorAsignadoId: leadAntes?.doctorAsignadoId ?? null });

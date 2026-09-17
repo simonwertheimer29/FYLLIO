@@ -73,6 +73,8 @@ console.log("══ elegirHuecos");
   const seguidos = [slot("2026-09-22", "14:00"), slot("2026-09-22", "14:20"), slot("2026-09-22", "14:40"), slot("2026-09-22", "15:00"), slot("2026-09-22", "16:00"), slot("2026-09-24", "14:00")];
   const r = elegirHuecos(seguidos, { franja: "tarde", dias: ["mar"], urgencia: null });
   ok(r.elegidos.map((e) => `${e.fecha.slice(5)} ${e.slot.inicio / 60}`).join(",") === "09-22 14,09-22 15,09-22 16", `espaciados: un día distinto no hay (jueves no es martes), así que ≥ 60 min entre sí (${r.elegidos.map((e) => e.slot.inicio / 60).join(",")})`);
+  const pocos = elegirHuecos([slot("2026-09-22", "14:00"), slot("2026-09-22", "14:20"), slot("2026-09-29", "14:00"), slot("2026-09-29", "14:20")], { franja: "tarde", dias: ["mar"], urgencia: null });
+  ok(pocos.elegidos.length === 2, `si no hay tres que se separen, se devuelven DOS, no se rellena con la de 20 min después (${pocos.elegidos.length})`);
   const r2 = elegirHuecos(seguidos, null);
   ok(r2.elegidos.map((e) => `${e.fecha.slice(5)} ${e.slot.inicio / 60}`).join(",") === "09-22 14,09-22 15,09-24 14", `sin preferencia: primero un hueco por día, luego separados (${r2.elegidos.map((e) => `${e.fecha.slice(8)}@${e.slot.inicio / 60}`).join(",")})`);
 }
