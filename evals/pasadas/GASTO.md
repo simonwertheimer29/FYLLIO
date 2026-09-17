@@ -367,3 +367,6 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
 - **17-09 · PASO 3b (no me viene bien)** (`qa:evals-evaluador --solo-juicios` completa $0,162 · 4 sondas del
   caso 6 $0,02 · `qa:hueco-rechazado` ×2 $0,02 · tres e2e con entrante evaluado ~$0,02) · **$0,22 medido** ·
   ac. **~$17,84**
+- **17-09 · BUCLE OFRECER → ELEGIR (060)** (`qa:evals-evaluador --solo-juicios` completa $0,173 tras el juicio
+  nuevo `eleccionOferta` · siete turnos de `qa:oferta-demo` con modelo ~$0,04 · `qa:hueco-rechazado` $0,01 ·
+  `qa:reserva-demo` sin modelo · 3 sondas del caso 35 $0,007) · **$0,23 medido** · ac. **~$18,07**

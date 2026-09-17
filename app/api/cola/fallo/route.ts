@@ -63,14 +63,19 @@ export async function POST(req: Request) {
     });
     return NextResponse.json({ ok: false, motivo: "sin_trabajo" });
   }
-  const { cliente, entrada } = trabajo;
+  const { cliente } = trabajo;
+  // 060 — el acuse de una oferta también puede agotar reintentos; la
+  // referencia es la oferta, no un mensaje.
+  const ref = trabajo.tipo === "acuse_oferta"
+    ? { clinicaId: trabajo.clinicaId ?? null, mensajeId: trabajo.ofertaId }
+    : { clinicaId: trabajo.entrada.clinicaId ?? null, mensajeId: trabajo.entrada.mensajeId };
   await runWithCliente(cliente, () =>
     registrarIncidencia({
       tipo: "cola",
       motivo: "reintentos_agotados",
       origen: "cola/fallo",
-      clinicaId: entrada.clinicaId ?? null,
-      referencia: entrada.mensajeId,
+      clinicaId: ref.clinicaId,
+      referencia: ref.mensajeId,
       detalle: {
         status: aviso.status ?? null,
         intentos: (aviso.retried ?? 0) + 1,

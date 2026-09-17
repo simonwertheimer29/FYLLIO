@@ -35,6 +35,7 @@ import { persistirTurno, leerPayloadEvaluacion } from "./persistir-turno";
 import { sombraDelTurno } from "./sombra";
 import { entradaDesdeContexto } from "./entrada-desde-contexto";
 import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
+import { ofertaAbiertaParaEvaluador, registrarRespuestaAOferta, anotarDesambiguacion } from "../agenda/ofertas";
 import type { ConocimientoClinica } from "./conocimiento";
 import { semaforoDeContacto } from "../automatizacion/semaforo";
 import { type ClaveAplazado, type EventoAplazamiento } from "../automatizacion/aplazamientos";
@@ -326,6 +327,21 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   // contactar — la espera suspende lo PROACTIVO (cadencias).
   const sem = await semaforoDeContacto(e.telefono, { hoy: e.hoy });
 
+  // 17-09 (060) — la oferta de horas abierta, si la hay. Viaja al evaluador
+  // para el juicio `eleccionOferta`. Si el hilo lo LLEVA UNA PERSONA (asumido)
+  // el agente no entra, pero el paciente que contesta a la oferta tampoco se
+  // queda en silencio toda la noche: se anota la respuesta SIN interpretar y
+  // sale el acuse genérico (decisión de Simon: es un acuse, no decide nada).
+  const ofertaAbierta = await ofertaAbiertaParaEvaluador(e.telefono, ahora).catch((err) => {
+    console.error("[evaluar-entrante] oferta abierta no legible:", err instanceof Error ? err.message : err);
+    return null;
+  });
+  if (ofertaAbierta && !sem.verde && sem.motivo === "hilo_asumido") {
+    await registrarRespuestaAOferta({ ofertaId: ofertaAbierta.id, indice: null, mensajeId: e.mensajeId, ahora }).catch((err) =>
+      console.error("[evaluar-entrante] respuesta a oferta (asumido):", err instanceof Error ? err.message : err),
+    );
+  }
+
   let diasHastaProximaCita: number | null = null;
   if (datos.proximaCita) {
     const hoy = e.hoy ?? hoyISO();
@@ -362,6 +378,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     semaforo: sem,
     diasHastaProximaCita,
     citaConfirmada: datos.citaConfirmada,
+    ofertaAbierta: ofertaAbierta ? { id: ofertaAbierta.id, alternativas: ofertaAbierta.alternativas.map((a) => ({ fecha: a.fecha, hora: a.hora, doctorNombre: a.doctorNombre })), desambiguaciones: ofertaAbierta.desambiguaciones } : null,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
     descartesSeguidosAntes: datos.descartesSeguidosAntes,
     entregaYaResuelta: datos.entregaYaResuelta,
@@ -401,6 +418,21 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     evaluacion,
     escritoPor,
   });
+
+  // 17-09 (060) — lo que el turno decidió sobre la oferta de horas, persistido
+  // DESPUÉS del turno (el log ya tiene el derivado): la elección encola el
+  // acuse con retardo; la desambiguación solo cuenta la vez.
+  if (evaluacion.ofertaRespuesta) {
+    try {
+      if (evaluacion.ofertaRespuesta.tipo === "eleccion") {
+        await registrarRespuestaAOferta({ ofertaId: evaluacion.ofertaRespuesta.ofertaId, indice: evaluacion.ofertaRespuesta.indice, mensajeId: e.mensajeId, ahora });
+      } else {
+        await anotarDesambiguacion(evaluacion.ofertaRespuesta.ofertaId);
+      }
+    } catch (err) {
+      console.error("[evaluar-entrante] respuesta a oferta:", err instanceof Error ? err.message : err);
+    }
+  }
 
   if (evaluacion.fallback) {
     await avisarFalloAgente({

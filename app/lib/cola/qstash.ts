@@ -31,13 +31,30 @@ export const REINTENTOS = 3;
 
 const CLIENTES: ReadonlySet<string> = new Set(["RB", "INDEP", "DEMO"]);
 
-export type TrabajoCola = {
-  tipo: "evaluar_entrante";
-  cliente: Cliente;
-  entrada: EntranteAEvaluar;
-  /** ISO — cuándo se encoló. Diagnóstico, no lógica. */
-  encoladoEn: string;
-};
+/** Omit distributivo: sobre una unión, `Omit<A|B, k>` se queda con las
+ *  claves comunes y pierde las de cada rama. */
+type SinEncolado<T> = T extends unknown ? Omit<T, "encoladoEn"> : never;
+export type TrabajoNuevo = SinEncolado<TrabajoCola>;
+
+export type TrabajoCola =
+  | {
+      tipo: "evaluar_entrante";
+      cliente: Cliente;
+      entrada: EntranteAEvaluar;
+      /** ISO — cuándo se encoló. Diagnóstico, no lógica. */
+      encoladoEn: string;
+    }
+  | {
+      /** 17-09 (bucle de ofertas) — el ACUSE a la elección del paciente, con
+       *  retardo: sale solo si en unos minutos nadie ha reservado ni se le ha
+       *  escrito nada. Lo comprueba el receptor (ofertas.ts), no la cola. */
+      tipo: "acuse_oferta";
+      cliente: Cliente;
+      ofertaId: string;
+      telefono: string;
+      clinicaId: string | null;
+      encoladoEn: string;
+    };
 
 /** URL pública a la que QStash nos llama. COLA_URL_BASE manda; en Vercel, la
  *  URL de producción que Vercel expone. En el portátil no hay (y no debe haber:
@@ -86,16 +103,20 @@ const PROHIBIDO_EN_CLAVE = /:/g;
  *  Colisiones: dos mensaje_id que solo se diferencien en un «:» darían la misma
  *  clave. No ocurre con los wamid de Meta y, si ocurriera, lo cubre la segunda
  *  capa de idempotencia (`turnoYaEvaluado` en el receptor). */
-export function claveTrabajo(t: Pick<TrabajoCola, "tipo" | "cliente" | "entrada">): string {
-  return `${t.tipo}-${t.cliente}-${t.entrada.mensajeId}`.replace(PROHIBIDO_EN_CLAVE, "-");
+export function claveTrabajo(t: TrabajoNuevo): string {
+  const ref = t.tipo === "acuse_oferta" ? t.ofertaId : t.entrada.mensajeId;
+  return `${t.tipo}-${t.cliente}-${ref}`.replace(PROHIBIDO_EN_CLAVE, "-");
 }
 
 /** Lo que llega por HTTP es de fuera aunque venga firmado: se valida la forma. */
 export function parseTrabajo(body: string): TrabajoCola | null {
   try {
     const t = JSON.parse(body) as Partial<TrabajoCola> | null;
-    if (!t || t.tipo !== "evaluar_entrante") return null;
-    if (typeof t.cliente !== "string" || !CLIENTES.has(t.cliente)) return null;
+    if (!t || typeof t.cliente !== "string" || !CLIENTES.has(t.cliente)) return null;
+    if (t.tipo === "acuse_oferta") {
+      return typeof t.ofertaId === "string" && typeof t.telefono === "string" ? (t as TrabajoCola) : null;
+    }
+    if (t.tipo !== "evaluar_entrante") return null;
     const e = t.entrada;
     if (!e || typeof e.telefono !== "string" || typeof e.mensajeId !== "string" || typeof e.contenido !== "string") return null;
     return t as TrabajoCola;
@@ -107,7 +128,8 @@ export function parseTrabajo(body: string): TrabajoCola | null {
 let avisadaInactiva = false;
 
 export async function encolar(
-  t: Omit<TrabajoCola, "encoladoEn">,
+  t: TrabajoNuevo,
+  opts?: { /** Entrega diferida (segundos). QStash lo retiene; sin cola no hay retardo posible. */ retardoSeg?: number },
 ): Promise<{ encolado: true; qstashId: string } | { encolado: false; motivo: string }> {
   const estado = estadoCola();
   if (!estado.activa) {
@@ -119,13 +141,14 @@ export async function encolar(
     }
     return { encolado: false, motivo: estado.motivo };
   }
-  const trabajo: TrabajoCola = { ...t, encoladoEn: new Date().toISOString() };
+  const trabajo = { ...t, encoladoEn: new Date().toISOString() } as TrabajoCola;
   try {
     const client = new Client({ token: process.env.QSTASH_TOKEN! });
     const r = await client.publishJSON({
       url: `${estado.base}${RUTA_TRABAJO}`,
       body: trabajo,
       retries: REINTENTOS,
+      ...(opts?.retardoSeg && opts.retardoSeg > 0 ? { delay: Math.round(opts.retardoSeg) } : {}),
       deduplicationId: claveTrabajo(trabajo),
       failureCallback: `${estado.base}${RUTA_FALLO}`,
     });
@@ -137,8 +160,8 @@ export async function encolar(
       tipo: "cola",
       motivo: "publicar_fallo",
       origen: "cola/qstash",
-      clinicaId: t.entrada.clinicaId ?? null,
-      referencia: t.entrada.mensajeId,
+      clinicaId: (t.tipo === "acuse_oferta" ? t.clinicaId : t.entrada.clinicaId) ?? null,
+      referencia: t.tipo === "acuse_oferta" ? t.ofertaId : t.entrada.mensajeId,
       error: err,
       cliente: t.cliente,
       reintentable: true,

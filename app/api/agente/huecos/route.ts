@@ -66,12 +66,21 @@ export const GET = withAuth(async (session, req) => {
       // `doctorId=todos` quita el filtro del doctor asignado (la coordinadora
       // decide); sin parámetro, el asignado del lead si lo tiene.
       const doctorId = doctorParam === "todos" ? null : doctorParam || ficha.lead.doctorAsignadoId || null;
+      // 060 — `todos=1[&desde=YYYY-MM-DD][&dias=7]`: la agenda entera en
+      // orden de fecha (sin escalera), para que la coordinadora AÑADA horas a
+      // la propuesta más allá de las tres que cumplen la preferencia.
+      const todos = url.searchParams.get("todos") === "1";
+      const desde = url.searchParams.get("desde");
+      const dias = Number(url.searchParams.get("dias") ?? "");
       const r = await huecosDelCaso({
         preferencia: ficha.preferenciaCita,
         tratamientoTexto,
         tratamientoId,
         doctorId,
         clinicaId: ficha.clinicaId,
+        ...(todos
+          ? { modo: "todos" as const, desde: desde && /^\d{4}-\d{2}-\d{2}$/.test(desde) ? desde : undefined, dias: Number.isFinite(dias) && dias > 0 ? Math.min(dias, 14) : 7 }
+          : {}),
       });
       return NextResponse.json({
         ...r,

@@ -27,6 +27,7 @@ import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, plantillaP
 import { controlarBorrador } from "./control-borrador";
 import { hashVersion, type VersionTurno } from "./version";
 import { actoDelCodigo, type Acto } from "./actos";
+import { textoDesambiguacion } from "../agenda/ofertas-textos";
 import { plantillaHuecoRechazado } from "./plantillas-hueco";
 import { citaDeclinadaCubre, estadoDeLaPersona, objetivoActivoDe, objetivosElegibles, sinRecuerdoDeCobro } from "./estado-persona";
 import { FRASE_RECUERDO_COBRO } from "./entrada-desde-contexto";
@@ -115,6 +116,16 @@ export type EntradaEvaluador = {
    *  (citas.confirmada_en). Solo con esto tiene sentido el juicio
    *  `respuestaACita`: la persona está contestando a esa confirmación. */
   citaConfirmada?: { fecha: string; hora: string; doctor: string | null } | null;
+  /** 17-09 (bucle de ofertas, 060) — la oferta de horas ENVIADA a la persona
+   *  desde la ficha y aún sin reservar. Solo con esto tiene sentido el juicio
+   *  `eleccionOferta`; y el agente solo puede DESAMBIGUAR entre estas
+   *  (correa corta): no añade horas, no consulta agenda, no confirma. */
+  ofertaAbierta?: {
+    id: string;
+    alternativas: { fecha: string; hora: string; doctorNombre: string }[];
+    /** Veces que ya pidió aclarar: a la segunda sin aclarar, deriva. */
+    desambiguaciones: number;
+  } | null;
   /** Umbral de «cita próxima» en días. Default 7; configurable con tope en
    *  fase D. */
   umbralCitaProximaDias?: number;
@@ -217,6 +228,11 @@ export type EvaluacionTurno = {
   };
   causa?: CausaDerivacion;
   cola?: "prioritaria" | "normal";
+  /** 17-09 (060) — lo que este turno decidió sobre la oferta de horas abierta,
+   *  para que evaluar-entrante lo persista (ofertas.ts) DESPUÉS del turno:
+   *  `eleccion` = contestó (índice, o null si no se entendió y ya se preguntó
+   *  una vez); `desambiguar` = el agente pide aclarar cuál (una vez). */
+  ofertaRespuesta?: { ofertaId: string; tipo: "eleccion"; indice: number | null } | { ofertaId: string; tipo: "desambiguar" } | null;
   /** El HECHO que persiste la 022 (solo significativo con peticion_queja). */
   malestar?: boolean | null;
   objetivoActivo: EtapaObjetivo | null;
@@ -243,6 +259,8 @@ export type EvaluacionTurno = {
   presupuestoReferidoId?: string | null;
   /** 17-09 (paso 3b) — qué dijo sobre la cita confirmada (null sin cita confirmada o si no habla de ella). */
   respuestaACita?: "acepta" | "rechaza" | "contrapropone" | null;
+  /** 17-09 (060) — qué alternativa de la oferta eligió (null si no contesta a la oferta). */
+  eleccionOferta?: { indice: number | null; ambigua: boolean } | null;
   camposRecogidos: CamposRecogidos;
   /** Paso 2 de la ficha (16-09) — ver `PreferenciaCita`. Aditivo: los turnos
    *  anteriores no lo llevan. */
@@ -521,6 +539,8 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 
 ━━ JUICIO "respuestaACita" — SOLO aplica si el contexto trae una «Cita CONFIRMADA a la persona por WhatsApp»; sin eso, null. Qué dice el último mensaje sobre ESA hora: "acepta" si confirma que le va bien («perfecto», «allí estaré», «ok gracias»); "rechaza" si dice que ese día u hora NO le viene bien o que no puede, sin pedir otra concreta («no me viene bien», «ese día no puedo», «tendría que ser otro día»); "contrapropone" si pide o pregunta por OTRA fecha, hora o franja concreta, aunque además rechace («¿y el viernes?», «¿podría ser por la tarde?», «mejor la semana que viene»). Si el mensaje no habla de la cita, null. Un «gracias» a secas tras la confirmación es "acepta".
 
+━━ JUICIO "eleccionOferta" — SOLO aplica si el contexto trae una «Oferta de horas ENVIADA a la persona» con alternativas numeradas; sin eso, null. Si el último mensaje CONTESTA a esa oferta eligiendo una: {"indice": <número de la alternativa, empezando en 1>, "ambigua": false} («la 2», «la del viernes», «me va bien el jueves a las 10», «la primera»). Si contesta a la oferta pero NO se puede saber cuál («el jueves» y hay dos jueves, «la de la tarde» y hay dos tardes, «cualquiera» — elegir por ella no es elegir): {"indice": null, "ambigua": true}. Si el mensaje no habla de la oferta (pregunta otra cosa, rechaza todas, pide otro día): null. NUNCA deduzcas la elección por descarte ni inventes una hora que no está en la lista.
+
 ━━ JUICIO "pideNoContacto" — true SOLO si la persona pide de forma explícita que no se le escriba más o que se la dé de baja («no me escribáis más», «dejad de mandarme mensajes», «baja», «STOP», «no quiero recibir más mensajes»). Un «ahora no puedo», «dejadlo estar» o «ya os diré» NO es pedir no contacto: es una decisión o una espera.
 
 ━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
@@ -568,6 +588,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema d
   "idioma": "<es|ca|en|otro>",
   "pideNoContacto": <true|false>,
   "respuestaACita": <"acepta"|"rechaza"|"contrapropone"|null>,
+  "eleccionOferta": <{"indice": <1..n|null>, "ambigua": <true|false>}|null>,
   "presupuestoReferido": "<letra del presupuesto|ninguno>",
   "camposRecogidos": {<"etapa_abierta": {"clave_campo": "valor extraído del hilo" | null | "no_aplica"}...>},
   "preferenciaCita": <{"franja": "manana"|"tarde"|"indiferente"|null, "dias": ["lun"|"mar"|"mie"|"jue"|"vie"|"sab"|"dom"...], "urgencia": "cuanto_antes"|"esta_semana"|"sin_prisa"|null}|null>,
@@ -759,6 +780,9 @@ export function renderDatosQueConstan(e: EntradaEvaluador): string {
     e.citaConfirmada
       ? `Cita CONFIRMADA a la persona por WhatsApp: ${e.citaConfirmada.fecha} a las ${e.citaConfirmada.hora}${e.citaConfirmada.doctor ? ` con ${e.citaConfirmada.doctor}` : ""}`
       : null,
+    e.ofertaAbierta && e.ofertaAbierta.alternativas.length > 0
+      ? `Oferta de horas ENVIADA a la persona (elige una; el equipo la reserva): ${e.ofertaAbierta.alternativas.map((a, i) => `${i + 1}) ${a.fecha} a las ${a.hora}${a.doctorNombre ? ` con ${a.doctorNombre}` : ""}`).join(" · ")}`
+      : null,
     e.diasHastaProximaCita != null
       ? `Cita ya programada: ${e.diasHastaProximaCita === 0 ? "HOY" : e.diasHastaProximaCita === 1 ? "MAÑANA" : `dentro de ${e.diasHastaProximaCita} días`}`
       : null,
@@ -855,6 +879,10 @@ type JuicioModelo = {
   pideNoContacto: boolean;
   /** 17-09 (paso 3b) — solo con `citaConfirmada` en la entrada. */
   respuestaACita?: "acepta" | "rechaza" | "contrapropone" | null;
+  /** 17-09 (060) — solo con `ofertaAbierta` en la entrada: qué alternativa
+   *  eligió (índice 0..n-1), o `ambigua` si contesta a la oferta pero no se
+   *  sabe cuál («la del jueves» con dos jueves, «la primera de la tarde»). */
+  eleccionOferta?: { indice: number | null; ambigua: boolean } | null;
   camposRecogidos: CamposRecogidos;
   /** Paso 2 de la ficha (16-09): la preferencia de cita ESTRUCTURADA, para la
    *  máquina; el texto libre de `disponibilidad`/`dia_franja_nuevos` sigue
@@ -864,6 +892,18 @@ type JuicioModelo = {
 };
 
 const RESPUESTAS_CITA = ["acepta", "rechaza", "contrapropone"] as const;
+
+/** El modelo numera desde 1 (como el mensaje); el código indexa desde 0. Lo
+ *  que no tenga forma se descarta a null: una elección mal leída reserva
+ *  una hora que la persona no pidió. */
+export function canonizarEleccionOferta(v: unknown): { indice: number | null; ambigua: boolean } | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const ambigua = o["ambigua"] === true;
+  const n = typeof o["indice"] === "number" ? o["indice"] : typeof o["indice"] === "string" && /^\d+$/.test(o["indice"]) ? Number(o["indice"]) : null;
+  if (n != null && Number.isInteger(n) && n >= 1) return { indice: n - 1, ambigua: false };
+  return ambigua ? { indice: null, ambigua: true } : null;
+}
 const IDIOMAS_VALIDOS = ["es", "ca", "en", "otro"] as const;
 
 // LA LISTA BLANCA de etapas cuyos campos se aceptan del juicio del modelo.
@@ -1195,6 +1235,7 @@ export function parsearJuicio(
       // Lado seguro asimétrico: un opt-out solo se marca con un true explícito.
       pideNoContacto: p.pideNoContacto === true,
       respuestaACita: etiquetaDelModelo(p.respuestaACita, RESPUESTAS_CITA, "respuestaACita", descartes),
+      eleccionOferta: canonizarEleccionOferta(p.eleccionOferta),
       camposRecogidos: campos,
       preferenciaCita: canonizarPreferenciaCita(p.preferenciaCita, descartes),
       respuesta: mapa ? desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200) : String(p.respuesta ?? "").slice(0, 1200),
@@ -1518,6 +1559,7 @@ export async function evaluarTurno(
     etiquetasDescartadas: descartes ?? [],
     preferenciaCita: juicio.preferenciaCita,
     respuestaACita: juicio.respuestaACita,
+    eleccionOferta: juicio.eleccionOferta ?? null,
     // Letra → id, en código (el modelo nunca ve ids). Letra fuera de rango
     // = ilegible → null, contable como toda etiqueta fuera de vocabulario.
     presupuestoReferidoId: (() => {
@@ -1582,6 +1624,35 @@ export async function evaluarTurno(
   // la cita sigue reservada, que una persona le propone otra— solo el código
   // lo garantiza. El hueco NO se libera aquí: lo suelta la coordinadora, y
   // el caso le llega prioritario con esta causa.
+  // LA RESPUESTA A LA OFERTA DE HORAS (17-09, 060). El juicio es del modelo
+  // (qué alternativa eligió); la respuesta es de CÓDIGO y corta: si eligió,
+  // el agente CALLA — el acuse sale por la cola con retardo (ofertas.ts) y la
+  // coordinadora reserva de un clic (deriva `oferta_elegida`, prioritaria).
+  // Si no quedó claro cuál, pregunta UNA vez repitiendo SOLO lo que ya salió
+  // (correa corta); a la segunda, deriva igual y elige ella.
+  const of = e.ofertaAbierta;
+  const eleccion = of && of.alternativas.length > 0 ? juicio.eleccionOferta ?? null : null;
+  if (of && eleccion) {
+    const indice = eleccion.indice != null && eleccion.indice < of.alternativas.length ? eleccion.indice : null;
+    if (indice == null && of.desambiguaciones < 1) {
+      return {
+        ...base,
+        decision: "sigue",
+        ofertaRespuesta: { ofertaId: of.id, tipo: "desambiguar" },
+        respuesta: textoDesambiguacion({ nombre: e.nombre, alternativas: of.alternativas.map((a) => ({ ...a, fin: "", doctorId: "", clinicaId: null, clinicaNombre: null })) }),
+      };
+    }
+    return {
+      ...base,
+      decision: "deriva",
+      causa: "oferta_elegida",
+      cola: colaDeDerivacion("oferta_elegida", null),
+      esperaLevantar: e.esperaVigente != null,
+      ofertaRespuesta: { ofertaId: of.id, tipo: "eleccion", indice },
+      respuesta: "",
+    };
+  }
+
   const huecoRechazado =
     e.citaConfirmada != null && (juicio.respuestaACita === "rechaza" || juicio.respuestaACita === "contrapropone")
       ? juicio.respuestaACita

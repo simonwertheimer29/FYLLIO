@@ -287,6 +287,29 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
     return false;
   }
 
+  if (causa === "oferta_elegida" || causa === "sin_huecos") {
+    // 060 — el asunto era «reservar lo que eligió» / «buscarle hueco». Lo
+    // cierra un HECHO del bucle posterior al derivado: la oferta quedó
+    // reservada, o la sustituyó otra (se le mandaron horas nuevas), o la
+    // persona tiene ya una cita futura reservada desde entonces.
+    const r = await runWithClienteDb(cliente, (trx) =>
+      sql<{ ok: number }>`select 1 as ok from ofertas_hueco
+          where ${telMatch} and updated_at > ${derivado.created_at}
+            and (estado in ('reservada', 'reemplazada') or (estado = 'abierta' and created_at > ${derivado.created_at}))
+          limit 1`.execute(trx),
+    );
+    if (r.rows.length > 0) return true;
+    const c = await runWithClienteDb(cliente, (trx) =>
+      sql<{ ok: number }>`select 1 as ok from citas
+          where (${ctx.pacienteId ? sql`paciente_id = ${ctx.pacienteId}` : sql`false`}
+                 or ${ctx.leadActivo ? sql`lead_id = ${ctx.leadActivo.id}` : sql`false`})
+            and hora_inicio >= now() and estado in ('Programada', 'Confirmada')
+            and agendada_en > ${derivado.created_at}
+          limit 1`.execute(trx),
+    );
+    return c.rows.length > 0;
+  }
+
   if (causa === "antecedente_medico") {
     // La derivación era «revísalo antes de la cita»: la cita se celebró.
     if (!ctx.pacienteId) return false;

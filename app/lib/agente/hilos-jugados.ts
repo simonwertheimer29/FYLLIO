@@ -333,6 +333,8 @@ export const ETIQUETA_CAUSA: Record<CausaDerivacion, string> = {
   no_legible: "mensaje no legible",
   sin_respuesta_valida: "dos descartes seguidos",
   hueco_rechazado: "no le va la hora que se le confirmó",
+  oferta_elegida: "contestó a la oferta de horas",
+  sin_huecos: "sin horas que ofrecer",
 };
 
 const ETIQUETA_FIN: Record<FinMotivo, string> = {

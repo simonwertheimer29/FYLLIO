@@ -1,11 +1,11 @@
 {
-  "fecha": "2026-09-16",
+  "fecha": "2026-09-17",
   "modelo": "haiku",
   "origen": "sintetico",
   "casos": 45,
   "turnos": 73,
   "decision": {
-    "aciertos": 65,
+    "aciertos": 66,
     "total": 67
   },
   "listo": {
@@ -20,15 +20,14 @@
     "n": 1,
     "turnos": 1
   },
-  "costePorTurnoUsd": 0.00228,
-  "costeUsd": 0.1667,
+  "costePorTurnoUsd": 0.00237,
+  "costeUsd": 0.1727,
   "version": {
-    "evaluador": "531b56fadd06",
+    "evaluador": "952a497b934e",
     "juez": "4e22128909eb"
   },
   "fallos": [
-    "35:A→S",
-    "6:D→S"
+    "35:A→S"
   ],
   "salida": null
 }

@@ -103,6 +103,13 @@ export type DetalleCohorte =
    *  hueco sigue reservado hasta que la coordinadora lo mueva. SLA de
    *  respuesta (2 h de clínica abierta), no de urgencia. */
   | "hueco_rechazado"
+  /** 060 (17-09) — contestó a la oferta de horas: reservar de un clic. SLA de
+   *  respuesta. */
+  | "oferta_elegida"
+  /** 060 — sin horas que ofrecer: «te escribimos en cuanto abra la clínica».
+   *  SLA de respuesta en minutos LABORABLES = al abrir, dos horas. */
+  | "sin_huecos"
+  | "oferta_caducada"
   | "cobro_vencido";
 
 /** Los detalles de CONVERSACIÓN — los únicos que mide el reloj laborable.
@@ -136,6 +143,9 @@ export const OBLIGACION_DE_DETALLE: Record<DetalleConversacion, ObligacionPlazo>
   agotado: "llamada",
   nuevo_sin_contactar: "lead_nuevo",
   hueco_rechazado: "respuesta",
+  oferta_elegida: "respuesta",
+  sin_huecos: "respuesta",
+  oferta_caducada: "cierre",
 };
 
 // ─── La función pura: un caso → una de las tres, o null (no es cola) ───────
@@ -165,6 +175,9 @@ export type EntradaCohorte = {
   ultimoEntranteISO?: string | null;
   ultimoSalienteISO?: string | null;
   entregadoEnISO?: string | null;
+  /** 060 — una oferta de horas VENCIÓ sin respuesta (calculado al leer):
+   *  desde cuándo. Cohorte «necesita respuesta · oferta caducada». */
+  ofertaCaducadaEnISO?: string | null;
   creadoISO?: string | null;
 };
 
@@ -195,7 +208,11 @@ function desdeDeObligacion(detalle: DetalleConversacion, e: EntradaCohorte): str
     case "entregado_urgente":
     case "entregado_listo":
     case "hueco_rechazado":
+    case "oferta_elegida":
+    case "sin_huecos":
       return e.entregadoEnISO ?? null;
+    case "oferta_caducada":
+      return e.ofertaCaducadaEnISO ?? null;
     case "agotado":
       return e.ultimoSalienteISO ?? e.creadoISO ?? null;
     case "nuevo_sin_contactar":
@@ -224,6 +241,18 @@ function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_p
   if (e.automatizacion === "quebrado") return { cohorte: "necesita_respuesta", detalle: "quebrado" };
   if (e.agente?.entregadoCausa === "hueco_rechazado") {
     return { cohorte: "necesita_respuesta", detalle: "hueco_rechazado" };
+  }
+  if (e.agente?.entregadoCausa === "oferta_elegida") {
+    return { cohorte: "necesita_respuesta", detalle: "oferta_elegida" };
+  }
+  if (e.agente?.entregadoCausa === "sin_huecos") {
+    return { cohorte: "necesita_respuesta", detalle: "sin_huecos" };
+  }
+  // 060 — una oferta de horas que venció sin respuesta: hay que reofertar.
+  // No es una entrega del agente (nadie derivó): es un hecho del bucle que se
+  // calcula al leer.
+  if (e.ofertaCaducadaEnISO) {
+    return { cohorte: "necesita_respuesta", detalle: "oferta_caducada" };
   }
   if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo") {
     return { cohorte: "necesita_respuesta", detalle: "entregado_urgente" };
@@ -420,7 +449,10 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
            from eventos_automatizacion
            where tipo_caso = 'conversacion'
              and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto','evaluacion')) e) as eventos,
-        (select json_agg(c) from (select clinica_id, conocimiento from configuracion_automatizaciones) c) as configs
+        (select json_agg(c) from (select clinica_id, conocimiento from configuracion_automatizaciones) c) as configs,
+        (select json_agg(o) from (
+           select telefono, caduca_en from ofertas_hueco
+           where estado = 'abierta' and caduca_en < now()) o) as ofertas_caducadas
       `.execute(trx);
       return (r.rows?.[0] ?? {}) as {
         toques: unknown;
@@ -430,6 +462,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
         mensajes: Array<{ telefono: string; ultimo_entrante: string | null; ultimo_saliente: string | null }> | null;
         eventos: any[] | null;
         configs: Array<{ clinica_id: string | null; conocimiento: string | null }> | null;
+        ofertas_caducadas: Array<{ telefono: string; caduca_en: string }> | null;
       };
     }),
   ]);
@@ -552,6 +585,16 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
     });
   }
 
+  // 060 — ofertas de horas vencidas sin respuesta, por dígitos del teléfono.
+  const ofertasCaducadas = new Map<string, string>();
+  for (const o of crudo.ofertas_caducadas ?? []) {
+    const d = String(o.telefono ?? "").replace(/\D/g, "");
+    if (d) ofertasCaducadas.set(d, new Date(o.caduca_en).toISOString());
+  }
+  const ofertaCaducadaDe = (telefono: string | null | undefined): string | null => {
+    const d = String(telefono ?? "").replace(/\D/g, "");
+    return d ? ofertasCaducadas.get(d) ?? null : null;
+  };
   const buscarAgente = (tel: string | null | undefined): EstadoAgente | null => {
     const d = dig(tel);
     if (!d) return null;
@@ -623,6 +666,7 @@ async function colaDeSeguimientoEnTrx(cliente: ReturnType<typeof requireCliente>
         ultimoEntranteISO: men.entrante,
         ultimoSalienteISO: men.saliente,
         entregadoEnISO: agente?.entregadoEn ?? null,
+        ofertaCaducadaEnISO: ofertaCaducadaDe(args.telefono),
         creadoISO: args.creadoAt ? new Date(args.creadoAt).toISOString() : null,
       },
       relojDe(args.clinicaId ?? null),

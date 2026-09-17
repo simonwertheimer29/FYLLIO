@@ -48,6 +48,8 @@
     "qa:huecos": "tsx scripts/qa-huecos-del-caso.mts",
     "qa:reserva-demo": "tsx scripts/qa-e2e-reserva-demo.mts",
     "qa:hueco-rechazado": "tsx scripts/qa-hueco-rechazado.mts",
+    "qa:ofertas": "tsx scripts/qa-ofertas.mts",
+    "qa:oferta-demo": "tsx scripts/qa-oferta-demo.mts",
     "qa:juez": "tsx scripts/qa-juez-borrador.mts",
     "qa:turno": "tsx scripts/qa-persistir-turno.mts",
     "qa:entrante": "tsx scripts/qa-evaluador-entrante.mts",

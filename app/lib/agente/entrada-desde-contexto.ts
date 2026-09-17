@@ -68,6 +68,8 @@ export type PiezasEntrada = {
   diasHastaProximaCita: number | null;
   /** 17-09 (paso 3b) — la cita confirmada por WhatsApp desde la ficha, si la hay. */
   citaConfirmada?: EntradaEvaluador["citaConfirmada"];
+  /** 17-09 (060) — la oferta de horas abierta, si la hay. */
+  ofertaAbierta?: EntradaEvaluador["ofertaAbierta"];
   /** Contadas por código sobre marcas de tiempo REALES; el banco no las tiene. */
   senales: SenalesHilo | null;
   optOutVigente: boolean;
@@ -149,6 +151,7 @@ export function entradaDesdeContexto(p: PiezasEntrada): EntradaEvaluador {
     urgencias: p.conocimiento?.alcance.urgencias ?? undefined,
     diasHastaProximaCita: p.diasHastaProximaCita,
     citaConfirmada: p.citaConfirmada ?? null,
+    ofertaAbierta: p.ofertaAbierta ?? null,
     yaDerivado,
     reactivacion,
     hoy: p.hoy,

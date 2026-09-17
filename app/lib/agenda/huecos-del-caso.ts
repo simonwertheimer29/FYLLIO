@@ -138,9 +138,37 @@ export function elegirHuecos(
   const hayPref = dias.length > 0 || (franja != null && franja !== "indiferente");
   for (const [amp, lista] of escalera) {
     if (!hayPref && amp !== null) break;
-    if (lista.length > 0) return { elegidos: lista.slice(0, max), ampliado: amp };
+    if (lista.length > 0) return { elegidos: espaciar(lista, max), ampliado: amp };
   }
   return { elegidos: [], ampliado: null };
+}
+
+/** Separación mínima entre dos huecos del mismo día para que sean
+ *  ALTERNATIVAS y no la misma hora dos veces (17-09, visto en el e2e: «14:00,
+ *  14:20 y 14:40 con el mismo doctor» no es una propuesta). */
+const SEPARACION_MIN = 60;
+
+/** PURA: de una lista ya ordenada por preferencia, elige hasta `max` que se
+ *  parezcan lo menos posible entre sí: primero un hueco por día; si faltan,
+ *  del mismo día pero a ≥ 60 min; si aún faltan, lo que haya. El orden de
+ *  la lista (la preferencia) manda dentro de cada pasada. */
+export function espaciar(lista: readonly SlotDia[], max: number): SlotDia[] {
+  const out: SlotDia[] = [];
+  const cabe = (x: SlotDia, pasada: 0 | 1 | 2) => {
+    if (out.some((o) => o.fecha === x.fecha && o.slot.inicio === x.slot.inicio && o.doctorId === x.doctorId)) return false;
+    if (pasada === 0) return !out.some((o) => o.fecha === x.fecha);
+    if (pasada === 1) return !out.some((o) => o.fecha === x.fecha && Math.abs(o.slot.inicio - x.slot.inicio) < SEPARACION_MIN);
+    return true;
+  };
+  for (const pasada of [0, 1, 2] as const) {
+    for (const x of lista) {
+      if (out.length >= max) break;
+      if (cabe(x, pasada)) out.push(x);
+    }
+  }
+  // El orden de salida es el de la preferencia, no el de las pasadas.
+  const rango = new Map(lista.map((x, i) => [x, i]));
+  return out.sort((a, b) => rango.get(a)! - rango.get(b)!);
 }
 
 function notaDe(ampliado: Ampliacion, pref: PreferenciaCita | null, vacio: boolean): string | null {
@@ -154,7 +182,7 @@ function notaDe(ampliado: Ampliacion, pref: PreferenciaCita | null, vacio: boole
   return null;
 }
 
-export async function huecosDelCaso(p: {
+type ParametrosCaso = {
   preferencia: PreferenciaCita | null;
   /** Lo que dijo la persona que quiere («una limpieza»), para casar con el catálogo. */
   tratamientoTexto: string | null;
@@ -169,13 +197,34 @@ export async function huecosDelCaso(p: {
   clinicaId: string | null;
   hoy?: string;
   ahora?: Date;
-}): Promise<RespuestaHuecos> {
+  /** 17-09 (bucle de ofertas) — «todos»: TODOS los huecos de la ventana en
+   *  orden de fecha, sin escalera ni ampliación (la coordinadora navega la
+   *  agenda entera; el motor comprueba si una alternativa sigue libre).
+   *  Default «preferencia»: los tres que mejor cumplen lo que pidió. */
+  modo?: "preferencia" | "todos";
+  /** Primer día de la ventana (YYYY-MM-DD, nunca antes de hoy) y cuántos
+   *  días abarca. Defaults: hoy y dos semanas. */
+  desde?: string;
+  dias?: number;
+  /** Tope de huecos devueltos (default 3 en «preferencia», 300 en «todos»). */
+  max?: number;
+};
+
+/** Los intervalos LIBRES de cada doctor implicado, por día, con la huella
+ *  (duración + buffers) del tratamiento: la verdad de la que salen los slots.
+ *  Lo comparte `huecosDelCaso` (que trocea) con `libresDelCaso` (que
+ *  comprueba si UNA hora concreta cabe — sin depender de la rejilla, que se
+ *  desplaza en cuanto algo ocupa un trozo). */
+async function disponibilidadDelCaso(p: ParametrosCaso) {
   const cliente = requireCliente("huecosDelCaso");
   const ahora = p.ahora ?? new Date();
   const hoy = p.hoy ?? hoyISO(ahora);
-  const fechas = Array.from({ length: VENTANA_DIAS }, (_, i) => (i === 0 ? hoy : sumaDias(hoy, i)));
-  const desdeUTC = inicioDelDiaUTC(hoy);
-  const hastaUTC = inicioDelDiaUTC(sumaDias(hoy, VENTANA_DIAS));
+  const modo = p.modo ?? "preferencia";
+  const ventana = Math.max(1, Math.min(p.dias ?? VENTANA_DIAS, 60));
+  const primerDia = p.desde && p.desde > hoy ? p.desde : hoy;
+  const fechas = Array.from({ length: ventana }, (_, i) => (i === 0 ? primerDia : sumaDias(primerDia, i)));
+  const desdeUTC = inicioDelDiaUTC(primerDia);
+  const hastaUTC = inicioDelDiaUTC(sumaDias(primerDia, ventana));
 
   const d = await runWithClienteDb(cliente, async (trx) => {
     const agendaEnFyllio = await leerAgendaEnFyllio(trx);
@@ -240,24 +289,19 @@ export async function huecosDelCaso(p: {
     externas: implicados.flatMap((s: any) => (externasDe.get(s.id) ?? []).map((a) => ({ staffId: s.nombre ?? s.id, fuente: a.fuente, ultimoSyncOk: a.ultimo_sync_ok, ultimoError: a.ultimo_error }))),
   });
 
-  const salida = (huecos: HuecoDelCaso[], ampliado: Ampliacion, nota: string | null): RespuestaHuecos => ({
-    huecos,
-    garantia,
-    ampliado,
-    nota,
-    tratamiento: tratamiento ? { id: tratamiento.id, nombre: tratamiento.nombre, duracionMin: tratamiento.duracionMin } : null,
-    catalogo: catalogo.map(({ id, nombre, duracionMin }) => ({ id, nombre, duracionMin })),
-    preferencia: p.preferencia,
-    doctorFiltrado: doctorFiltrado ? { id: doctorFiltrado.id, nombre: doctorFiltrado.nombre ?? "" } : null,
-    doctorFueraDeClinica,
-  });
+  const sinTratamiento = !tratamiento
+    ? catalogo.length ? "Elige el tipo de cita: su duración define los huecos." : "Ningún tratamiento tiene duración configurada — sin ella no se calculan huecos (Ajustes → Agenda)."
+    : null;
+  const sinDoctores = implicados.length === 0
+    ? doctorFiltrado ? `${doctorFiltrado.nombre} no tiene horario configurado — sin él no se calculan huecos.` : "Ningún doctor tiene horario configurado (Ajustes → Agenda)."
+    : null;
 
-  if (!tratamiento) return salida([], null, catalogo.length ? "Elige el tipo de cita: su duración define los huecos." : "Ningún tratamiento tiene duración configurada — sin ella no se calculan huecos (Ajustes → Agenda).");
-  if (implicados.length === 0) return salida([], null, doctorFiltrado ? `${doctorFiltrado.nombre} no tiene horario configurado — sin él no se calculan huecos.` : "Ningún doctor tiene horario configurado (Ajustes → Agenda).");
-
-  const slots: SlotDia[] = [];
+  /** fecha → doctorId → intervalos libres del día (ya restadas citas,
+   *  bloqueos y ocupaciones externas). Un día con una cita sin medir no
+   *  aparece: no se afirman huecos sobre él (§4). */
+  const libres = new Map<string, Map<string, IntervaloMin[]>>();
   const minHoy = aMin(horaClinica(ahora)) + MARGEN_HOY_MIN;
-  for (const doc of implicados) {
+  for (const doc of tratamiento && !sinDoctores ? implicados : []) {
     if (rotos.has(doc.id)) continue;
     const agendaIds = new Set((externasDe.get(doc.id) ?? []).map((a) => a.id));
     for (const fecha of fechas) {
@@ -284,22 +328,86 @@ export async function huecosDelCaso(p: {
         const pr = proyectarAlDia({ inicio: new Date(o.inicio as any), fin: new Date(o.fin as any) }, fecha);
         if (pr) ocup.push(pr);
       }
-      const libres = disponibilidadDia({ franjas, ocupaciones: ocup });
-      for (const s of trocearEnSlots(libres, { duracionMin: tratamiento.duracionMin, bufferAntesMin: tratamiento.antes, bufferDespuesMin: tratamiento.despues })) {
+      const dia = disponibilidadDia({ franjas, ocupaciones: ocup });
+      if (!libres.has(fecha)) libres.set(fecha, new Map());
+      libres.get(fecha)!.set(doc.id, dia);
+    }
+  }
+
+  return { ahora, hoy, modo, fechas, minHoy, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, garantia, libres, sinTratamiento, sinDoctores };
+}
+
+/** ¿Cabe una cita de este tratamiento a ESTA hora con ESTE doctor? Mira los
+ *  intervalos libres (con buffers), no la rejilla de slots. */
+export async function libresDelCaso(p: ParametrosCaso): Promise<{
+  cabe: (a: { fecha: string; hora: string; doctorId: string }) => boolean;
+  tratamiento: { id: string; nombre: string; duracionMin: number } | null;
+  nota: string | null;
+}> {
+  const d = await disponibilidadDelCaso(p);
+  const t = d.tratamiento;
+  return {
+    tratamiento: t ? { id: t.id, nombre: t.nombre, duracionMin: t.duracionMin } : null,
+    nota: d.sinTratamiento ?? d.sinDoctores,
+    cabe: (a) => {
+      if (!t) return false;
+      const ini = aMin(a.hora);
+      if (a.fecha === d.hoy && ini < d.minHoy) return false;
+      const desde = ini - t.antes;
+      const hasta = ini + t.duracionMin + t.despues;
+      return (d.libres.get(a.fecha)?.get(a.doctorId) ?? []).some((l) => l.inicio <= desde && hasta <= l.fin);
+    },
+  };
+}
+
+export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos> {
+  const d = await disponibilidadDelCaso(p);
+  const { hoy, modo, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, garantia, minHoy } = d;
+
+  const salida = (huecos: HuecoDelCaso[], ampliado: Ampliacion, nota: string | null): RespuestaHuecos => ({
+    huecos,
+    garantia,
+    ampliado,
+    nota,
+    tratamiento: tratamiento ? { id: tratamiento.id, nombre: tratamiento.nombre, duracionMin: tratamiento.duracionMin } : null,
+    catalogo: catalogo.map(({ id, nombre, duracionMin }) => ({ id, nombre, duracionMin })),
+    preferencia: p.preferencia,
+    doctorFiltrado: doctorFiltrado ? { id: doctorFiltrado.id, nombre: doctorFiltrado.nombre ?? "" } : null,
+    doctorFueraDeClinica,
+  });
+  if (d.sinTratamiento) return salida([], null, d.sinTratamiento);
+  if (d.sinDoctores) return salida([], null, d.sinDoctores);
+
+  const slots: SlotDia[] = [];
+  for (const [fecha, porDoctor] of d.libres) {
+    for (const [doctorId, libres] of porDoctor) {
+      for (const s of trocearEnSlots(libres, { duracionMin: tratamiento!.duracionMin, bufferAntesMin: tratamiento!.antes, bufferDespuesMin: tratamiento!.despues })) {
         if (fecha === hoy && s.inicio < minHoy) continue;
-        slots.push({ fecha, slot: s, doctorId: doc.id });
+        slots.push({ fecha, slot: s, doctorId });
       }
     }
   }
 
-  const { elegidos, ampliado } = elegirHuecos(slots, p.preferencia);
+  const { elegidos, ampliado } =
+    modo === "todos"
+      ? {
+          elegidos: [...slots]
+            .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.slot.inicio - b.slot.inicio || a.doctorId.localeCompare(b.doctorId))
+            .slice(0, p.max ?? 300),
+          ampliado: null as Ampliacion,
+        }
+      : elegirHuecos(slots, p.preferencia, p.max ?? MAX_HUECOS);
   const nombreDe = new Map(implicados.map((s: any) => [s.id, s]));
   const huecos = elegidos.map((e) => {
     const s: any = nombreDe.get(e.doctorId);
     return { fecha: e.fecha, hora: deMin(e.slot.inicio), fin: deMin(e.slot.fin), doctorId: e.doctorId, doctorNombre: s?.nombre ?? "", clinicaId: s?.clinica_id ?? null, clinicaNombre: s?.clinica_nombre ?? null };
   });
-  return salida(huecos, ampliado, notaDe(ampliado, p.preferencia, huecos.length === 0));
+  return salida(huecos, ampliado, modo === "todos" ? null : notaDe(ampliado, p.preferencia, huecos.length === 0));
 }
 
+/** La identidad de un hueco: mismo día, misma hora, mismo doctor. */
+export const mismoHueco = (a: Pick<HuecoDelCaso, "fecha" | "hora" | "doctorId">, b: Pick<HuecoDelCaso, "fecha" | "hora" | "doctorId">): boolean =>
+  a.fecha === b.fecha && a.hora === b.hora && a.doctorId === b.doctorId;
+
 // Para el QA sin base: la escalera y el casado son puros y se prueban solos.
-export const _interno = { enFranja, notaDe };
+export const _interno = { enFranja, notaDe, espaciar };

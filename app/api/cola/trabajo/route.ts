@@ -39,6 +39,25 @@ export async function POST(req: Request) {
     console.error(`[cola/trabajo] trabajo malformado (${body.length} bytes, intento ${intento})`);
     return NextResponse.json({ ok: false, motivo: "malformado" });
   }
+  // 17-09 (060) — el acuse a la elección de una oferta de horas, con retardo.
+  // Todas las condiciones (nadie reservó, no se le escribió nada) las mira
+  // ofertas.ts al entregarse; aquí solo se enruta.
+  if (trabajo.tipo === "acuse_oferta") {
+    const { cliente, ofertaId } = trabajo;
+    try {
+      const { acuseDeEleccion } = await import("../../../lib/agenda/ofertas");
+      const resultado = await runWithCliente(cliente, () => acuseDeEleccion({ ofertaId }));
+      if (!resultado.enviado && resultado.motivo === "fallo_envio") {
+        return NextResponse.json({ ok: false, reintentar: true, resultado, intento }, { status: 503 });
+      }
+      return NextResponse.json({ ok: true, resultado, intento });
+    } catch (err) {
+      await runWithCliente(cliente, () =>
+        registrarIncidencia({ tipo: "cola", motivo: "turno_error", origen: "cola/trabajo", clinicaId: trabajo.clinicaId ?? null, referencia: ofertaId, error: err, detalle: { intento, tipo: "acuse_oferta" }, reintentable: true }),
+      );
+      return NextResponse.json({ ok: false, reintentar: true, intento }, { status: 500 });
+    }
+  }
   const { cliente, entrada } = trabajo;
   try {
     const resultado = await runWithCliente(cliente, () => evaluarEntranteConversacion(entrada));

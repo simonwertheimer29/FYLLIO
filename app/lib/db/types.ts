@@ -626,6 +626,32 @@ export interface Tabla_agenda_ajustes {
   actualizado_en: Generated<Date>;
 }
 
+/** 060 (17-09) — una oferta de horas enviada al paciente desde la ficha. */
+export interface Tabla_ofertas_hueco {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  telefono: string;
+  lead_id: string;
+  clinica_id: string | null;
+  tratamiento_id: string | null;
+  alternativas: unknown;
+  texto: string;
+  mensaje_id: string | null;
+  enviada_en: Generated<Date>;
+  caduca_en: Date;
+  estado: Generated<"abierta" | "elegida" | "reservada" | "caducada" | "reemplazada">;
+  eleccion: number | null;
+  eleccion_en: Date | null;
+  eleccion_tardia: Generated<boolean>;
+  eleccion_mensaje_id: string | null;
+  desambiguaciones: Generated<number>;
+  acuse_enviado_en: Date | null;
+  acuse_mensaje_id: string | null;
+  cita_id: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
 export interface Tabla_ocupaciones_externas {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
@@ -699,6 +725,7 @@ export interface DB
   agendas_externas: Tabla_agendas_externas;
   ocupaciones_externas: Tabla_ocupaciones_externas;
   agenda_ajustes: Tabla_agenda_ajustes;
+  ofertas_hueco: Tabla_ofertas_hueco;
   inicio_snapshots: Tabla_inicio_snapshots;
   casos_candidatos_eval: Tabla_casos_candidatos_eval;
   agente_sombra: Tabla_agente_sombra;

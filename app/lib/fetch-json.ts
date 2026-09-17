@@ -19,6 +19,9 @@
 /** Error de carga con su causa legible: la UI la puede enseñar tal cual. */
 export class ErrorDeCarga extends Error {
   readonly status: number | null;
+  /** El cuerpo JSON del error, cuando lo hubo: algunas rutas devuelven en el
+   *  409 lo que hay que hacer (060: el mensaje corregido, las horas ocupadas). */
+  cuerpo: Record<string, unknown> | null = null;
   constructor(mensaje: string, status: number | null = null) {
     super(mensaje);
     this.name = "ErrorDeCarga";
@@ -56,11 +59,11 @@ export async function cargarJSON<T>(
 
   if (!res.ok) {
     // El cuerpo puede traer un mensaje útil; si no, el status ya dice bastante.
-    const detalle = await res
-      .json()
-      .then((d) => (typeof d?.error === "string" ? d.error : null))
-      .catch(() => null);
-    throw new ErrorDeCarga(detalle ?? `El servidor respondió ${res.status}`, res.status);
+    const cuerpo = await res.json().then((d) => (d && typeof d === "object" ? (d as Record<string, unknown>) : null)).catch(() => null);
+    const detalle = typeof cuerpo?.["error"] === "string" ? (cuerpo["error"] as string) : null;
+    const err = new ErrorDeCarga(detalle ?? `El servidor respondió ${res.status}`, res.status);
+    err.cuerpo = cuerpo;
+    throw err;
   }
 
   let datos: unknown;

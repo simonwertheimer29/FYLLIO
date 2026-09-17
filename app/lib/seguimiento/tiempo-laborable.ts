@@ -29,6 +29,15 @@ function tramoDelDia(d: DateTime, horario: HorarioLaboral): { abre: DateTime; ci
   return cierra > abre ? { abre, cierra } : null;
 }
 
+/** ¿La clínica está ABIERTA en este instante según su horario laboral?
+ *  (17-09, acuse de las ofertas: dentro se espera unos minutos por si la
+ *  coordinadora reserva; fuera se contesta ya, porque nadie va a entrar.) */
+export function clinicaAbierta(ahora: Date, horario: HorarioLaboral = HORARIO_DEFAULT): boolean {
+  const d = DateTime.fromJSDate(ahora).setZone(ZONE);
+  const tramo = tramoDelDia(d, horario);
+  return tramo != null && d >= tramo.abre && d < tramo.cierra;
+}
+
 /**
  * Minutos de horario laboral transcurridos entre dos instantes. `desde` fuera
  * de horario no cuenta hasta la próxima apertura; `hasta` de madrugada corta

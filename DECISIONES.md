@@ -6661,3 +6661,41 @@ otro lead (Verónica, Este): todos los huecos y la confirmación son de la clín
 **Simon cambia el flujo del paso 3 (ofrecer y que el paciente elija; nada reservado hasta que acepta):**
 13 puntos guardados en memoria (`agente-paso3-flujo-ofrecer-elegir`); se escribe en sesión nueva, con
 la pregunta del agente en caso entregado respondida y los textos aprobados antes.
+
+## 2026-09-17 · El bucle ofrecer → elegir → comprobar → reservar (060): nada reservado hasta que el paciente acepta
+**CAMBIO DE FLUJO dictado por Simon** tras ver el paso 3 en pantalla: la reserva especulativa creaba un hueco
+muerto y una coordinadora que escribía. Ahora ella elige hasta 4 horas (las tres que cumplen lo que pidió
+más las que quiera de la agenda entera, por semanas), pulsa enviar, y sale un mensaje PRE-ESCRITO; el paciente
+elige; el sistema comprueba que siga libre; ella reserva de UN CLIC y la confirmación sale sola. Todo texto al
+paciente es de código (`ofertas-textos.ts`) y se ve entero antes de pulsar (el servidor exige que coincida).
+**Lo que garantiza el código:** (1) nunca se confirma un hueco que ya no existe: se recomprueba al enviar y al
+reservar, y si se ocupó NO se manda nada, se enseña ya escrito «se acaba de ocupar, te quedan estas» (o
+«todas ocupadas» con horas nuevas, o —opción b— «el equipo revisa la agenda y te escribe en cuanto abra la
+clínica», que entrega el caso con causa `sin_huecos` y SLA de respuesta laborable). (2) CADUCIDAD sin cron:
+24 h con tope en la primera hora −2 h, calculada AL LEER (ficha, bandeja, evaluador) y persistida al tocarla;
+una elección tardía se guarda con `eleccion_tardia` y no reserva sola; gracia de 4 h si el hueco sigue libre
+y nadie reofertó (una oferta reemplazada es tardía siempre: contestó a una lista que ya no tiene delante).
+(3) El ACUSE a toda elección («Recibido, Samuel. Compruebo que la del jueves a las 10:00 siga libre y te lo
+confirmamos en un momento / en cuanto abra la clínica») va por la cola QStash con `Upstash-Delay`: 10 min
+dentro de horario, 0 fuera; sin token, inmediato. Sale SOLO si nadie ha reservado NI SE LE HA ESCRITO NADA
+desde que eligió (condición de Simon: si ella ya mandó «se ocupó», un acuse después se contradice). También
+en hilo asumido (es un acuse, no decide; el silencio nocturno es peor): ahí se anota la respuesta sin
+interpretar y el acuse va sin hora. (4) El agente solo DESAMBIGUA entre lo que salió (juicio `eleccionOferta`
+del modelo; respuesta de código; una vez; a la segunda deriva `oferta_elegida` y elige ella); si eligió, CALLA
+y deriva prioritario: la coordinadora ve «Eligió 2) …» y reserva.
+**Dos hallazgos del e2e, arreglados:** comprobar un hueco por «existe ese slot» era frágil —un bloqueo de 15 min
+a las 14:00 desplazaba la rejilla y las 14:20 y 14:40 «desaparecían» aunque siguieran libres—: ahora
+`libresDelCaso` comprueba por CONTENCIÓN en los intervalos libres (con buffers). Y «14:00, 14:20 y 14:40 con
+el mismo doctor» no es una propuesta: `espaciar` da primero un hueco por día y luego ≥ 60 min entre sí.
+**MEDIDO:** `qa:ofertas` 36/36 ($0) · `qa:oferta-demo` en DEMO con Verónica (hilo simulado) por los cinco
+caminos: base, «la 2» (elige → calla → acuse → clic → confirmación → derivado cerrado por hecho), ambigua
+(«la del viernes» con dos viernes → pregunta una vez → a la segunda deriva), ocupada antes del clic (mensaje
+corregido ya escrito, nada enviado, la nueva sustituye a la vieja), tardía (caducada, elección guardada,
+no reserva sola; el clic comprueba y reserva) · `qa:huecos` con el espaciado · regresión `qa:reserva-demo` y
+`qa:hueco-rechazado` en verde · prebuild verde · **vara recalculada 66/67 · 21/21** (el 35 cae 3/3 y ya
+caía en todas las varas commiteadas: A→S, no es de este prompt). **NO medido:** la pantalla (OfertaPanel)
+en el navegador.
+**Pendiente de Simon:** OK a la línea de la oferta («Las horas se asignan por orden de confirmación, así que
+cuanto antes nos digas, antes la tienes») y a la desambiguación; luego el punto 7 (lo que se cae del 3b) y la
+ficha (8, 9, 11, 12, 13); MEJORAS 262 (cohorte «esperando hueco») al cerrar el bucle; 263 (idiomas).
+**Coste:** ~5 h escribir · ~1,5 h medir · $0,23 de modelo.

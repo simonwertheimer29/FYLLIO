@@ -4159,3 +4159,12 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - **Depende de:** MEJORAS 260 (la carga de ocupación dos veces: el detector la haría una tercera).
   · **Impacto:** ALTO (es la promesa «te escribimos en cuanto haya hueco» vigilada por algo).
   · **Esfuerzo:** ~5 h escribir + 1 h medir. · **Fecha:** 2026-09-17
+
+## 263. Ofertas · los textos del bucle solo existen en español
+- **Anotado el 17-09 al escribir el bucle (060).** `plantillas-hueco.ts` (paso 3b) sale en es/ca/en según el
+  juicio `idioma`; los textos del bucle (`ofertas-textos.ts`: oferta, «se ocupó», «todas ocupadas», «sin
+  huecos», desambiguación, acuse) solo en español. La oferta la manda la coordinadora (ve el texto), pero la
+  desambiguación y el acuse los manda el agente: a quien escribe en catalán o inglés le llega en español.
+- **Qué hacer:** llevar `idioma` a `registrarRespuestaAOferta` (el juicio ya lo trae) y a la oferta (el último
+  idioma del hilo), y traducir con Simon delante: son plantillas aprobadas. · **Impacto:** BAJO hasta que haya
+  clínica con pacientes en catalán/inglés. · **Esfuerzo:** 45 min + OK de textos. · **Fecha:** 2026-09-17

@@ -44,6 +44,22 @@ import { consentimientoDeTelefono, type EstadoConsentimiento } from "../contacto
 import { hiloJugado } from "../mensajeria/hilo-jugado";
 import { pideMoverSuCita } from "./entrada-desde-contexto";
 import { leerAgendaEnFyllio } from "../agenda/garantia";
+import { ofertaDelCaso } from "../agenda/ofertas";
+import type { Alternativa } from "../agenda/ofertas-textos";
+
+export type OfertaDeLaFicha = {
+  id: string;
+  estado: "abierta" | "elegida" | "reservada" | "caducada" | "reemplazada";
+  alternativas: Alternativa[];
+  texto: string;
+  enviadaEnISO: string;
+  caducaEnISO: string;
+  eleccion: number | null;
+  eleccionEnISO: string | null;
+  eleccionTardia: boolean;
+  acuseEnviadoEnISO: string | null;
+  tratamientoId: string | null;
+};
 
 export type FichaCaso = {
   telefono: string;
@@ -73,6 +89,11 @@ export type FichaCaso = {
   /** 058 — la agenda vive en Fyllio (en_vivo). El panel decide con esto si
    *  ofrece confirmar al paciente. */
   agendaEnFyllio: boolean;
+  /** 060 (17-09) — la última oferta de horas del bucle, con el vencimiento
+   *  aplicado. null = nunca se le propusieron horas. El panel compone con
+   *  esto: abierta (esperando), elegida (reservar de un clic), caducada
+   *  (reofertar), reservada/reemplazada (histórico). */
+  oferta: OfertaDeLaFicha | null;
   /** Paso 2 (16-09): la preferencia de cita ESTRUCTURADA, acumulada del log
    *  (la última que el modelo dio). Para el buscador de huecos del paso 3;
    *  la coordinadora sigue leyendo el texto. null = no la ha dicho. */
@@ -195,6 +216,8 @@ export function etiquetaEstadoDe(a: {
   evaluado: boolean;
   /** 17-09 (paso 3): con cita puesta y nada abierto, el estado es la cita. */
   cita?: CitaDelCaso | null;
+  /** 060: la oferta de horas del bucle, si la hay. */
+  oferta?: OfertaDeLaFicha | null;
   /** 058: si la agenda vive en Fyllio la cita está RESERVADA; si no, está
    *  ANOTADA y se confirma en el software de la clínica. La etiqueta no
    *  afirma más de lo que la fuente garantiza. */
@@ -219,6 +242,10 @@ export function etiquetaEstadoDe(a: {
         return { texto: "Lo contesta mejor una persona", tono: "warning" };
       case "hueco_rechazado":
         return { texto: "No le va la hora reservada — proponer otra", tono: "danger" };
+      case "oferta_elegida":
+        return { texto: "Contestó a las horas propuestas — reservar", tono: "danger" };
+      case "sin_huecos":
+        return { texto: "Sin horas que ofrecerle — buscar hueco", tono: "danger" };
       case "caso_completo": {
         const obj = s.objetivo ?? a.objetivoActivo;
         return { texto: obj ? `${ESTADO_POR_OBJETIVO[obj]} · listo para cerrar` : "Listo para cerrar", tono: "accent" };
@@ -231,6 +258,12 @@ export function etiquetaEstadoDe(a: {
   if (!s.verde && s.motivo === "espera") {
     return { texto: s.hasta ? `En espera hasta el ${fechaClinica(s.hasta)}` : "En espera", tono: "warning" };
   }
+  // 060 — el bucle de ofertas manda sobre el objetivo: hay horas propuestas
+  // en la mesa. Con la elección hecha ya hay derivado (arriba); aquí quedan
+  // «esperando» y «caducada». Reservada = la cita, justo debajo.
+  if (a.oferta?.estado === "abierta") return { texto: "Horas propuestas — esperando su respuesta", tono: "accent" };
+  if (a.oferta?.estado === "caducada" && a.oferta.eleccion == null) return { texto: "Propuesta caducada — volver a proponer", tono: "warning" };
+  if (a.oferta?.estado === "caducada") return { texto: "Contestó tarde a una propuesta caducada — comprobar y reservar", tono: "danger" };
   // La cita reservada desde la ficha es un HECHO y va antes que el estado del
   // agente (17-09): con cita y nada abierto, el estado es la cita — haya o no
   // evaluación, y sin tapar dudas pendientes (van justo debajo).
@@ -571,6 +604,29 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
         : null;
 
   const jugada = await hiloJugado(telefono);
+  // 060 — la oferta de horas del bucle (vencimiento aplicado al leer).
+  const oferta: OfertaDeLaFicha | null = await ofertaDelCaso(telefono)
+    .then((o) =>
+      o
+        ? {
+            id: o.id,
+            estado: o.estado,
+            alternativas: o.alternativas,
+            texto: o.texto,
+            enviadaEnISO: o.enviadaEn.toISOString(),
+            caducaEnISO: o.caducaEn.toISOString(),
+            eleccion: o.eleccion,
+            eleccionEnISO: o.eleccionEn?.toISOString() ?? null,
+            eleccionTardia: o.eleccionTardia,
+            acuseEnviadoEnISO: o.acuseEnviadoEn?.toISOString() ?? null,
+            tratamientoId: o.tratamientoId,
+          }
+        : null,
+    )
+    .catch((e) => {
+      console.error("[ficha-caso] oferta:", e instanceof Error ? e.message : e);
+      return null;
+    });
 
   // La cita del caso: la del paciente si la hay; si no, la del lead mientras
   // no haya pasado (una cita de ayer no es «tiene cita»).
@@ -609,6 +665,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     pendientes: pendientes.length,
     evaluado,
     cita,
+    oferta,
     agendaEnFyllio: datos.agendaEnFyllio,
   });
   const descripcion = componerDescripcion({
@@ -634,6 +691,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     estado: estadoEtiqueta,
     descripcion,
     cita,
+    oferta,
     preferenciaCita,
     agendaEnFyllio: datos.agendaEnFyllio,
     espera:

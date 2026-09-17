@@ -31,6 +31,7 @@ import { AlertTriangle, CalendarDays, PauseCircle, UserCheck, Ban, ICON_STROKE }
 import type { ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
 import { AgendarPanel } from "../agenda/AgendarPanel";
 import { HuecosDelCasoPanel, ConfirmarCitaPendiente } from "./HuecosDelCasoPanel";
+import { OfertaPanel } from "./OfertaPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 
@@ -319,7 +320,14 @@ export function FichaCasoPanel({
           (HuecosDelCasoPanel). Con cita: moverla abre la agenda (G3). Solo
           con lead activo: la cita del caso es la cita del lead (un paciente
           convertido se agenda desde la agenda). Mover no es crear. */}
-      {ficha.lead && !ficha.lead.fechaCita && (
+      {/* 060 (17-09): con la agenda en Fyllio se PROPONEN horas y el paciente
+          elige (OfertaPanel: nada reservado hasta que acepta). Con copia o sin
+          agenda no se pueden proponer horas como reales: se ANOTA la cita
+          (HuecosDelCasoPanel) y se confirma en el software de la clínica. */}
+      {ficha.lead && !ficha.lead.fechaCita && ficha.agendaEnFyllio && (
+        <OfertaPanel telefono={ficha.telefono} oferta={ficha.oferta} onHecho={alCambiar} />
+      )}
+      {ficha.lead && !ficha.lead.fechaCita && !ficha.agendaEnFyllio && (
         <HuecosDelCasoPanel telefono={ficha.telefono} onHecho={alCambiar} onVerAgenda={() => setAgendando(true)} />
       )}
       {ficha.lead && ficha.lead.fechaCita && ficha.cita?.fuente === "lead" && !ficha.cita.confirmadaEn && ficha.agendaEnFyllio && (

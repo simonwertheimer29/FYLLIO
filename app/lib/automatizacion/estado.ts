@@ -110,13 +110,21 @@ export type CausaDerivacion =
   /** 059 (17-09, paso 3b) — la persona rechaza o contrapropone la hora que se
    *  le confirmó desde la ficha. Prioritaria: es la ventana en la que llama a
    *  otra clínica. El hueco lo libera la coordinadora, no el sistema. */
-  | "hueco_rechazado";
+  | "hueco_rechazado"
+  /** 060 (17-09, bucle de ofertas) — la persona CONTESTÓ a la oferta de horas:
+   *  la coordinadora reserva de un clic (o elige ella cuál si no se entendió).
+   *  Prioritaria: es la ventana en la que llama a otra clínica. */
+  | "oferta_elegida"
+  /** 060 — se ocuparon todas las horas propuestas y no hay otras: se le dijo
+   *  que el equipo le escribe «en cuanto abra la clínica». Ese es el plazo. */
+  | "sin_huecos";
 
 /** La cola se DERIVA del hecho, no se persiste: si mañana cambia la política,
  *  el histórico (causa + malestar) no se pierde. */
 export function colaDeDerivacion(causa: CausaDerivacion, malestar: boolean | null): "prioritaria" | "normal" {
   return causa === "urgencia" ||
     causa === "hueco_rechazado" ||
+    causa === "oferta_elegida" ||
     causa === "antecedente_medico" ||
     (causa === "peticion_queja" && malestar === true)
     ? "prioritaria"

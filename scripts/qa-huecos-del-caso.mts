@@ -69,6 +69,14 @@ console.log("══ elegirHuecos");
   ok(r.ampliado === null && r.elegidos.length === 3, "indiferente + sin días = sin preferencia");
 }
 {
+  // 17-09 (bucle de ofertas): tres seguidos del mismo doctor no son alternativas.
+  const seguidos = [slot("2026-09-22", "14:00"), slot("2026-09-22", "14:20"), slot("2026-09-22", "14:40"), slot("2026-09-22", "15:00"), slot("2026-09-22", "16:00"), slot("2026-09-24", "14:00")];
+  const r = elegirHuecos(seguidos, { franja: "tarde", dias: ["mar"], urgencia: null });
+  ok(r.elegidos.map((e) => `${e.fecha.slice(5)} ${e.slot.inicio / 60}`).join(",") === "09-22 14,09-22 15,09-22 16", `espaciados: un día distinto no hay (jueves no es martes), así que ≥ 60 min entre sí (${r.elegidos.map((e) => e.slot.inicio / 60).join(",")})`);
+  const r2 = elegirHuecos(seguidos, null);
+  ok(r2.elegidos.map((e) => `${e.fecha.slice(5)} ${e.slot.inicio / 60}`).join(",") === "09-22 14,09-22 15,09-24 14", `sin preferencia: primero un hueco por día, luego separados (${r2.elegidos.map((e) => `${e.fecha.slice(8)}@${e.slot.inicio / 60}`).join(",")})`);
+}
+{
   const r = elegirHuecos([], { franja: "manana", dias: ["jue"], urgencia: null });
   ok(r.elegidos.length === 0 && r.ampliado === null, "sin slots → vacío, sin fingir ampliación");
 }
