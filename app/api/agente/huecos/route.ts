@@ -98,6 +98,8 @@ export const GET = withAuth(async (session, req) => {
         ...r,
         lead: ficha.lead,
         tratamientoDicho: tratamientoTexto,
+        // Lo que dijo de cuándo, tal cual, para el recuadro de arriba del selector.
+        disponibilidadDicha: recogido("disponibilidad"),
         huecos: r.huecos.map((h) => ({
           ...h,
           textoConfirmacion: textoConfirmacionCita({

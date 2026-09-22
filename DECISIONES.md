@@ -6748,3 +6748,12 @@ sigue enseñando el día entero. Al correr los scripts de reserva salió otro fa
 para cerrar», la ficha no decía «Horas propuestas» porque esa rama iba primero. Es el caso más común en que se
 proponen horas; ahora manda la propuesta.
 
+
+## 2026-09-22 · «Proponer horas» en ventana y en dos bloques; la demo con tardes y varios doctores de verdad
+Tercera vuelta de Simon. El selector se abre en la ventana de reservar (flotante, sin oscurecer): arriba lo que
+pidió tal cual, luego «Cumplen lo que pidió» (hasta 3 días, en 4 semanas) y «Alternativas cercanas» (la misma
+franja en días de al lado, y lo más pegado de la otra franja). Todas las horas se ven como botones y la regla de
+60 min atenúa las pegadas. Si pidió «cuanto antes» y lo que encaja queda a más de una semana, van primero las de
+antes y se dice arriba. La ventana pasa de 14 a 28 días porque con 14 a «martes por la tarde» le cabía un martes.
+En DEMO, Ferrer trabaja también el jueves por la mañana y Castaño tiene tardes martes y jueves hasta las 19:00
+(franjas añadidas por el seed de catálogo, que ahora las añade solo si faltan).

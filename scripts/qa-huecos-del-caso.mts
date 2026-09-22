@@ -15,7 +15,7 @@
 //    tratamiento; deja la puerta del «no me viene bien».
 // Salida: 0 = todo verde · 1 = algún rojo (se listan).
 
-import { elegirHuecos, casarTratamiento, casarDoctor, horaPedidaDe, huecosPorCercania, _interno } from "../app/lib/agenda/huecos-del-caso";
+import { elegirHuecos, casarTratamiento, casarDoctor, horaPedidaDe, huecosPorBloques, _interno } from "../app/lib/agenda/huecos-del-caso";
 import { garantiaDe } from "../app/lib/agenda/garantia";
 import { pegadaA, primerPar } from "../app/lib/agenda/separacion";
 import { textoConfirmacionCita } from "../app/lib/agenda/confirmacion-cita";
@@ -93,42 +93,74 @@ ok(horaPedidaDe("martes por la tarde") === null, "sin hora → null (manda la fr
 ok(horaPedidaDe("el 29.09 por la tarde") === null, "una fecha con punto no es una hora");
 ok(horaPedidaDe(null) === null, "sin texto → null");
 
-console.log("══ huecosPorCercania (el selector «Proponer horas»)");
+console.log("══ huecosPorBloques (el selector «Proponer horas»)");
 {
-  // Dos doctores, martes tarde: salen LOS DOS, y todas las horas del día.
-  const dos = [
-    slot("2026-09-29", "14:00", "castano"), slot("2026-09-29", "14:20", "castano"), slot("2026-09-29", "14:40", "castano"),
-    slot("2026-09-29", "17:00", "molina"), slot("2026-09-29", "10:00", "molina"), slot("2026-09-24", "17:00", "molina"),
-  ];
-  const r = huecosPorCercania(dos, { franja: "tarde", dias: ["mar"], urgencia: null }, null);
-  ok(r.ampliado === null && r.elegidos.length === 4, `martes tarde: las 3 de Castaño y la de Molina, sin espaciar (${r.elegidos.length})`);
-  ok(new Set(r.elegidos.map((e) => e.doctorId)).size === 2, "de cualquier doctor, no solo del asignado");
-  ok(!r.elegidos.some((e) => e.slot.inicio < 14 * 60 || e.fecha === "2026-09-24"), "ni la mañana del martes ni el jueves (no son lo pedido)");
+  // Samuel: jueves por la mañana. Hoy martes 22-09. Molina todas las mañanas
+  // y tardes; Ferrer el jueves por la mañana también.
+  const HOY = "2026-09-22";
+  const dias = ["2026-09-23", "2026-09-24", "2026-09-25", "2026-10-01", "2026-10-08", "2026-10-15"];
+  const s = dias.flatMap((f) => [slot(f, "10:00", "molina"), slot(f, "10:30", "molina"), slot(f, "13:00", "molina"), slot(f, "13:30", "molina"), slot(f, "16:00", "molina"), slot(f, "16:30", "molina"), slot(f, "19:00", "molina")]);
+  s.push(slot("2026-09-24", "10:00", "ferrer"));
+  const r = huecosPorBloques(s, { franja: "manana", dias: ["jue"], urgencia: null }, null, HOY);
+  const fc = [...new Set(r.cumplen.map((x) => x.fecha))];
+  ok(fc.join(",") === "2026-09-24,2026-10-01,2026-10-08", `cumplen: los tres jueves más cercanos, en orden (${fc.join(",")})`);
+  ok(r.cumplen.every((x) => x.slot.inicio < 14 * 60), "cumplen: solo mañanas");
+  ok(new Set(r.cumplen.filter((x) => x.fecha === "2026-09-24").map((x) => x.doctorId)).size === 2, "cumplen: cada doctor con sus horas (Molina y Ferrer el jueves 24)");
+  const alt = r.alternativas.map((x) => `${x.fecha.slice(5)}@${x.slot.inicio / 60}`);
+  ok(!r.alternativasPrimero, "sin prisa: primero lo que cumple");
+  ok([...new Set(r.alternativas.map((x) => x.fecha))].join(",") === "2026-09-23,2026-09-24,2026-09-25", `alternativas: mañana del mié 23 y vie 25, y la tarde del jue 24 (${[...new Set(r.alternativas.map((x) => x.fecha))].join(",")})`);
+  const tardeJue = r.alternativas.filter((x) => x.fecha === "2026-09-24").map((x) => x.slot.inicio / 60);
+  ok(tardeJue.join(",") === "16,16.5,19", `de la otra franja, solo las ${_interno.DIAS_ALTERNATIVAS} horas más pegadas a la mañana (${tardeJue.join(",")})`);
+  ok(!r.alternativas.some((x) => r.cumplen.includes(x)), "ninguna hora en los dos bloques");
+  ok(alt.length > 0 && _interno.notaBloques(r, { franja: "manana", dias: ["jue"], urgencia: null }, null) === null, "si hay lo que pidió, no hace falta nota");
+
+  // Cuanto antes y el primer jueves que encaja es dentro de 3 semanas.
+  const lejos = s.filter((x) => !(x.fecha === "2026-09-24" || x.fecha === "2026-10-01" || x.fecha === "2026-10-08") || x.slot.inicio >= 14 * 60);
+  const u = huecosPorBloques(lejos, { franja: "manana", dias: ["jue"], urgencia: "cuanto_antes" }, null, HOY);
+  ok(u.alternativasPrimero && u.primeraQueCumple === "2026-10-15", `cuanto antes y lo que encaja es el 15-oct: las de antes van primero (${u.primeraQueCumple})`);
+  ok(u.alternativas.every((x) => x.fecha < "2026-10-15") && u.alternativas[0]?.fecha === "2026-09-23", "las alternativas son las de ANTES, desde la más cercana a hoy");
+  ok((_interno.notaBloques(u, { franja: "manana", dias: ["jue"], urgencia: "cuanto_antes" }, null) ?? "").startsWith("Pidió cuanto antes y lo primero que encaja es el jueves"), `y se dice arriba: «${_interno.notaBloques(u, { franja: "manana", dias: ["jue"], urgencia: "cuanto_antes" }, null)}»`);
+  const sinPrisa = huecosPorBloques(lejos, { franja: "manana", dias: ["jue"], urgencia: "sin_prisa" }, null, HOY);
+  ok(!sinPrisa.alternativasPrimero, "sin prisa: el orden de siempre aunque esté lejos");
+  const cerca = huecosPorBloques(s, { franja: "manana", dias: ["jue"], urgencia: "cuanto_antes" }, null, HOY);
+  ok(!cerca.alternativasPrimero, "cuanto antes pero el jueves que encaja es pasado mañana: no se reordena");
 }
 {
-  // «Cualquier día a las 8:30»: esa hora en VARIOS días, y las cercanas.
-  const s = [
-    slot("2026-09-23", "08:30"), slot("2026-09-23", "09:20"), slot("2026-09-23", "12:00"),
-    slot("2026-09-24", "09:00"), slot("2026-09-25", "08:30"), slot("2026-09-25", "16:00"),
-  ];
-  const r = huecosPorCercania(s, { franja: null, dias: [], urgencia: null }, 8 * 60 + 30);
-  const txt = r.elegidos.map((e) => `${e.fecha.slice(8)}@${e.slot.inicio}`).join(",");
-  ok(r.ampliado === null && new Set(r.elegidos.map((e) => e.fecha)).size === 3, `tres días distintos con algo cerca de las 8:30 (${txt})`);
-  ok(!r.elegidos.some((e) => e.slot.inicio === 12 * 60 || e.slot.inicio === 16 * 60), "las 12:00 y las 16:00 no son «cerca de las 8:30»");
-  ok(r.elegidos[0]?.slot.inicio === 8 * 60 + 30 && r.elegidos[1]?.slot.inicio === 9 * 60 + 20, "dentro del día, la más cercana primero");
-  const nada = huecosPorCercania([slot("2026-09-23", "16:00")], null, 8 * 60 + 30);
-  ok(nada.ampliado === "franja" && nada.elegidos.length === 1, "sin nada cerca de la hora: amplía y lo dice (no finge que es lo pedido)");
-  // Clínica que abre a las 10: «a otra hora» son las más cercanas, no el día entero.
+  // Verónica: martes por la tarde, un doctor. La mañana del martes, solo lo último.
+  const HOY = "2026-09-22";
+  const f = ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-06", "2026-10-13", "2026-10-20"];
+  const s = f.flatMap((d) => ["09:00", "12:40", "13:00", "13:20", "13:40", "16:00", "16:20", "18:40"].map((h) => slot(d, h, "castano")));
+  const r = huecosPorBloques(s, { franja: "tarde", dias: ["mar"], urgencia: null }, null, HOY);
+  ok([...new Set(r.cumplen.map((x) => x.fecha))].join(",") === "2026-09-29,2026-10-06,2026-10-13", "cumplen: tres martes (la ventana de 4 semanas llega)");
+  const manMar = r.alternativas.filter((x) => x.fecha === "2026-09-29").map((x) => x.slot.inicio);
+  ok(manMar.join(",") === [13 * 60, 13 * 60 + 20, 13 * 60 + 40].join(","), `la mañana del martes: solo las tres últimas (${manMar.join(",")})`);
+  ok(r.alternativas.some((x) => x.fecha === "2026-09-28" && x.slot.inicio >= 14 * 60), "y las tardes de los días de al lado");
+}
+{
+  // «Martes a las 9:30»: esa hora con cada doctor, y alrededor debajo.
+  const HOY = "2026-09-22";
+  const s = ["2026-09-29", "2026-10-06"].flatMap((d) => [slot(d, "09:00", "a"), slot(d, "09:30", "a"), slot(d, "09:30", "b"), slot(d, "10:00", "b"), slot(d, "12:00", "a")]);
+  s.push(slot("2026-09-24", "09:30", "a"));
+  const r = huecosPorBloques(s, { franja: null, dias: ["mar"], urgencia: null }, 9 * 60 + 30, HOY);
+  ok(r.cumplen.length === 4 && r.cumplen.every((x) => x.slot.inicio === 9 * 60 + 30), `cumplen: las 9:30 de los dos doctores, los dos martes (${r.cumplen.length})`);
+  ok(!r.cumplen.some((x) => x.fecha === "2026-09-24"), "el jueves a las 9:30 no es lo que pidió");
+  const alrededor = r.alternativas.map((x) => x.slot.inicio / 60);
+  ok(alrededor.length === 4 && !alrededor.includes(12), `alrededor: 9:00 y 10:00 de esos martes, no las 12:00 (${alrededor.join(",")})`);
+  // Nada a esa hora: las más cercanas del día, no el día entero.
   const diaEntero = ["10:00", "10:20", "10:40", "11:00", "11:20", "13:40", "16:00", "19:40"].map((h) => slot("2026-09-23", h));
-  const c = huecosPorCercania(diaEntero, null, 8 * 60 + 30);
-  ok(c.ampliado === "franja" && c.elegidos.map((e) => e.slot.inicio / 60).join(",") === "10,10.333333333333334,10.666666666666666,11",
-    `abre a las 10 y pidió las 8:30 → de 10:00 a 11:00, no hasta las 19:40 (${c.elegidos.map((e) => e.slot.inicio).join(",")})`);
-  ok(_interno.notaDe("franja", null, false, 8 * 60 + 30) === "No hay nada hacia las 8:30 en dos semanas: estas son las horas más cercanas.", "la nota dice la hora como se lee y no habla de «esos días» sin días");
+  const c = huecosPorBloques(diaEntero, null, 8 * 60 + 30, HOY);
+  ok(c.cumplen.length === 0 && c.alternativas.map((x) => x.slot.inicio / 60).join(",") === "10,10.333333333333334,10.666666666666666,11",
+    `abre a las 10 y pidió las 8:30 → de 10:00 a 11:00 (${c.alternativas.map((x) => x.slot.inicio).join(",")})`);
+  ok(_interno.notaBloques(c, null, 8 * 60 + 30) === "No hay nada a las 8:30 en cuatro semanas: estas son las horas más cercanas.", `y lo dice: «${_interno.notaBloques(c, null, 8 * 60 + 30)}»`);
 }
 {
+  // «Cualquier día por la mañana»: días consecutivos desde hoy.
   const muchos = Array.from({ length: 9 }, (_, i) => slot(`2026-10-0${i + 1}`, "10:00"));
-  const r = huecosPorCercania(muchos, null, null);
-  ok(new Set(r.elegidos.map((e) => e.fecha)).size === _interno.DIAS_CERCANIA, `como mucho ${_interno.DIAS_CERCANIA} días: más es scroll, no opciones`);
+  const r = huecosPorBloques(muchos, { franja: "manana", dias: [], urgencia: null }, null, "2026-09-30");
+  ok([...new Set(r.cumplen.map((x) => x.fecha))].join(",") === "2026-10-01,2026-10-02,2026-10-03", `cualquier mañana: los ${_interno.DIAS_CUMPLEN} días seguidos desde hoy`);
+  const nada = huecosPorBloques(muchos, null, null, "2026-09-30");
+  ok(nada.alternativas.length === 0 && nada.cumplen.length === 3, "sin preferencia: todo cumple, sin alternativas de relleno");
+  ok(_interno.notaDe("franja", null, false, 8 * 60 + 30) === "No hay nada hacia las 8:30 en dos semanas: estas son las horas más cercanas.", "la nota de las tres sugerencias no cambia");
 }
 {
   // El elegir de tres también mira la hora pedida.

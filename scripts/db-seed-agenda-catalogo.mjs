@@ -88,6 +88,30 @@ try {
     }
   }
 
+  // 3 bis · franjas añadidas para la demo de venta (22-09, Simon). Idempotente
+  // por franja exacta: se añaden si faltan, nunca se quitan (una cita ya
+  // sembrada no puede quedar fuera de horario). Ferrer también el jueves por
+  // la mañana (varios doctores en «jueves por la mañana»); Castaño tardes de
+  // verdad martes y jueves (su tarde eran las 14:00-14:40).
+  const FRANJAS_EXTRA = [
+    [/Ferrer/, [[4, "09:00", "13:00"]]],
+    [/Castaño/, [[2, "16:00", "19:00"], [4, "16:00", "19:00"]]],
+  ];
+  for (const [patron, franjas] of FRANJAS_EXTRA) {
+    const d = dentistas.filter((x) => patron.test(x.nombre));
+    if (d.length !== 1) throw new Error(`franjas extra: ${patron} casa con ${d.length} dentistas`);
+    for (const [dia, inicio, fin] of franjas) {
+      const ya = await db.query(
+        "select 1 from horarios_staff where cliente='DEMO' and staff_id=$1 and dia_semana=$2 and inicio=$3", [d[0].id, dia, inicio]);
+      if (ya.rows.length) continue;
+      if (DRY) { console.log(`→ ${d[0].nombre}: +${dia} ${inicio}-${fin}`); continue; }
+      await db.query(
+        "insert into horarios_staff (cliente, staff_id, dia_semana, inicio, fin) values ('DEMO', $1, $2, $3, $4)",
+        [d[0].id, dia, inicio, fin]);
+      horN++;
+    }
+  }
+
   // INVARIANTE (§15): todo dentista DEMO queda con especialidad Y horario —
   // una demo con un doctor sin huecos posibles enseña una agenda rota.
   if (!DRY) {

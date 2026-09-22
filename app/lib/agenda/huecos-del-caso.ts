@@ -64,6 +64,8 @@ export type HuecoDelCaso = {
   doctorNombre: string;
   clinicaId: string | null;
   clinicaNombre: string | null;
+  /** Solo en el selector: si cumple lo que pidió o es una alternativa. */
+  bloque?: Bloque;
 };
 
 export type Ampliacion = null | "franja" | "dias" | "todo";
@@ -90,6 +92,8 @@ export type RespuestaHuecos = {
   doctores: { id: string; nombre: string }[];
   /** La hora concreta que pidió («a las 8:30»), "HH:MM"; null si no pidió. */
   horaPedida: string | null;
+  /** Selector: pidió prisa y lo que encaja está lejos → las de antes arriba. */
+  alternativasPrimero: boolean;
 };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -213,24 +217,146 @@ export function elegirHuecos(
   return { elegidos: espaciar(lista, max), ampliado };
 }
 
-/** Cuántos días enseña el selector de «Proponer horas». Más es scroll, no
- *  opciones (criterio sin relleno): quien quiera otro día navega la agenda. */
-const DIAS_CERCANIA = 5;
+// ─── El selector «Proponer horas» en dos bloques (22-09, tercera vuelta) ────
+//
+// Simon: «Cumplen lo que pidió» primero —los días que encajan, del más cercano
+// a hoy— y, separado, «Alternativas cercanas». Cada bloque trae TODOS los
+// huecos de sus días y de todos los doctores, sin espaciar: la coordinadora ve
+// el día y marca (la separación de 60 min se aplica al MENSAJE, no aquí).
+// Más días es scroll, no opciones: quien quiera otro día navega la agenda.
 
-/** PURA (22-09, selector «Proponer horas»): TODOS los huecos de los días más
- *  cercanos a lo pedido, de TODOS los doctores, en orden de cercanía — sin
- *  espaciar: la coordinadora ve el día entero de cada doctor y marca. */
-export function huecosPorCercania(
+/** Ventana del selector: cuatro semanas. Con dos, a quien pide «martes por la
+ *  tarde» le cabía UN martes, y la regla de 60 min le deja una hora por día. */
+const VENTANA_SELECTOR = 28;
+const DIAS_CUMPLEN = 3;
+const DIAS_ALTERNATIVAS = 3;
+/** De la OTRA franja, solo las horas más pegadas a la pedida: a quien pidió
+ *  tarde se le ofrecen las últimas de la mañana, no las 9:00. */
+const HORAS_OTRA_FRANJA = 3;
+/** «A las 9:30» casa con una hora de la rejilla a ≤ 15 min (la de 9:20 o la de
+ *  9:40 si la rejilla es de 20). Más lejos ya es «alrededor». */
+const EXACTA_MIN = 15;
+/** Quien dijo «cuanto antes» y lo que encaja está a más de una semana: las
+ *  horas de antes pesan más que el día que pidió (Simon, 22-09). */
+const LEJOS_URGENTE_DIAS = 7;
+
+export type Bloque = "cumple" | "alternativa";
+type Grupo = { fecha: string; slots: SlotDia[] };
+
+/** PURA: los dos bloques del selector. `alternativasPrimero` = pidió prisa y lo
+ *  que encaja está lejos: las de antes van arriba y se dice en `motivoUrgencia`. */
+export function huecosPorBloques(
   slots: readonly SlotDia[],
   pref: PreferenciaCita | null,
   horaPedida: number | null,
-  maxDias = DIAS_CERCANIA,
-): { elegidos: SlotDia[]; ampliado: Ampliacion } {
-  const { lista, ampliado } = escalonar(slots, pref, horaPedida);
-  const fechas: string[] = [];
-  for (const x of lista) if (!fechas.includes(x.fecha) && fechas.length < maxDias) fechas.push(x.fecha);
-  return { elegidos: lista.filter((x) => fechas.includes(x.fecha)), ampliado };
+  hoy: string,
+): { cumplen: SlotDia[]; alternativas: SlotDia[]; alternativasPrimero: boolean; primeraQueCumple: string | null } {
+  const dias = pref?.dias ?? [];
+  const franja = pref?.franja && pref.franja !== "indiferente" ? pref.franja : null;
+  const diaOk = (x: SlotDia) => dias.length === 0 || dias.some((d) => DIA_ISO[d] === diaSemanaISO(x.fecha));
+  const orden = (a: SlotDia, b: SlotDia) => a.fecha.localeCompare(b.fecha) || a.slot.inicio - b.slot.inicio || a.doctorId.localeCompare(b.doctorId);
+  const todos = [...slots].sort(orden);
+  const fechasDe = (l: readonly SlotDia[]) => [...new Set(l.map((x) => x.fecha))];
+  const grupos = (l: readonly SlotDia[]): Grupo[] => fechasDe(l).map((fecha) => ({ fecha, slots: l.filter((x) => x.fecha === fecha) }));
+  /** De la otra franja de un día, las N horas más pegadas al cambio de franja. */
+  const otraFranjaCerca = (delDia: readonly SlotDia[]): SlotDia[] => {
+    if (!franja) return [];
+    const fuera = delDia.filter((x) => !enFranja(x.slot.inicio, franja));
+    const dist = (m: number) => Math.abs(m - FIN_MANANA_MIN);
+    const horas = [...new Set(fuera.map((x) => x.slot.inicio))].sort((a, b) => dist(a) - dist(b)).slice(0, HORAS_OTRA_FRANJA);
+    return fuera.filter((x) => horas.includes(x.slot.inicio));
+  };
+  const plano = (gs: readonly Grupo[]) => gs.flatMap((g) => g.slots).sort(orden);
+
+  let cumplen: SlotDia[];
+  let alternativas: Grupo[] = [];
+  if (horaPedida != null) {
+    // Esa hora (la de la rejilla más cercana, a ≤ 15 min) en los días más
+    // cercanos, con cada doctor que la tenga; abajo, las de alrededor.
+    const candidatos = todos.filter(diaOk);
+    const mejor = new Map<string, number>();
+    for (const x of candidatos) {
+      const d = Math.abs(x.slot.inicio - horaPedida);
+      if (d <= EXACTA_MIN) mejor.set(x.fecha, Math.min(mejor.get(x.fecha) ?? Infinity, d));
+    }
+    const exactas = candidatos.filter((x) => mejor.get(x.fecha) === Math.abs(x.slot.inicio - horaPedida));
+    const fc = fechasDe(exactas).slice(0, DIAS_CUMPLEN);
+    cumplen = exactas.filter((x) => fc.includes(x.fecha));
+    if (cumplen.length > 0) {
+      alternativas = grupos(todos.filter((x) => fc.includes(x.fecha) && Math.abs(x.slot.inicio - horaPedida) <= CERCA_HORA_MIN && !cumplen.includes(x)));
+    } else {
+      // Nada a esa hora: las más cercanas de cada día (de los que pidió, o de
+      // cualquiera), no el día entero — quien pidió las 8:30 quiere las 10:00.
+      const base = candidatos.length > 0 ? candidatos : todos;
+      const fa = fechasDe(base).slice(0, DIAS_ALTERNATIVAS);
+      alternativas = grupos(base.filter((x) => fa.includes(x.fecha))).map((g) => {
+        const min = Math.min(...g.slots.map((x) => Math.abs(x.slot.inicio - horaPedida)));
+        return { fecha: g.fecha, slots: g.slots.filter((x) => Math.abs(x.slot.inicio - horaPedida) <= min + CERCA_HORA_MIN) };
+      });
+    }
+  } else {
+    const encaja = (x: SlotDia) => diaOk(x) && enFranja(x.slot.inicio, franja);
+    const siCumple = todos.filter(encaja);
+    const fc = fechasDe(siCumple).slice(0, DIAS_CUMPLEN);
+    cumplen = siCumple.filter((x) => fc.includes(x.fecha));
+    if (dias.length > 0 || franja) {
+      // (A) lo pedido de hora en OTROS días, del más cercano a hoy;
+      const otrosDias = grupos(todos.filter((x) => !diaOk(x) && enFranja(x.slot.inicio, franja)));
+      // (B) la otra franja de los días que cumplen, solo lo más pegado;
+      const otraEnCumplen = fc.map((fecha) => ({ fecha, slots: otraFranjaCerca(todos.filter((x) => x.fecha === fecha)) }));
+      // (C) si nada cumple: la otra franja de los días que pidió.
+      const otraEnPedidos = grupos(todos.filter((x) => diaOk(x) && !fc.includes(x.fecha))).map((g) => ({ fecha: g.fecha, slots: otraFranjaCerca(g.slots) }));
+      const cand = [...otrosDias.slice(0, cumplen.length > 0 ? 2 : DIAS_ALTERNATIVAS), ...otraEnCumplen, ...otraEnPedidos].filter((g) => g.slots.length > 0);
+      alternativas = cand.slice(0, DIAS_ALTERNATIVAS);
+    }
+  }
+
+  // Prisa y lo que encaja queda lejos: las alternativas son LAS DE ANTES, y van arriba.
+  const primeraQueCumple = cumplen[0]?.fecha ?? null;
+  let alternativasPrimero = false;
+  const urgencia = pref?.urgencia ?? null;
+  if (urgencia === "cuanto_antes" || urgencia === "esta_semana") {
+    const limite = urgencia === "esta_semana" ? sumaDias(hoy, 7 - diaSemanaISO(hoy)) : sumaDias(hoy, LEJOS_URGENTE_DIAS);
+    if (primeraQueCumple == null || primeraQueCumple > limite) {
+      const antes = todos.filter((x) => primeraQueCumple == null || x.fecha < primeraQueCumple);
+      const deAntes = grupos(antes)
+        .slice(0, DIAS_ALTERNATIVAS)
+        .map((g) => {
+          const enLaFranja = g.slots.filter((x) => enFranja(x.slot.inicio, franja));
+          return { fecha: g.fecha, slots: enLaFranja.length > 0 ? enLaFranja : otraFranjaCerca(g.slots) };
+        })
+        .filter((g) => g.slots.length > 0);
+      if (deAntes.length > 0 && cumplen.length > 0) {
+        alternativas = deAntes;
+        alternativasPrimero = true;
+      }
+    }
+  }
+  return { cumplen, alternativas: plano(alternativas), alternativasPrimero, primeraQueCumple };
 }
+
+/** La frase de arriba del selector: por qué no hay lo pedido, o por qué las
+ *  de antes van primero. null cuando lo que se ve se explica solo. */
+function notaBloques(
+  r: { cumplen: readonly SlotDia[]; alternativas: readonly SlotDia[]; alternativasPrimero: boolean; primeraQueCumple: string | null },
+  pref: PreferenciaCita | null,
+  horaPedida: number | null,
+): string | null {
+  if (r.alternativasPrimero && r.primeraQueCumple) {
+    const prisa = pref?.urgencia === "esta_semana" ? "esta semana" : "cuanto antes";
+    return `Pidió ${prisa} y lo primero que encaja es el ${fechaLarga(r.primeraQueCumple)}: arriba, las horas de antes.`;
+  }
+  if (r.cumplen.length > 0) return null;
+  if (r.alternativas.length === 0) return `Sin huecos en las próximas cuatro semanas. Mira toda la agenda.`;
+  const franjaTxt = horaPedida != null ? `a las ${deMin(horaPedida).replace(/^0/, "")}` : pref?.franja === "manana" ? "por la mañana" : pref?.franja === "tarde" ? "por la tarde" : null;
+  const diasTxt = pref?.dias?.length ? `los ${pref.dias.map((d) => NOMBRE_DIA[d]).join(" o ")}` : null;
+  const lo = [diasTxt, franjaTxt].filter(Boolean).join(" ");
+  return `No hay nada ${lo} en cuatro semanas: estas son las horas más cercanas.`.replace(/\s+/g, " ");
+}
+
+const NOMBRE_DIA: Record<DiaSemana, string> = { lun: "lunes", mar: "martes", mie: "miércoles", jue: "jueves", vie: "viernes", sab: "sábados", dom: "domingos" };
+const fechaLarga = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "short", timeZone: "UTC" }).replace(".", "");
 
 /** Separación mínima entre dos huecos del mismo día para que sean
  *  ALTERNATIVAS y no la misma hora dos veces (17-09, visto en el e2e: «14:00,
@@ -304,8 +430,8 @@ type ParametrosCaso = {
    *  orden de fecha, sin escalera ni ampliación (la coordinadora navega la
    *  agenda entera; el motor comprueba si una alternativa sigue libre).
    *  Default «preferencia»: los tres que mejor cumplen lo que pidió.
-   *  «cercania» (22-09, selector «Proponer horas»): los días más cercanos a lo
-   *  pedido con TODOS sus huecos y todos los doctores, sin espaciar. */
+   *  «cercania» (22-09, selector «Proponer horas»): dos bloques, «cumplen» y
+   *  «alternativas» (`huecosPorBloques`), con todos sus huecos, en 4 semanas. */
   modo?: "preferencia" | "todos" | "cercania";
   /** Primer día de la ventana (YYYY-MM-DD, nunca antes de hoy) y cuántos
    *  días abarca. Defaults: hoy y dos semanas. */
@@ -325,7 +451,7 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
   const ahora = p.ahora ?? new Date();
   const hoy = p.hoy ?? hoyISO(ahora);
   const modo = p.modo ?? "preferencia";
-  const ventana = Math.max(1, Math.min(p.dias ?? VENTANA_DIAS, 60));
+  const ventana = Math.max(1, Math.min(p.dias ?? (modo === "cercania" ? VENTANA_SELECTOR : VENTANA_DIAS), 60));
   const primerDia = p.desde && p.desde > hoy ? p.desde : hoy;
   const fechas = Array.from({ length: ventana }, (_, i) => (i === 0 ? primerDia : sumaDias(primerDia, i)));
   const desdeUTC = inicioDelDiaUTC(primerDia);
@@ -491,6 +617,7 @@ export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos>
     doctorPedido,
     doctores: elegibles,
     horaPedida: horaPedida == null ? null : deMin(horaPedida),
+    alternativasPrimero: false,
   });
   if (d.sinTratamiento) return salida([], null, d.sinTratamiento);
   if (d.sinDoctores) return salida([], null, d.sinDoctores);
@@ -505,6 +632,17 @@ export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos>
     }
   }
 
+  const nombreDe = new Map(implicados.map((s: any) => [s.id, s]));
+  const aHueco = (e: SlotDia, bloque?: Bloque): HuecoDelCaso => {
+    const s: any = nombreDe.get(e.doctorId);
+    return { fecha: e.fecha, hora: deMin(e.slot.inicio), fin: deMin(e.slot.fin), doctorId: e.doctorId, doctorNombre: s?.nombre ?? "", clinicaId: s?.clinica_id ?? null, clinicaNombre: s?.clinica_nombre ?? null, ...(bloque ? { bloque } : {}) };
+  };
+  if (modo === "cercania") {
+    const b = huecosPorBloques(slots, p.preferencia, horaPedida, hoy);
+    const huecos = [...b.cumplen.map((e) => aHueco(e, "cumple")), ...b.alternativas.map((e) => aHueco(e, "alternativa"))];
+    return { ...salida(huecos, b.cumplen.length > 0 ? null : "todo", notaBloques(b, p.preferencia, horaPedida)), alternativasPrimero: b.alternativasPrimero };
+  }
+
   const { elegidos, ampliado } =
     modo === "todos"
       ? {
@@ -513,14 +651,8 @@ export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos>
             .slice(0, p.max ?? 300),
           ampliado: null as Ampliacion,
         }
-      : modo === "cercania"
-        ? huecosPorCercania(slots, p.preferencia, horaPedida)
-        : elegirHuecos(slots, p.preferencia, p.max ?? MAX_HUECOS, horaPedida);
-  const nombreDe = new Map(implicados.map((s: any) => [s.id, s]));
-  const huecos = elegidos.map((e) => {
-    const s: any = nombreDe.get(e.doctorId);
-    return { fecha: e.fecha, hora: deMin(e.slot.inicio), fin: deMin(e.slot.fin), doctorId: e.doctorId, doctorNombre: s?.nombre ?? "", clinicaId: s?.clinica_id ?? null, clinicaNombre: s?.clinica_nombre ?? null };
-  });
+      : elegirHuecos(slots, p.preferencia, p.max ?? MAX_HUECOS, horaPedida);
+  const huecos = elegidos.map((e) => aHueco(e));
   return salida(huecos, ampliado, modo === "todos" ? null : notaDe(ampliado, p.preferencia, huecos.length === 0, horaPedida));
 }
 
@@ -529,4 +661,4 @@ export const mismoHueco = (a: Pick<HuecoDelCaso, "fecha" | "hora" | "doctorId">,
   a.fecha === b.fecha && a.hora === b.hora && a.doctorId === b.doctorId;
 
 // Para el QA sin base: la escalera y el casado son puros y se prueban solos.
-export const _interno = { enFranja, notaDe, espaciar, CERCA_HORA_MIN, DIAS_CERCANIA };
+export const _interno = { enFranja, notaDe, notaBloques, espaciar, CERCA_HORA_MIN, DIAS_CUMPLEN, DIAS_ALTERNATIVAS, VENTANA_SELECTOR };

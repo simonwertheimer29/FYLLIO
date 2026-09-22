@@ -19,10 +19,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
-import { fechaCorta } from "../../lib/agenda/fechas";
+import { fechaCorta, fechaLarga } from "../../lib/agenda/fechas";
 import { nombreCortoDoctor } from "../../lib/agenda/nombres";
 import { AlertTriangle, CalendarDays, Check, ICON_STROKE } from "../icons";
 import { RecuadroDoctor } from "../agenda/RecuadroDoctor";
+import { PanelFlotante } from "../ui/PanelFlotante";
 import { pegadaA } from "../../lib/agenda/separacion";
 import type { RespuestaHuecos, HuecoDelCaso } from "../../lib/agenda/huecos-del-caso";
 import type { OfertaDeLaFicha } from "../../lib/agente/ficha-caso";
@@ -32,6 +33,8 @@ type Respuesta = Omit<RespuestaHuecos, "huecos"> & {
   lead: { id: string; nombre: string };
   /** Lo que dijo la persona que quiere («revisión»), si lo dijo. */
   tratamientoDicho: string | null;
+  /** Lo que dijo de cuándo («jueves por la mañana»), tal cual. */
+  disponibilidadDicha: string | null;
 };
 
 type Variante = { tipo: "oferta" } | { tipo: "se_ocupo"; ocupada: HuecoDelCaso } | { tipo: "todas_ocupadas" };
@@ -136,61 +139,62 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
         </Caja>
       );
     }
-    return (
-      <Selector
-        telefono={telefono}
-        inicial={corregido.restantes}
-        variante={corregido.variante === "se_ocupo" ? { tipo: "se_ocupo", ocupada: corregido.ocupada } : { tipo: "todas_ocupadas" }}
-        aviso={`${legible(corregido.ocupada)} se acaba de ocupar. No se ha enviado nada: este es el mensaje corregido.`}
-        onEnviado={onHecho}
-        onCancelar={() => setCorregido(null)}
-      />
-    );
   }
 
-  // ── Sin propuesta (o ya cerrada) → el selector ──
+  // El selector se abre en una VENTANA flotante (22-09, Simon): la columna de
+  // la ficha no se expande; debajo sigue lo que la ficha ya enseñaba.
   const cerrada = !oferta || oferta.estado === "reservada" || oferta.estado === "reemplazada";
-  if (cerrada && !reofertando && !proponiendo) {
-    return (
-      <button type="button" onClick={() => setProponiendo(true)} className={btnPrimario}>
+  const ventana = corregido ? (
+    <Selector
+      telefono={telefono}
+      inicial={corregido.restantes}
+      variante={corregido.variante === "se_ocupo" ? { tipo: "se_ocupo", ocupada: corregido.ocupada } : { tipo: "todas_ocupadas" }}
+      aviso={`${legible(corregido.ocupada)} se acaba de ocupar. No se ha enviado nada: este es el mensaje corregido.`}
+      onEnviado={() => { setCorregido(null); onHecho(); }}
+      onCancelar={() => setCorregido(null)}
+    />
+  ) : (cerrada && proponiendo) || reofertando ? (
+    <Selector
+      telefono={telefono}
+      inicial={reofertando && oferta && !cerrada ? oferta.alternativas : []}
+      variante={{ tipo: "oferta" }}
+      aviso={reofertando && oferta && !cerrada ? "Propuesta nueva: sustituye a la anterior. Las horas de la lista se vuelven a comprobar al enviar." : null}
+      onEnviado={() => { setReofertando(false); setProponiendo(false); onHecho(); }}
+      onCancelar={() => { setReofertando(false); setProponiendo(false); }}
+    />
+  ) : null;
+  const conVentana = (base: React.ReactNode) => <>{base}{ventana}</>;
+
+  // ── Sin propuesta (o ya cerrada) → el botón que abre el selector ──
+  if (cerrada) {
+    return conVentana(
+      <button type="button" onClick={() => setProponiendo(true)} className={btnPrimario} aria-expanded={proponiendo || reofertando}>
         <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
         Proponer horas
-      </button>
-    );
-  }
-  if (cerrada || reofertando) {
-    return (
-      <Selector
-        telefono={telefono}
-        inicial={reofertando && oferta ? oferta.alternativas : []}
-        variante={{ tipo: "oferta" }}
-        aviso={reofertando && oferta ? "Propuesta nueva: sustituye a la anterior. Las horas de la lista se vuelven a comprobar al enviar." : null}
-        onEnviado={onHecho}
-        onCancelar={() => { setReofertando(false); setProponiendo(false); }}
-      />
+      </button>,
     );
   }
 
   // ── Abierta: esperando ──
   if (oferta.estado === "abierta") {
-    return (
+    return conVentana(
       <Caja tono="neutro" titulo={`Horas propuestas el ${diaHoraDe(oferta.enviadaEnISO)} · esperando su respuesta`}>
         <Mensaje texto={oferta.texto} />
         <p className="mt-1.5 text-[11.5px] text-[var(--color-muted)]">Si no contesta, la propuesta caduca el {diaHoraDe(oferta.caducaEnISO)} y el caso vuelve a ti para proponer otras.</p>
         <button type="button" onClick={() => setReofertando(true)} className={`${btnEnlace} mt-2`}>Cambiar la propuesta</button>
-      </Caja>
+      </Caja>,
     );
   }
 
   // ── Caducada sin respuesta: reofertar ──
   if (oferta.estado === "caducada" && oferta.eleccion == null && !oferta.eleccionEnISO) {
-    return (
+    return conVentana(
       <Caja tono="warning" titulo={`La propuesta del ${diaHoraDe(oferta.enviadaEnISO)} caducó sin respuesta.`}>
         <button type="button" onClick={() => setReofertando(true)} className={`${btnPrimario} mt-1`}>
           <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
           Volver a proponer horas
         </button>
-      </Caja>
+      </Caja>,
     );
   }
 
@@ -202,7 +206,7 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
       ? `Contestó tarde (${oferta.eleccionEnISO ? diaHoraDe(oferta.eleccionEnISO) : ""}) a una propuesta caducada: eligió ${oferta.eleccion! + 1}) ${legible(elegida)}. Se comprueba al reservar.`
       : `Eligió ${oferta.eleccion! + 1}) ${legible(elegida)}`
     : "Contestó a la propuesta pero no consta cuál eligió. Léelo en el chat y elige tú:";
-  return (
+  return conVentana(
     <Caja tono={tardia ? "warning" : "accent"} titulo={titulo}>
       {!elegida && (
         <ul className="mt-1.5 grid gap-1.5">
@@ -234,7 +238,7 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
         })()}
       </button>
       <button type="button" onClick={() => setReofertando(true)} className={`${btnEnlace} mt-2`}>Proponer otras horas</button>
-    </Caja>
+    </Caja>,
   );
 }
 
@@ -253,7 +257,7 @@ function Selector({
   variante: Variante;
   aviso: string | null;
   onEnviado: () => void;
-  onCancelar: (() => void) | null;
+  onCancelar: () => void;
 }) {
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -374,40 +378,109 @@ function Selector({
     }
   }
 
+  const titulo = datos ? `Proponer horas a ${datos.lead.nombre}` : "Proponer horas";
+  const cascaron = (cuerpo: React.ReactNode, pie?: React.ReactNode) => (
+    // La ventana de reservar citas (AgendarPanel): flotante, sin oscurecer —
+    // detrás está la conversación, que es el contexto de lo que se propone.
+    <PanelFlotante titulo={titulo} ariaLabel={titulo} onCerrar={onCancelar} anclaje="pantalla" anchoRem={34} pie={pie}>
+      {cuerpo}
+    </PanelFlotante>
+  );
+
   if (error) {
-    return (
-      <p className="text-[12.5px] text-[var(--color-danger)]">
+    return cascaron(
+      <p className="text-[13px] text-[var(--color-danger)]">
         No se pudieron calcular los huecos: {error}{" "}
         <button type="button" onClick={() => void cargar()} className="font-medium underline">Reintentar</button>
-      </p>
+      </p>,
     );
   }
-  if (!datos) return <div className="fyllio-skeleton h-20" />;
+  if (!datos) {
+    return cascaron(
+      <div className="space-y-3">
+        <div className="fyllio-skeleton h-12" />
+        <div className="fyllio-skeleton h-8" />
+        <div className="fyllio-skeleton h-40" />
+      </div>,
+    );
+  }
   const g = datos.garantia;
   const nombre = datos.lead.nombre.split(" ")[0];
+  const unSoloDoctor = datos.doctores.length === 1 ? datos.doctores[0]! : null;
+  const cumplen = datos.huecos.filter((h) => h.bloque !== "alternativa");
+  const alternativas = datos.huecos.filter((h) => h.bloque === "alternativa");
+  // En las alternativas, el día dice de qué franja son las horas si pidió
+  // franja: «Jueves 24 · tarde» junto a un jueves por la mañana que sí cumple.
+  const franjaPedida = !datos.horaPedida && datos.preferencia?.franja && datos.preferencia.franja !== "indiferente";
+  const bloqueCumplen = (
+    <Bloque key="c" titulo="Cumplen lo que pidió" vacio={cumplen.length === 0 ? "Nada en las próximas cuatro semanas." : null}>
+      <PorDias huecos={cumplen} seleccion={seleccion} ocupadas={ocupadasSet} onAlternar={alternar} conDoctor={!unSoloDoctor} />
+    </Bloque>
+  );
+  const bloqueAlternativas = alternativas.length > 0 && (
+    <Bloque key="a" titulo={datos.alternativasPrimero ? "Antes de lo que pidió" : datos.horaPedida && cumplen.length > 0 ? "Horas de alrededor" : "Alternativas cercanas"}>
+      <PorDias huecos={alternativas} seleccion={seleccion} ocupadas={ocupadasSet} onAlternar={alternar} conDoctor={!unSoloDoctor} conFranja={!!franjaPedida} />
+    </Bloque>
+  );
 
-  return (
+  const pie = (
     <div className="space-y-2">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+        {seleccion.length === 0 ? `Propuesta para ${nombre}: marca hasta ${MAX} horas` : `${seleccion.length} de ${MAX} · lo que recibirá ${nombre} por WhatsApp`}
+      </p>
+      {seleccion.length > 0 && (
+        <ul className="space-y-0.5">
+          {seleccion.map((h, i) => (
+            <li key={clave(h)} className="flex items-center justify-between gap-2 text-[13px] text-[var(--color-foreground)]">
+              <span className="[font-variant-numeric:tabular-nums]">{i + 1}) {legible(h)}</span>
+              <button type="button" onClick={() => alternar(h)} className="text-[12px] text-[var(--color-muted)] hover:underline">quitar</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {seleccion.length > 0 && (texto ? <div className="max-h-32 overflow-y-auto"><Mensaje texto={texto} /></div> : <div className="fyllio-skeleton h-10" />)}
+      {!g.puedeReservar && <p className="text-[12px] text-amber-700 dark:text-amber-300">Sin la agenda en Fyllio no se proponen horas como reales.</p>}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" onClick={onCancelar} className="h-10 rounded-lg border border-[var(--color-border)] px-3 text-[13px] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]">
+          Cerrar sin enviar
+        </button>
+        <button
+          type="button"
+          disabled={guardando || seleccion.length === 0 || !texto || !g.puedeReservar}
+          onClick={() => void enviar()}
+          className="h-10 rounded-lg bg-[var(--color-accent)] px-3 text-[13px] font-medium text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+        >
+          {guardando ? "Enviando…" : seleccion.length === 0 ? "Enviar la propuesta" : `Enviar ${seleccion.length === 1 ? "la hora" : `las ${seleccion.length} horas`}`}
+        </button>
+      </div>
+    </div>
+  );
+
+  return cascaron(
+    <div className="space-y-3">
       {aviso && (
-        <p className="flex items-start gap-1.5 text-[12px] text-amber-800 dark:text-amber-200">
-          <AlertTriangle size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" aria-hidden />
+        <p className="flex items-start gap-1.5 text-[13px] text-amber-800 dark:text-amber-200">
+          <AlertTriangle size={14} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" aria-hidden />
           <span>{aviso}</span>
         </p>
       )}
-      <p className={`text-[12px] ${g.frescura === "en_vivo" ? "text-[var(--color-success,#1f7a4d)]" : "text-amber-700 dark:text-amber-300"}`}>{g.texto}</p>
+
+      {/* Lo que pidió, tal cual lo dijo. */}
+      <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">Pidió</p>
+        <p className="text-[14px] font-medium text-[var(--color-foreground)]">{loQuePidio(datos)}</p>
+        {unSoloDoctor && <p className="text-[12px] text-[var(--color-muted)]">Todas con {unSoloDoctor.nombre}</p>}
+      </div>
 
       <label className="block text-[12px] text-[var(--color-muted)]">
         <span className="flex items-baseline justify-between gap-2">
           <span>Tipo de cita</span>
-          {/* De dónde sale el tipo: lo que dijo, casado con el catálogo. */}
-          {!tratamientoId && datos.tratamientoDicho && datos.tratamiento && (
-            <span className="truncate">dijo «{datos.tratamientoDicho}»</span>
-          )}
+          {!tratamientoId && datos.tratamientoDicho && datos.tratamiento && <span className="truncate">dijo «{datos.tratamientoDicho}»</span>}
         </span>
         <select
           value={datos.tratamiento?.id ?? ""}
           onChange={(e) => { setTratamientoId(e.target.value || null); setAgenda(null); }}
-          className="mt-0.5 w-full min-w-0 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-1 text-[12px] text-[var(--color-foreground)]"
+          className="mt-0.5 h-9 w-full min-w-0 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[13px] text-[var(--color-foreground)]"
         >
           <option value="">— elegir —</option>
           {datos.catalogo.map((t) => (
@@ -427,7 +500,7 @@ function Selector({
                 type="button"
                 aria-pressed={activo}
                 onClick={() => { setDoctorFiltro(d.id); setAgenda(null); }}
-                className={`rounded-lg border px-2 py-0.5 transition-colors ${
+                className={`h-8 rounded-lg border px-2.5 transition-colors ${
                   activo
                     ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]"
                     : "border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
@@ -447,20 +520,14 @@ function Selector({
         </p>
       )}
       {datos.doctorFueraDeClinica && <p className="text-[12px] text-[var(--color-muted)]">{nombreCortoDoctor(datos.doctorFueraDeClinica)} es de otra clínica: se ofrecen los de esta.</p>}
+      <p className={`text-[12px] ${g.frescura === "en_vivo" ? "text-[var(--color-success,#1f7a4d)]" : "text-amber-700 dark:text-amber-300"}`}>{g.texto}</p>
 
-      {datos.nota && <p className="text-[12px] text-[var(--color-muted)]">{datos.nota}</p>}
-      {datos.huecos.length > 0 && (
-        <p className="text-[12px] text-[var(--color-muted)]">
-          {datos.ampliado ? "Marca" : `Lo más cerca de lo que pidió${datos.horaPedida ? ` (hacia las ${datos.horaPedida.replace(/^0/, "")})` : ""}. Marca`} hasta {MAX}; el mensaje se compone debajo.
-        </p>
+      {datos.nota && (
+        <p className={`text-[13px] ${datos.alternativasPrimero ? "font-medium text-[var(--color-foreground)]" : "text-[var(--color-muted)]"}`}>{datos.nota}</p>
       )}
+      {datos.tratamiento && (datos.alternativasPrimero ? [bloqueAlternativas, bloqueCumplen] : [bloqueCumplen, bloqueAlternativas])}
 
-      {/* Lo que pidió: por día y doctor, el mismo desplegable que la agenda. */}
-      {datos.huecos.length > 0 && (
-        <DiasConHuecos huecos={datos.huecos} seleccionadas={seleccionadas} ocupadas={ocupadasSet} onAlternar={alternar} abrir={2} />
-      )}
-
-      {/* Toda la agenda, por semanas. */}
+      {/* La salida para buscar a mano: toda la agenda, por semanas. */}
       {!agenda ? (
         <button type="button" disabled={cargandoAgenda || !tratamientoEfectivo} onClick={() => void cargarAgenda(hoyISO())} className={btnEnlace}>
           {cargandoAgenda ? "Cargando…" : "Ver otros días en la agenda"}
@@ -475,40 +542,121 @@ function Selector({
           {agenda.huecos.length === 0 ? (
             <p className="mt-1.5 text-[12px] text-[var(--color-muted)]">Sin huecos esta semana.</p>
           ) : (
-            <div className="mt-1.5 max-h-72 overflow-y-auto pr-1">
+            <div className="mt-1.5">
               <DiasConHuecos huecos={agenda.huecos} seleccionadas={seleccionadas} ocupadas={ocupadasSet} onAlternar={alternar} abrir={0} />
             </div>
           )}
         </div>
       )}
+    </div>,
+    pie,
+  );
+}
 
-      {/* La lista que va en el mensaje, y el mensaje ENTERO antes del clic.
-          Siempre a la vista, también vacía: es el sitio donde se ve qué se va a
-          mandar y el botón que lo manda. */}
-      {(
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-            {seleccion.length === 0 ? `Propuesta para ${nombre}: ninguna hora marcada` : `${seleccion.length} de ${MAX} · lo que recibirá ${nombre} por WhatsApp`}
-          </p>
-          <ul className="mt-1 space-y-0.5">
-            {seleccion.map((h, i) => (
-              <li key={clave(h)} className="flex items-center justify-between text-[12px] text-[var(--color-foreground)]">
-                <span>{i + 1}) {legible(h)}</span>
-                <button type="button" onClick={() => alternar(h)} className="text-[var(--color-muted)] hover:underline">quitar</button>
-              </li>
-            ))}
-          </ul>
-          {seleccion.length > 0 && (texto ? <Mensaje texto={texto} /> : <div className="fyllio-skeleton mt-1.5 h-10" />)}
-          <button type="button" disabled={guardando || seleccion.length === 0 || !texto || !g.puedeReservar} onClick={() => void enviar()} className={`${btnPrimario} mt-2`}>
-            {guardando ? "Enviando…" : seleccion.length === 0 ? "Enviar la propuesta (marca alguna hora)" : `Enviar la propuesta con ${seleccion.length} ${seleccion.length === 1 ? "hora" : "horas"}`}
-          </button>
-          {!g.puedeReservar && <p className="mt-1 text-[11.5px] text-amber-700 dark:text-amber-300">Sin la agenda en Fyllio no se proponen horas como reales.</p>}
-        </div>
-      )}
-      {onCancelar && (
-        <button type="button" onClick={onCancelar} className={btnEnlace}>Cerrar sin enviar</button>
-      )}
+/** «Jueves por la mañana · limpieza»: lo que dijo, tal cual; si no hay texto,
+ *  lo que se entendió de la preferencia. */
+function loQuePidio(d: Respuesta): string {
+  const NOMBRE: Record<string, string> = { lun: "lunes", mar: "martes", mie: "miércoles", jue: "jueves", vie: "viernes", sab: "sábado", dom: "domingo" };
+  const p = d.preferencia;
+  const derivado = [
+    p?.dias?.length ? p.dias.map((x) => NOMBRE[x]).join(" o ") : null,
+    p?.franja === "manana" ? "por la mañana" : p?.franja === "tarde" ? "por la tarde" : null,
+    p?.urgencia === "cuanto_antes" ? "cuanto antes" : p?.urgencia === "esta_semana" ? "esta semana" : null,
+  ].filter(Boolean).join(" ");
+  const cuando = d.disponibilidadDicha ?? (derivado || "Sin día ni hora");
+  const que = d.tratamientoDicho ?? d.tratamiento?.nombre ?? null;
+  const txt = [cuando, que?.toLowerCase()].filter(Boolean).join(" · ");
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+/** Un bloque del selector con su título de sección. */
+function Bloque({ titulo, vacio, children }: { titulo: string; vacio?: string | null; children: React.ReactNode }) {
+  return (
+    <section className="border-t border-[var(--color-border)] pt-3">
+      <h3 className="mb-2 text-[11px] font-medium uppercase tracking-widest text-[var(--color-muted)]">{titulo}</h3>
+      {vacio ? <p className="text-[13px] text-[var(--color-muted)]">{vacio}</p> : children}
+    </section>
+  );
+}
+
+/** Por DÍA y, dentro, por DOCTOR, cada hora un botón para marcar. Abierto, sin
+ *  desplegables: Simon quiere ver las horas, no cuántas hay. Las que quedan a
+ *  menos de una hora de una marcada se atenúan (el MENSAJE no las admite). */
+function PorDias({
+  huecos,
+  seleccion,
+  ocupadas,
+  onAlternar,
+  conDoctor,
+  conFranja = false,
+}: {
+  huecos: HuecoDelCaso[];
+  seleccion: HuecoDelCaso[];
+  ocupadas: Set<string>;
+  onAlternar: (h: HuecoDelCaso) => void;
+  conDoctor: boolean;
+  conFranja?: boolean;
+}) {
+  const dias: Array<{ fecha: string; doctores: Array<{ id: string; nombre: string; horas: HuecoDelCaso[] }> }> = [];
+  for (const h of huecos) {
+    let dia = dias.find((d) => d.fecha === h.fecha);
+    if (!dia) dias.push((dia = { fecha: h.fecha, doctores: [] }));
+    let doc = dia.doctores.find((d) => d.id === h.doctorId);
+    if (!doc) dia.doctores.push((doc = { id: h.doctorId, nombre: h.doctorNombre, horas: [] }));
+    doc.horas.push(h);
+  }
+  const marcadas = new Set(seleccion.map(clave));
+  return (
+    <div className="space-y-3">
+      {dias.map((dia) => {
+        const franja = conFranja ? (dia.doctores.every((d) => d.horas.every((h) => h.hora < "14:00")) ? " · mañana" : dia.doctores.every((d) => d.horas.every((h) => h.hora >= "14:00")) ? " · tarde" : "") : "";
+        return (
+          <div key={dia.fecha}>
+            <p className="mb-1 text-[13px] font-semibold text-[var(--color-foreground)]">{fechaLarga(dia.fecha)}{franja}</p>
+            <div className="space-y-1.5">
+              {dia.doctores.map((doc) => (
+                <div key={doc.id}>
+                  {conDoctor && <p className="mb-1 text-[12px] text-[var(--color-muted)]">{nombreCortoDoctor(doc.nombre)}</p>}
+                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5">
+                    {[...doc.horas].sort((a, b) => a.hora.localeCompare(b.hora)).map((h) => {
+                      const activa = marcadas.has(clave(h));
+                      const pegada = activa ? null : pegadaA(h, seleccion);
+                      return (
+                        <HoraBoton key={clave(h)} h={h} activa={activa} ocupada={ocupadas.has(clave(h))} pegadaA={pegada?.hora ?? null} onClick={() => onAlternar(h)} />
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
+  );
+}
+
+/** Una hora del selector: botón para marcar (control, 8 px, altura táctil). */
+function HoraBoton({ h, activa, ocupada, pegadaA, onClick }: { h: HuecoDelCaso; activa: boolean; ocupada: boolean; pegadaA: string | null; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={activa}
+      disabled={ocupada}
+      onClick={onClick}
+      title={ocupada ? "Se acaba de ocupar" : pegadaA ? `A menos de una hora de las ${pegadaA}: no van las dos en el mismo mensaje` : `${h.hora}–${h.fin} · ${h.doctorNombre}`}
+      className={`flex h-10 items-center justify-center gap-1 rounded-lg border text-[13px] tabular-nums transition-colors disabled:opacity-50 ${
+        activa
+          ? "border-transparent bg-[var(--color-accent)] font-medium text-[var(--color-on-accent)]"
+          : pegadaA
+            ? "border-[var(--color-border)] text-[var(--color-muted)] opacity-50"
+            : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+      }`}
+    >
+      {activa && <Check size={13} strokeWidth={2.5} aria-hidden />}
+      {ocupada ? "ocupada" : h.hora}
+    </button>
   );
 }
 
