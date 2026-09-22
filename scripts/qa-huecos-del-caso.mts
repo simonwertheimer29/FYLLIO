@@ -17,6 +17,7 @@
 
 import { elegirHuecos, casarTratamiento, casarDoctor, horaPedidaDe, huecosPorCercania, _interno } from "../app/lib/agenda/huecos-del-caso";
 import { garantiaDe } from "../app/lib/agenda/garantia";
+import { pegadaA, primerPar } from "../app/lib/agenda/separacion";
 import { textoConfirmacionCita } from "../app/lib/agenda/confirmacion-cita";
 
 let rojos = 0;
@@ -141,6 +142,16 @@ console.log("══ casarDoctor (solo si la paciente lo pidió)");
   ok(casarDoctor("con la doctora Ferrer", DOCS)?.nombre === "Dra. Lucía Ferrer", "«con la doctora Ferrer» → Dra. Lucía Ferrer");
   ok(casarDoctor("el doctor", DOCS) === null, "«el doctor» a secas → ninguno (no se elige solo)");
   ok(casarDoctor(null, DOCS) === null, "sin petición → ninguno (todos los doctores)");
+}
+
+console.log("══ separacion (22-09: el MENSAJE no lleva horas pegadas; el listado sí las enseña)");
+{
+  const a = (fecha: string, hora: string) => ({ fecha, hora });
+  ok(pegadaA(a("2026-09-29", "14:20"), [a("2026-09-29", "14:00")])?.hora === "14:00", "14:20 junto a 14:00 → pegada");
+  ok(pegadaA(a("2026-09-29", "15:00"), [a("2026-09-29", "14:00")]) === null, "15:00 junto a 14:00 → se separa (60 min justos)");
+  ok(pegadaA(a("2026-09-30", "14:00"), [a("2026-09-29", "14:00")]) === null, "misma hora, otro día → no pegada");
+  ok(primerPar([a("2026-09-29", "14:00"), a("2026-10-06", "14:00"), a("2026-09-29", "14:40")]) != null, "una propuesta con 14:00 y 14:40 el mismo día → rechazada");
+  ok(primerPar([a("2026-09-29", "14:00"), a("2026-10-06", "14:00")]) === null, "martes y martes siguiente a la misma hora → vale");
 }
 
 console.log("══ casarTratamiento");

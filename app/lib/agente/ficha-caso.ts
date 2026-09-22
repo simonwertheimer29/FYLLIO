@@ -247,6 +247,10 @@ export function etiquetaEstadoDe(a: {
       case "sin_huecos":
         return { texto: "Sin horas que ofrecerle — buscar hueco", tono: "danger" };
       case "caso_completo": {
+        // «Listo para cerrar» es justo cuando se proponen horas: si hay una
+        // propuesta en la mesa, manda ella (abajo). Visto el 22-09 en
+        // qa:oferta-demo: la ficha seguía diciendo «listo para cerrar».
+        if (a.oferta?.estado === "abierta" || a.oferta?.estado === "caducada") break;
         const obj = s.objetivo ?? a.objetivoActivo;
         return { texto: obj ? `${ESTADO_POR_OBJETIVO[obj]} · listo para cerrar` : "Listo para cerrar", tono: "accent" };
       }

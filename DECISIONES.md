@@ -6738,3 +6738,13 @@ de cada día, no el día entero. El desplegable es el `RecuadroDoctor` de la vis
 componente compartido. Diagnóstico: el martes 22 desapareció porque ya había pasado, y «Revisión general» sale
 de casar «revisión» por nombre, no de `catalogo[0]`. En el caso de Verónica, quitar el filtro no cambia nada
 porque Demo Este tiene un solo dentista. Pendiente: MEJORAS 265 (tratamiento ↔ doctor) y 266 (móvil).
+
+## 2026-09-22 · La regla de 60 min nunca llegó al mensaje; y «listo para cerrar» tapaba la propuesta
+Simon preguntó si la separación de 60 min seguía valiendo para el MENSAJE. No valía, y nunca valió: vivía solo
+en `espaciar`, que elige las tres sugerencias. El servidor solo miraba el máximo de 4, y el navegador semanal
+ya dejaba marcar 14:00 y 14:20. Ahora es una regla pura en `agenda/separacion.ts` que aplican tres sitios: la
+casilla (no marca y explica por qué), `crearOferta` (motivo `pegadas`) y el repuesto automático. El listado
+sigue enseñando el día entero. Al correr los scripts de reserva salió otro fallo, de antes: en un caso «listo
+para cerrar», la ficha no decía «Horas propuestas» porque esa rama iba primero. Es el caso más común en que se
+proponen horas; ahora manda la propuesta.
+

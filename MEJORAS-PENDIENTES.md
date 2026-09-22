@@ -4187,10 +4187,17 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   `staff_especialidades`. Hoy el selector ofrece todos los dentistas de la clínica con horario; si una clínica
   tiene un ortodoncista que no hace revisiones, se ofrecería su hueco para una revisión.
 - **Qué hacer:** columna `especialidad_id` en `tratamientos` (o M:N) configurable en Ajustes → Agenda, y que
-  `disponibilidadDelCaso` filtre por ella cuando exista. Sin dato, todos (como ahora). · **Impacto:** MEDIO en
+  `disponibilidadDelCaso` filtre por ella cuando exista. Sin dato, todos (como ahora). Coste estimado 22-09:
+  3-4 h de código (migración 061, selector en Ajustes → Agenda, filtro en un sitio que cubre selector, oferta
+  y repuesto, más la agenda manual), y la configuración de cada clínica, que es la parte que no depende de nosotros. · **Impacto:** MEDIO en
   clínicas con especialistas. · **Esfuerzo:** 3 h. · **Fecha:** 2026-09-22
 
-## 266. Mensajería · en móvil no hay ficha, y con ella no hay «Proponer horas»
+## 266. Mensajería · en móvil no hay ficha, y con ella no hay «Proponer horas» — ✅ PRIORIDAD MÁXIMA (Simon, 22-09: por delante del punto 7)
+- **Simon, 22-09:** «no es una mejora pendiente, es que el flujo no funciona donde se va a usar».
+- **Alcance real:** por debajo de 1024 px (móvil Y tablet) la columna derecha entera no existe
+  (`MensajeriaView.tsx:606`, `hidden … lg:block`): contacto, estado, datos del agente, proponer horas,
+  reservar la elegida, confirmar la cita, moverla, espera y opt-out. Solo el «por qué» tiene hoja en móvil.
+  Seguimiento sí monta la ficha desplegada en su fila, pero solo para los casos de su cola.
 - **Visto al capturar el selector (22-09):** a 390 px, la conversación ocupa la pantalla y la columna de la
   ficha no aparece por ningún lado: ni datos del agente ni el bucle de ofrecer horas. La coordinadora que
   contesta desde el móvil no puede proponer horas.

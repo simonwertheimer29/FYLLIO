@@ -23,6 +23,7 @@ import { fechaCorta } from "../../lib/agenda/fechas";
 import { nombreCortoDoctor } from "../../lib/agenda/nombres";
 import { AlertTriangle, CalendarDays, Check, ICON_STROKE } from "../icons";
 import { RecuadroDoctor } from "../agenda/RecuadroDoctor";
+import { pegadaA } from "../../lib/agenda/separacion";
 import type { RespuestaHuecos, HuecoDelCaso } from "../../lib/agenda/huecos-del-caso";
 import type { OfertaDeLaFicha } from "../../lib/agente/ficha-caso";
 
@@ -335,6 +336,12 @@ function Selector({
       if (s.some((x) => clave(x) === clave(h))) return s.filter((x) => clave(x) !== clave(h));
       if (s.length >= MAX) {
         toast.error(`Como mucho ${MAX} horas por mensaje: más es marear al paciente.`);
+        return s;
+      }
+      // El listado enseña el día entero; el MENSAJE no lleva dos horas pegadas.
+      const pegada = pegadaA(h, s);
+      if (pegada) {
+        toast.error(`Las ${h.hora} está a menos de una hora de las ${pegada.hora}: para el paciente es la misma hora. Quita esa o elige otra.`);
         return s;
       }
       return [...s, h].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.hora.localeCompare(b.hora));

@@ -33,6 +33,7 @@ import { hasWABACredentials } from "../presupuestos/waba-credentials";
 import { envioBloqueadoPorOptOut } from "../contacto/optout";
 import { hiloJugado, FUENTE_SIMULACION } from "../mensajeria/hilo-jugado";
 import { huecosDelCaso, libresDelCaso, mismoHueco } from "./huecos-del-caso";
+import { pegadaA, primerPar } from "./separacion";
 import type { Alternativa } from "./ofertas-textos";
 import { leerAgendaEnFyllio } from "./garantia";
 import { instanteDeCita, upsertCitaDeLead } from "./cita-de-lead";
@@ -236,6 +237,7 @@ export async function alternativasDeRepuesto(p: {
   for (const h of r.huecos) {
     if (salida.length >= max) break;
     if (salida.some((s) => mismoHueco(s, h)) || p.excluir.some((e) => mismoHueco(e, h))) continue;
+    if (pegadaA(h, salida)) continue; // el repuesto tampoco manda dos horas pegadas
     salida.push(h);
   }
   return salida;
@@ -245,7 +247,7 @@ export async function alternativasDeRepuesto(p: {
 
 export type ResultadoOferta =
   | { ok: true; oferta: Oferta; simulado: boolean; modo: "waba" | "manual" }
-  | { ok: false; motivo: "lead_no_existe" | "sin_agenda_en_fyllio" | "sin_alternativas" | "demasiadas" | "ocupadas" | "texto_no_coincide" | "opt_out" | "fallo_envio"; ocupadas?: Alternativa[]; libres?: Alternativa[]; esperado?: string; detalle?: string };
+  | { ok: false; motivo: "lead_no_existe" | "sin_agenda_en_fyllio" | "sin_alternativas" | "demasiadas" | "pegadas" | "ocupadas" | "texto_no_coincide" | "opt_out" | "fallo_envio"; ocupadas?: Alternativa[]; libres?: Alternativa[]; esperado?: string; detalle?: string };
 
 async function enviarAlPaciente(p: { telefono: string; leadId: string; texto: string; autor: "persona" | "agente"; idempotencyKey: string }): Promise<{ ok: true; mensajeId: string; simulado: boolean; modo: "waba" | "manual" } | { ok: false }> {
   const simulado = await hiloJugado(p.telefono);
@@ -303,6 +305,9 @@ export async function crearOferta(p: {
   if (!enFyllio) return { ok: false, motivo: "sin_agenda_en_fyllio" };
   if (p.alternativas.length === 0) return { ok: false, motivo: "sin_alternativas" };
   if (p.alternativas.length > MAX_ALTERNATIVAS) return { ok: false, motivo: "demasiadas" };
+  // Dos horas pegadas del mismo día no son dos alternativas (separacion.ts).
+  const par = primerPar(p.alternativas);
+  if (par) return { ok: false, motivo: "pegadas", detalle: `${par[0].hora} y ${par[1].hora}` };
 
   const clinicaId = p.alternativas[0]!.clinicaId ?? lead.clinicaId ?? null;
   const comp = await comprobarAlternativas({ alternativas: p.alternativas, tratamientoId: p.tratamientoId, clinicaId, ahora });
@@ -535,6 +540,7 @@ export const MENSAJE_MOTIVO_OFERTA: Record<string, string> = {
   sin_agenda_en_fyllio: "La agenda no vive en Fyllio: no se pueden proponer horas como reales. Anota la cita y confírmala en tu software.",
   sin_alternativas: "Elige al menos una hora.",
   demasiadas: `Como mucho ${MAX_ALTERNATIVAS} horas por mensaje: más es marear al paciente.`,
+  pegadas: "Dos horas del mismo día a menos de una hora son la misma hora para el paciente: deja una.",
   ocupadas: "Alguna de esas horas se acaba de ocupar. No se ha enviado nada: revisa la lista.",
   texto_no_coincide: "El mensaje cambió desde que lo viste. Vuelve a mirarlo.",
   opt_out: "Esta persona pidió no recibir mensajes. Solo se le puede contestar cuando escribe ella.",

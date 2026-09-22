@@ -43,6 +43,7 @@ import {
 } from "./disponibilidad";
 import { garantiaDe, leerAgendaEnFyllio, type GarantiaAgenda } from "./garantia";
 import type { DiaSemana, PreferenciaCita } from "../agente/evaluador";
+import { SEPARACION_MIN } from "./separacion";
 
 /** Ventana de búsqueda: dos semanas. Más allá, ofrecer un hueco a quien dijo
  *  «cuanto antes» no es ayudarle. */
@@ -234,7 +235,7 @@ export function huecosPorCercania(
 /** Separación mínima entre dos huecos del mismo día para que sean
  *  ALTERNATIVAS y no la misma hora dos veces (17-09, visto en el e2e: «14:00,
  *  14:20 y 14:40 con el mismo doctor» no es una propuesta). */
-const SEPARACION_MIN = 60;
+// La cifra es la de separacion.ts: la misma regla que el mensaje.
 
 /** PURA: de una lista ya ordenada por preferencia, elige hasta `max` que se
  *  parezcan lo menos posible entre sí: primero un hueco por día; si faltan,
