@@ -4203,3 +4203,12 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   contesta desde el móvil no puede proponer horas.
 - **Qué hacer:** botón «Ficha» en la cabecera de la conversación en móvil que abra la columna como hoja
   (`PanelFlotante` anclaje «hoja»). · **Impacto:** ALTO para uso en móvil. · **Esfuerzo:** 2 h. · **Fecha:** 2026-09-22
+
+## 267. Ofertas · ofrecer un RANGO cuando el doctor tiene casi toda la franja libre
+- **Simon, 22-09:** «cualquier hora de 10:00 a 13:30 salvo las 10:30» en vez de cuatro horas sueltas, cuando
+  la franja está casi vacía. **No ahora:** obliga a interpretar una hora LIBRE en la respuesta del paciente
+  («a las 11:15») en vez de reconocer una de las opciones numeradas, y el juicio `eleccionOferta` y la
+  comprobación del motor están hechos para opciones cerradas.
+- **Qué haría falta:** alternativa de tipo rango en la oferta, juicio del modelo que extraiga una hora dentro
+  del rango, comprobación con `libresDelCaso` (ya mira intervalos, no la rejilla) y texto de código.
+  · **Impacto:** MEDIO (mensajes más cortos, más acierto a la primera). · **Esfuerzo:** 1 día + vara. · **Fecha:** 2026-09-22
