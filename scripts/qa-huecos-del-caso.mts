@@ -4,8 +4,9 @@
 //   npm run qa:huecos
 //
 // Lo que se prueba y por qué:
-//  · elegirHuecos — la escalera de ampliación (días en SU orden → suelta la
-//    franja → suelta los días → todo) y que sin preferencia no «amplía».
+//  · huecosPorBloques y sugerirPropuesta — los dos bloques del selector y la
+//    propuesta ya hecha (la única regla de sugerencia: selector, repuesto y
+//    agente), con prisa, hora pedida y la tarde desde las 15:00.
 //  · casarTratamiento — «una limpieza» casa con «Limpieza dental»; dos
 //    candidatos = ninguno (se pide elegir); texto vacío = ninguno.
 //  · garantiaDe — los tres valores de frescura y lo que cada uno permite:
@@ -15,7 +16,7 @@
 //    tratamiento; deja la puerta del «no me viene bien».
 // Salida: 0 = todo verde · 1 = algún rojo (se listan).
 
-import { elegirHuecos, casarTratamiento, casarDoctor, horaPedidaDe, huecosPorBloques, _interno } from "../app/lib/agenda/huecos-del-caso";
+import { casarTratamiento, casarDoctor, horaPedidaDe, huecosPorBloques, sugerirPropuesta, _interno } from "../app/lib/agenda/huecos-del-caso";
 import { garantiaDe } from "../app/lib/agenda/garantia";
 import { pegadaA, primerPar } from "../app/lib/agenda/separacion";
 import { textoConfirmacionCita } from "../app/lib/agenda/confirmacion-cita";
@@ -31,58 +32,6 @@ const slot = (fecha: string, hhmm: string, doctorId = "d1") => {
   const [h, m] = hhmm.split(":").map(Number);
   return { fecha, slot: { inicio: h! * 60 + m!, fin: h! * 60 + m! + 30 }, doctorId };
 };
-const S = [
-  slot("2026-09-21", "10:00"), // lunes mañana
-  slot("2026-09-22", "17:00"), // martes tarde
-  slot("2026-09-24", "16:00"), // jueves tarde
-  slot("2026-09-25", "09:30"), // viernes mañana
-  slot("2026-10-01", "11:00"), // jueves mañana (segunda semana)
-];
-
-console.log("══ elegirHuecos");
-{
-  const r = elegirHuecos(S, { franja: "manana", dias: ["jue", "vie"], urgencia: null });
-  ok(r.ampliado === null && r.elegidos.map((e) => e.fecha).join(",") === "2026-10-01,2026-09-25", "jueves antes que viernes aunque el viernes sea antes en el calendario (orden de preferencia)");
-}
-{
-  const r = elegirHuecos(S, { franja: "manana", dias: ["mar"], urgencia: null });
-  ok(r.ampliado === "franja" && r.elegidos[0]?.fecha === "2026-09-22", "sin martes por la mañana → amplía la FRANJA y da el martes por la tarde");
-}
-{
-  const r = elegirHuecos(S, { franja: "tarde", dias: ["mie"], urgencia: null });
-  ok(r.ampliado === "dias" && r.elegidos[0]?.fecha === "2026-09-22", "sin miércoles → amplía los DÍAS y da la primera tarde (martes)");
-}
-{
-  const r = elegirHuecos(S, { franja: "manana", dias: ["dom"], urgencia: null });
-  ok(r.ampliado === "dias" && r.elegidos[0]?.fecha === "2026-09-21", "sin domingos pero con mañanas → amplía los DÍAS antes que soltarlo todo");
-}
-{
-  const soloTardes = S.filter((x) => x.slot.inicio >= 14 * 60);
-  const r = elegirHuecos(soloTardes, { franja: "manana", dias: ["dom"], urgencia: null });
-  ok(r.ampliado === "todo" && r.elegidos[0]?.fecha === "2026-09-22", "sin domingos NI mañanas → todo: el primero del calendario");
-}
-{
-  const r = elegirHuecos(S, null);
-  ok(r.ampliado === null && r.elegidos.length === 3 && r.elegidos[0]?.fecha === "2026-09-21", "sin preferencia: los tres primeros, sin ampliar");
-}
-{
-  const r = elegirHuecos(S, { franja: "indiferente", dias: [], urgencia: "cuanto_antes" });
-  ok(r.ampliado === null && r.elegidos.length === 3, "indiferente + sin días = sin preferencia");
-}
-{
-  // 17-09 (bucle de ofertas): tres seguidos del mismo doctor no son alternativas.
-  const seguidos = [slot("2026-09-22", "14:00"), slot("2026-09-22", "14:20"), slot("2026-09-22", "14:40"), slot("2026-09-22", "15:00"), slot("2026-09-22", "16:00"), slot("2026-09-24", "14:00")];
-  const r = elegirHuecos(seguidos, { franja: "tarde", dias: ["mar"], urgencia: null });
-  ok(r.elegidos.map((e) => `${e.fecha.slice(5)} ${e.slot.inicio / 60}`).join(",") === "09-22 14,09-22 15,09-22 16", `espaciados: un día distinto no hay (jueves no es martes), así que ≥ 60 min entre sí (${r.elegidos.map((e) => e.slot.inicio / 60).join(",")})`);
-  const pocos = elegirHuecos([slot("2026-09-22", "14:00"), slot("2026-09-22", "14:20"), slot("2026-09-29", "14:00"), slot("2026-09-29", "14:20")], { franja: "tarde", dias: ["mar"], urgencia: null });
-  ok(pocos.elegidos.length === 2, `si no hay tres que se separen, se devuelven DOS, no se rellena con la de 20 min después (${pocos.elegidos.length})`);
-  const r2 = elegirHuecos(seguidos, null);
-  ok(r2.elegidos.map((e) => `${e.fecha.slice(5)} ${e.slot.inicio / 60}`).join(",") === "09-22 14,09-22 15,09-24 14", `sin preferencia: primero un hueco por día, luego separados (${r2.elegidos.map((e) => `${e.fecha.slice(8)}@${e.slot.inicio / 60}`).join(",")})`);
-}
-{
-  const r = elegirHuecos([], { franja: "manana", dias: ["jue"], urgencia: null });
-  ok(r.elegidos.length === 0 && r.ampliado === null, "sin slots → vacío, sin fingir ampliación");
-}
 
 console.log("══ horaPedidaDe (22-09: «cualquier día a las 8:30»)");
 ok(horaPedidaDe("cualquier día a las 8:30") === 8 * 60 + 30, "«a las 8:30» → 08:30");
@@ -160,12 +109,36 @@ console.log("══ huecosPorBloques (el selector «Proponer horas»)");
   ok([...new Set(r.cumplen.map((x) => x.fecha))].join(",") === "2026-10-01,2026-10-02,2026-10-03", `cualquier mañana: los ${_interno.DIAS_CUMPLEN} días seguidos desde hoy`);
   const nada = huecosPorBloques(muchos, null, null, "2026-09-30");
   ok(nada.alternativas.length === 0 && nada.cumplen.length === 3, "sin preferencia: todo cumple, sin alternativas de relleno");
-  ok(_interno.notaDe("franja", null, false, 8 * 60 + 30) === "No hay nada hacia las 8:30 en dos semanas: estas son las horas más cercanas.", "la nota de las tres sugerencias no cambia");
 }
+console.log("══ sugerirPropuesta (la propuesta ya hecha: selector, repuesto y agente)");
 {
-  // El elegir de tres también mira la hora pedida.
-  const r = elegirHuecos([slot("2026-09-23", "12:00"), slot("2026-09-23", "08:40")], null, 3, 8 * 60 + 30);
-  ok(r.elegidos[0]?.slot.inicio === 8 * 60 + 40, "elegirHuecos con hora pedida: la cercana primero");
+  const h = (fecha: string, hora: string, doctorId: string, bloque: "cumple" | "alternativa" = "cumple") => ({ fecha, hora, doctorId, bloque });
+  const jueves = ["2026-09-24", "2026-10-01", "2026-10-08"].flatMap((f) => [
+    ...["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30"].map((x) => h(f, x, "ferrer")),
+    ...["10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30"].map((x) => h(f, x, "molina")),
+  ]);
+  const sam = sugerirPropuesta(jueves, { alternativasPrimero: false, horaPedida: null });
+  const txt = (l: { fecha: string; hora: string; doctorId: string }[]) => l.map((x) => `${x.fecha.slice(5)} ${x.hora} ${x.doctorId}`).join(" · ");
+  ok(txt(sam) === "09-24 09:00 ferrer · 10-01 10:00 molina · 10-08 11:00 ferrer", `Samuel: días distintos, doctores alternos, horas distintas (${txt(sam)})`);
+  const martes = ["2026-09-29", "2026-10-06", "2026-10-13"].flatMap((f) => ["16:00", "16:20", "16:40", "17:00", "17:20", "17:40", "18:00", "18:20", "18:40"].map((x) => h(f, x, "castano")));
+  const ver = sugerirPropuesta(martes, { alternativasPrimero: false, horaPedida: null });
+  ok(txt(ver) === "09-29 16:00 castano · 10-06 17:00 castano · 10-13 18:00 castano", `Verónica: un doctor, tres martes a horas distintas (${txt(ver)})`);
+  const pedida = sugerirPropuesta(martes, { alternativasPrimero: false, horaPedida: 17 * 60 });
+  ok(pedida.every((x) => x.hora === "17:00"), `pidió las 17:00: esa hora en los tres martes (${txt(pedida)})`);
+  // Un solo día que cumple: otra hora de ESE día (≥ 60 min) antes que una alternativa.
+  const unDia = [h("2026-09-29", "16:00", "c"), h("2026-09-29", "16:20", "c"), h("2026-09-29", "17:20", "c"), h("2026-09-30", "16:00", "c", "alternativa")];
+  const u = sugerirPropuesta(unDia, { alternativasPrimero: false, horaPedida: null });
+  ok(txt(u) === "09-29 16:00 c · 09-29 17:20 c · 09-30 16:00 c", `un solo martes: 16:00 y 17:20 (nunca 16:20), y completa con la alternativa (${txt(u)})`);
+  ok(u.every((x, i) => u.slice(i + 1).every((y) => y.fecha !== x.fecha || Math.abs(Number(y.hora.slice(0, 2)) * 60 + Number(y.hora.slice(3)) - Number(x.hora.slice(0, 2)) * 60 - Number(x.hora.slice(3))) >= 60)), "nunca dos del mismo día a menos de 60 min");
+  // Prisa y lo que cumple lejos: dos de antes y una que cumple.
+  const prisa = [h("2026-10-15", "09:00", "f"), h("2026-10-15", "11:00", "f"), h("2026-09-23", "10:00", "m", "alternativa"), h("2026-09-25", "10:00", "m", "alternativa"), h("2026-09-28", "10:00", "m", "alternativa")];
+  const p = sugerirPropuesta(prisa, { alternativasPrimero: true, horaPedida: null });
+  ok(p.filter((x) => x.bloque === "alternativa").length === 2 && p.some((x) => x.fecha === "2026-10-15"), `con prisa: dos de antes y la que cumple (${txt(p)})`);
+  // Repuesto: las vivas cuentan y ocupan sitio.
+  const rep = sugerirPropuesta(martes, { alternativasPrimero: false, horaPedida: null, ya: [{ fecha: "2026-09-29", hora: "16:00", doctorId: "castano" }, { fecha: "2026-10-06", hora: "17:00", doctorId: "castano" }] });
+  ok(rep.length === 1 && txt(rep) === "10-13 18:00 castano", `repuesto con dos vivas: añade UNA, en otro día y a otra hora (${txt(rep)})`);
+  ok(sugerirPropuesta([], { alternativasPrimero: false, horaPedida: null }).length === 0, "sin huecos, sin propuesta");
+  ok(_interno.FIN_MANANA_MIN === 15 * 60 && _interno.enFranja(14 * 60 + 20, "manana") && _interno.enFranja(15 * 60, "tarde"), "la tarde empieza a las 15:00 (las 14:20 son mañana)");
 }
 
 console.log("══ casarDoctor (solo si la paciente lo pidió)");

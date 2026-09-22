@@ -40,6 +40,8 @@ type Respuesta = Omit<RespuestaHuecos, "huecos"> & {
 type Variante = { tipo: "oferta" } | { tipo: "se_ocupo"; ocupada: HuecoDelCaso } | { tipo: "todas_ocupadas" };
 
 const MAX = 4;
+/** Horas por fila antes de «ver todas»: una fila del selector. */
+const FILA = 5;
 const clave = (h: Pick<HuecoDelCaso, "fecha" | "hora" | "doctorId">) => `${h.fecha}|${h.hora}|${h.doctorId}`;
 const legible = (h: HuecoDelCaso) => `${fechaCorta(h.fecha)} · ${h.hora} · ${nombreCortoDoctor(h.doctorNombre)}`;
 const horaDe = (iso: string) => new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Madrid" });
@@ -53,9 +55,12 @@ const hoyISO = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/
 
 const btnPrimario =
   "flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-50";
+/** Antes de que el agente entregue el caso, el botón existe pero no llama. */
+const btnDiscreto =
+  "flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] font-medium text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]";
 const btnEnlace = "text-[12px] font-medium text-[var(--color-accent)] hover:underline disabled:opacity-50";
 
-export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; oferta: OfertaDeLaFicha | null; onHecho: () => void }) {
+export function OfertaPanel({ telefono, oferta, onHecho, destacar = true }: { telefono: string; oferta: OfertaDeLaFicha | null; onHecho: () => void; destacar?: boolean }) {
   // Lo que se le puede mandar YA ESCRITO cuando la hora elegida se ocupó.
   const [corregido, setCorregido] = useState<{ texto: string; restantes: HuecoDelCaso[]; variante: "se_ocupo" | "todas_ocupadas" | "sin_huecos"; ocupada: HuecoDelCaso } | null>(null);
   const [reofertando, setReofertando] = useState(false);
@@ -168,7 +173,7 @@ export function OfertaPanel({ telefono, oferta, onHecho }: { telefono: string; o
   // ── Sin propuesta (o ya cerrada) → el botón que abre el selector ──
   if (cerrada) {
     return conVentana(
-      <button type="button" onClick={() => setProponiendo(true)} className={btnPrimario} aria-expanded={proponiendo || reofertando}>
+      <button type="button" onClick={() => setProponiendo(true)} className={destacar ? btnPrimario : btnDiscreto} aria-expanded={proponiendo || reofertando}>
         <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
         Proponer horas
       </button>,
@@ -271,6 +276,10 @@ function Selector({
   const [texto, setTexto] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [ocupadas, setOcupadas] = useState<HuecoDelCaso[]>([]);
+  /** Mientras ella no toque la lista, la propuesta la hace el servidor
+   *  (`sugeridas`, la regla de huecos-del-caso) y se rehace si cambia el tipo
+   *  de cita o el doctor. Si la ventana se abrió con horas, mandan esas. */
+  const [tocada, setTocada] = useState(inicial.length > 0);
 
   const cargar = useCallback(async () => {
     setError(null);
@@ -280,9 +289,12 @@ function Selector({
       if (doctorFiltro) qs.set("doctorId", doctorFiltro);
       const d = await cargarJSON<Respuesta>(`/api/agente/huecos?${qs.toString()}`);
       setDatos(d);
+      if (!tocada) setSeleccion(d.sugeridas ?? []);
     } catch (e) {
       setError(mensajeDeError(e));
     }
+    // `tocada` solo decide al llegar la respuesta; no debe relanzar la carga.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [telefono, tratamientoId, doctorFiltro]);
 
   useEffect(() => {
@@ -336,6 +348,7 @@ function Selector({
 
   function alternar(h: HuecoDelCaso) {
     setOcupadas([]);
+    setTocada(true);
     setSeleccion((s) => {
       if (s.some((x) => clave(x) === clave(h))) return s.filter((x) => clave(x) !== clave(h));
       if (s.length >= MAX) {
@@ -426,13 +439,18 @@ function Selector({
   const pie = (
     <div className="space-y-2">
       <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-        {seleccion.length === 0 ? `Propuesta para ${nombre}: marca hasta ${MAX} horas` : `${seleccion.length} de ${MAX} · lo que recibirá ${nombre} por WhatsApp`}
+        {seleccion.length === 0
+          ? `Propuesta para ${nombre}: marca hasta ${MAX} horas`
+          : `${seleccion.length} de ${MAX} · ${tocada ? "" : "propuesta del sistema · "}lo que recibirá ${nombre} por WhatsApp`}
       </p>
       {seleccion.length > 0 && (
         <ul className="space-y-0.5">
           {seleccion.map((h, i) => (
             <li key={clave(h)} className="flex items-center justify-between gap-2 text-[13px] text-[var(--color-foreground)]">
-              <span className="[font-variant-numeric:tabular-nums]">{i + 1}) {legible(h)}</span>
+              <span className="[font-variant-numeric:tabular-nums]">
+                {i + 1}) {legible(h)}
+                {h.bloque === "alternativa" && <span className="text-[var(--color-muted)]"> · alternativa</span>}
+              </span>
               <button type="button" onClick={() => alternar(h)} className="text-[12px] text-[var(--color-muted)] hover:underline">quitar</button>
             </li>
           ))}
@@ -606,19 +624,28 @@ function PorDias({
     doc.horas.push(h);
   }
   const marcadas = new Set(seleccion.map(clave));
+  // Compacta (23-09): con la propuesta ya hecha la lista es para RETOCAR. Una
+  // fila por doctor y día; «ver todas» despliega el resto. Una hora marcada
+  // se ve siempre, aunque caiga fuera de la fila.
+  const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   return (
     <div className="space-y-3">
       {dias.map((dia) => {
-        const franja = conFranja ? (dia.doctores.every((d) => d.horas.every((h) => h.hora < "14:00")) ? " · mañana" : dia.doctores.every((d) => d.horas.every((h) => h.hora >= "14:00")) ? " · tarde" : "") : "";
+        const franja = conFranja ? (dia.doctores.every((d) => d.horas.every((h) => h.hora < "15:00")) ? " · mañana" : dia.doctores.every((d) => d.horas.every((h) => h.hora >= "15:00")) ? " · tarde" : "") : "";
         return (
           <div key={dia.fecha}>
             <p className="mb-1 text-[13px] font-semibold text-[var(--color-foreground)]">{fechaLarga(dia.fecha)}{franja}</p>
             <div className="space-y-1.5">
-              {dia.doctores.map((doc) => (
+              {dia.doctores.map((doc) => {
+                const kDoc = `${dia.fecha}|${doc.id}`;
+                const todas = [...doc.horas].sort((a, b) => a.hora.localeCompare(b.hora));
+                const abierto = abiertos.has(kDoc) || todas.length <= FILA;
+                const vistas = abierto ? todas : todas.filter((h, i) => i < FILA || marcadas.has(clave(h)));
+                return (
                 <div key={doc.id}>
                   {conDoctor && <p className="mb-1 text-[12px] text-[var(--color-muted)]">{nombreCortoDoctor(doc.nombre)}</p>}
                   <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5">
-                    {[...doc.horas].sort((a, b) => a.hora.localeCompare(b.hora)).map((h) => {
+                    {vistas.map((h) => {
                       const activa = marcadas.has(clave(h));
                       const pegada = activa ? null : pegadaA(h, seleccion);
                       return (
@@ -626,8 +653,14 @@ function PorDias({
                       );
                     })}
                   </div>
+                  {!abierto && (
+                    <button type="button" onClick={() => setAbiertos((s) => new Set(s).add(kDoc))} className={`${btnEnlace} mt-1`}>
+                      Ver todas ({todas.length})
+                    </button>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         );

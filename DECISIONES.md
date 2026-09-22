@@ -6757,3 +6757,14 @@ franja en días de al lado, y lo más pegado de la otra franja). Todas las horas
 antes y se dice arriba. La ventana pasa de 14 a 28 días porque con 14 a «martes por la tarde» le cabía un martes.
 En DEMO, Ferrer trabaja también el jueves por la mañana y Castaño tiene tardes martes y jueves hasta las 19:00
 (franjas añadidas por el seed de catálogo, que ahora las añade solo si faltan).
+
+## 2026-09-23 · Una sola regla para sugerir horas (selector, repuesto y agente); la tarde empieza a las 15:00
+El selector ya no abre vacío: trae tres horas marcadas por `sugerirPropuesta` (`agenda/huecos-del-caso.ts`,
+código sin modelo) y el mensaje compuesto en el pie. Abrir y enviar son dos clics. La regla elige de una en
+una: primero días distintos, luego doctores distintos, luego horas del día distintas (a más de 60 min de las
+ya elegidas), y entre las que empatan, la más cercana a hoy (o a la hora pedida, si la dijo). Tira de «Cumplen» y completa con
+«Alternativas», que van marcadas. Con prisa y lo que encaja lejos, entran primero dos de antes. El repuesto
+automático y el modo sin agenda usan la misma función, así que las ventanas de 14 días y la vieja `espaciar`
+desaparecen. La lista pasa a servir para retocar: cinco horas por doctor y día, más «Ver todas». «Proponer horas»
+solo destaca cuando el agente ya entregó el caso. La mañana termina a las 15:00; solo lo decide
+`FIN_MANANA_MIN`, y nada más del producto define la tarde.

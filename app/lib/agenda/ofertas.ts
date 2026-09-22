@@ -32,8 +32,8 @@ import { getServicioMensajeria } from "../presupuestos/mensajeria";
 import { hasWABACredentials } from "../presupuestos/waba-credentials";
 import { envioBloqueadoPorOptOut } from "../contacto/optout";
 import { hiloJugado, FUENTE_SIMULACION } from "../mensajeria/hilo-jugado";
-import { huecosDelCaso, libresDelCaso, mismoHueco } from "./huecos-del-caso";
-import { pegadaA, primerPar } from "./separacion";
+import { huecosDelCaso, sugerirPropuesta, libresDelCaso, mismoHueco } from "./huecos-del-caso";
+import { primerPar } from "./separacion";
 import type { Alternativa } from "./ofertas-textos";
 import { leerAgendaEnFyllio } from "./garantia";
 import { instanteDeCita, upsertCitaDeLead } from "./cita-de-lead";
@@ -225,22 +225,20 @@ export async function alternativasDeRepuesto(p: {
   const max = p.max ?? 3;
   const salida = [...p.vivas].slice(0, max);
   if (salida.length >= max) return salida;
+  // La MISMA regla que el selector (23-09): bloques + sugerencia, con las
+  // vivas ya dentro (cuentan para días, doctores, horas y los 60 min).
   const r = await huecosDelCaso({
     preferencia: p.preferencia,
     tratamientoTexto: null,
     tratamientoId: p.tratamientoId,
     doctorId: p.doctorId,
     clinicaId: p.clinicaId,
-    max: max + p.excluir.length + salida.length,
+    modo: "cercania",
     ahora: p.ahora,
   });
-  for (const h of r.huecos) {
-    if (salida.length >= max) break;
-    if (salida.some((s) => mismoHueco(s, h)) || p.excluir.some((e) => mismoHueco(e, h))) continue;
-    if (pegadaA(h, salida)) continue; // el repuesto tampoco manda dos horas pegadas
-    salida.push(h);
-  }
-  return salida;
+  const libres = r.huecos.filter((h) => !p.excluir.some((e) => mismoHueco(e, h)));
+  const nuevas = sugerirPropuesta(libres, { alternativasPrimero: r.alternativasPrimero, horaPedida: null, max, ya: salida });
+  return [...salida, ...nuevas];
 }
 
 // ─── Enviar la oferta ───────────────────────────────────────────────────────
