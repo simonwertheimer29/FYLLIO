@@ -13,6 +13,7 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 import type {
   CopilotAction,
@@ -91,6 +92,11 @@ export function FyllioCopilot() {
   // Posponemos su render al primer effect cliente. Reservamos espacio
   // con placeholder fijo durante SSR para evitar CLS.
   const [mounted, setMounted] = useState(false);
+  // MEJORAS 266 — en Mensajería, por debajo de lg, el compositor ocupa todo
+  // el borde inferior: el botón tapaba «Enviar» y, subido, el texto y el aviso
+  // de «pidió no recibir mensajes». Ahí no se pinta; en el resto, sí.
+  const pathname = usePathname();
+  const posicionFab = pathname?.startsWith("/mensajeria") ? "bottom-5 max-lg:hidden" : "bottom-5";
   useEffect(() => setMounted(true), []);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -403,7 +409,7 @@ export function FyllioCopilot() {
     return (
       <div
         aria-hidden
-        className="fixed bottom-5 right-5 z-40 w-14 h-14 pointer-events-none"
+        className={`fixed ${posicionFab} right-5 z-40 w-14 h-14 pointer-events-none`}
       />
     );
   }
@@ -418,7 +424,7 @@ export function FyllioCopilot() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir Fyllio Copilot"
-        className="fyllio-copilot-fab fyllio-ia-gradient fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full shadow-lg backdrop-blur-sm hover:scale-105 hover:shadow-xl transition-all duration-200 flex items-center justify-center"
+        className={`fyllio-copilot-fab fyllio-ia-gradient fixed ${posicionFab} right-5 z-40 w-14 h-14 rounded-full shadow-lg backdrop-blur-sm hover:scale-105 hover:shadow-xl transition-all duration-200 flex items-center justify-center`}
       >
         <span
           aria-hidden

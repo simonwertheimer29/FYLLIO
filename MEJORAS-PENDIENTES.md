@@ -4192,7 +4192,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   y repuesto, más la agenda manual), y la configuración de cada clínica, que es la parte que no depende de nosotros. · **Impacto:** MEDIO en
   clínicas con especialistas. · **Esfuerzo:** 3 h. · **Fecha:** 2026-09-22
 
-## 266. Mensajería · en móvil no hay ficha, y con ella no hay «Proponer horas» — ✅ PRIORIDAD MÁXIMA (Simon, 22-09: por delante del punto 7)
+## 266. Mensajería · en móvil no hay ficha, y con ella no hay «Proponer horas» — ✅ HECHA 23-09
 - **Simon, 22-09:** «no es una mejora pendiente, es que el flujo no funciona donde se va a usar».
 - **Alcance real:** por debajo de 1024 px (móvil Y tablet) la columna derecha entera no existe
   (`MensajeriaView.tsx:606`, `hidden … lg:block`): contacto, estado, datos del agente, proponer horas,
@@ -4203,6 +4203,11 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   contesta desde el móvil no puede proponer horas.
 - **Qué hacer:** botón «Ficha» en la cabecera de la conversación en móvil que abra la columna como hoja
   (`PanelFlotante` anclaje «hoja»). · **Impacto:** ALTO para uso en móvil. · **Esfuerzo:** 2 h. · **Fecha:** 2026-09-22
+- **HECHA 23-09:** botón «Ficha» en la cabecera por debajo de lg, que abre la columna entera en hoja (sin
+  oscurecer). «Proponer horas» funciona desde ahí a 390 y a 768. El aviso de «pidió no recibir mensajes» no se
+  perdía: el compositor ya lo enseña y bloquea el envío en todos los anchos. Lo que faltaba era la ficha, con
+  «Revertir». Además, el botón flotante del agente tapaba «Enviar» en móvil y tablet: en Mensajería, por debajo
+  de lg, ya no se pinta. A 390, «Ficha» y «Llamar» quedan solo con icono para que el nombre quepa.
 
 ## 267. Ofertas · ofrecer un RANGO cuando el doctor tiene casi toda la franja libre
 - **Simon, 22-09:** «cualquier hora de 10:00 a 13:30 salvo las 10:30» en vez de cuatro horas sueltas, cuando
@@ -4212,3 +4217,15 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - **Qué haría falta:** alternativa de tipo rango en la oferta, juicio del modelo que extraiga una hora dentro
   del rango, comprobación con `libresDelCaso` (ya mira intervalos, no la rejilla) y texto de código.
   · **Impacto:** MEDIO (mensajes más cortos, más acierto a la primera). · **Esfuerzo:** 1 día + vara. · **Fecha:** 2026-09-22
+
+## 268. Ficha · «Datos que tiene el agente» enseña valores del código («sin_prisa»)
+- **Visto al capturar la 266 (23-09):** Samuel sale con «Urgencia: sin_prisa», también en el resumen («… · sin_prisa ·
+  jueves por la mañana»). Es jerga a la vista (§5 del estándar visual). La lista `recogido` también la leen rutas que
+  comparan contra `no_aplica`, así que traducirla en origen es arriesgado: hace falta un mapa de etiquetas solo
+  para pintar (el de `CuboUrgencia` en `metricas/conversacion.tipos.ts` ya tiene los textos).
+  · **Impacto:** MEDIO (se ve en todas las fichas con urgencia). · **Esfuerzo:** 30 min. · **Fecha:** 2026-09-23
+
+## 269. Opt-out · el texto da por hecho que es un hombre («si escribe él», «lo ha pedido él»)
+- **Visto al capturar la 266 (23-09)** en la ficha de Teresa Campos. Hay que usar formas neutras: «solo se le contesta
+  si escribe», «Revertir (lo ha pedido la persona)». · **Impacto:** BAJO-MEDIO (se ve en la demo). · **Esfuerzo:** 10 min.
+  · **Fecha:** 2026-09-23

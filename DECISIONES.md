@@ -6789,3 +6789,12 @@ la urgencia, el hueco rechazado, la queja y el opt-out. El decisor nuevo ya no p
 de propuesta; antes tampoco lo impedía nada para `oferta_elegida`. Cubierto por `qa:oferta-demo --sin-eleccion`
 y `qa:cola`. De paso: la cola enseñaba en crudo `oferta_elegida`, `sin_huecos` y `oferta_caducada` porque les
 faltaba etiqueta.
+
+## 2026-09-23 · MEJORAS 266: la ficha en móvil y tablet es una hoja desde la cabecera
+Por debajo de 1024 px, la columna de la ficha no existía. Ahora un botón «Ficha» en la cabecera de la
+conversación la abre entera en hoja, sin oscurecer, porque el hilo sigue siendo el contexto. Es el mismo
+`ContextoConversacion`, así que «Proponer horas», reservar, la espera y el opt-out con «Revertir» llegan al
+móvil sin copias. El diagnóstico de partida («se pierde el aviso de pidió no recibir mensajes») no se sostuvo:
+el compositor ya lo enseñaba y bloqueaba el envío en todos los anchos. Lo que faltaba era la ficha. De paso, el
+botón flotante del agente tapaba «Enviar» en móvil y tablet; subirlo tapaba el texto, así que en Mensajería, por
+debajo de lg, no se pinta. Capturas a 390 y 768, en claro y oscuro, también de la ventana de proponer horas.

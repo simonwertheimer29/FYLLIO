@@ -50,7 +50,7 @@ import { ComposerConversacion } from "./ComposerConversacion";
 import { useCasoDeConversacion } from "./useCasoDeConversacion";
 import { useFichaDeCaso } from "./useFichaDeCaso";
 import { toast } from "sonner";
-import { Phone } from "../../components/icons";
+import { Phone, ClipboardList } from "../../components/icons";
 import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
 import { usePorQueDeHilo } from "./usePorQueDeHilo";
 import { PorQuePanel, cabeceraPorQue } from "../../components/agente/PorQuePanel";
@@ -300,6 +300,10 @@ export function MensajeriaView() {
   // en móvil flota sin oscurecer (§4 ter). Escape lo cierra.
   const { turnos: porQueTurnos, error: errorPorQue, recargar: recargarPorQue } = usePorQueDeHilo(abierta, hilo);
   const [porQueAbierto, setPorQueAbierto] = useState<string | null>(null);
+  // MEJORAS 266 — por debajo de lg la columna de la ficha no cabe: se abre
+  // como hoja desde la cabecera. Al cambiar de conversación se cierra.
+  const [fichaMovil, setFichaMovil] = useState(false);
+  useEffect(() => setFichaMovil(false), [abierta]);
   useEffect(() => {
     setPorQueAbierto(null);
   }, [abierta]);
@@ -534,13 +538,24 @@ export function MensajeriaView() {
                 </div>
                 <button
                   type="button"
+                  onClick={() => { setPorQueAbierto(null); setFichaMovil(true); }}
+                  aria-expanded={fichaMovil}
+                  aria-label="Ficha"
+                  className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)] lg:hidden"
+                >
+                  <ClipboardList size={16} strokeWidth={ICON_STROKE} aria-hidden />
+                  <span className="max-sm:hidden">Ficha</span>
+                </button>
+                <button
+                  type="button"
                   onClick={llamar}
                   disabled={llamando}
                   title={`Llamar a ${conversacion?.nombre ?? ""}`}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+                  aria-label="Llamar"
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-50 max-lg:h-10"
                 >
                   <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                  Llamar
+                  <span className="max-sm:hidden">Llamar</span>
                 </button>
               </header>
 
@@ -621,6 +636,31 @@ export function MensajeriaView() {
             />
           )}
         </aside>
+        {/* MEJORAS 266 — la ficha entera en móvil y tablet: la misma que la
+            columna, en hoja a la derecha sin oscurecer (el hilo sigue siendo
+            el contexto). */}
+        {fichaMovil && abierta && !turnoAbierto && (
+          <PanelFlotante
+            anclaje="hoja"
+            anchoRem={24}
+            titulo={conversacion?.nombre ?? "Ficha"}
+            subtitulo={conversacion?.clinicaNombre ?? undefined}
+            ariaLabel="Ficha de la conversación"
+            onCerrar={() => setFichaMovil(false)}
+            sinRelleno
+            className="lg:hidden"
+          >
+            <ContextoConversacion
+              conversacion={conversacion}
+              ficha={ficha}
+              onRecargarFicha={recargarFicha}
+              onCambio={() => {
+                recargarCaso();
+                void cargarLista();
+              }}
+            />
+          </PanelFlotante>
+        )}
         {/* Por debajo de lg no hay columna: el panel flota a la derecha SIN
             oscurecer (el hilo es el contexto de lo que se lee) y se cierra
             con la X o Escape, no clicando fuera. */}
