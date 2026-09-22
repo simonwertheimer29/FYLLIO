@@ -35,7 +35,7 @@ import { persistirTurno, leerPayloadEvaluacion } from "./persistir-turno";
 import { sombraDelTurno } from "./sombra";
 import { entradaDesdeContexto } from "./entrada-desde-contexto";
 import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
-import { ofertaAbiertaParaEvaluador, registrarRespuestaAOferta, anotarDesambiguacion } from "../agenda/ofertas";
+import { ofertaAbiertaParaEvaluador, registrarRespuestaAOferta, anotarDesambiguacion, anotarRespuestaSinEleccion } from "../agenda/ofertas";
 import type { ConocimientoClinica } from "./conocimiento";
 import { semaforoDeContacto } from "../automatizacion/semaforo";
 import { type ClaveAplazado, type EventoAplazamiento } from "../automatizacion/aplazamientos";
@@ -378,7 +378,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     semaforo: sem,
     diasHastaProximaCita,
     citaConfirmada: datos.citaConfirmada,
-    ofertaAbierta: ofertaAbierta ? { id: ofertaAbierta.id, alternativas: ofertaAbierta.alternativas.map((a) => ({ fecha: a.fecha, hora: a.hora, doctorNombre: a.doctorNombre })), desambiguaciones: ofertaAbierta.desambiguaciones } : null,
+    ofertaAbierta: ofertaAbierta ? { id: ofertaAbierta.id, alternativas: ofertaAbierta.alternativas.map((a) => ({ fecha: a.fecha, hora: a.hora, doctorNombre: a.doctorNombre })), desambiguaciones: ofertaAbierta.desambiguaciones, yaContesto: ofertaAbierta.estado === "elegida", contestoSinElegir: ofertaAbierta.respuestaSinEleccion } : null,
     senales: senalesDelHilo(hilo, ahora, conocimiento.plazos.horario),
     descartesSeguidosAntes: datos.descartesSeguidosAntes,
     entregaYaResuelta: datos.entregaYaResuelta,
@@ -426,6 +426,8 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     try {
       if (evaluacion.ofertaRespuesta.tipo === "eleccion") {
         await registrarRespuestaAOferta({ ofertaId: evaluacion.ofertaRespuesta.ofertaId, indice: evaluacion.ofertaRespuesta.indice, mensajeId: e.mensajeId, ahora });
+      } else if (evaluacion.ofertaRespuesta.tipo === "sin_eleccion") {
+        await anotarRespuestaSinEleccion({ ofertaId: evaluacion.ofertaRespuesta.ofertaId, texto: e.contenido, ahora });
       } else {
         await anotarDesambiguacion(evaluacion.ofertaRespuesta.ofertaId);
       }

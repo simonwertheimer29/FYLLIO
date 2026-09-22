@@ -125,6 +125,12 @@ export type EntradaEvaluador = {
     alternativas: { fecha: string; hora: string; doctorNombre: string }[];
     /** Veces que ya pidió aclarar: a la segunda sin aclarar, deriva. */
     desambiguaciones: number;
+    /** Ya contestó a esta oferta y la tiene la coordinadora (estado
+     *  `elegida`): un mensaje nuevo sin elección no vuelve a entregarla. */
+    yaContesto?: boolean;
+    /** Ya contestó SIN elegir y la tiene la coordinadora (061): lo nuevo se
+     *  suma a lo guardado, sin volver a entregar. */
+    contestoSinElegir?: boolean;
   } | null;
   /** Umbral de «cita próxima» en días. Default 7; configurable con tope en
    *  fase D. */
@@ -232,7 +238,12 @@ export type EvaluacionTurno = {
    *  para que evaluar-entrante lo persista (ofertas.ts) DESPUÉS del turno:
    *  `eleccion` = contestó (índice, o null si no se entendió y ya se preguntó
    *  una vez); `desambiguar` = el agente pide aclarar cuál (una vez). */
-  ofertaRespuesta?: { ofertaId: string; tipo: "eleccion"; indice: number | null } | { ofertaId: string; tipo: "desambiguar" } | null;
+  ofertaRespuesta?:
+    | { ofertaId: string; tipo: "eleccion"; indice: number | null }
+    | { ofertaId: string; tipo: "desambiguar" }
+    /** 061 — contestó sin elegir: se guarda lo que dijo en la oferta. */
+    | { ofertaId: string; tipo: "sin_eleccion" }
+    | null;
   /** El HECHO que persiste la 022 (solo significativo con peticion_queja). */
   malestar?: boolean | null;
   objetivoActivo: EtapaObjetivo | null;
@@ -1665,6 +1676,31 @@ export async function evaluarTurno(
       cola: colaDeDerivacion("hueco_rechazado", null),
       esperaLevantar: e.esperaVigente != null,
       respuesta: plantillaHuecoRechazado({ nombre: e.nombre, tipo: huecoRechazado, cita: e.citaConfirmada!, idioma: juicio.idioma }),
+    };
+  }
+
+  // CON PROPUESTA ABIERTA, EL AGENTE NO RECOGE DATOS (23-09, Simon). Todo lo
+  // que no sea elegir una de las horas —«no me va ninguna», una pregunta,
+  // «mejor el lunes»— lo lleva la coordinadora: el agente calla y el caso le
+  // llega prioritario con `oferta_sin_eleccion`. Lo que dijo se guarda en la
+  // oferta (evaluar-entrante) y la preferencia nueva, si la dio, ya viaja en
+  // el juicio de este turno: el selector abre con ella al reofertar. Por
+  // delante siguen la urgencia (arriba), el hueco rechazado (arriba), la
+  // queja y el opt-out (sus propias respuestas de código). Si la oferta ya la
+  // tiene la coordinadora (`yaContesto`, o ya contestó sin elegir), un mensaje
+  // más no la vuelve a entregar —reiniciaría su plazo—: el agente calla, y si
+  // era sin elegir, lo nuevo se suma a lo guardado.
+  if (of && of.alternativas.length > 0 && !eleccion && !juicio.pideNoContacto && !juicio.peticionOQueja) {
+    if (of.yaContesto) return { ...base, decision: "sigue", respuesta: "" };
+    if (of.contestoSinElegir) return { ...base, decision: "sigue", respuesta: "", ofertaRespuesta: { ofertaId: of.id, tipo: "sin_eleccion" } };
+    return {
+      ...base,
+      decision: "deriva",
+      causa: "oferta_sin_eleccion",
+      cola: colaDeDerivacion("oferta_sin_eleccion", null),
+      esperaLevantar: e.esperaVigente != null,
+      ofertaRespuesta: { ofertaId: of.id, tipo: "sin_eleccion" },
+      respuesta: "",
     };
   }
 

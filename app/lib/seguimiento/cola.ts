@@ -106,6 +106,9 @@ export type DetalleCohorte =
   /** 060 (17-09) — contestó a la oferta de horas: reservar de un clic. SLA de
    *  respuesta. */
   | "oferta_elegida"
+  /** 061 (23-09) — contestó a la propuesta sin elegir: leer qué dijo y
+   *  reofertar. SLA de respuesta. */
+  | "oferta_sin_eleccion"
   /** 060 — sin horas que ofrecer: «te escribimos en cuanto abra la clínica».
    *  SLA de respuesta en minutos LABORABLES = al abrir, dos horas. */
   | "sin_huecos"
@@ -144,6 +147,7 @@ export const OBLIGACION_DE_DETALLE: Record<DetalleConversacion, ObligacionPlazo>
   nuevo_sin_contactar: "lead_nuevo",
   hueco_rechazado: "respuesta",
   oferta_elegida: "respuesta",
+  oferta_sin_eleccion: "respuesta",
   sin_huecos: "respuesta",
   oferta_caducada: "cierre",
 };
@@ -213,6 +217,7 @@ function desdeDeObligacion(detalle: DetalleConversacion, e: EntradaCohorte): str
     case "entregado_listo":
     case "hueco_rechazado":
     case "oferta_elegida":
+    case "oferta_sin_eleccion":
     case "sin_huecos":
       return e.entregadoEnISO ?? null;
     case "oferta_caducada":
@@ -250,6 +255,9 @@ function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_p
   if (e.agente?.entregadoCausa === "oferta_elegida" && !ofertaCerradaDespues) {
     return { cohorte: "necesita_respuesta", detalle: "oferta_elegida" };
   }
+  if (e.agente?.entregadoCausa === "oferta_sin_eleccion" && !ofertaCerradaDespues) {
+    return { cohorte: "necesita_respuesta", detalle: "oferta_sin_eleccion" };
+  }
   if (e.agente?.entregadoCausa === "sin_huecos" && !ofertaCerradaDespues) {
     return { cohorte: "necesita_respuesta", detalle: "sin_huecos" };
   }
@@ -259,7 +267,7 @@ function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_p
   if (e.ofertaCaducadaEnISO) {
     return { cohorte: "necesita_respuesta", detalle: "oferta_caducada" };
   }
-  if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo" && !(ofertaCerradaDespues && (e.agente.entregadoCausa === "oferta_elegida" || e.agente.entregadoCausa === "sin_huecos"))) {
+  if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo" && !(ofertaCerradaDespues && (e.agente.entregadoCausa === "oferta_elegida" || e.agente.entregadoCausa === "oferta_sin_eleccion" || e.agente.entregadoCausa === "sin_huecos"))) {
     return { cohorte: "necesita_respuesta", detalle: "entregado_urgente" };
   }
   if (e.conversacion === "pendiente_responder") {

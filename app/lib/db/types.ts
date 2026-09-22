@@ -648,6 +648,9 @@ export interface Tabla_ofertas_hueco {
   acuse_enviado_en: Date | null;
   acuse_mensaje_id: string | null;
   cita_id: string | null;
+  /** 061 — lo que contestó sin elegir hora, literal. */
+  respuesta_sin_eleccion: string | null;
+  respuesta_sin_eleccion_en: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

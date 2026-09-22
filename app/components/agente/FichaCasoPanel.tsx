@@ -331,7 +331,7 @@ export function FichaCasoPanel({
           onHecho={alCambiar}
           // Proponer horas es para cuando el agente YA ENTREGÓ el caso (listo,
           // o con dudas para la clínica): solo entonces destaca (Simon, 23-09).
-          destacar={!ficha.semaforo.verde && ficha.semaforo.motivo === "derivado_sin_resolver" && ["caso_completo", "sin_huecos", "hueco_rechazado"].includes(ficha.semaforo.causa ?? "")}
+          destacar={!ficha.semaforo.verde && ficha.semaforo.motivo === "derivado_sin_resolver" && ["caso_completo", "sin_huecos", "hueco_rechazado", "oferta_sin_eleccion"].includes(ficha.semaforo.causa ?? "")}
         />
       )}
       {ficha.lead && !ficha.lead.fechaCita && !ficha.agendaEnFyllio && (

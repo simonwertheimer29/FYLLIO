@@ -59,6 +59,8 @@ export type OfertaDeLaFicha = {
   eleccionTardia: boolean;
   acuseEnviadoEnISO: string | null;
   tratamientoId: string | null;
+  /** 061 — lo que contestó a esta propuesta sin elegir hora, literal. */
+  respuestaSinEleccion: { texto: string; enISO: string } | null;
 };
 
 export type FichaCaso = {
@@ -244,6 +246,8 @@ export function etiquetaEstadoDe(a: {
         return { texto: "No le va la hora reservada — proponer otra", tono: "danger" };
       case "oferta_elegida":
         return { texto: "Contestó a las horas propuestas — reservar", tono: "danger" };
+      case "oferta_sin_eleccion":
+        return { texto: "Contestó a la propuesta sin elegir", tono: "danger" };
       case "sin_huecos":
         return { texto: "Sin horas que ofrecerle — buscar hueco", tono: "danger" };
       case "caso_completo": {
@@ -624,6 +628,9 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
             eleccionTardia: o.eleccionTardia,
             acuseEnviadoEnISO: o.acuseEnviadoEn?.toISOString() ?? null,
             tratamientoId: o.tratamientoId,
+            respuestaSinEleccion: o.respuestaSinEleccion
+              ? { texto: o.respuestaSinEleccion.texto, enISO: o.respuestaSinEleccion.en.toISOString() }
+              : null,
           }
         : null,
     )

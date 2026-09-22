@@ -120,6 +120,11 @@ export async function aplicarDecisorAlcance(args: {
   // Un turno que el código resolvió sin modelo (no legible, fallback, opt-out)
   // no tiene conversación que escribir: no se le pide nada al decisor.
   if (!evaluacion.actuar || evaluacion.fallback || entrada.ultimoNoLegible) return tal_cual("turno resuelto sin modelo");
+  // La respuesta a una propuesta de horas la decide CÓDIGO (elegir,
+  // desambiguar una vez, o pasarla a la coordinadora en silencio, 061): el
+  // decisor no puede escribir encima un mensaje que el código calló.
+  if (evaluacion.ofertaRespuesta || (entrada.ofertaAbierta?.yaContesto && evaluacion.decision === "sigue" && !(evaluacion.respuesta ?? "").trim()))
+    return tal_cual("propuesta de horas: responde el código");
 
   const defObjetivo = evaluacion.objetivoActivo
     ? entrada.objetivosAbiertos.find((o) => o.etapa === evaluacion.objetivoActivo) ?? null

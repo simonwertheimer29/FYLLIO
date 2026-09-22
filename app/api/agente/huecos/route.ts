@@ -11,7 +11,7 @@ import { withAuth } from "../../../lib/auth/session";
 import { runWithCliente } from "../../../lib/airtable";
 import { fichaDeCaso } from "../../../lib/agente/ficha-caso";
 import { puedeVerHiloSesion } from "../../../lib/agente/acceso-hilo-sesion";
-import { huecosDelCaso } from "../../../lib/agenda/huecos-del-caso";
+import { huecosDelCaso, horaPedidaDe } from "../../../lib/agenda/huecos-del-caso";
 import { textoConfirmacionCita } from "../../../lib/agenda/confirmacion-cita";
 import { runWithClienteDb } from "../../../lib/db/context";
 import { sql } from "kysely";
@@ -74,6 +74,12 @@ export const GET = withAuth(async (session, req) => {
       const doctorId = doctorParam && doctorParam !== "todos" ? doctorParam : null;
       const doctorPedidoTexto = doctorParam ? null : recogido("preferencia_doctor");
       const cercania = url.searchParams.get("vista") === "cercania";
+      // 061 — contestó a la propuesta sin elegir: lo que dijo se enseña arriba
+      // del selector y, si trae una hora («mejor a las 10»), manda sobre la de
+      // antes. El día o la franja nuevos ya vienen en la preferencia (juicio
+      // del turno, la última gana).
+      const despuesDijo = ficha.oferta?.respuestaSinEleccion?.texto ?? null;
+      const disponibilidadTexto = despuesDijo && horaPedidaDe(despuesDijo) != null ? despuesDijo : recogido("disponibilidad");
       // 060 — `todos=1[&desde=YYYY-MM-DD][&dias=7]`: la agenda entera en
       // orden de fecha (sin escalera), para que la coordinadora AÑADA horas a
       // la propuesta más allá de las tres que cumplen la preferencia.
@@ -86,7 +92,7 @@ export const GET = withAuth(async (session, req) => {
         tratamientoId,
         doctorId,
         doctorPedidoTexto,
-        disponibilidadTexto: recogido("disponibilidad"),
+        disponibilidadTexto,
         clinicaId: ficha.clinicaId,
         ...(todos
           ? { modo: "todos" as const, desde: desde && /^\d{4}-\d{2}-\d{2}$/.test(desde) ? desde : undefined, dias: Number.isFinite(dias) && dias > 0 ? Math.min(dias, 14) : 7 }
@@ -100,6 +106,7 @@ export const GET = withAuth(async (session, req) => {
         tratamientoDicho: tratamientoTexto,
         // Lo que dijo de cuándo, tal cual, para el recuadro de arriba del selector.
         disponibilidadDicha: recogido("disponibilidad"),
+        despuesDijo,
         huecos: r.huecos.map((h) => ({
           ...h,
           textoConfirmacion: textoConfirmacionCita({

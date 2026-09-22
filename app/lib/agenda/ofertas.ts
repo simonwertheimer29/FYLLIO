@@ -83,6 +83,8 @@ export type Oferta = {
   desambiguaciones: number;
   acuseEnviadoEn: Date | null;
   citaId: string | null;
+  /** 061 — lo último que contestó SIN elegir hora, literal. */
+  respuestaSinEleccion: { texto: string; en: Date } | null;
 };
 
 // ─── Puras ──────────────────────────────────────────────────────────────────
@@ -143,6 +145,9 @@ function filaAOferta(f: any, ahora: Date): Oferta {
     desambiguaciones: Number(f.desambiguaciones ?? 0),
     acuseEnviadoEn: f.acuse_enviado_en ? new Date(f.acuse_enviado_en) : null,
     citaId: (f.cita_id as string | null) ?? null,
+    respuestaSinEleccion: f.respuesta_sin_eleccion
+      ? { texto: String(f.respuesta_sin_eleccion), en: new Date(f.respuesta_sin_eleccion_en ?? f.updated_at) }
+      : null,
   };
   return { ...base, estado: estadoEfectivo(base, ahora) };
 }
@@ -175,12 +180,12 @@ async function ofertaPorId(id: string, ahora: Date): Promise<Oferta | null> {
 
 /** Lo que el evaluador necesita del bucle: la oferta abierta (o elegida sin
  *  reservar) para que el modelo interprete la elección, y nada más. */
-export async function ofertaAbiertaParaEvaluador(telefono: string, ahora = new Date()): Promise<{ id: string; alternativas: Alternativa[]; estado: EstadoOferta; desambiguaciones: number } | null> {
+export async function ofertaAbiertaParaEvaluador(telefono: string, ahora = new Date()): Promise<{ id: string; alternativas: Alternativa[]; estado: EstadoOferta; desambiguaciones: number; respuestaSinEleccion: boolean } | null> {
   const o = await ofertaDelCaso(telefono, { ahora });
   if (!o) return null;
   if (o.estado !== "abierta" && o.estado !== "elegida" && o.estado !== "caducada") return null;
   if (o.estado === "caducada" && o.eleccion != null) return null; // ya contestó a la caducada; lo lleva la coordinadora
-  return { id: o.id, alternativas: o.alternativas, estado: o.estado, desambiguaciones: o.desambiguaciones };
+  return { id: o.id, alternativas: o.alternativas, estado: o.estado, desambiguaciones: o.desambiguaciones, respuestaSinEleccion: o.respuestaSinEleccion != null };
 }
 
 // ─── Comprobar ──────────────────────────────────────────────────────────────
@@ -359,6 +364,25 @@ export async function registrarRespuestaAOferta(p: {
   const oferta: Oferta = { ...o, estado: estadoNuevo, eleccion: indice, eleccionEn: ahora, eleccionTardia: tardia, acuseEnviadoEn: null };
   await encolarAcuse(oferta, ahora);
   return { oferta, tardia };
+}
+
+/** 061 — contestó a la propuesta sin elegir: se guarda lo que dijo, literal,
+ *  para que el selector lo enseñe al reofertar. Si vuelve a escribir, se SUMA
+ *  («mejor el lunes · ¿me decís algo?»): lo útil suele estar en el primero.
+ *  La oferta sigue como estaba (si luego elige una, vale). Cero filas = la
+ *  oferta ya no existe: se dice. */
+export async function anotarRespuestaSinEleccion(p: { ofertaId: string; texto: string; ahora?: Date }): Promise<void> {
+  const cliente = requireCliente("anotarRespuestaSinEleccion");
+  const ahora = p.ahora ?? new Date();
+  const texto = p.texto.trim().slice(0, 1000);
+  if (!texto) return;
+  const r = await runWithClienteDb(cliente, (trx) =>
+    sql`update ofertas_hueco
+           set respuesta_sin_eleccion = left(case when respuesta_sin_eleccion is null then ${texto} else respuesta_sin_eleccion || ' · ' || ${texto} end, 2000),
+               respuesta_sin_eleccion_en = ${ahora}, updated_at = now()
+         where id = ${p.ofertaId}`.execute(trx),
+  );
+  if (Number(r.numAffectedRows ?? 0) !== 1) throw new Error(`oferta ${p.ofertaId} no encontrada al anotar la respuesta sin elección`);
 }
 
 /** El agente pidió aclarar cuál (una vez; a la segunda deriva). */

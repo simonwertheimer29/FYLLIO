@@ -175,6 +175,10 @@ ok("urgencia entregada hace 31 min laborables → FUERA DE PLAZO (umbral 30)",
   c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "urgencia", aplazadosVivos: 0 }, entregadoEnISO: t0 }, relojDe(31))?.cohorte === "fuera_de_plazo");
 ok("caso listo hace 241 min laborables → FUERA DE PLAZO (umbral 240)",
   c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "caso_completo", aplazadosVivos: 0 }, entregadoEnISO: t0 }, relojDe(241))?.cohorte === "fuera_de_plazo");
+ok("061 · contestó a la propuesta sin elegir → Necesita respuesta · oferta_sin_eleccion",
+  (() => { const r = c({ conversacion: "pendiente_responder", agente: { entregadoCausa: "oferta_sin_eleccion", aplazadosVivos: 0 }, entregadoEnISO: t0 }); return r?.cohorte === "necesita_respuesta" && r.detalle === "oferta_sin_eleccion"; })());
+ok("061 · y la cierra una propuesta NUEVA posterior (no queda colgada)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "oferta_sin_eleccion", aplazadosVivos: 0 }, entregadoEnISO: t0, ofertaCerradaEnISO: new Date(new Date(t0).getTime() + 60_000).toISOString() })?.detalle !== "oferta_sin_eleccion");
 ok("lead nuevo esperando 61 min laborables → FUERA DE PLAZO (umbral 60)",
   cohorteDeCaso({ tipoCaso: "lead", conversacion: "sin_conversacion", hoy, creadoISO: t0 }, relojDe(61))?.cohorte === "fuera_de_plazo");
 ok("sin instante que arranque el reloj → NO escala (no se inventa antigüedad)",

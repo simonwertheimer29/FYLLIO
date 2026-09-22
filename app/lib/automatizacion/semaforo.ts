@@ -287,7 +287,7 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
     return false;
   }
 
-  if (causa === "oferta_elegida" || causa === "sin_huecos") {
+  if (causa === "oferta_elegida" || causa === "oferta_sin_eleccion" || causa === "sin_huecos") {
     // 060 — el asunto era «reservar lo que eligió» / «buscarle hueco». Lo
     // cierra un HECHO del bucle posterior al derivado: la oferta quedó
     // reservada, o la sustituyó otra (se le mandaron horas nuevas), o la

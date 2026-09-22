@@ -371,3 +371,4 @@ margen para rejugar un par de hilos si un perfil sale dócil. Tope **$5**.
   nuevo `eleccionOferta` · siete turnos de `qa:oferta-demo` con modelo ~$0,04 · `qa:hueco-rechazado` $0,01 ·
   `qa:reserva-demo` sin modelo · 3 sondas del caso 35 $0,007) · **$0,23 medido** · ac. **~$18,07**
 - **22-09 · SELECTOR «PROPONER HORAS»** (`qa:oferta-demo --eleccion` y `--eleccion --ocupar`, dos turnos del agente ~$0,02 · `qa:oferta-demo` sin elección y `qa:reserva-demo` sin modelo) · **~$0,02** · ac. **~$18,09**
+- **23-09 · PROPUESTA HECHA + SIN ELEGIR (061)** (`qa:oferta-demo --sin-eleccion`, dos turnos del agente ~$0,02 · el resto sin modelo) · **~$0,02** · ac. **~$18,11**

@@ -35,6 +35,8 @@ type Respuesta = Omit<RespuestaHuecos, "huecos"> & {
   tratamientoDicho: string | null;
   /** Lo que dijo de cuándo («jueves por la mañana»), tal cual. */
   disponibilidadDicha: string | null;
+  /** 061 — lo que contestó a la propuesta anterior sin elegir, literal. */
+  despuesDijo?: string | null;
 };
 
 type Variante = { tipo: "oferta" } | { tipo: "se_ocupo"; ocupada: HuecoDelCaso } | { tipo: "todas_ocupadas" };
@@ -161,7 +163,9 @@ export function OfertaPanel({ telefono, oferta, onHecho, destacar = true }: { te
   ) : (cerrada && proponiendo) || reofertando ? (
     <Selector
       telefono={telefono}
-      inicial={reofertando && oferta && !cerrada ? oferta.alternativas : []}
+      // Si contestó sin elegir, las de antes ya no valen: abre con la
+      // sugerencia nueva, hecha con lo último que pidió (061).
+      inicial={reofertando && oferta && !cerrada && !oferta.respuestaSinEleccion ? oferta.alternativas : []}
       variante={{ tipo: "oferta" }}
       aviso={reofertando && oferta && !cerrada ? "Propuesta nueva: sustituye a la anterior. Las horas de la lista se vuelven a comprobar al enviar." : null}
       onEnviado={() => { setReofertando(false); setProponiendo(false); onHecho(); }}
@@ -177,6 +181,20 @@ export function OfertaPanel({ telefono, oferta, onHecho, destacar = true }: { te
         <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
         Proponer horas
       </button>,
+    );
+  }
+
+  // ── Contestó sin elegir (061): lo que dijo, y proponer otras ──
+  const contesto = oferta.respuestaSinEleccion;
+  if (contesto && (oferta.estado === "abierta" || (oferta.estado === "caducada" && oferta.eleccion == null && !oferta.eleccionEnISO))) {
+    return conVentana(
+      <Caja tono="warning" titulo={`Contestó a la propuesta sin elegir (${diaHoraDe(contesto.enISO)})`}>
+        <p className="text-[13px] text-[var(--color-foreground)]">«{contesto.texto}»</p>
+        <button type="button" onClick={() => setReofertando(true)} className={`${btnPrimario} mt-2`}>
+          <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          Proponer otras horas
+        </button>
+      </Caja>,
     );
   }
 
@@ -488,6 +506,12 @@ function Selector({
         <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">Pidió</p>
         <p className="text-[14px] font-medium text-[var(--color-foreground)]">{loQuePidio(datos)}</p>
         {unSoloDoctor && <p className="text-[12px] text-[var(--color-muted)]">Todas con {unSoloDoctor.nombre}</p>}
+        {datos.despuesDijo && (
+          <>
+            <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">A la propuesta contestó</p>
+            <p className="text-[14px] text-[var(--color-foreground)]">«{datos.despuesDijo}»</p>
+          </>
+        )}
       </div>
 
       <label className="block text-[12px] text-[var(--color-muted)]">

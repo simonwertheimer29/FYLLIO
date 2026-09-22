@@ -334,6 +334,7 @@ export const ETIQUETA_CAUSA: Record<CausaDerivacion, string> = {
   sin_respuesta_valida: "dos descartes seguidos",
   hueco_rechazado: "no le va la hora que se le confirmó",
   oferta_elegida: "contestó a la oferta de horas",
+  oferta_sin_eleccion: "contestó a la propuesta sin elegir",
   sin_huecos: "sin horas que ofrecer",
 };
 

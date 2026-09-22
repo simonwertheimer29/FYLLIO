@@ -6776,3 +6776,16 @@ propuesta de horas, el propio agente), el borrador se escribió para un hilo que
 Si estaba precargado y nadie lo había tocado, se quita de la caja; lo editado se queda. Hay una excepción:
 las rutas de envío leen el borrador después de guardar su propio saliente y lo necesitan para medir la
 coincidencia, así que lo piden con `paraMedir`. `qa:ficha` lo cubre (sección «c bis»).
+
+## 2026-09-23 · Con propuesta de horas abierta, lo que no sea elegir va a la coordinadora (061)
+Aprobado por Simon. Si la paciente contesta a la propuesta sin elegir hora («no me va ninguna», una pregunta,
+«mejor el lunes»), el agente no pide datos ni contesta. El caso pasa a la coordinadora con la causa nueva
+`oferta_sin_eleccion`, prioritaria como `oferta_elegida`, y en la ficha dice «Contestó a la propuesta sin
+elegir». Lo que dijo se guarda literal en la oferta y el selector lo enseña arriba. Al reofertar, el selector
+abre con la sugerencia nueva y no con las horas viejas. La preferencia nueva ya la trae el juicio del turno (la
+última gana), y si nombra una hora, esa manda. La oferta sigue abierta: si luego elige, vale. Un segundo mensaje
+sin elegir no vuelve a entregar el caso, porque reiniciaría el plazo; se suma a lo guardado. Por delante siguen
+la urgencia, el hueco rechazado, la queja y el opt-out. El decisor nuevo ya no puede escribir encima de un turno
+de propuesta; antes tampoco lo impedía nada para `oferta_elegida`. Cubierto por `qa:oferta-demo --sin-eleccion`
+y `qa:cola`. De paso: la cola enseñaba en crudo `oferta_elegida`, `sin_huecos` y `oferta_caducada` porque les
+faltaba etiqueta.

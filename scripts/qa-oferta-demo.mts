@@ -8,6 +8,7 @@
 //   npm run qa:oferta-demo -- "+34 663 478 802" --ambiguo "la del {dia}"  (dos del mismo día → el agente pregunta; {dia} = el ofrecido)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --ocupar                  (alguien ocupa la elegida antes del clic)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --tarde                   (contesta a una oferta caducada)
+//   npm run qa:oferta-demo -- "+34 663 478 802" --sin-eleccion "ninguna me va, mejor el lunes" (061: a la coordinadora, en silencio)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --eleccion "la 2" --dejar (PARA donde para el producto: elegida, sin clic; no revierte)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --eleccion "la 2" --dejar-reservado (camino entero sin revertir)
 //   npm run qa:oferta-demo -- "+34 663 478 802" --limpiar                 (revierte lo que dejó --dejar*)
@@ -48,6 +49,7 @@ const TARDE = args.includes("--tarde");
 const arg = (k: string) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] ?? null : null; };
 const ELECCION = arg("--eleccion");
 const AMBIGUO = arg("--ambiguo");
+const SIN_ELECCION = arg("--sin-eleccion");
 if (!telefono) { console.error("uso: qa:oferta-demo \"<telefono>\" [--eleccion \"…\"|--ambiguo \"…\"] [--ocupar] [--tarde] [--dejar]"); process.exit(2); }
 
 let rojos = 0;
@@ -145,7 +147,7 @@ await runWithCliente("DEMO", async () => {
   // se repite en la segunda vuelta si lleva {dia}.
   const diaOfrecido = AMBIGUO ? new Date(`${alternativas[0]!.fecha}T12:00:00Z`).toLocaleDateString("es-ES", { weekday: "long" }) : "";
   const fraseAmbigua = AMBIGUO ? (AMBIGUO.includes("{dia}") ? AMBIGUO.replace("{dia}", diaOfrecido) : `la del ${diaOfrecido}`) : null;
-  const respuesta = ELECCION ?? fraseAmbigua ?? (TARDE ? "la 1" : null);
+  const respuesta = SIN_ELECCION ?? ELECCION ?? fraseAmbigua ?? (TARDE ? "la 1" : null);
   if (respuesta) {
     console.log(`══ el paciente contesta: «${respuesta}»`);
     const { r } = await entrante(respuesta, f0.lead.id, f0.clinicaId);
@@ -158,7 +160,25 @@ await runWithCliente("DEMO", async () => {
     console.log(`  oferta: estado=${of?.estado} eleccion=${of?.eleccion} tardia=${of?.eleccionTardia} desambiguaciones=${of?.desambiguaciones}`);
     if (borrador) console.log(`  respuesta del agente: «${borrador}»`);
 
-    if (AMBIGUO) {
+    if (SIN_ELECCION) {
+      // 061 — con propuesta abierta, lo que no es elegir va a la coordinadora.
+      ok(derivado?.causa_derivacion === "oferta_sin_eleccion", "deriva con oferta_sin_eleccion");
+      ok(borrador === "", "el agente CALLA: no pide datos ni contesta");
+      ok(of?.estado === "abierta" && of.eleccion == null, "la oferta sigue abierta (si luego elige una, vale)");
+      ok(of?.respuestaSinEleccion?.texto === SIN_ELECCION, "lo que dijo queda guardado en la oferta");
+      const fs = await fichaDeCaso(telefono!);
+      ok(fs.estado.texto === "Contestó a la propuesta sin elegir", `la etiqueta es «${fs.estado.texto}»`);
+      ok(fs.oferta?.respuestaSinEleccion?.texto === SIN_ELECCION, "la ficha trae lo que dijo (el selector lo enseña)");
+      console.log(`  preferencia al reofertar: ${JSON.stringify(fs.preferenciaCita)}`);
+      if (/lunes/i.test(SIN_ELECCION)) ok(fs.preferenciaCita?.dias?.[0] === "lun", "la preferencia nueva (lunes) manda al reofertar");
+      console.log(`══ vuelve a escribir sin elegir: «y si puede ser por la tarde, mejor»`);
+      await entrante("y si puede ser por la tarde, mejor", f0.lead.id, f0.clinicaId);
+      const evs3: any = await runWithClienteDb("DEMO", (trx) => sql`select causa_derivacion from eventos_automatizacion where tipo_caso = 'conversacion' and caso_id = ${telefono} and evento = 'derivado' and created_at >= ${inicio}`.execute(trx));
+      ok((evs3.rows ?? []).filter((x: any) => x.causa_derivacion === "oferta_sin_eleccion").length === 1, "no se vuelve a entregar (no reinicia el plazo de la coordinadora)");
+      ok(((await borradorAgenteDe(telefono!)) ?? "") === "", "y el agente sigue callado");
+      const of3 = await ofertaDelCaso(telefono!);
+      ok(of3?.respuestaSinEleccion?.texto === `${SIN_ELECCION} · y si puede ser por la tarde, mejor`, `lo nuevo se suma a lo guardado: «${of3?.respuestaSinEleccion?.texto}»`);
+    } else if (AMBIGUO) {
       ok(of?.desambiguaciones === 1 && of.eleccion == null, "el agente pidió aclarar (una vez) y no marcó elección");
       ok(/¿cuál de las (dos|tres|cuatro) dices\?/.test(borrador), "la respuesta es la plantilla de desambiguación (solo repite lo que salió)");
       ok(!derivado, "no deriva a la primera ambigüedad");

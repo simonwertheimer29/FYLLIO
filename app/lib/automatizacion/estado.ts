@@ -115,6 +115,10 @@ export type CausaDerivacion =
    *  la coordinadora reserva de un clic (o elige ella cuál si no se entendió).
    *  Prioritaria: es la ventana en la que llama a otra clínica. */
   | "oferta_elegida"
+  /** 061 (23-09) — contestó a la propuesta de horas SIN elegir ninguna («no
+   *  me va ninguna», una pregunta, «mejor el lunes»). Con propuesta abierta el
+   *  agente no recoge datos: pasa a la coordinadora, en silencio. Prioritaria. */
+  | "oferta_sin_eleccion"
   /** 060 — se ocuparon todas las horas propuestas y no hay otras: se le dijo
    *  que el equipo le escribe «en cuanto abra la clínica». Ese es el plazo. */
   | "sin_huecos";
@@ -125,6 +129,7 @@ export function colaDeDerivacion(causa: CausaDerivacion, malestar: boolean | nul
   return causa === "urgencia" ||
     causa === "hueco_rechazado" ||
     causa === "oferta_elegida" ||
+    causa === "oferta_sin_eleccion" ||
     causa === "antecedente_medico" ||
     (causa === "peticion_queja" && malestar === true)
     ? "prioritaria"
