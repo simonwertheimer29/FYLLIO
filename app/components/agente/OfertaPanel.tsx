@@ -21,13 +21,16 @@ import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import { nombreCortoDoctor } from "../../lib/agenda/nombres";
-import { AlertTriangle, CalendarDays, ICON_STROKE } from "../icons";
+import { AlertTriangle, CalendarDays, Check, ICON_STROKE } from "../icons";
+import { RecuadroDoctor } from "../agenda/RecuadroDoctor";
 import type { RespuestaHuecos, HuecoDelCaso } from "../../lib/agenda/huecos-del-caso";
 import type { OfertaDeLaFicha } from "../../lib/agente/ficha-caso";
 
 type Respuesta = Omit<RespuestaHuecos, "huecos"> & {
   huecos: HuecoDelCaso[];
   lead: { id: string; nombre: string };
+  /** Lo que dijo la persona que quiere («revisión»), si lo dijo. */
+  tratamientoDicho: string | null;
 };
 
 type Variante = { tipo: "oferta" } | { tipo: "se_ocupo"; ocupada: HuecoDelCaso } | { tipo: "todas_ocupadas" };
@@ -254,7 +257,9 @@ function Selector({
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tratamientoId, setTratamientoId] = useState<string | null>(null);
-  const [todosLosDoctores, setTodosLosDoctores] = useState(false);
+  /** null = lo decide el servidor (todos, o el que pidió la paciente);
+   *  "todos" = sin filtro; un id = la coordinadora filtra por ese doctor. */
+  const [doctorFiltro, setDoctorFiltro] = useState<string | null>(null);
   const [seleccion, setSeleccion] = useState<HuecoDelCaso[]>(inicial);
   const [agenda, setAgenda] = useState<{ desde: string; huecos: HuecoDelCaso[] } | null>(null);
   const [cargandoAgenda, setCargandoAgenda] = useState(false);
@@ -265,27 +270,29 @@ function Selector({
   const cargar = useCallback(async () => {
     setError(null);
     try {
-      const qs = new URLSearchParams({ telefono });
+      const qs = new URLSearchParams({ telefono, vista: "cercania" });
       if (tratamientoId) qs.set("tratamientoId", tratamientoId);
-      if (todosLosDoctores) qs.set("doctorId", "todos");
+      if (doctorFiltro) qs.set("doctorId", doctorFiltro);
       const d = await cargarJSON<Respuesta>(`/api/agente/huecos?${qs.toString()}`);
       setDatos(d);
     } catch (e) {
       setError(mensajeDeError(e));
     }
-  }, [telefono, tratamientoId, todosLosDoctores]);
+  }, [telefono, tratamientoId, doctorFiltro]);
 
   useEffect(() => {
     void cargar();
   }, [cargar]);
 
   const tratamientoEfectivo = datos?.tratamiento?.id ?? null;
+  // La agenda por semanas respeta el mismo filtro de doctor que la lista.
+  const doctorDeAgenda = datos?.doctorFiltrado?.id ?? "todos";
 
   const cargarAgenda = useCallback(
     async (desde: string) => {
       setCargandoAgenda(true);
       try {
-        const qs = new URLSearchParams({ telefono, todos: "1", desde, dias: "7", doctorId: "todos" });
+        const qs = new URLSearchParams({ telefono, todos: "1", desde, dias: "7", doctorId: doctorDeAgenda });
         if (tratamientoEfectivo) qs.set("tratamientoId", tratamientoEfectivo);
         const d = await cargarJSON<Respuesta>(`/api/agente/huecos?${qs.toString()}`);
         setAgenda({ desde, huecos: d.huecos });
@@ -295,7 +302,7 @@ function Selector({
         setCargandoAgenda(false);
       }
     },
-    [telefono, tratamientoEfectivo],
+    [telefono, tratamientoEfectivo, doctorDeAgenda],
   );
 
   // El texto EXACTO que saldría, del servidor, cada vez que cambia la lista.
@@ -382,48 +389,74 @@ function Selector({
       )}
       <p className={`text-[12px] ${g.frescura === "en_vivo" ? "text-[var(--color-success,#1f7a4d)]" : "text-amber-700 dark:text-amber-300"}`}>{g.texto}</p>
 
-      <div className="flex flex-wrap items-center gap-2 text-[12px] text-[var(--color-muted)]">
-        <label className="flex items-center gap-1.5">
-          Tipo de cita
-          <select
-            value={datos.tratamiento?.id ?? ""}
-            onChange={(e) => { setTratamientoId(e.target.value || null); setAgenda(null); }}
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-0.5 text-[12px] text-[var(--color-foreground)]"
-          >
-            <option value="">— elegir —</option>
-            {datos.catalogo.map((t) => (
-              <option key={t.id} value={t.id}>{t.nombre} · {t.duracionMin} min</option>
-            ))}
-          </select>
-        </label>
-        {datos.doctorFiltrado && !todosLosDoctores && (
-          <button type="button" onClick={() => setTodosLosDoctores(true)} className="underline">
-            solo {nombreCortoDoctor(datos.doctorFiltrado.nombre)} · ver todos
-          </button>
-        )}
-      </div>
+      <label className="block text-[12px] text-[var(--color-muted)]">
+        <span className="flex items-baseline justify-between gap-2">
+          <span>Tipo de cita</span>
+          {/* De dónde sale el tipo: lo que dijo, casado con el catálogo. */}
+          {!tratamientoId && datos.tratamientoDicho && datos.tratamiento && (
+            <span className="truncate">dijo «{datos.tratamientoDicho}»</span>
+          )}
+        </span>
+        <select
+          value={datos.tratamiento?.id ?? ""}
+          onChange={(e) => { setTratamientoId(e.target.value || null); setAgenda(null); }}
+          className="mt-0.5 w-full min-w-0 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-1 text-[12px] text-[var(--color-foreground)]"
+        >
+          <option value="">— elegir —</option>
+          {datos.catalogo.map((t) => (
+            <option key={t.id} value={t.id}>{t.nombre} · {t.duracionMin} min</option>
+          ))}
+        </select>
+      </label>
+
+      {/* Doctor: todos por defecto; se filtra si ELLA pidió uno o a mano. */}
+      {datos.doctores.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+          {[{ id: "todos", nombre: "Todos" }, ...datos.doctores].map((d) => {
+            const activo = d.id === "todos" ? !datos.doctorFiltrado : datos.doctorFiltrado?.id === d.id;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                aria-pressed={activo}
+                onClick={() => { setDoctorFiltro(d.id); setAgenda(null); }}
+                className={`rounded-lg border px-2 py-0.5 transition-colors ${
+                  activo
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]"
+                    : "border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+                }`}
+              >
+                {d.id === "todos" ? d.nombre : nombreCortoDoctor(d.nombre)}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {datos.doctorPedido && !doctorFiltro && (
+        <p className="text-[12px] text-[var(--color-muted)]">
+          {datos.doctorPedido.casado && datos.doctorFiltrado
+            ? `Pidió a ${nombreCortoDoctor(datos.doctorFiltrado.nombre)}: solo sus horas.`
+            : `Pidió «${datos.doctorPedido.texto}» y no está claro cuál es: elige el doctor.`}
+        </p>
+      )}
+      {datos.doctorFueraDeClinica && <p className="text-[12px] text-[var(--color-muted)]">{nombreCortoDoctor(datos.doctorFueraDeClinica)} es de otra clínica: se ofrecen los de esta.</p>}
 
       {datos.nota && <p className="text-[12px] text-[var(--color-muted)]">{datos.nota}</p>}
       {datos.huecos.length > 0 && (
-        <p className="text-[12px] text-[var(--color-muted)]">Marca las horas que quieras proponerle (hasta {MAX}); el mensaje se compone solo.</p>
+        <p className="text-[12px] text-[var(--color-muted)]">
+          {datos.ampliado ? "Marca" : `Lo más cerca de lo que pidió${datos.horaPedida ? ` (hacia las ${datos.horaPedida.replace(/^0/, "")})` : ""}. Marca`} hasta {MAX}; el mensaje se compone debajo.
+        </p>
       )}
-      {datos.doctorFueraDeClinica && <p className="text-[12px] text-[var(--color-muted)]">El doctor asignado ({nombreCortoDoctor(datos.doctorFueraDeClinica)}) es de otra clínica: se ofrecen los de esta.</p>}
 
-      {/* Las que cumplen lo que pidió. */}
+      {/* Lo que pidió: por día y doctor, el mismo desplegable que la agenda. */}
       {datos.huecos.length > 0 && (
-        <ul className="grid gap-1.5">
-          {datos.huecos.map((h) => (
-            <li key={clave(h)}>
-              <Opcion casilla activa={seleccionadas.has(clave(h))} ocupada={ocupadasSet.has(clave(h))} onClick={() => alternar(h)} h={h} />
-            </li>
-          ))}
-        </ul>
+        <DiasConHuecos huecos={datos.huecos} seleccionadas={seleccionadas} ocupadas={ocupadasSet} onAlternar={alternar} abrir={2} />
       )}
 
       {/* Toda la agenda, por semanas. */}
       {!agenda ? (
         <button type="button" disabled={cargandoAgenda || !tratamientoEfectivo} onClick={() => void cargarAgenda(hoyISO())} className={btnEnlace}>
-          {cargandoAgenda ? "Cargando…" : "Ver más horas en la agenda"}
+          {cargandoAgenda ? "Cargando…" : "Ver otros días en la agenda"}
         </button>
       ) : (
         <div className="rounded-lg border border-[var(--color-border)] p-2">
@@ -435,34 +468,8 @@ function Selector({
           {agenda.huecos.length === 0 ? (
             <p className="mt-1.5 text-[12px] text-[var(--color-muted)]">Sin huecos esta semana.</p>
           ) : (
-            <div className="mt-1.5 max-h-56 space-y-1.5 overflow-y-auto pr-1">
-              {Object.entries(
-                agenda.huecos.reduce<Record<string, HuecoDelCaso[]>>((acc, h) => {
-                  (acc[h.fecha] ??= []).push(h);
-                  return acc;
-                }, {}),
-              ).map(([fecha, hs]) => (
-                <div key={fecha}>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{fechaCorta(fecha)}</p>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {hs.map((h) => (
-                      <button
-                        key={clave(h)}
-                        type="button"
-                        onClick={() => alternar(h)}
-                        title={nombreCortoDoctor(h.doctorNombre)}
-                        className={`rounded-md border px-2 py-0.5 text-[12px] transition-colors ${
-                          seleccionadas.has(clave(h))
-                            ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]"
-                            : "border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
-                        }`}
-                      >
-                        {h.hora} <span className="text-[var(--color-muted)]">{nombreCortoDoctor(h.doctorNombre)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="mt-1.5 max-h-72 overflow-y-auto pr-1">
+              <DiasConHuecos huecos={agenda.huecos} seleccionadas={seleccionadas} ocupadas={ocupadasSet} onAlternar={alternar} abrir={0} />
             </div>
           )}
         </div>
@@ -500,6 +507,105 @@ function Selector({
 
 // ─── Piezas ─────────────────────────────────────────────────────────────────
 
+/** Los huecos por DÍA y, dentro, por DOCTOR en el desplegable de la agenda
+ *  (RecuadroDoctor): cerrado dice cuántas horas y de cuándo a cuándo; abierto,
+ *  una casilla por hora. El orden es el que llega (cercanía a lo pedido): los
+ *  días y los doctores salen en el orden de su primera hora. */
+function DiasConHuecos({
+  huecos,
+  seleccionadas,
+  ocupadas,
+  onAlternar,
+  abrir,
+}: {
+  huecos: HuecoDelCaso[];
+  seleccionadas: Set<string>;
+  ocupadas: Set<string>;
+  onAlternar: (h: HuecoDelCaso) => void;
+  /** Cuántos recuadros abiertos al montar (los primeros = los más cercanos). */
+  abrir: number;
+}) {
+  const dias: Array<{ fecha: string; doctores: Array<{ id: string; nombre: string; horas: HuecoDelCaso[] }> }> = [];
+  for (const h of huecos) {
+    let dia = dias.find((d) => d.fecha === h.fecha);
+    if (!dia) dias.push((dia = { fecha: h.fecha, doctores: [] }));
+    let doc = dia.doctores.find((d) => d.id === h.doctorId);
+    if (!doc) dia.doctores.push((doc = { id: h.doctorId, nombre: h.doctorNombre, horas: [] }));
+    doc.horas.push(h);
+  }
+  let n = 0;
+  return (
+    <div className="space-y-2">
+      {dias.map((dia) => (
+        <div key={dia.fecha}>
+          <p className="mb-1 text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted)]">{fechaCorta(dia.fecha)}</p>
+          <div className="space-y-1.5">
+            {dia.doctores.map((doc) => {
+              const horas = [...doc.horas].sort((a, b) => a.hora.localeCompare(b.hora));
+              const marcadas = horas.filter((h) => seleccionadas.has(clave(h))).length;
+              return (
+                <RecuadroDoctor
+                  key={doc.id}
+                  nombre={nombreCortoDoctor(doc.nombre)}
+                  abierto={n++ < abrir || marcadas > 0}
+                  resumen={<>
+                    <p className="mt-1 text-[13px] font-semibold text-[var(--color-accent)] [font-variant-numeric:tabular-nums]">
+                      {horas.length === 1 ? `1 hora · ${horas[0]!.hora}` : `${horas.length} horas · ${horas[0]!.hora}–${horas[horas.length - 1]!.hora}`}
+                    </p>
+                    {marcadas > 0 && <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">{marcadas} marcada{marcadas === 1 ? "" : "s"}</p>}
+                  </>}
+                >
+                  <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+                    {horas.map((h) => (
+                      <HoraConCasilla key={clave(h)} h={h} activa={seleccionadas.has(clave(h))} ocupada={ocupadas.has(clave(h))} onClick={() => onAlternar(h)} />
+                    ))}
+                  </div>
+                </RecuadroDoctor>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Una hora del desplegable: dato denso (4 px), con su casilla. */
+function HoraConCasilla({ h, activa, ocupada, onClick }: { h: HuecoDelCaso; activa: boolean; ocupada: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={activa}
+      disabled={ocupada}
+      onClick={onClick}
+      title={ocupada ? "Se acaba de ocupar" : `${h.hora}–${h.fin} · ${h.doctorNombre}`}
+      className={`flex items-center gap-1.5 rounded border px-1.5 py-1 text-left text-[11.5px] transition-colors disabled:opacity-50 ${
+        activa
+          ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]"
+          : "border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+      }`}
+    >
+      <Casilla activa={activa} />
+      <span className="font-medium [font-variant-numeric:tabular-nums]">{h.hora}</span>
+      {ocupada && <span className="text-[var(--color-muted)]">ocupada</span>}
+    </button>
+  );
+}
+
+function Casilla({ activa }: { activa: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border ${
+        activa ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"
+      }`}
+    >
+      {activa && <Check size={10} strokeWidth={3} />}
+    </span>
+  );
+}
+
 function Opcion({ h, n, activa, ocupada, casilla, onClick }: { h: HuecoDelCaso; n?: number; activa: boolean; ocupada?: boolean; casilla?: boolean; onClick: () => void }) {
   return (
     <button
@@ -515,16 +621,7 @@ function Opcion({ h, n, activa, ocupada, casilla, onClick }: { h: HuecoDelCaso; 
       }`}
     >
       <span className="flex items-center gap-2 font-medium">
-        {casilla && (
-          <span
-            aria-hidden
-            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] leading-none ${
-              activa ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"
-            }`}
-          >
-            {activa ? "✓" : ""}
-          </span>
-        )}
+        {casilla && <Casilla activa={activa} />}
         {n != null ? `${n}) ` : ""}{fechaCorta(h.fecha)} · {h.hora}
       </span>
       <span className="text-[var(--color-muted)]">{ocupada ? "se ocupó" : nombreCortoDoctor(h.doctorNombre)}</span>

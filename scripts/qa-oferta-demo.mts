@@ -96,8 +96,8 @@ await runWithCliente("DEMO", async () => {
 
   console.log("══ huecos (los tres que cumplen lo que pidió)");
   const tratamientoTexto = f0.recogido?.find((c) => c.campo === "tratamiento_o_molestia")?.valor ?? null;
-  let h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: null, doctorId: f0.lead.doctorAsignadoId, clinicaId: f0.clinicaId });
-  if (!h.tratamiento) h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.catalogo[0]?.id ?? null, doctorId: f0.lead.doctorAsignadoId, clinicaId: f0.clinicaId });
+  let h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: null, doctorId: null, clinicaId: f0.clinicaId });
+  if (!h.tratamiento) h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.catalogo[0]?.id ?? null, doctorId: null, clinicaId: f0.clinicaId });
   ok(h.huecos.length >= 2, `hay al menos dos huecos (${h.huecos.length})`);
   if (h.huecos.length < 2) process.exit(1);
   const tratamientoId = h.tratamiento!.id;

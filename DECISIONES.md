@@ -6727,3 +6727,14 @@ aparecían tras marcar uno — para la coordinadora era «dos huecos sueltos, co
 estaba hecho. Ahora: botón «Proponer horas» que despliega el selector; casillas en cada hueco; la lista de
 la propuesta y el botón de enviar siempre a la vista (vacíos dicen «marca alguna hora»). «Urgencia» no
 faltaba: no estaba recogida (el agente aún la pregunta) — de ahí MEJORAS 264.
+
+## 2026-09-22 · «Proponer horas»: el filtro por doctor estaba al revés, y el selector no era el de la agenda
+La ruta de huecos filtraba por defecto por el doctor ASIGNADO al lead, y eso no es una preferencia de la
+paciente. Ahora se ofrecen todos los doctores de la clínica, y solo se filtra si ella pidió uno (`preferencia_doctor`,
+casado con UNO por nombre; si no casa se dice y no se elige solo) o si la coordinadora lo filtra a mano. Modo
+nuevo `cercania`: los 5 días más cercanos a lo pedido con TODAS sus horas, sin espaciar, y la hora concreta
+(«a las 8:30», leída del texto de disponibilidad) manda sobre la franja; si no hay nada cerca, las más cercanas
+de cada día, no el día entero. El desplegable es el `RecuadroDoctor` de la vista Lista de /agenda, sacado a
+componente compartido. Diagnóstico: el martes 22 desapareció porque ya había pasado, y «Revisión general» sale
+de casar «revisión» por nombre, no de `catalogo[0]`. En el caso de Verónica, quitar el filtro no cambia nada
+porque Demo Este tiene un solo dentista. Pendiente: MEJORAS 265 (tratamiento ↔ doctor) y 266 (móvil).

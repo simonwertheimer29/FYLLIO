@@ -33,6 +33,7 @@ import { CitaPanel } from "./CitaPanel";
 import { nombreCortoDoctor } from "../../lib/agenda/nombres";
 import { EditorCitaFlotante, type BorradorCita } from "./EditorCitaFlotante";
 import { MiniCalendario } from "./MiniCalendario";
+import { RecuadroDoctor } from "../../components/agenda/RecuadroDoctor";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   CalendarDays,
@@ -1386,19 +1387,11 @@ function RecuadroDoctorDia({
   } as const;
 
   return (
-    <details className="group rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-sm">
-      <summary className="cursor-pointer list-none px-2.5 py-2 [&::-webkit-details-marker]:hidden">
-        <div className="flex items-start justify-between gap-1">
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); onVerSemana(pd.staffId); }}
-            title={`Ver la semana de ${nombre}`}
-            className="truncate text-left text-[11.5px] font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
-          >
-            {nombre}
-          </button>
-          <ChevronDown size={11} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)] transition-transform group-open:rotate-180" aria-hidden />
-        </div>
+    <RecuadroDoctor
+      nombre={nombre}
+      onNombre={() => onVerSemana(pd.staffId)}
+      tituloNombre={`Ver la semana de ${nombre}`}
+      resumen={<>
         {resumen.libres && (
           <p className={`mt-1 ${ESTILO_LIBRES[resumen.libres.enfasis]}`} title={resumen.libres.enfasis === "destacado" ? AVISO_HUECOS : undefined}>
             {resumen.libres.texto}
@@ -1413,8 +1406,8 @@ function RecuadroDoctorDia({
             {sinPasar === 1 ? "1 sin pasar a tu software" : `${sinPasar} sin pasar a tu software`}
           </p>
         )}
-      </summary>
-      <div className="space-y-1 border-t border-[var(--color-border)] px-2 py-1.5">
+      </>}
+    >
         {pd.citas.map((c) => {
           const est = BLOQUE_ESTADO[c.estado] ?? { bg: "var(--color-surface)", fg: "var(--color-foreground)", borde: "var(--color-border)" };
           return (
@@ -1451,7 +1444,6 @@ function RecuadroDoctorDia({
             </div>
           ))
         )}
-      </div>
-    </details>
+    </RecuadroDoctor>
   );
 }

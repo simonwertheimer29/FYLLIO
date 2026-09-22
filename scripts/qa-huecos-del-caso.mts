@@ -15,7 +15,7 @@
 //    tratamiento; deja la puerta del «no me viene bien».
 // Salida: 0 = todo verde · 1 = algún rojo (se listan).
 
-import { elegirHuecos, casarTratamiento } from "../app/lib/agenda/huecos-del-caso";
+import { elegirHuecos, casarTratamiento, casarDoctor, horaPedidaDe, huecosPorCercania, _interno } from "../app/lib/agenda/huecos-del-caso";
 import { garantiaDe } from "../app/lib/agenda/garantia";
 import { textoConfirmacionCita } from "../app/lib/agenda/confirmacion-cita";
 
@@ -81,6 +81,66 @@ console.log("══ elegirHuecos");
 {
   const r = elegirHuecos([], { franja: "manana", dias: ["jue"], urgencia: null });
   ok(r.elegidos.length === 0 && r.ampliado === null, "sin slots → vacío, sin fingir ampliación");
+}
+
+console.log("══ horaPedidaDe (22-09: «cualquier día a las 8:30»)");
+ok(horaPedidaDe("cualquier día a las 8:30") === 8 * 60 + 30, "«a las 8:30» → 08:30");
+ok(horaPedidaDe("sobre las 17h") === 17 * 60, "«sobre las 17h» → 17:00");
+ok(horaPedidaDe("a las 5") === 17 * 60, "«a las 5» sin mañana → 17:00");
+ok(horaPedidaDe("a las 9 de la mañana") === 9 * 60, "«a las 9 de la mañana» → 09:00");
+ok(horaPedidaDe("martes por la tarde") === null, "sin hora → null (manda la franja)");
+ok(horaPedidaDe("el 29.09 por la tarde") === null, "una fecha con punto no es una hora");
+ok(horaPedidaDe(null) === null, "sin texto → null");
+
+console.log("══ huecosPorCercania (el selector «Proponer horas»)");
+{
+  // Dos doctores, martes tarde: salen LOS DOS, y todas las horas del día.
+  const dos = [
+    slot("2026-09-29", "14:00", "castano"), slot("2026-09-29", "14:20", "castano"), slot("2026-09-29", "14:40", "castano"),
+    slot("2026-09-29", "17:00", "molina"), slot("2026-09-29", "10:00", "molina"), slot("2026-09-24", "17:00", "molina"),
+  ];
+  const r = huecosPorCercania(dos, { franja: "tarde", dias: ["mar"], urgencia: null }, null);
+  ok(r.ampliado === null && r.elegidos.length === 4, `martes tarde: las 3 de Castaño y la de Molina, sin espaciar (${r.elegidos.length})`);
+  ok(new Set(r.elegidos.map((e) => e.doctorId)).size === 2, "de cualquier doctor, no solo del asignado");
+  ok(!r.elegidos.some((e) => e.slot.inicio < 14 * 60 || e.fecha === "2026-09-24"), "ni la mañana del martes ni el jueves (no son lo pedido)");
+}
+{
+  // «Cualquier día a las 8:30»: esa hora en VARIOS días, y las cercanas.
+  const s = [
+    slot("2026-09-23", "08:30"), slot("2026-09-23", "09:20"), slot("2026-09-23", "12:00"),
+    slot("2026-09-24", "09:00"), slot("2026-09-25", "08:30"), slot("2026-09-25", "16:00"),
+  ];
+  const r = huecosPorCercania(s, { franja: null, dias: [], urgencia: null }, 8 * 60 + 30);
+  const txt = r.elegidos.map((e) => `${e.fecha.slice(8)}@${e.slot.inicio}`).join(",");
+  ok(r.ampliado === null && new Set(r.elegidos.map((e) => e.fecha)).size === 3, `tres días distintos con algo cerca de las 8:30 (${txt})`);
+  ok(!r.elegidos.some((e) => e.slot.inicio === 12 * 60 || e.slot.inicio === 16 * 60), "las 12:00 y las 16:00 no son «cerca de las 8:30»");
+  ok(r.elegidos[0]?.slot.inicio === 8 * 60 + 30 && r.elegidos[1]?.slot.inicio === 9 * 60 + 20, "dentro del día, la más cercana primero");
+  const nada = huecosPorCercania([slot("2026-09-23", "16:00")], null, 8 * 60 + 30);
+  ok(nada.ampliado === "franja" && nada.elegidos.length === 1, "sin nada cerca de la hora: amplía y lo dice (no finge que es lo pedido)");
+  // Clínica que abre a las 10: «a otra hora» son las más cercanas, no el día entero.
+  const diaEntero = ["10:00", "10:20", "10:40", "11:00", "11:20", "13:40", "16:00", "19:40"].map((h) => slot("2026-09-23", h));
+  const c = huecosPorCercania(diaEntero, null, 8 * 60 + 30);
+  ok(c.ampliado === "franja" && c.elegidos.map((e) => e.slot.inicio / 60).join(",") === "10,10.333333333333334,10.666666666666666,11",
+    `abre a las 10 y pidió las 8:30 → de 10:00 a 11:00, no hasta las 19:40 (${c.elegidos.map((e) => e.slot.inicio).join(",")})`);
+  ok(_interno.notaDe("franja", null, false, 8 * 60 + 30) === "No hay nada hacia las 8:30 en dos semanas: estas son las horas más cercanas.", "la nota dice la hora como se lee y no habla de «esos días» sin días");
+}
+{
+  const muchos = Array.from({ length: 9 }, (_, i) => slot(`2026-10-0${i + 1}`, "10:00"));
+  const r = huecosPorCercania(muchos, null, null);
+  ok(new Set(r.elegidos.map((e) => e.fecha)).size === _interno.DIAS_CERCANIA, `como mucho ${_interno.DIAS_CERCANIA} días: más es scroll, no opciones`);
+}
+{
+  // El elegir de tres también mira la hora pedida.
+  const r = elegirHuecos([slot("2026-09-23", "12:00"), slot("2026-09-23", "08:40")], null, 3, 8 * 60 + 30);
+  ok(r.elegidos[0]?.slot.inicio === 8 * 60 + 40, "elegirHuecos con hora pedida: la cercana primero");
+}
+
+console.log("══ casarDoctor (solo si la paciente lo pidió)");
+{
+  const DOCS = [{ nombre: "Dr. Andrés Molina" }, { nombre: "Dra. Lucía Ferrer" }];
+  ok(casarDoctor("con la doctora Ferrer", DOCS)?.nombre === "Dra. Lucía Ferrer", "«con la doctora Ferrer» → Dra. Lucía Ferrer");
+  ok(casarDoctor("el doctor", DOCS) === null, "«el doctor» a secas → ninguno (no se elige solo)");
+  ok(casarDoctor(null, DOCS) === null, "sin petición → ninguno (todos los doctores)");
 }
 
 console.log("══ casarTratamiento");

@@ -4180,3 +4180,19 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
 - **Qué hacer:** cuando el agente vea la agenda, el campo `urgencia` del objetivo cita pasa a no_aplica si ya
   hay huecos que ofrecer; mientras tanto, valorar quitarlo del contrato cuando la clínica tiene agenda en
   Fyllio. · **Impacto:** MEDIO (una pregunta de más antes de la cita). · **Esfuerzo:** 1 h + vara. · **Fecha:** 2026-09-17
+
+## 265. Agenda · el catálogo no dice qué doctor hace cada tratamiento
+- **Visto al rehacer «Proponer horas» (22-09):** Simon pidió huecos «de cualquier doctor que haga ese
+  tratamiento». En la base no hay relación tratamiento ↔ doctor (ni tratamiento ↔ especialidad): solo
+  `staff_especialidades`. Hoy el selector ofrece todos los dentistas de la clínica con horario; si una clínica
+  tiene un ortodoncista que no hace revisiones, se ofrecería su hueco para una revisión.
+- **Qué hacer:** columna `especialidad_id` en `tratamientos` (o M:N) configurable en Ajustes → Agenda, y que
+  `disponibilidadDelCaso` filtre por ella cuando exista. Sin dato, todos (como ahora). · **Impacto:** MEDIO en
+  clínicas con especialistas. · **Esfuerzo:** 3 h. · **Fecha:** 2026-09-22
+
+## 266. Mensajería · en móvil no hay ficha, y con ella no hay «Proponer horas»
+- **Visto al capturar el selector (22-09):** a 390 px, la conversación ocupa la pantalla y la columna de la
+  ficha no aparece por ningún lado: ni datos del agente ni el bucle de ofrecer horas. La coordinadora que
+  contesta desde el móvil no puede proponer horas.
+- **Qué hacer:** botón «Ficha» en la cabecera de la conversación en móvil que abra la columna como hoja
+  (`PanelFlotante` anclaje «hoja»). · **Impacto:** ALTO para uso en móvil. · **Esfuerzo:** 2 h. · **Fecha:** 2026-09-22

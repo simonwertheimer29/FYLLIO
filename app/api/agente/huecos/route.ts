@@ -1,7 +1,7 @@
 // app/api/agente/huecos/route.ts
 //
 // LOS HUECOS PARA UN CASO (17-09, paso 3 de la ficha). GET ?telefono=…
-// [&tratamientoId=…][&doctorId=…|todos]. Compone la ficha (la preferencia que
+// [&tratamientoId=…][&doctorId=…|todos][&vista=cercania]. Compone la ficha (la preferencia que
 // recogió el agente, el tratamiento que dijo la persona, el lead con su
 // doctor) y devuelve tres huecos con su GARANTÍA (lib/agenda/garantia.ts) y
 // el texto exacto de confirmación de cada uno, para que la coordinadora lo
@@ -61,11 +61,19 @@ export const GET = withAuth(async (session, req) => {
           agendaEnFyllio: ficha.agendaEnFyllio,
         });
       }
-      const tratamientoTexto =
-        ficha.recogido?.find((c) => c.campo === "tratamiento_o_molestia")?.valor ?? null;
-      // `doctorId=todos` quita el filtro del doctor asignado (la coordinadora
-      // decide); sin parámetro, el asignado del lead si lo tiene.
-      const doctorId = doctorParam === "todos" ? null : doctorParam || ficha.lead.doctorAsignadoId || null;
+      const recogido = (campo: string) => {
+        const v = ficha.recogido?.find((c) => c.campo === campo)?.valor ?? null;
+        return v && v !== "no_aplica" ? v : null;
+      };
+      const tratamientoTexto = recogido("tratamiento_o_molestia");
+      // 22-09 (Simon): a la paciente le importa la HORA, no quién la atiende.
+      // Sin parámetro: todos los doctores de la clínica, salvo que ELLA haya
+      // pedido uno (`preferencia_doctor`). El doctor asignado al lead no es una
+      // preferencia y ya no filtra. `doctorId=<id>`: la coordinadora filtra a
+      // mano; `doctorId=todos`: quita también el que pidió la paciente.
+      const doctorId = doctorParam && doctorParam !== "todos" ? doctorParam : null;
+      const doctorPedidoTexto = doctorParam ? null : recogido("preferencia_doctor");
+      const cercania = url.searchParams.get("vista") === "cercania";
       // 060 — `todos=1[&desde=YYYY-MM-DD][&dias=7]`: la agenda entera en
       // orden de fecha (sin escalera), para que la coordinadora AÑADA horas a
       // la propuesta más allá de las tres que cumplen la preferencia.
@@ -77,14 +85,19 @@ export const GET = withAuth(async (session, req) => {
         tratamientoTexto,
         tratamientoId,
         doctorId,
+        doctorPedidoTexto,
+        disponibilidadTexto: recogido("disponibilidad"),
         clinicaId: ficha.clinicaId,
         ...(todos
           ? { modo: "todos" as const, desde: desde && /^\d{4}-\d{2}-\d{2}$/.test(desde) ? desde : undefined, dias: Number.isFinite(dias) && dias > 0 ? Math.min(dias, 14) : 7 }
-          : {}),
+          : cercania
+            ? { modo: "cercania" as const }
+            : {}),
       });
       return NextResponse.json({
         ...r,
         lead: ficha.lead,
+        tratamientoDicho: tratamientoTexto,
         huecos: r.huecos.map((h) => ({
           ...h,
           textoConfirmacion: textoConfirmacionCita({

@@ -105,11 +105,11 @@ await runWithCliente("DEMO", async () => {
 
   console.log("══ huecos");
   const tratamientoTexto = f0.recogido?.find((c) => c.campo === "tratamiento_o_molestia")?.valor ?? null;
-  let h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: null, doctorId: f0.lead.doctorAsignadoId, clinicaId: f0.clinicaId });
+  let h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: null, doctorId: null, clinicaId: f0.clinicaId });
   if (!h.tratamiento) {
     // Sin casar: la coordinadora elegiría en el panel; aquí el primero del catálogo.
     console.log(`  (no casó tratamiento: «${h.nota}» → se elige ${h.catalogo[0]?.nombre})`);
-    h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.catalogo[0]?.id ?? null, doctorId: f0.lead.doctorAsignadoId, clinicaId: f0.clinicaId });
+    h = await huecosDelCaso({ preferencia: f0.preferenciaCita, tratamientoTexto, tratamientoId: h.catalogo[0]?.id ?? null, doctorId: null, clinicaId: f0.clinicaId });
   }
   if (h.doctorFueraDeClinica) console.log(`  (doctor asignado ${h.doctorFueraDeClinica} es de otra clínica: se ignora)`);
   ok(h.huecos.every((x) => !f0.clinicaId || x.clinicaId === f0.clinicaId), "todos los huecos son de la clínica del caso");

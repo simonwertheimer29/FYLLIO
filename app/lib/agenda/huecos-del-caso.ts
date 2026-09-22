@@ -78,9 +78,17 @@ export type RespuestaHuecos = {
   /** Para elegir cuando no casó ninguno: el catálogo con duración. */
   catalogo: { id: string; nombre: string; duracionMin: number }[];
   preferencia: PreferenciaCita | null;
+  /** Por qué doctor se filtra: el elegido a mano, o el que pidió la persona
+   *  (`doctorPedido.casado`). null = todos los de la clínica. */
   doctorFiltrado: { id: string; nombre: string } | null;
-  /** El doctor asignado al lead no es de la clínica del caso: se ignoró. */
+  /** El doctor elegido no es de la clínica del caso: se ignoró. */
   doctorFueraDeClinica: string | null;
+  /** Lo que dijo la persona del doctor, y si casó con uno de la clínica. */
+  doctorPedido: { texto: string; casado: boolean } | null;
+  /** Los doctores de la clínica con horario, para filtrar a mano. */
+  doctores: { id: string; nombre: string }[];
+  /** La hora concreta que pidió («a las 8:30»), "HH:MM"; null si no pidió. */
+  horaPedida: string | null;
 };
 
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -92,15 +100,51 @@ export function casarTratamiento<T extends { id: string; nombre: string; duracio
   texto: string | null,
   catalogo: readonly T[],
 ): T | null {
+  return casarPorNombre(texto, catalogo);
+}
+
+/** Casa lo que dijo la persona con UNO de la lista por nombre; si casan
+ *  varios o ninguno, null (se pide elegir — nunca `candidatos[0]`, §20). */
+function casarPorNombre<T extends { nombre: string }>(texto: string | null, lista: readonly T[]): T | null {
   if (!texto) return null;
   const palabras = norm(texto).split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
   if (palabras.length === 0) return null;
-  const candidatos = catalogo.filter((t) => {
+  const candidatos = lista.filter((t) => {
     const n = norm(t.nombre);
     return palabras.some((w) => n.includes(w)) || n.split(/[^a-z0-9]+/).some((w) => w.length >= 4 && palabras.includes(w));
   });
   return candidatos.length === 1 ? candidatos[0]! : null;
 }
+
+/** El doctor que PIDIÓ la persona («con la doctora Ferrer»), entre los de la
+ *  clínica del caso. Es la ÚNICA razón para filtrar por doctor sin que lo
+ *  pida la coordinadora (22-09, Simon): el doctor asignado al lead no es una
+ *  preferencia de la paciente. */
+export const casarDoctor = <T extends { nombre: string }>(texto: string | null, doctores: readonly T[]) => casarPorNombre(texto, doctores);
+
+/** La hora concreta que dijo la persona («cualquier día a las 8:30», «sobre
+ *  las 17h»), en minutos del día; null si no dijo ninguna. Sale del texto
+ *  recogido de disponibilidad, no del modelo: la preferencia estructurada solo
+ *  trae franja y días. «A las 5» sin «mañana» es de la tarde (en una clínica
+ *  nadie pide las 5 de la madrugada). */
+export function horaPedidaDe(texto: string | null): number | null {
+  if (!texto) return null;
+  const t = norm(texto);
+  const m =
+    t.match(/\b(?:a|sobre|hacia|de|desde|antes de|despues de) las\s+(\d{1,2})(?:\s*[:.h]\s*(\d{2}))?/) ??
+    t.match(/\b(\d{1,2})[:.](\d{2})\b/) ??
+    t.match(/\b(\d{1,2})\s*h\b/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (!Number.isInteger(h) || h > 23 || min > 59) return null;
+  if (h >= 1 && h <= 7 && !/manana/.test(t)) h += 12;
+  return h * 60 + min;
+}
+
+/** «Cerca de la hora pedida»: la misma franja del día a una hora de
+ *  distancia — quien dice «a las 8:30» acepta las 9:00, no las 13:00. */
+const CERCA_HORA_MIN = 60;
 
 function enFranja(inicioMin: number, franja: PreferenciaCita["franja"]): boolean {
   if (!franja || franja === "indiferente") return true;
@@ -109,16 +153,19 @@ function enFranja(inicioMin: number, franja: PreferenciaCita["franja"]): boolean
 
 type SlotDia = { fecha: string; slot: IntervaloMin; doctorId: string };
 
-/** PURA: aplica la preferencia con la escalera de ampliación y devuelve los
- *  primeros N en orden (día preferido primero; dentro, fecha y hora). */
-export function elegirHuecos(
+/** PURA: la escalera de ampliación. Devuelve el primer peldaño con algo, ya
+ *  ORDENADO por cercanía a lo pedido: día preferido primero (en su orden),
+ *  luego fecha, y dentro del día la hora más cercana a la pedida (o la más
+ *  temprana si no pidió hora). Una hora concreta manda sobre la franja. */
+function escalonar(
   slots: readonly SlotDia[],
   pref: PreferenciaCita | null,
-  max = MAX_HUECOS,
-): { elegidos: SlotDia[]; ampliado: Ampliacion } {
+  horaPedida: number | null,
+): { lista: SlotDia[]; ampliado: Ampliacion } {
   const dias = pref?.dias ?? [];
   const franja = pref?.franja ?? null;
-  const porFecha = (a: SlotDia, b: SlotDia) => a.fecha.localeCompare(b.fecha) || a.slot.inicio - b.slot.inicio;
+  const distHora = (x: SlotDia) => (horaPedida == null ? x.slot.inicio : Math.abs(x.slot.inicio - horaPedida));
+  const porFecha = (a: SlotDia, b: SlotDia) => a.fecha.localeCompare(b.fecha) || distHora(a) - distHora(b) || a.slot.inicio - b.slot.inicio;
   const conDias = (s: readonly SlotDia[]) => {
     if (dias.length === 0) return [...s].sort(porFecha);
     // Orden de preferencia de días: todos los jueves antes que cualquier lunes.
@@ -127,20 +174,61 @@ export function elegirHuecos(
       .filter((x) => rango.has(diaSemanaISO(x.fecha)))
       .sort((a, b) => rango.get(diaSemanaISO(a.fecha))! - rango.get(diaSemanaISO(b.fecha))! || porFecha(a, b));
   };
-  const conFranja = (s: readonly SlotDia[]) => s.filter((x) => enFranja(x.slot.inicio, franja));
+  const conFranja = (s: readonly SlotDia[]) =>
+    s.filter((x) => (horaPedida != null ? Math.abs(x.slot.inicio - horaPedida) <= CERCA_HORA_MIN : enFranja(x.slot.inicio, franja)));
+  // Al soltar la hora pedida, «a otra hora» son las MÁS CERCANAS de cada día,
+  // no el día entero: quien pidió las 8:30 en una clínica que abre a las 10
+  // quiere ver las 10:00, no las 19:40 (visto en DEMO el 22-09).
+  const cercanas = (s: readonly SlotDia[]) => {
+    if (horaPedida == null) return [...s];
+    const minDe = new Map<string, number>();
+    for (const x of s) minDe.set(x.fecha, Math.min(minDe.get(x.fecha) ?? Infinity, Math.abs(x.slot.inicio - horaPedida)));
+    return s.filter((x) => Math.abs(x.slot.inicio - horaPedida) <= minDe.get(x.fecha)! + CERCA_HORA_MIN);
+  };
 
   const escalera: Array<[Ampliacion, SlotDia[]]> = [
     [null, conDias(conFranja(slots))],
-    ["franja", conDias(slots)],
+    ["franja", conDias(cercanas(conDias(slots)))],
     ["dias", [...conFranja(slots)].sort(porFecha)],
-    ["todo", [...slots].sort(porFecha)],
+    ["todo", cercanas(slots).sort(porFecha)],
   ];
-  const hayPref = dias.length > 0 || (franja != null && franja !== "indiferente");
+  const hayPref = dias.length > 0 || horaPedida != null || (franja != null && franja !== "indiferente");
   for (const [amp, lista] of escalera) {
     if (!hayPref && amp !== null) break;
-    if (lista.length > 0) return { elegidos: espaciar(lista, max), ampliado: amp };
+    if (lista.length > 0) return { lista, ampliado: amp };
   }
-  return { elegidos: [], ampliado: null };
+  return { lista: [], ampliado: null };
+}
+
+/** PURA: aplica la preferencia con la escalera de ampliación y devuelve los
+ *  primeros N en orden (día preferido primero; dentro, fecha y hora). */
+export function elegirHuecos(
+  slots: readonly SlotDia[],
+  pref: PreferenciaCita | null,
+  max = MAX_HUECOS,
+  horaPedida: number | null = null,
+): { elegidos: SlotDia[]; ampliado: Ampliacion } {
+  const { lista, ampliado } = escalonar(slots, pref, horaPedida);
+  return { elegidos: espaciar(lista, max), ampliado };
+}
+
+/** Cuántos días enseña el selector de «Proponer horas». Más es scroll, no
+ *  opciones (criterio sin relleno): quien quiera otro día navega la agenda. */
+const DIAS_CERCANIA = 5;
+
+/** PURA (22-09, selector «Proponer horas»): TODOS los huecos de los días más
+ *  cercanos a lo pedido, de TODOS los doctores, en orden de cercanía — sin
+ *  espaciar: la coordinadora ve el día entero de cada doctor y marca. */
+export function huecosPorCercania(
+  slots: readonly SlotDia[],
+  pref: PreferenciaCita | null,
+  horaPedida: number | null,
+  maxDias = DIAS_CERCANIA,
+): { elegidos: SlotDia[]; ampliado: Ampliacion } {
+  const { lista, ampliado } = escalonar(slots, pref, horaPedida);
+  const fechas: string[] = [];
+  for (const x of lista) if (!fechas.includes(x.fecha) && fechas.length < maxDias) fechas.push(x.fecha);
+  return { elegidos: lista.filter((x) => fechas.includes(x.fecha)), ampliado };
 }
 
 /** Separación mínima entre dos huecos del mismo día para que sean
@@ -172,8 +260,14 @@ export function espaciar(lista: readonly SlotDia[], max: number): SlotDia[] {
   return out.sort((a, b) => rango.get(a)! - rango.get(b)!);
 }
 
-function notaDe(ampliado: Ampliacion, pref: PreferenciaCita | null, vacio: boolean): string | null {
-  const franjaTxt = pref?.franja === "manana" ? "por la mañana" : pref?.franja === "tarde" ? "por la tarde" : null;
+function notaDe(ampliado: Ampliacion, pref: PreferenciaCita | null, vacio: boolean, horaPedida: number | null = null): string | null {
+  const franjaTxt =
+    horaPedida != null ? `hacia las ${deMin(horaPedida).replace(/^0/, "")}` : pref?.franja === "manana" ? "por la mañana" : pref?.franja === "tarde" ? "por la tarde" : null;
+  if (horaPedida != null && !vacio && ampliado === "franja") {
+    return pref?.dias?.length
+      ? `No hay nada ${franjaTxt} esos días en dos semanas: estas son las horas más cercanas.`
+      : `No hay nada ${franjaTxt} en dos semanas: estas son las horas más cercanas.`;
+  }
   const diasTxt = pref?.dias?.length ? `los ${pref.dias.map((d) => ({ lun: "lunes", mar: "martes", mie: "miércoles", jue: "jueves", vie: "viernes", sab: "sábados", dom: "domingos" })[d]).join(" o ")}` : null;
   const lo = [diasTxt, franjaTxt].filter(Boolean).join(" ");
   if (vacio) return `Sin huecos en las próximas dos semanas${lo ? ` (pidió ${lo})` : ""}. Mira toda la agenda.`;
@@ -189,8 +283,15 @@ type ParametrosCaso = {
   tratamientoTexto: string | null;
   /** Elegido a mano en el panel; manda sobre el casado. */
   tratamientoId: string | null;
-  /** Doctor asignado al lead; null = todos los que tienen horario. */
+  /** Doctor elegido A MANO por la coordinadora; null = todos los que tienen
+   *  horario. El doctor asignado al lead NO se pasa aquí (22-09): no es una
+   *  preferencia de la paciente. */
   doctorId: string | null;
+  /** Lo que dijo la persona del doctor («con la doctora Ferrer»). Si casa con
+   *  UNO de la clínica y no hay `doctorId`, filtra por él y se dice. */
+  doctorPedidoTexto?: string | null;
+  /** Lo que dijo de cuándo («cualquier día a las 8:30»): de ahí la hora. */
+  disponibilidadTexto?: string | null;
   /** LA CLÍNICA DEL CASO (17-09, bug grave visto por Simon): solo se ofrecen
    *  doctores de ESTA clínica. El lead de Centro tenía asignado un doctor de
    *  Norte y la confirmación decía «tu cita en Clínica Demo Norte». null =
@@ -201,8 +302,10 @@ type ParametrosCaso = {
   /** 17-09 (bucle de ofertas) — «todos»: TODOS los huecos de la ventana en
    *  orden de fecha, sin escalera ni ampliación (la coordinadora navega la
    *  agenda entera; el motor comprueba si una alternativa sigue libre).
-   *  Default «preferencia»: los tres que mejor cumplen lo que pidió. */
-  modo?: "preferencia" | "todos";
+   *  Default «preferencia»: los tres que mejor cumplen lo que pidió.
+   *  «cercania» (22-09, selector «Proponer horas»): los días más cercanos a lo
+   *  pedido con TODOS sus huecos y todos los doctores, sin espaciar. */
+  modo?: "preferencia" | "todos" | "cercania";
   /** Primer día de la ventana (YYYY-MM-DD, nunca antes de hoy) y cuántos
    *  días abarca. Defaults: hoy y dos semanas. */
   desde?: string;
@@ -275,10 +378,18 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
   const doctorFueraDeClinica = p.doctorId != null && asignadoEnClinica == null
     ? (d.staff.find((s: any) => s.id === p.doctorId)?.nombre ?? p.doctorId)
     : null;
-  const doctores = asignadoEnClinica ? [asignadoEnClinica] : dentistasDeLaClinica;
-  const doctorFiltrado = asignadoEnClinica;
   const horariosDe = new Map<string, Array<{ dia_semana: number; inicio: string; fin: string }>>();
   for (const h of d.horarios) horariosDe.set(h.staff_id, [...(horariosDe.get(h.staff_id) ?? []), h]);
+  // Sin elección a mano, el doctor que PIDIÓ la persona, si casa con uno solo.
+  const pedidoTexto = p.doctorId == null ? (p.doctorPedidoTexto ?? "").trim() || null : null;
+  const pedido = pedidoTexto ? casarDoctor(pedidoTexto, dentistasDeLaClinica as Array<{ nombre: string }>) : null;
+  const doctorFiltrado: any = asignadoEnClinica ?? pedido;
+  const doctores = doctorFiltrado ? [doctorFiltrado] : dentistasDeLaClinica;
+  /** Los de la clínica con horario: los que se pueden elegir a mano. */
+  const elegibles = dentistasDeLaClinica
+    .filter((s: any) => (horariosDe.get(s.id) ?? []).length > 0)
+    .map((s: any) => ({ id: s.id as string, nombre: (s.nombre ?? "") as string }));
+  const doctorPedido = pedidoTexto ? { texto: pedidoTexto, casado: pedido != null } : null;
 
   // Doctores implicados = con horario. Los de agenda externa rota se apartan.
   const externasDe = new Map<string, typeof d.agendasExternas>();
@@ -335,7 +446,7 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
     }
   }
 
-  return { ahora, hoy, modo, fechas, minHoy, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, garantia, libres, sinTratamiento, sinDoctores };
+  return { ahora, hoy, modo, fechas, minHoy, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, doctorPedido, elegibles, garantia, libres, sinTratamiento, sinDoctores };
 }
 
 /** ¿Cabe una cita de este tratamiento a ESTA hora con ESTE doctor? Mira los
@@ -363,7 +474,8 @@ export async function libresDelCaso(p: ParametrosCaso): Promise<{
 
 export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos> {
   const d = await disponibilidadDelCaso(p);
-  const { hoy, modo, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, garantia, minHoy } = d;
+  const { hoy, modo, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, doctorPedido, elegibles, garantia, minHoy } = d;
+  const horaPedida = horaPedidaDe(p.disponibilidadTexto ?? null);
 
   const salida = (huecos: HuecoDelCaso[], ampliado: Ampliacion, nota: string | null): RespuestaHuecos => ({
     huecos,
@@ -375,6 +487,9 @@ export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos>
     preferencia: p.preferencia,
     doctorFiltrado: doctorFiltrado ? { id: doctorFiltrado.id, nombre: doctorFiltrado.nombre ?? "" } : null,
     doctorFueraDeClinica,
+    doctorPedido,
+    doctores: elegibles,
+    horaPedida: horaPedida == null ? null : deMin(horaPedida),
   });
   if (d.sinTratamiento) return salida([], null, d.sinTratamiento);
   if (d.sinDoctores) return salida([], null, d.sinDoctores);
@@ -397,13 +512,15 @@ export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos>
             .slice(0, p.max ?? 300),
           ampliado: null as Ampliacion,
         }
-      : elegirHuecos(slots, p.preferencia, p.max ?? MAX_HUECOS);
+      : modo === "cercania"
+        ? huecosPorCercania(slots, p.preferencia, horaPedida)
+        : elegirHuecos(slots, p.preferencia, p.max ?? MAX_HUECOS, horaPedida);
   const nombreDe = new Map(implicados.map((s: any) => [s.id, s]));
   const huecos = elegidos.map((e) => {
     const s: any = nombreDe.get(e.doctorId);
     return { fecha: e.fecha, hora: deMin(e.slot.inicio), fin: deMin(e.slot.fin), doctorId: e.doctorId, doctorNombre: s?.nombre ?? "", clinicaId: s?.clinica_id ?? null, clinicaNombre: s?.clinica_nombre ?? null };
   });
-  return salida(huecos, ampliado, modo === "todos" ? null : notaDe(ampliado, p.preferencia, huecos.length === 0));
+  return salida(huecos, ampliado, modo === "todos" ? null : notaDe(ampliado, p.preferencia, huecos.length === 0, horaPedida));
 }
 
 /** La identidad de un hueco: mismo día, misma hora, mismo doctor. */
@@ -411,4 +528,4 @@ export const mismoHueco = (a: Pick<HuecoDelCaso, "fecha" | "hora" | "doctorId">,
   a.fecha === b.fecha && a.hora === b.hora && a.doctorId === b.doctorId;
 
 // Para el QA sin base: la escalera y el casado son puros y se prueban solos.
-export const _interno = { enFranja, notaDe, espaciar };
+export const _interno = { enFranja, notaDe, espaciar, CERCA_HORA_MIN, DIAS_CERCANIA };
