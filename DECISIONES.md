@@ -6768,3 +6768,11 @@ automático y el modo sin agenda usan la misma función, así que las ventanas d
 desaparecen. La lista pasa a servir para retocar: cinco horas por doctor y día, más «Ver todas». «Proponer horas»
 solo destaca cuando el agente ya entregó el caso. La mañana termina a las 15:00; solo lo decide
 `FIN_MANANA_MIN`, y nada más del producto define la tarde.
+
+## 2026-09-23 · El borrador del agente caduca con cualquier mensaje que salga después
+Regla general de Simon. Si después del último mensaje del paciente sale cualquier otro (la coordinadora, una
+propuesta de horas, el propio agente), el borrador se escribió para un hilo que ya no existe. Por eso
+`estadoBorradorDe` ya no lo devuelve, y Mensajería y Seguimiento lo pierden a la vez porque leen lo mismo.
+Si estaba precargado y nadie lo había tocado, se quita de la caja; lo editado se queda. Hay una excepción:
+las rutas de envío leen el borrador después de guardar su propio saliente y lo necesitan para medir la
+coincidencia, así que lo piden con `paraMedir`. `qa:ficha` lo cubre (sección «c bis»).

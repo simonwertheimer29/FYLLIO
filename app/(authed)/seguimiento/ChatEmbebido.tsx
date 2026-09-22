@@ -47,6 +47,7 @@ export function ChatEmbebido({
   // contra él en /api/agente/entrada/medir (la ruta de envío no lo remide).
   const entradaOriginal = useRef<string | null>(null);
   const precargadoPara = useRef<string | null>(null);
+  const precargadoTexto = useRef<string | null>(null);
   const textoRef = useRef("");
   textoRef.current = texto;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -116,7 +117,20 @@ export function ChatEmbebido({
     setTexto(t);
     setTextoDeIA(true);
     precargadoPara.current = clave;
+    precargadoTexto.current = t;
   }, [borrador?.mensajeId, borrador?.texto]);
+
+  // Ya salió otro mensaje después del último entrante: el borrador precargado
+  // quedó obsoleto. Se retira si nadie lo tocó; lo editado se queda.
+  const contestado = ficha?.agente.contestado === true;
+  useEffect(() => {
+    if (!contestado || precargadoTexto.current == null) return;
+    if (textoRef.current === precargadoTexto.current) {
+      setTexto("");
+      setTextoDeIA(false);
+    }
+    precargadoTexto.current = null;
+  }, [contestado]);
 
   async function enviar() {
     const contenido = texto.trim();

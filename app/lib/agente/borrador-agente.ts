@@ -44,10 +44,17 @@ export type EstadoBorrador = {
    *  legible, o no hay entrante). false = el agente no lo evaluó (todavía, o
    *  nunca): la pantalla lo dice, no enseña el juicio anterior como actual. */
   alDia: boolean;
+  /** Ya salió un mensaje después del último entrante (la coordinadora, una
+   *  propuesta de horas, el propio agente). El borrador se escribió para un
+   *  hilo que ya no existe: no se enseña (Simon, 23-09, regla general). */
+  contestado: boolean;
   borrador: BorradorAgente | null;
 };
 
-export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador> {
+/** `paraMedir`: las rutas de envío leen el borrador DESPUÉS de guardar el
+ *  saliente que acaban de mandar; para ellas «contestado» es su propio envío
+ *  y el borrador sigue siendo la vara contra la que se mide. */
+export async function estadoBorradorDe(telefono: string, opts?: { paraMedir?: boolean }): Promise<EstadoBorrador> {
   const cliente = requireCliente("estadoBorradorDe");
   return runWithClienteDb(cliente, async (trx) => {
     const ue = await sql<{ timestamp: Date | string; waba_message_id: string | null; tipo: string | null }>`
@@ -57,7 +64,7 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
        order by "timestamp" desc
        limit 1`.execute(trx);
     const fila = ue.rows?.[0];
-    if (!fila) return { ultimoEntrante: null, alDia: true, borrador: null };
+    if (!fila) return { ultimoEntrante: null, alDia: true, contestado: false, borrador: null };
     const ultimoEntrante: UltimoEntrante = {
       timestamp: new Date(fila.timestamp).toISOString(),
       wabaMessageId: fila.waba_message_id ? String(fila.waba_message_id) : null,
@@ -65,7 +72,16 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
       legible: esLegible(fila.tipo ?? null),
     };
     // Un entrante no legible no tiene borrador por diseño: al día.
-    if (!ultimoEntrante.legible) return { ultimoEntrante, alDia: true, borrador: null };
+    if (!ultimoEntrante.legible) return { ultimoEntrante, alDia: true, contestado: false, borrador: null };
+
+    // Cualquier saliente posterior deja el borrador obsoleto. En Mensajería y
+    // en Seguimiento, que leen esto mismo, desaparece a la vez.
+    const sal = await sql<{ n: number }>`
+      select 1 as n from mensajes_whatsapp
+       where telefono = ${telefono} and direccion = 'Saliente' and "timestamp" > ${fila.timestamp}
+       limit 1`.execute(trx);
+    const contestado = (sal.rows?.length ?? 0) > 0;
+    if (contestado && !opts?.paraMedir) return { ultimoEntrante, alDia: true, contestado, borrador: null };
 
     // La evaluación PROPIA del último entrante: por mensaje_id si lo hay
     // (webhook), o la posterior al entrante si es un registro manual sin id.
@@ -84,14 +100,15 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
              and evento = 'evaluacion' and created_at >= ${fila.timestamp}
            order by created_at desc limit 1`.execute(trx);
     const e = ev.rows?.[0];
-    if (!e?.evaluacion_json) return { ultimoEntrante, alDia: false, borrador: null };
+    if (!e?.evaluacion_json) return { ultimoEntrante, alDia: false, contestado, borrador: null };
     // MEJORAS 173: jsonb → objeto; el helper acepta las dos formas.
     const payload: PayloadEvaluacion | null = leerPayloadEvaluacion(e.evaluacion_json);
-    if (!payload) return { ultimoEntrante, alDia: false, borrador: null };
+    if (!payload) return { ultimoEntrante, alDia: false, contestado, borrador: null };
     const texto = (payload.respuesta ?? "").trim();
     return {
       ultimoEntrante,
       alDia: true,
+      contestado,
       borrador: {
         texto: texto || null,
         mensajeId: String(e.mensaje_id ?? ultimoEntrante.wabaMessageId ?? ""),
@@ -106,7 +123,7 @@ export async function estadoBorradorDe(telefono: string): Promise<EstadoBorrador
  *  cuando no hay borrador al día (el envío no entra en el denominador). */
 export async function borradorAgenteDe(telefono: string): Promise<string | null> {
   try {
-    const est = await estadoBorradorDe(telefono);
+    const est = await estadoBorradorDe(telefono, { paraMedir: true });
     return est.alDia ? est.borrador?.texto ?? null : null;
   } catch (err) {
     console.error("[borrador-agente] no se pudo leer el borrador de", telefono, err instanceof Error ? err.message : err);

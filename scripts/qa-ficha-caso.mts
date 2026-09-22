@@ -13,6 +13,7 @@
 //   b) varios objetivos abiertos → el activo con campos, el resto una línea
 //   c) cierre por el PACIENTE desde el portal ≠ entrega del agente
 //   + espera arriba del todo, intentos contados, pendientes con la frase.
+//   c bis) un saliente después del último entrante deja el borrador obsoleto.
 //
 // Salidas §9: 0 · 1 · 2.
 
@@ -28,6 +29,7 @@ import { registrarEventoIdempotente, registrarEvento } from "../app/lib/automati
 import { fichaDeCaso, componerDescripcion, etiquetaEstadoDe, type FichaCaso } from "../app/lib/agente/ficha-caso";
 import { contextoParaEntrada, repreguntaPendiente } from "../app/lib/agente/borrador-entrada";
 import { hoyISO } from "../app/lib/time";
+import { borradorAgenteDe } from "../app/lib/agente/borrador-agente";
 import { fechaCorta } from "../app/lib/agenda/fechas";
 
 const TEL_SIN_EVAL = "+34611999002"; // huérfana del seed (Mónica): mensajes, cero evaluación
@@ -241,6 +243,19 @@ await runWithCliente("DEMO", async () => {
   );
   const fc = await fichaDeCaso(TEL_FICHA);
   ok("con la firma del portal: cierrePorPaciente = aceptado", fc.cierrePorPaciente?.accion === "aceptado");
+
+  // ── EL BORRADOR OBSOLETO (23-09, regla general de Simon) ─────────────────
+  console.log("\nc bis · Un saliente después del último entrante deja el borrador obsoleto");
+  ok("sin contestar: el borrador del agente se enseña", fc.agente.borrador?.texto === "Claro, te lo confirma el doctor." && !fc.agente.contestado, fc.agente.borrador?.texto ?? "null");
+  await q(
+    `insert into mensajes_whatsapp (cliente, telefono, direccion, contenido, "timestamp", fuente, clinica_id)
+     values ('DEMO',$1,'Saliente','Te propongo estas horas…', now(), 'Modo_B_WABA', $2)`,
+    [TEL_FICHA, clin],
+  );
+  const fo = await fichaDeCaso(TEL_FICHA);
+  ok("contestado: la ficha ya no trae borrador", fo.agente.contestado && fo.agente.borrador === null);
+  ok("contestado: tampoco avisa de «sin evaluar» (alDia)", fo.agente.alDia === true);
+  ok("la ruta de envío sigue midiendo contra el borrador (paraMedir)", (await borradorAgenteDe(TEL_FICHA)) === "Claro, te lo confirma el doctor.");
 });
 
 // ── d · B3: el contexto del borrador de entrada (PURO, sin modelo) ─────────

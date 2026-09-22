@@ -138,6 +138,18 @@ export function ComposerConversacion({
     precargadoPara.current = clave;
   }, [borrador?.mensajeId, borrador?.texto]);
 
+  // Ya salió otro mensaje (una propuesta de horas, otra pestaña): el borrador
+  // precargado quedó obsoleto. Se retira si nadie lo tocó; lo editado se queda.
+  const contestado = ficha?.agente.contestado === true;
+  useEffect(() => {
+    if (!contestado || origenIA.current !== "evaluador") return;
+    if (textoRef.current !== sugeridoRef.current) return;
+    setTexto("");
+    setTextoDeIA(false);
+    sugeridoRef.current = null;
+    origenIA.current = null;
+  }, [contestado]);
+
   // ─── Cómo se envía ────────────────────────────────────────────────────
   //
   // El modo manual —el único que hay hoy— NO envía: registra el saliente y
