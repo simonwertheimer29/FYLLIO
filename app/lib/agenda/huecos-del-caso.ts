@@ -88,6 +88,9 @@ export type RespuestaHuecos = {
   doctorFiltrado: { id: string; nombre: string } | null;
   /** El doctor elegido no es de la clínica del caso: se ignoró. */
   doctorFueraDeClinica: string | null;
+  /** 062 — el doctor elegido a mano o el que pidió la persona no hace este
+   *  tratamiento: se ignoró y se ofrecen los que sí lo hacen. */
+  doctorNoLoHace: string | null;
   /** Lo que dijo la persona del doctor, y si casó con uno de la clínica. */
   doctorPedido: { texto: string; casado: boolean } | null;
   /** Los doctores de la clínica con horario, para filtrar a mano. */
@@ -406,6 +409,20 @@ type ParametrosCaso = {
   max?: number;
 };
 
+/** 062 (MEJORAS 265) — qué doctores hacen un tratamiento. Sin especialidad
+ *  en el tratamiento, todos, como antes de la 062. Con ella, los de esa
+ *  especialidad; si no queda ninguno, se devuelve vacío y el que llama lo
+ *  dice: no se rellena con los demás. */
+export function quienesLoHacen<T extends { id: string }>(
+  especialidadId: string | null,
+  doctores: readonly T[],
+  asignaciones: readonly { staff_id: string; especialidad_id: string }[],
+): T[] {
+  if (!especialidadId) return [...doctores];
+  const ids = new Set(asignaciones.filter((a) => a.especialidad_id === especialidadId).map((a) => a.staff_id));
+  return doctores.filter((s) => ids.has(s.id));
+}
+
 /** Los intervalos LIBRES de cada doctor implicado, por día, con la huella
  *  (duración + buffers) del tratamiento: la verdad de la que salen los slots.
  *  Lo comparte `huecosDelCaso` (que trocea) con `libresDelCaso` (que
@@ -430,7 +447,9 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
       .select(["staff.id", "staff.nombre", "staff.rol", "staff.activo", "staff.clinica_id", "clinicas.nombre as clinica_nombre"])
       .execute();
     const horarios = await trx.selectFrom("horarios_staff").select(["staff_id", "dia_semana", "inicio", "fin"]).execute();
-    const catalogo = await trx.selectFrom("tratamientos").select(["id", "nombre", "duracion_min", "buffer_antes_min", "buffer_despues_min"]).orderBy("nombre").execute();
+    const catalogo = await trx.selectFrom("tratamientos").select(["id", "nombre", "duracion_min", "buffer_antes_min", "buffer_despues_min", "especialidad_id"]).orderBy("nombre").execute();
+    const especialidades = await trx.selectFrom("especialidades").select(["id", "nombre"]).execute();
+    const asignaciones = await trx.selectFrom("staff_especialidades").select(["staff_id", "especialidad_id"]).execute();
     const bloqueos = await trx.selectFrom("bloqueos_staff").select(["staff_id", "inicio", "fin"]).where("fin", ">", desdeUTC).where("inicio", "<", hastaUTC).execute();
     const citas = await trx
       .selectFrom("citas")
@@ -453,17 +472,20 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
           .where("inicio", "<", hastaUTC)
           .execute()
       : [];
-    return { agendaEnFyllio, staff, horarios, catalogo, bloqueos, citas, agendasExternas, ocupaciones };
+    return { agendaEnFyllio, staff, horarios, catalogo, especialidades, asignaciones, bloqueos, citas, agendasExternas, ocupaciones };
   });
 
   const catalogo = d.catalogo
     .filter((t: any) => Number.isInteger(t.duracion_min) && t.duracion_min > 0)
-    .map((t: any) => ({ id: t.id as string, nombre: (t.nombre ?? "") as string, duracionMin: t.duracion_min as number, antes: t.buffer_antes_min ?? 0, despues: t.buffer_despues_min ?? 0 }));
+    .map((t: any) => ({ id: t.id as string, nombre: (t.nombre ?? "") as string, duracionMin: t.duracion_min as number, antes: t.buffer_antes_min ?? 0, despues: t.buffer_despues_min ?? 0, especialidadId: (t.especialidad_id ?? null) as string | null }));
   const tratamiento = p.tratamientoId ? catalogo.find((t) => t.id === p.tratamientoId) ?? null : casarTratamiento(p.tratamientoTexto, catalogo);
 
   const dentistasDeLaClinica = d.staff.filter(
     (s: any) => (s.rol ?? "") === "Dentista" && s.activo !== false && (!p.clinicaId || s.clinica_id === p.clinicaId),
   );
+  // 062 (MEJORAS 265) — solo quien HACE el tratamiento. Sin tratamiento
+  // elegido todavía, todos (sin él tampoco se calculan huecos).
+  const loHacen: any[] = quienesLoHacen(tratamiento?.especialidadId ?? null, dentistasDeLaClinica as any[], d.asignaciones);
   // Un doctor asignado de OTRA clínica no filtra: se ofrecen los de la clínica
   // del caso y se avisa (`doctorFueraDeClinica`).
   const asignadoEnClinica = p.doctorId ? dentistasDeLaClinica.find((s: any) => s.id === p.doctorId) ?? null : null;
@@ -475,10 +497,15 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
   // Sin elección a mano, el doctor que PIDIÓ la persona, si casa con uno solo.
   const pedidoTexto = p.doctorId == null ? (p.doctorPedidoTexto ?? "").trim() || null : null;
   const pedido = pedidoTexto ? casarDoctor(pedidoTexto, dentistasDeLaClinica as Array<{ nombre: string }>) : null;
-  const doctorFiltrado: any = asignadoEnClinica ?? pedido;
-  const doctores = doctorFiltrado ? [doctorFiltrado] : dentistasDeLaClinica;
-  /** Los de la clínica con horario: los que se pueden elegir a mano. */
-  const elegibles = dentistasDeLaClinica
+  // El elegido a mano o el que pidió, si no hace este tratamiento, tampoco
+  // filtra: se ofrecen los que sí y se dice (`doctorNoLoHace`).
+  const candidato: any = asignadoEnClinica ?? pedido;
+  const candidatoLoHace = candidato != null && loHacen.some((s: any) => s.id === candidato.id);
+  const doctorFiltrado: any = candidatoLoHace ? candidato : null;
+  const doctorNoLoHace: string | null = candidato != null && !candidatoLoHace ? (candidato.nombre ?? "") : null;
+  const doctores = doctorFiltrado ? [doctorFiltrado] : loHacen;
+  /** Los que lo hacen con horario: los que se pueden elegir a mano. */
+  const elegibles = loHacen
     .filter((s: any) => (horariosDe.get(s.id) ?? []).length > 0)
     .map((s: any) => ({ id: s.id as string, nombre: (s.nombre ?? "") as string }));
   const doctorPedido = pedidoTexto ? { texto: pedidoTexto, casado: pedido != null } : null;
@@ -496,8 +523,13 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
   const sinTratamiento = !tratamiento
     ? catalogo.length ? "Elige el tipo de cita: su duración define los huecos." : "Ningún tratamiento tiene duración configurada — sin ella no se calculan huecos (Ajustes → Agenda)."
     : null;
+  const especialidad = tratamiento?.especialidadId ? d.especialidades.find((e: any) => e.id === tratamiento.especialidadId)?.nombre ?? null : null;
   const sinDoctores = implicados.length === 0
-    ? doctorFiltrado ? `${doctorFiltrado.nombre} no tiene horario configurado — sin él no se calculan huecos.` : "Ningún doctor tiene horario configurado (Ajustes → Agenda)."
+    ? doctorFiltrado ? `${doctorFiltrado.nombre} no tiene horario configurado — sin él no se calculan huecos.`
+      : tratamiento?.especialidadId && loHacen.length === 0
+        ? `${p.clinicaId ? "En esta clínica nadie" : "Nadie"} hace ${tratamiento.nombre}${especialidad ? ` (${especialidad})` : ""}: quién lo hace se configura en Ajustes → Agenda.`
+        : tratamiento?.especialidadId ? `Quien hace ${tratamiento.nombre} no tiene horario configurado (Ajustes → Agenda).`
+          : "Ningún doctor tiene horario configurado (Ajustes → Agenda)."
     : null;
 
   /** fecha → doctorId → intervalos libres del día (ya restadas citas,
@@ -538,7 +570,7 @@ async function disponibilidadDelCaso(p: ParametrosCaso) {
     }
   }
 
-  return { ahora, hoy, modo, fechas, minHoy, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, doctorPedido, elegibles, garantia, libres, sinTratamiento, sinDoctores };
+  return { ahora, hoy, modo, fechas, minHoy, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, doctorNoLoHace, doctorPedido, elegibles, garantia, libres, sinTratamiento, sinDoctores };
 }
 
 /** ¿Cabe una cita de este tratamiento a ESTA hora con ESTE doctor? Mira los
@@ -566,7 +598,7 @@ export async function libresDelCaso(p: ParametrosCaso): Promise<{
 
 export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos> {
   const d = await disponibilidadDelCaso(p);
-  const { hoy, modo, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, doctorPedido, elegibles, garantia, minHoy } = d;
+  const { hoy, modo, tratamiento, catalogo, implicados, doctorFiltrado, doctorFueraDeClinica, doctorNoLoHace, doctorPedido, elegibles, garantia, minHoy } = d;
   const horaPedida = horaPedidaDe(p.disponibilidadTexto ?? null);
 
   const salida = (huecos: HuecoDelCaso[], ampliado: Ampliacion, nota: string | null): RespuestaHuecos => ({
@@ -579,6 +611,7 @@ export async function huecosDelCaso(p: ParametrosCaso): Promise<RespuestaHuecos>
     preferencia: p.preferencia,
     doctorFiltrado: doctorFiltrado ? { id: doctorFiltrado.id, nombre: doctorFiltrado.nombre ?? "" } : null,
     doctorFueraDeClinica,
+    doctorNoLoHace,
     doctorPedido,
     doctores: elegibles,
     horaPedida: horaPedida == null ? null : deMin(horaPedida),

@@ -58,7 +58,7 @@ export const GET = withAuth(async (session, req) => {
         // G2.4 — el catálogo para el modal de crear/mover (la duración real).
         const catalogoTratamientos = await trx
           .selectFrom("tratamientos")
-          .select(["id", "nombre", "duracion_min", "clinica_id"])
+          .select(["id", "nombre", "duracion_min", "clinica_id", "especialidad_id"])
           .orderBy("nombre", "asc")
           .execute();
         const bloqueos = await trx
@@ -282,6 +282,7 @@ export const GET = withAuth(async (session, req) => {
         dias,
         tratamientos: d.catalogoTratamientos.map((t: any) => ({
           id: t.id, nombre: t.nombre ?? "", duracionMin: t.duracion_min ?? null, clinicaId: t.clinica_id ?? null,
+          especialidadId: t.especialidad_id ?? null,
         })),
         pendientes: pendientes.map((p: any) => ({
           id: p.id,

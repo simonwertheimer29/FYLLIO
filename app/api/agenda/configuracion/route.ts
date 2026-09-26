@@ -2,10 +2,10 @@
 //
 // AGENDA G1d — la configuración de la agenda: especialidades (y qué doctores
 // atienden cada una), horarios por doctor (franjas, jornada partida),
-// bloqueos, y duración/buffers por tratamiento. Todo es configuración de la
-// clínica y todo varía — no hay defaults del sector (dictado 27-08), así que
-// esta API no inventa ninguno: lo no configurado se devuelve vacío y la UI
-// lo dice.
+// bloqueos, y por tratamiento su duración/buffers y qué especialidad lo hace
+// (062). Todo es configuración de la clínica y todo varía — no hay defaults
+// del sector (dictado 27-08), así que esta API no inventa ninguno: lo no
+// configurado se devuelve vacío y la UI lo dice.
 //
 // SOLO admin, como el resto de /ajustes: la estructura de la agenda es una
 // decisión de la clínica, no de una bandeja. Toda escritura valida AQUÍ con
@@ -59,7 +59,7 @@ export const GET = withAuth(async (session) => {
            order by inicio asc`.execute(trx);
         const tratamientos = await trx
           .selectFrom("tratamientos")
-          .select(["id", "nombre", "duracion_min", "buffer_antes_min", "buffer_despues_min", "clinica_id"])
+          .select(["id", "nombre", "duracion_min", "buffer_antes_min", "buffer_despues_min", "clinica_id", "especialidad_id"])
           .orderBy("nombre", "asc")
           .execute();
         // 058 — el ajuste «la agenda vive en Fyllio», con quién y cuándo.
@@ -92,6 +92,7 @@ export const GET = withAuth(async (session) => {
           duracionMin: t.duracion_min ?? null,
           bufferAntesMin: t.buffer_antes_min ?? null,
           bufferDespuesMin: t.buffer_despues_min ?? null,
+          especialidadId: t.especialidad_id ?? null,
         })),
       });
     });
@@ -255,6 +256,24 @@ export const PUT = withAuth(async (session, req) => {
             actualizarUna(
               trx.updateTable("tratamientos").set({ duracion_min: dur, buffer_antes_min: antes, buffer_despues_min: despues }).where("id", "=", id),
               "tratamientos", id));
+          return NextResponse.json({ ok: true });
+        }
+        // 062 (MEJORAS 265) — qué especialidad hace el tratamiento; null =
+        // cualquier doctor. La especialidad tiene que existir en este cliente
+        // (RLS + la clave compuesta lo garantizan también en la base).
+        case "tratamiento_especialidad": {
+          const id = typeof body.id === "string" ? body.id : null;
+          const especialidadId = body.especialidadId === null ? null : typeof body.especialidadId === "string" ? body.especialidadId : undefined;
+          if (!id || especialidadId === undefined) return err422("Faltan id o especialidadId.");
+          await runWithClienteDb(cliente, async (trx) => {
+            if (especialidadId) {
+              const existe = await trx.selectFrom("especialidades").select("id").where("id", "=", especialidadId).executeTakeFirst();
+              if (!existe) throw new Error("no_encontrado");
+            }
+            await actualizarUna(
+              trx.updateTable("tratamientos").set({ especialidad_id: especialidadId }).where("id", "=", id),
+              "tratamientos", id);
+          });
           return NextResponse.json({ ok: true });
         }
         default:

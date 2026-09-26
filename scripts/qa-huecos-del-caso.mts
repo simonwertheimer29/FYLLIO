@@ -16,7 +16,7 @@
 //    tratamiento; deja la puerta del «no me viene bien».
 // Salida: 0 = todo verde · 1 = algún rojo (se listan).
 
-import { casarTratamiento, casarDoctor, horaPedidaDe, huecosPorBloques, sugerirPropuesta, _interno } from "../app/lib/agenda/huecos-del-caso";
+import { casarTratamiento, casarDoctor, horaPedidaDe, huecosPorBloques, sugerirPropuesta, quienesLoHacen, _interno } from "../app/lib/agenda/huecos-del-caso";
 import { garantiaDe } from "../app/lib/agenda/garantia";
 import { pegadaA, primerPar } from "../app/lib/agenda/separacion";
 import { textoConfirmacionCita } from "../app/lib/agenda/confirmacion-cita";
@@ -212,6 +212,22 @@ console.log("══ textoConfirmacionCita");
 {
   const t = textoConfirmacionCita({ nombre: "Ana", fecha: "2026-09-24", hora: "10:00", doctor: null, clinica: null });
   ok(!t.includes(" con ") && !t.includes(" en "), "sin doctor ni clínica: no inventa ni deja huecos vacíos");
+}
+
+console.log("══ quienesLoHacen (062, MEJORAS 265)");
+{
+  const docs = [{ id: "ferrer" }, { id: "molina" }, { id: "villalba" }];
+  const asig = [
+    { staff_id: "ferrer", especialidad_id: "general" },
+    { staff_id: "molina", especialidad_id: "implantes" },
+    { staff_id: "villalba", especialidad_id: "orto" },
+    { staff_id: "villalba", especialidad_id: "general" },
+  ];
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id).join(",");
+  ok(ids(quienesLoHacen(null, docs, asig)) === "ferrer,molina,villalba", "sin especialidad en el tratamiento: todos, como antes");
+  ok(ids(quienesLoHacen("general", docs, asig)) === "ferrer,villalba", "con especialidad: solo sus doctores (un doctor puede tener dos)");
+  ok(ids(quienesLoHacen("implantes", docs, asig)) === "molina", "el implantólogo no recibe revisiones y sí implantes");
+  ok(quienesLoHacen("estetica", docs, asig).length === 0, "especialidad sin doctores: vacío, no se rellena con los demás");
 }
 
 console.log(rojos ? `\n✗ ${rojos} rojos` : "\n✓ todo verde");

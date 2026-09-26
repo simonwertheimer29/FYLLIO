@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { cargarJSON } from "../../lib/fetch-json";
 import { deMin } from "../../lib/agenda/disponibilidad";
 import { fechaCorta } from "../../lib/agenda/fechas";
+import { nombreCortoDoctor } from "../../lib/agenda/nombres";
 import { Pencil, ICON_STROKE } from "../../components/icons";
 import { PanelFlotante } from "../../components/ui/PanelFlotante";
 
@@ -43,8 +44,8 @@ export function EditorCitaFlotante({
   onGuardada,
 }: {
   borrador: BorradorCita;
-  doctores: Array<{ id: string; nombre: string; clinicaId: string | null }>;
-  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null; clinicaId: string | null }>;
+  doctores: Array<{ id: string; nombre: string; clinicaId: string | null; especialidadIds: string[] }>;
+  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null; clinicaId: string | null; especialidadId: string | null }>;
   /** Todo cambio pasa por aquí: el bloque de la rejilla ES el borrador. */
   onCambia: (patch: Partial<BorradorCita>) => void;
   onClose: () => void;
@@ -106,6 +107,10 @@ export function EditorCitaFlotante({
   }, [borrador.fecha, borrador.staffId, borrador.inicioMin, borrador.duracionMin]);
 
   const doctor = doctores.find((d) => d.id === borrador.staffId) ?? null;
+  // 062 (MEJORAS 265) — en la agenda a mano manda la coordinadora: se avisa,
+  // no se bloquea (puede haber una excepción que la configuración no recoge).
+  const tipo = tratamientos.find((t) => t.id === borrador.tipoCitaId) ?? null;
+  const noLoHace = doctor && tipo?.especialidadId && !doctor.especialidadIds.includes(tipo.especialidadId) ? tipo.nombre : null;
   const finMin = borrador.inicioMin + borrador.duracionMin;
   const puedeGuardar = Boolean(borrador.nombre.trim()) && Boolean(borrador.staffId) && !saving;
 
@@ -245,6 +250,9 @@ export function EditorCitaFlotante({
           </option>
         ))}
       </select>
+      {noLoHace && doctor && (
+        <p className="mt-1.5 text-[11px] text-[var(--color-warning)]">Según Ajustes, {nombreCortoDoctor(doctor.nombre)} no hace {noLoHace}.</p>
+      )}
       <p className="mt-1.5 text-[10px] text-[var(--color-muted)]">
         El bloque de la rejilla es el borrador: arrástralo para moverlo o estira sus bordes para cambiar la duración.
       </p>

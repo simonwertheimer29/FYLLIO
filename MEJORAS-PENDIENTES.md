@@ -4181,7 +4181,7 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   hay huecos que ofrecer; mientras tanto, valorar quitarlo del contrato cuando la clínica tiene agenda en
   Fyllio. · **Impacto:** MEDIO (una pregunta de más antes de la cita). · **Esfuerzo:** 1 h + vara. · **Fecha:** 2026-09-17
 
-## 265. Agenda · el catálogo no dice qué doctor hace cada tratamiento
+## 265. Agenda · el catálogo no dice qué doctor hace cada tratamiento — ✅ HECHA 26-09
 - **Visto al rehacer «Proponer horas» (22-09):** Simon pidió huecos «de cualquier doctor que haga ese
   tratamiento». En la base no hay relación tratamiento ↔ doctor (ni tratamiento ↔ especialidad): solo
   `staff_especialidades`. Hoy el selector ofrece todos los dentistas de la clínica con horario; si una clínica
@@ -4191,6 +4191,10 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   3-4 h de código (migración 061, selector en Ajustes → Agenda, filtro en un sitio que cubre selector, oferta
   y repuesto, más la agenda manual), y la configuración de cada clínica, que es la parte que no depende de nosotros. · **Impacto:** MEDIO en
   clínicas con especialistas. · **Esfuerzo:** 3 h. · **Fecha:** 2026-09-22
+- **HECHA 26-09 (062):** `tratamientos.especialidad_id`; el filtro está en `disponibilidadDelCaso` (selector, oferta,
+  repuesto y comprobación). Sin especialidad = cualquier doctor, con aviso visible en Ajustes → Agenda (arriba de la tabla
+  y en la fila). Si nadie de la clínica lo hace, se dice y no se rellena. Si piden a un doctor que no lo hace, no se filtra
+  por él y se dice. En la agenda manual solo se avisa. `qa:huecos` + `qa:quien-lo-hace`.
 
 ## 266. Mensajería · en móvil no hay ficha, y con ella no hay «Proponer horas» — ✅ HECHA 23-09
 - **Simon, 22-09:** «no es una mejora pendiente, es que el flujo no funciona donde se va a usar».
@@ -4208,6 +4212,8 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   perdía: el compositor ya lo enseña y bloquea el envío en todos los anchos. Lo que faltaba era la ficha, con
   «Revertir». Además, el botón flotante del agente tapaba «Enviar» en móvil y tablet: en Mensajería, por debajo
   de lg, ya no se pinta. A 390, «Ficha» y «Llamar» quedan solo con icono para que el nombre quepa.
+- **Corrección de Simon (26-09):** «ponlo en la cabecera, no lo quites». Ahora hay un botón «Asistente» junto al título
+  de Mensajería por debajo de lg, con la lista y con la conversación (cf68731).
 
 ## 267. Ofertas · ofrecer un RANGO cuando el doctor tiene casi toda la franja libre
 - **Simon, 22-09:** «cualquier hora de 10:00 a 13:30 salvo las 10:30» en vez de cuatro horas sueltas, cuando
@@ -4224,8 +4230,24 @@ Formato compacto: problema · propuesta · severidad · esfuerzo · **fase**.
   comparan contra `no_aplica`, así que traducirla en origen es arriesgado: hace falta un mapa de etiquetas solo
   para pintar (el de `CuboUrgencia` en `metricas/conversacion.tipos.ts` ya tiene los textos).
   · **Impacto:** MEDIO (se ve en todas las fichas con urgencia). · **Esfuerzo:** 30 min. · **Fecha:** 2026-09-23
+- **Simon, 26-09:** es el punto 11 del plan de la ficha y va con ella, no suelta.
 
 ## 269. Opt-out · el texto da por hecho que es un hombre («si escribe él», «lo ha pedido él»)
 - **Visto al capturar la 266 (23-09)** en la ficha de Teresa Campos. Hay que usar formas neutras: «solo se le contesta
   si escribe», «Revertir (lo ha pedido la persona)». · **Impacto:** BAJO-MEDIO (se ve en la demo). · **Esfuerzo:** 10 min.
   · **Fecha:** 2026-09-23
+- **Simon, 26-09:** va con la ficha (junto a la 268).
+
+## 270. Inicio · en móvil las tarjetas se salen por la derecha
+- **Visto al medir la 265 (26-09).** A 390 px, «Parado esperándote» y «Tu equipo» se cortan por la derecha: no se ve
+  «+ 26…» ni el final de «Cierres esperando tu respuesta — 3…». Es la primera pantalla del producto. Parte del corte era el
+  shell (`AppShell` sin `min-w-0`, arreglado el 26-09: ya se ven la cabecera y sus botones). Lo que queda es de Inicio: la
+  rejilla de `InicioView.tsx:268` (`grid gap-3 lg:grid-cols-5`) y sus secciones (p. ej. `:735`) no llevan `min-w-0`, y
+  miden 1.081 px. De paso: «conversaciónes» lleva tilde de más en la línea de arriba.
+  · **Impacto:** ALTO (Inicio en el móvil). · **Esfuerzo:** 30 min + capturas a 390/768. · **Fecha:** 2026-09-26
+
+## 271. Modo oscuro · aviso de hidratación en `<html data-theme>` (solo desarrollo)
+- **Visto al capturar Ajustes en oscuro (26-09).** El script del tema pone `data-theme="dark"` antes de que cargue React
+  y el overlay de desarrollo marca «1 Issue» en cada pantalla en oscuro. No afecta a producción, pero tapa avisos
+  reales. Lo habitual es `suppressHydrationWarning` en el `<html>` de `app/layout.tsx:43`.
+  · **Impacto:** BAJO. · **Esfuerzo:** 5 min. · **Fecha:** 2026-09-26

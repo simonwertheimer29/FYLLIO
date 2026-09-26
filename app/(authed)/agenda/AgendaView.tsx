@@ -86,7 +86,7 @@ type Semana = {
   doctores: DoctorSemana[];
   especialidades: Array<{ id: string; nombre: string }>;
   dias: Array<{ fecha: string; porDoctor: PorDoctor[] }>;
-  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null; clinicaId: string | null }>;
+  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null; clinicaId: string | null; especialidadId: string | null }>;
   pendientes: Pendiente[];
 };
 type Vista = "dia" | "semana" | "lista";
@@ -652,7 +652,7 @@ export function AgendaView() {
       {borrador && data && (
         <EditorCitaFlotante
           borrador={borrador}
-          doctores={data.doctores.map((d) => ({ id: d.id, nombre: d.nombre, clinicaId: d.clinicaId }))}
+          doctores={data.doctores.map((d) => ({ id: d.id, nombre: d.nombre, clinicaId: d.clinicaId, especialidadIds: d.especialidadIds }))}
           tratamientos={data.tratamientos}
           onCambia={(patch) => setBorrador((b) => b && { ...b, ...patch })}
           onClose={() => setBorrador(null)}

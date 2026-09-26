@@ -36,6 +36,7 @@ import type {
   Tabla_configuracion_waba,
   Tabla_cola_envios,
   Tabla_citas,
+  Tabla_tratamientos,
 } from "./types-generado";
 
 // Todo lo generado se reexporta desde aquí: quien importa tipos importa de
@@ -527,6 +528,12 @@ export type EstadoCita = "Programada" | "Confirmada" | "Completado" | "Cancelado
  *  antelación del predictor mentiría en silencio); `origen_sistema` +
  *  `external_id` son la trazabilidad de importación/sync (el external_id hace
  *  idempotente reimportar: índice único parcial por cliente). */
+/** 062 — qué especialidad hace el tratamiento; solo sus doctores reciben
+ *  huecos. Null = cualquier doctor (Ajustes lo avisa). */
+type ExtraTratamientos = {
+  especialidad_id: string | null;
+};
+
 type ExtraCitas = {
   estado: Generated<EstadoCita>;
   agendada_en: Generated<Date>;
@@ -698,6 +705,7 @@ export interface DB
     | "cola_envios"
     | "citas"
     | "leads"
+    | "tratamientos"
   > {
   // Generadas, con columnas añadidas después.
   alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
@@ -710,6 +718,7 @@ export interface DB
   configuracion_waba: Tabla_configuracion_waba & ExtraConfiguracionWaba;
   cola_envios: Omit<Tabla_cola_envios, "estado"> & ExtraColaEnvios;
   citas: Omit<Tabla_citas, "estado"> & ExtraCitas;
+  tratamientos: Tabla_tratamientos & ExtraTratamientos;
 
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;

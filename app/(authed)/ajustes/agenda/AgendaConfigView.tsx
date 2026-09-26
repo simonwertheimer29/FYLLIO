@@ -10,7 +10,9 @@
 //   1 · Especialidades — y qué doctores atienden cada una (M:N).
 //   2 · Horarios por doctor — franjas por día; varias por día = jornada partida.
 //   3 · Bloqueos — ausencias y vacaciones, se restan de las franjas.
-//   4 · Duración por tratamiento — lo que decide cuántos huecos caben.
+//   4 · Tratamientos — qué especialidad hace cada uno (062: solo sus doctores
+//       reciben huecos; sin ella, cualquiera, y se avisa) y su duración, que
+//       decide cuántos huecos caben.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -36,6 +38,7 @@ type Bloqueo = { id: string; staffId: string; inicioISO: string; finISO: string;
 type Tratamiento = {
   id: string; nombre: string; clinicaId: string | null;
   duracionMin: number | null; bufferAntesMin: number | null; bufferDespuesMin: number | null;
+  especialidadId: string | null;
 };
 type Config = {
   agendaEnFyllio: { activa: boolean; activadoPor: string | null; activadoEnISO: string | null };
@@ -121,16 +124,16 @@ export default function AgendaConfigView() {
       <header className="2xl:col-span-2">
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Agenda</h1>
         <p className="mt-0.5 text-xs text-[var(--color-muted)]">
-          Especialidades, horarios de cada doctor, ausencias y duración de los tratamientos.
+          Especialidades, quién hace cada tratamiento y cuánto dura, horarios de cada doctor y ausencias.
           Lo que no esté configurado aquí, la agenda no lo inventa.
         </p>
       </header>
 
       <SeccionAgendaEnFyllio config={config} guardar={guardar} />
       <SeccionEspecialidades config={config} guardar={guardar} />
+      <SeccionTratamientos config={config} guardar={guardar} />
       <SeccionHorarios config={config} guardar={guardar} />
       <SeccionBloqueos config={config} guardar={guardar} />
-      <SeccionDuraciones config={config} guardar={guardar} />
       <SeccionAgendaExterna doctores={config.doctores} />
     </div>
   );
@@ -684,9 +687,13 @@ function SeccionBloqueos({ config, guardar }: SeccionProps) {
   );
 }
 
-// ── 4 · Duración por tratamiento ─────────────────────────────────────────────
+// ── 4 · Tratamientos: quién lo hace y cuánto dura ───────────────────────────
+// Quién lo hace (062, MEJORAS 265): solo los doctores de su especialidad
+// reciben huecos. Sin especialidad lo puede recibir cualquiera — como antes —,
+// y eso se avisa a la vista (Simon, 26-09): es la configuración que falta,
+// no un default que valga en silencio.
 
-function SeccionDuraciones({ config, guardar }: SeccionProps) {
+function SeccionTratamientos({ config, guardar }: SeccionProps) {
   // Borrador por fila: solo se envía la fila tocada.
   const [filas, setFilas] = useState<Record<string, { duracionMin: string; bufferAntesMin: string; bufferDespuesMin: string }>>({});
 
@@ -698,19 +705,34 @@ function SeccionDuraciones({ config, guardar }: SeccionProps) {
     };
 
   const sinDuracion = config.tratamientos.filter((t) => t.duracionMin == null).length;
+  const sinEspecialidad = config.tratamientos.filter((t) => !t.especialidadId);
+  const doctoresDe = new Map(config.especialidades.map((e) => [e.id, e.doctorIds.length]));
 
   return (
     <Card padding="none" className="px-5 py-4">
       <div className="mb-1 flex items-center gap-2">
         <Hourglass size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
-        <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Duración por tratamiento</h2>
+        <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Tratamientos</h2>
       </div>
       <p className="mb-3 text-xs text-[var(--color-muted)]">
-        Sin duración, un tratamiento no puede ofrecer huecos.
+        Solo los doctores de su especialidad reciben huecos del tratamiento; sin duración, no hay huecos.
         {sinDuracion > 0 && (
           <span className="font-semibold text-[var(--color-warning)]"> {sinDuracion} tratamiento(s) sin duración.</span>
         )}
       </p>
+      {sinEspecialidad.length > 0 && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] px-3 py-2 text-xs text-[var(--color-foreground)]">
+          <AlertTriangle size={14} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden />
+          <p>
+            <span className="font-semibold">
+              {sinEspecialidad.length === 1 ? "1 tratamiento sin especialidad" : `${sinEspecialidad.length} tratamientos sin especialidad`}
+            </span>
+            {": "}
+            se ofrecen huecos de cualquier doctor.
+            {sinEspecialidad.length <= 4 && <span className="text-[var(--color-muted)]"> {sinEspecialidad.map((t) => t.nombre).join(" · ")}</span>}
+          </p>
+        </div>
+      )}
 
       {config.tratamientos.length === 0 ? (
         <p className="text-xs text-[var(--color-muted)]">No hay tratamientos en el catálogo.</p>
@@ -720,6 +742,7 @@ function SeccionDuraciones({ config, guardar }: SeccionProps) {
             <thead>
               <tr className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
                 <th className="py-1.5 pr-2">Tratamiento</th>
+                <th className="py-1.5 pr-2">Lo hace</th>
                 <th className="py-1.5 pr-2">Duración (min)</th>
                 <th className="py-1.5 pr-2">Antes (min)</th>
                 <th className="py-1.5 pr-2">Después (min)</th>
@@ -733,6 +756,33 @@ function SeccionDuraciones({ config, guardar }: SeccionProps) {
                 return (
                   <tr key={t.id} className="border-t border-[var(--color-border)]">
                     <td className="py-2 pr-2 font-medium text-[var(--color-foreground)]">{t.nombre}</td>
+                    <td className="py-1.5 pr-2">
+                      <select
+                        value={t.especialidadId ?? ""}
+                        aria-label={`Quién hace ${t.nombre}`}
+                        onChange={(e) =>
+                          void guardar(
+                            { seccion: "tratamiento_especialidad", id: t.id, especialidadId: e.target.value || null },
+                            e.target.value ? "Guardado: solo sus doctores recibirán huecos." : "Guardado: lo puede recibir cualquier doctor.",
+                          )
+                        }
+                        className={`h-8 w-44 rounded-lg border bg-[var(--color-surface)] px-2 text-xs ${
+                          t.especialidadId
+                            ? "border-[var(--color-border)] text-[var(--color-foreground)]"
+                            : "border-[var(--color-warning)] text-[var(--color-warning)]"
+                        }`}
+                      >
+                        <option value="">Cualquier doctor</option>
+                        {config.especialidades
+                          .filter((e) => e.activa || e.id === t.especialidadId)
+                          .map((e) => (
+                            <option key={e.id} value={e.id}>{e.nombre}{e.activa ? "" : " (desactivada)"}</option>
+                          ))}
+                      </select>
+                      {t.especialidadId && (doctoresDe.get(t.especialidadId) ?? 0) === 0 && (
+                        <p className="mt-0.5 text-[10px] text-[var(--color-warning)]">Ningún doctor la tiene: no saldrán huecos.</p>
+                      )}
+                    </td>
                     {(["duracionMin", "bufferAntesMin", "bufferDespuesMin"] as const).map((campo) => (
                       <td key={campo} className="py-1.5 pr-2">
                         <input

@@ -6818,3 +6818,18 @@ Medido en 10 rutas a 390 y 1280, antes del cambio había tres cortadas:
 
 Con `min-w-0` caben las 20 mediciones, y ninguna necesita scroll horizontal. Inicio sigue cortando sus tarjetas por un
 motivo propio (MEJORAS 270).
+
+## 2026-09-26 · MEJORAS 265: cada tratamiento dice qué especialidad lo hace (062)
+`tratamientos.especialidad_id` asigna una especialidad por tratamiento. Si un doctor hace dos cosas, lleva dos
+especialidades, que ya era una relación M:N.
+- **Dónde se filtra.** En `disponibilidadDelCaso`, el único punto por el que pasan el selector, la oferta, el repuesto y
+  la comprobación de que una hora sigue libre.
+- **Sin especialidad.** Lo hace cualquier doctor, como antes. Ajustes → Agenda lo avisa encima de la tabla y en la fila.
+- **Si nadie de la clínica lo hace.** Se dice; no se rellena con otros doctores.
+- **Si piden a un doctor que no lo hace.** Da igual que lo pida la persona o lo elija la coordinadora: no se filtra por
+  él y se dice.
+- **Agenda manual.** Solo se avisa, porque ahí manda la coordinadora.
+- **Demo.** Molina ya no recibe limpiezas. Los especialistas que están solos en su clínica llevan también Odontología
+  general, para que ninguna se quede sin quien haga una limpieza. La urgencia se deja sin especialidad a propósito, para
+  que se vea el aviso.
+- **Pruebas.** `qa:huecos` (función pura) y `qa:quien-lo-hace` (base DEMO, $0).

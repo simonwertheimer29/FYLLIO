@@ -554,7 +554,7 @@ function Selector({
           })}
         </div>
       )}
-      {datos.doctorPedido && !doctorFiltro && (
+      {datos.doctorPedido && !doctorFiltro && !datos.doctorNoLoHace && (
         <p className="text-[12px] text-[var(--color-muted)]">
           {datos.doctorPedido.casado && datos.doctorFiltrado
             ? `Pidió a ${nombreCortoDoctor(datos.doctorFiltrado.nombre)}: solo sus horas.`
@@ -562,6 +562,7 @@ function Selector({
         </p>
       )}
       {datos.doctorFueraDeClinica && <p className="text-[12px] text-[var(--color-muted)]">{nombreCortoDoctor(datos.doctorFueraDeClinica)} es de otra clínica: se ofrecen los de esta.</p>}
+      {datos.doctorNoLoHace && datos.tratamiento && <p className="text-[12px] text-[var(--color-muted)]">{nombreCortoDoctor(datos.doctorNoLoHace)} no hace {datos.tratamiento.nombre}: se ofrecen quienes lo hacen.</p>}
       <p className={`text-[12px] ${g.frescura === "en_vivo" ? "text-[var(--color-success,#1f7a4d)]" : "text-amber-700 dark:text-amber-300"}`}>{g.texto}</p>
 
       {datos.nota && (

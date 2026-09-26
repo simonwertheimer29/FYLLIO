@@ -71,7 +71,7 @@ export type SujetoAgendar =
 // aquí solo la forma que este modal lee).
 type Semana = {
   desde: string;
-  doctores: Array<{ id: string; nombre: string; clinicaNombre: string | null; sinHorario: boolean }>;
+  doctores: Array<{ id: string; nombre: string; clinicaNombre: string | null; sinHorario: boolean; especialidadIds: string[] }>;
   dias: Array<{
     fecha: string;
     porDoctor: Array<{
@@ -80,7 +80,7 @@ type Semana = {
       libres: IntervaloMin[] | null;
     }>;
   }>;
-  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null }>;
+  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null; especialidadId: string | null }>;
 };
 
 /** Lunes de la semana de `fecha` — el API de semana pagina de 7 en 7. */
@@ -292,6 +292,10 @@ export function AgendarPanel({
                 </select>
               </label>
             </div>
+            {/* 062 (MEJORAS 265) — se avisa, no se bloquea: aquí elige ella. */}
+            {doctor && tratamiento?.especialidadId && !doctor.especialidadIds.includes(tratamiento.especialidadId) && (
+              <p className="text-[12px] text-[var(--color-warning)]">Según Ajustes, {nombreCortoDoctor(doctor.nombre)} no hace {tratamiento.nombre}.</p>
+            )}
 
             {/* ── Día: la semana visible, ‹ › pagina ── */}
             <div className="flex items-center gap-1.5">

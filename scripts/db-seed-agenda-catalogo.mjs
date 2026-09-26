@@ -112,6 +112,49 @@ try {
     }
   }
 
+  // 3 ter · quién hace cada tratamiento (062, MEJORAS 265, 26-09). Cada
+  // tratamiento, a su especialidad; «Urgencia dental» se deja SIN ella a
+  // propósito: la ve cualquier doctor, y Ajustes enseña el aviso. Solo se
+  // escribe si está vacía: lo elegido en Ajustes no se pisa.
+  // Para que ninguna clínica se quede sin quien haga una limpieza, los
+  // especialistas que están solos en su clínica llevan también «Odontología
+  // general» (staff_especialidades es M:N). Molina no: en Centro ya está
+  // Ferrer, y así la demo enseña a un implantólogo que no recibe revisiones.
+  const TRATAMIENTO_ESPECIALIDAD = {
+    "Blanqueamiento LED": "Estética dental",
+    "Brackets metálicos": "Ortodoncia",
+    "Ortodoncia invisible": "Ortodoncia",
+    "Corona sobre implante": "Implantología",
+    "Implante unitario": "Implantología",
+    "Endodoncia molar": "Endodoncia",
+    "Empaste composite": "Odontología general",
+    "Extracción muela del juicio": "Odontología general",
+    "Férula de descarga": "Odontología general",
+    "Limpieza dental": "Odontología general",
+    "Revisión general": "Odontología general",
+  };
+  let tratN = 0;
+  for (const [tratamiento, esp] of Object.entries(TRATAMIENTO_ESPECIALIDAD)) {
+    const eid = espId.get(esp);
+    if (!eid) { if (!DRY) throw new Error(`especialidad «${esp}» no existe`); continue; }
+    const r = await db.query(
+      "update tratamientos set especialidad_id=$1 where cliente='DEMO' and nombre=$2 and especialidad_id is null", [eid, tratamiento]);
+    tratN += r.rowCount;
+  }
+  const generalId = espId.get("Odontología general");
+  for (const patron of [/Camacho/, /Castaño/, /Villalba/]) {
+    const d = dentistas.filter((x) => patron.test(x.nombre));
+    if (d.length !== 1) throw new Error(`generalista extra: ${patron} casa con ${d.length} dentistas`);
+    if (!generalId) continue; // DRY sin ids
+    const ya = await db.query(
+      "select 1 from staff_especialidades where cliente='DEMO' and staff_id=$1 and especialidad_id=$2", [d[0].id, generalId]);
+    if (ya.rows.length) continue;
+    if (DRY) { console.log(`→ ${d[0].nombre}: +Odontología general`); continue; }
+    await db.query(
+      "insert into staff_especialidades (cliente, staff_id, especialidad_id) values ('DEMO', $1, $2)", [d[0].id, generalId]);
+    asgN++;
+  }
+
   // INVARIANTE (§15): todo dentista DEMO queda con especialidad Y horario —
   // una demo con un doctor sin huecos posibles enseña una agenda rota.
   if (!DRY) {
@@ -126,10 +169,24 @@ try {
         `dentistas sin especialidad [${sinEsp.rows.map((r) => r.nombre).join(", ")}] ` +
         `o sin horario [${sinHor.rows.map((r) => r.nombre).join(", ")}]`);
     }
+    // Y (062) toda clínica con dentistas tiene a alguien que hace una
+    // limpieza: si no, la demo diría «nadie hace Limpieza dental» en ella.
+    const sinGeneral = await db.query(
+      `select c.nombre from clinicas c
+        where exists (select 1 from staff s where s.clinica_id = c.id and s.rol='Dentista' and s.activo is not false)
+          and not exists (select 1 from staff s join staff_especialidades se on se.staff_id = s.id
+                           where s.clinica_id = c.id and s.rol='Dentista' and s.activo is not false and se.especialidad_id = $1)`, [generalId]);
+    if (sinGeneral.rows.length) throw new Error(`clínicas sin Odontología general: ${sinGeneral.rows.map((r) => r.nombre).join(", ")}`);
+    // Un nombre del mapa que no casa con el catálogo no es «nada que hacer»:
+    // es un tratamiento renombrado que se quedaría ofreciendo a cualquiera.
+    const conEsp = new Set((await db.query(
+      "select nombre from tratamientos where cliente='DEMO' and especialidad_id is not null")).rows.map((r) => r.nombre));
+    const sinCasar = Object.keys(TRATAMIENTO_ESPECIALIDAD).filter((n) => !conEsp.has(n));
+    if (sinCasar.length) throw new Error(`tratamientos del mapa sin especialidad en la base: ${sinCasar.join(", ")}`);
   }
 
   await db.query(DRY ? "rollback" : "commit");
-  console.log(`✓ ${DRY ? "dry-run" : "commit"} — +${espN} especialidades · +${asgN} asignaciones · +${horN} franjas`);
+  console.log(`✓ ${DRY ? "dry-run" : "commit"} — +${espN} especialidades · +${asgN} asignaciones · +${horN} franjas · +${tratN} tratamientos con especialidad`);
 } catch (e) {
   await db.query("rollback");
   console.error("✗ rollback:", e.message);
