@@ -31,8 +31,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarNav />
       </aside>
 
-      {/* Móvil: top bar mínima + drawer. */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      {/* Móvil: top bar mínima + drawer.
+          `min-w-0` (26-09): sin él, esta columna no baja de lo que mide su
+          contenido más ancho (la barra de pestañas de Ajustes, una tabla) y el
+          `overflow-hidden` de la raíz lo cortaba por la derecha sin forma de
+          llegar: Inicio perdía media pantalla en el móvil. */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex h-12 shrink-0 items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-3 lg:hidden">
           <button
             type="button"

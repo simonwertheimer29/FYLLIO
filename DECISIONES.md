@@ -6806,3 +6806,15 @@ conversación abierta. El flotante sigue oculto ahí, porque taparía «Enviar»
 mediante un evento (`mostrarCopilot`), sin montar otro. Se llama «Asistente» y no «agente» porque es la
 ayuda de la coordinadora, no quien escribe al paciente. Capturas a 390 con la lista, con la conversación y
 con el panel abierto.
+
+## 2026-09-26 · La columna del shell no puede medir más que la pantalla
+Al capturar Ajustes a 390, la pantalla salía cortada por la derecha, y no por la 265. A la columna flexible de
+`AppShell` le faltaba `min-w-0`, así que medía lo que su contenido más ancho: las pestañas de Ajustes, que ya se
+desplazaban en horizontal, o una tabla. El `overflow-hidden` de la raíz cortaba el resto sin forma de llegar a él.
+Medido en 10 rutas a 390 y 1280, antes del cambio había tres cortadas:
+- Inicio a 390 (+723 px, incluidos «Actualizar» y «Analiza el mes»);
+- Pacientes a 390 y a 1280 (a 1280 perdía la columna de acciones);
+- todo Ajustes a 390.
+
+Con `min-w-0` caben las 20 mediciones, y ninguna necesita scroll horizontal. Inicio sigue cortando sus tarjetas por un
+motivo propio (MEJORAS 270).
