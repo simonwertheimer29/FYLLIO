@@ -26,3 +26,9 @@ export function openCopilot(args: {
     }),
   );
 }
+
+/** Abre el Copilot tal cual (como el botón flotante), sin contexto nuevo. */
+export function mostrarCopilot(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("fyllio-copilot:mostrar"));
+}

@@ -50,7 +50,8 @@ import { ComposerConversacion } from "./ComposerConversacion";
 import { useCasoDeConversacion } from "./useCasoDeConversacion";
 import { useFichaDeCaso } from "./useFichaDeCaso";
 import { toast } from "sonner";
-import { Phone, ClipboardList } from "../../components/icons";
+import { Phone, ClipboardList, Sparkles } from "../../components/icons";
+import { mostrarCopilot } from "../../components/copilot/openCopilot";
 import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
 import { usePorQueDeHilo } from "./usePorQueDeHilo";
 import { PorQuePanel, cabeceraPorQue } from "../../components/agente/PorQuePanel";
@@ -385,9 +386,22 @@ export function MensajeriaView() {
     // trabajo de esta.
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--color-background)]">
       <header className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5">
-        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
-          Mensajería
-        </h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+            Mensajería
+          </h1>
+          {/* Por debajo de lg el botón flotante del asistente taparía el
+              compositor: vive en la cabecera, con la lista o con una
+              conversación abierta (Simon, 26-09). */}
+          <button
+            type="button"
+            onClick={mostrarCopilot}
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-[12.5px] font-semibold text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent-soft)] lg:hidden"
+          >
+            <Sparkles size={16} strokeWidth={ICON_STROKE} aria-hidden />
+            Asistente
+          </button>
+        </div>
         <p className="mt-0.5 text-[11px] text-[var(--color-muted)]">
           Todas las conversaciones. Para saber qué toca hacer ahora, Seguimiento.
         </p>

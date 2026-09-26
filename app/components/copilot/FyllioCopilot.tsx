@@ -94,7 +94,8 @@ export function FyllioCopilot() {
   const [mounted, setMounted] = useState(false);
   // MEJORAS 266 — en Mensajería, por debajo de lg, el compositor ocupa todo
   // el borde inferior: el botón tapaba «Enviar» y, subido, el texto y el aviso
-  // de «pidió no recibir mensajes». Ahí no se pinta; en el resto, sí.
+  // de «pidió no recibir mensajes». Ahí no se pinta: se abre desde la cabecera
+  // de la conversación (evento `fyllio-copilot:mostrar`); en el resto, sí.
   const pathname = usePathname();
   const posicionFab = pathname?.startsWith("/mensajeria") ? "bottom-5 max-lg:hidden" : "bottom-5";
   useEffect(() => setMounted(true), []);
@@ -134,8 +135,15 @@ export function FyllioCopilot() {
       setDraft("");
       setOpen(true);
     }
+    // Abrir tal cual, como el botón flotante (sin contexto ni reinicio): lo
+    // usa la cabecera de Mensajería en móvil, donde el flotante no se pinta.
+    const onMostrar = () => setOpen(true);
     window.addEventListener("fyllio-copilot:open", onOpen);
-    return () => window.removeEventListener("fyllio-copilot:open", onOpen);
+    window.addEventListener("fyllio-copilot:mostrar", onMostrar);
+    return () => {
+      window.removeEventListener("fyllio-copilot:open", onOpen);
+      window.removeEventListener("fyllio-copilot:mostrar", onMostrar);
+    };
   }, []);
 
   useEffect(() => {

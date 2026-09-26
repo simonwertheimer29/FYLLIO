@@ -6798,3 +6798,11 @@ móvil sin copias. El diagnóstico de partida («se pierde el aviso de pidió no
 el compositor ya lo enseñaba y bloqueaba el envío en todos los anchos. Lo que faltaba era la ficha. De paso, el
 botón flotante del agente tapaba «Enviar» en móvil y tablet; subirlo tapaba el texto, así que en Mensajería, por
 debajo de lg, no se pinta. Capturas a 390 y 768, en claro y oscuro, también de la ventana de proponer horas.
+
+## 2026-09-26 · El asistente en Mensajería móvil vive en la cabecera
+Corrección de Simon a la 266: esconder el botón flotante por debajo de lg dejaba el asistente inalcanzable
+en Mensajería. Ahora hay un botón «Asistente» junto al título de la página, que se ve con la lista y con una
+conversación abierta. El flotante sigue oculto ahí, porque taparía «Enviar». El botón abre el mismo panel
+mediante un evento (`mostrarCopilot`), sin montar otro. Se llama «Asistente» y no «agente» porque es la
+ayuda de la coordinadora, no quien escribe al paciente. Capturas a 390 con la lista, con la conversación y
+con el panel abierto.
